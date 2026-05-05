@@ -1,0 +1,67 @@
+syntax = "proto2";
+
+package taiko.vsinterface;
+
+option php_namespace = "App\\GameProtocol\\Green\\Proto\\VsInterface";
+option php_metadata_namespace = "App\\GameProtocol\\Green\\Proto\\Metadata";
+
+message StartupAuthRequest {
+ message OperationData {
+  optional uint32 key_data = 1;
+  optional bytes value_data = 2;
+ }
+
+ optional string chassis_id = 1;
+ optional string usbmem_key = 2;
+ optional uint32 hdd_ver = 3;
+ optional uint32 usbmem_ver = 4;
+ optional string shop_id = 5;
+ optional string rack_id = 6;
+ optional string country_id = 7;
+ repeated StartupAuthRequest.OperationData ary_operation_info = 8;
+}
+
+message StartupAuthResponse {
+ message MovieData {
+  optional uint32 movie_id = 1;
+  optional uint32 enable_days = 2;
+ }
+
+ message OperationData {
+  optional uint32 key_data = 1;
+  optional bytes value_data = 2;
+ }
+
+ optional uint32 result = 1;
+ repeated StartupAuthResponse.MovieData ary_movie_info = 2;
+ repeated StartupAuthResponse.OperationData ary_operation_info = 3;
+}
+
+message VerupAuthRequest {
+ optional string chassis_id = 1;
+ optional string usbmem_key = 2;
+ optional uint32 hdd_ver = 3;
+ optional uint32 usbmem_ver = 4;
+ optional string shop_id = 5;
+ optional string rack_id = 6;
+ optional string country_id = 7;
+}
+
+message VerupAuthResponse {
+ optional uint32 result = 1;
+}
+
+message VerupCompleteRequest {
+ optional string chassis_id = 1;
+ optional string usbmem_key = 2;
+ optional uint32 hdd_ver = 3;
+ optional uint32 usbmem_ver = 4;
+ optional string shop_id = 5;
+ optional string rack_id = 6;
+ optional string country_id = 7;
+}
+
+message VerupCompleteResponse {
+ optional uint32 result = 1;
+}
+

@@ -1,0 +1,65 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+#[Fillable([
+    'mydon_name',
+    'mydon_name_language',
+    'title',
+    'titleplate_id',
+    'color_face',
+    'color_body',
+    'color_limb',
+    'favorite_song_numbers',
+    'recent_song_numbers',
+    'unlocked_song_numbers',
+    'unlocked_costumes',
+    'default_tone_setting',
+    'default_option_setting',
+    'difficulty_played_course',
+    'difficulty_played_star',
+    'difficulty_played_sort',
+    'total_credit_count',
+    'total_get_donmedal',
+    'total_use_donmedal',
+    'total_get_katsumedal',
+    'total_use_katsumedal',
+    'last_played_at',
+    'access_token',
+    'person_id',
+])]
+class Player extends Model
+{
+    protected $primaryKey = 'baid';
+
+    protected function casts(): array
+    {
+        return [
+            'favorite_song_numbers' => 'array',
+            'recent_song_numbers' => 'array',
+            'unlocked_song_numbers' => 'array',
+            'unlocked_costumes' => 'array',
+            'last_played_at' => 'datetime',
+        ];
+    }
+
+    public function card(): HasOne
+    {
+        return $this->hasOne(GameCard::class, 'baid', 'baid');
+    }
+
+    public function playResults(): HasMany
+    {
+        return $this->hasMany(SongPlayResult::class, 'baid', 'baid');
+    }
+
+    public function songBests(): HasMany
+    {
+        return $this->hasMany(SongBest::class, 'baid', 'baid');
+    }
+}

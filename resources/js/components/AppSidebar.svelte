@@ -1,8 +1,11 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
+    import Activity from 'lucide-svelte/icons/activity';
     import BookOpen from 'lucide-svelte/icons/book-open';
     import FolderGit2 from 'lucide-svelte/icons/folder-git-2';
     import LayoutGrid from 'lucide-svelte/icons/layout-grid';
+    import Server from 'lucide-svelte/icons/server';
+    import Users from 'lucide-svelte/icons/users';
     import type { Snippet } from 'svelte';
     import AppLogo from '@/components/AppLogo.svelte';
     import NavFooter from '@/components/NavFooter.svelte';
@@ -32,6 +35,21 @@
             title: 'Dashboard',
             href: dashboard(),
             icon: LayoutGrid,
+        },
+        {
+            title: 'Players',
+            href: '/green/players',
+            icon: Users,
+        },
+        {
+            title: 'Recent Plays',
+            href: '/green/recent-plays',
+            icon: Activity,
+        },
+        {
+            title: 'Server Status',
+            href: '/green/status',
+            icon: Server,
         },
     ];
 

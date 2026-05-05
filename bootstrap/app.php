@@ -15,6 +15,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+        $middleware->validateCsrfTokens(except: [
+            'sys/servlet/PowerOn',
+            'mucha_front/*',
+            'mucha_activation/*',
+            'v1/*',
+            'v*r*/chassis/*',
+        ]);
 
         $middleware->web(append: [
             HandleAppearance::class,

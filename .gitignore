@@ -11,6 +11,7 @@
 /resources/js/routes
 /resources/js/wayfinder
 /vendor
+/tools/protoc
 .DS_Store
 .env
 .env.backup
