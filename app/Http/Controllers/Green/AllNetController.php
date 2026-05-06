@@ -13,18 +13,13 @@ class AllNetController extends Controller
 
     public function powerOn(Request $request): Response
     {
-        $rawPayload = $request->getContent();
-        if ($rawPayload === '') {
-            $rawPayload = (string) array_key_first($request->request->all());
-        }
-
-        $values = $this->forms->decodeAllNetRequest($rawPayload);
         $now = now();
+        $allNetHost = (string) config('taiko_green.allnet_host');
 
         return $this->formResponse($this->forms->encode([
             'stat' => '1',
-            'uri' => (string) config('taiko_green.game_url'),
-            'host' => (string) config('taiko_green.game_url'),
+            'uri' => $allNetHost,
+            'host' => $allNetHost,
             'place_id' => (string) config('taiko_green.place_id'),
             'name' => (string) config('taiko_green.shop_name'),
             'nickname' => (string) config('taiko_green.shop_name'),
@@ -41,16 +36,17 @@ class AllNetController extends Controller
             'month' => $now->format('n'),
             'day' => $now->format('j'),
             'hour' => $now->format('G'),
-            'minute' => $now->format('i'),
-            'second' => $now->format('s'),
+            'minute' => (string) (int) $now->format('i'),
+            'second' => (string) (int) $now->format('s'),
             'res_class' => 'PowerOnResponseVer2',
-            'token' => $values['token'] ?? '123',
+            'token' => '123',
         ])."\n");
     }
 
     public function boardAuth(Request $request): Response
     {
-        $placeId = (string) ($request->input('place_id') ?? $request->input('placeId') ?? config('taiko_green.place_id'));
+        $placeId = (string) ($request->input('place_id') ?? $request->input('placeId') ?? '');
+        $muchaGameUrl = (string) config('taiko_green.mucha_game_url');
         $serverTime = now()->format('YmdHi');
 
         return $this->formResponse([
@@ -72,12 +68,11 @@ class AllNetController extends Controller
             'AREA_FULL_3' => '',
             'AREA_FULL_3_EN' => '',
             'AUTH_INTERVAL' => '86400',
-            'CHARGE_URL' => config('taiko_green.mucha_url').'/charge/',
-            'CONSUME_TOKEN' => '0',
+            'CHARGE_URL' => $muchaGameUrl.'/charge/',
             'COUNTRY_CD' => (string) config('taiko_green.country'),
             'DONGLE_FLG' => '1',
             'EXPIRATION_DATE' => 'null',
-            'FILE_URL' => config('taiko_green.mucha_url').'/file/',
+            'FILE_URL' => $muchaGameUrl.'/file/',
             'FORCE_BOOT' => '0',
             'PLACE_ID' => $placeId,
             'PREFECTURE_ID' => '14',
@@ -87,29 +82,35 @@ class AllNetController extends Controller
             'SHOP_NAME_EN' => (string) config('taiko_green.shop_name'),
             'SHOP_NICKNAME' => 'W',
             'SHOP_NICKNAME_EN' => 'W',
-            'URL_1' => config('taiko_green.mucha_url').'/url1/',
-            'URL_2' => config('taiko_green.mucha_url').'/url2/',
-            'URL_3' => config('taiko_green.mucha_url').'/url3/',
+            'URL_1' => $muchaGameUrl.'/url1/',
+            'URL_2' => $muchaGameUrl.'/url2/',
+            'URL_3' => $muchaGameUrl.'/url3/',
             'USE_TOKEN' => '0',
+            'CONSUME_TOKEN' => '0',
         ]);
     }
 
     public function updateCheck(Request $request): Response
     {
-        $gameVersion = (string) ($request->input('game_ver') ?? $request->input('gameVersion') ?? 'S1210JPN08.18');
+        $gameVersion = (string) ($request->input('gameVer') ?? $request->input('game_ver') ?? $request->input('gameVersion') ?? 'S1110JPN13.02');
+        $muchaGameUrl = (string) config('taiko_green.mucha_game_url');
 
         return $this->formResponse([
             'RESULTS' => '001',
-            'UPDATE_VER_1' => $gameVersion,
-            'UPDATE_URL_1' => config('taiko_green.mucha_url').'/updUrl1/',
-            'UPDATE_SIZE_1' => '0',
-            'UPDATE_CRC_1' => '0000000000000000',
-            'CHECK_URL_1' => config('taiko_green.mucha_url').'/checkUrl/',
+            'UPDATE_URL_1' => $muchaGameUrl.'/updUrl1/',
+            'UPDATE_SIZE_1' => '20',
+            'UPDATE_CRC_1' => '00000000',
+            'CHECK_URL_1' => $muchaGameUrl.'/checkUrl/',
+            'CHECK_SIZE_1' => '20',
+            'CHECK_CRC_1' => '00000000',
             'EXE_VER_1' => $gameVersion,
             'INFO_SIZE_1' => '0',
             'COM_SIZE_1' => '0',
             'COM_TIME_1' => '0',
             'LAN_INFO_SIZE_1' => '0',
+            'USER_ID' => '1',
+            'PASSWORD' => '1',
+            'EXE_VER' => $gameVersion,
         ]);
     }
 
@@ -141,6 +142,9 @@ class AllNetController extends Controller
     {
         $body = is_array($values) ? $this->forms->encode($values) : $values;
 
-        return response($body, 200, ['Content-Type' => 'text/plain']);
+        return response($body, 200, [
+            'Content-Length' => (string) strlen($body),
+            'Content-Type' => 'text/plain; charset=utf-8',
+        ]);
     }
 }

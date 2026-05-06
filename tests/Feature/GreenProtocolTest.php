@@ -28,7 +28,31 @@ it('responds to allnet power on with form data', function (): void {
     $this->call('POST', '/sys/servlet/PowerOn', [], [], [], ['CONTENT_TYPE' => 'text/plain'], $payload)
         ->assertOk()
         ->assertSee('stat=1', false)
-        ->assertSee('token=', false);
+        ->assertSee('uri=127.0.0.1', false)
+        ->assertSee('host=127.0.0.1', false)
+        ->assertSee('token=123', false);
+});
+
+it('responds to mucha board auth with green service urls', function (): void {
+    $this->post('/mucha_front/boardauth.do', ['placeId' => 'JPN9999'])
+        ->assertOk()
+        ->assertSee('RESULTS=001', false)
+        ->assertSee('CHARGE_URL=https://127.0.0.1:54430/charge/', false)
+        ->assertSee('FILE_URL=https://127.0.0.1:54430/file/', false)
+        ->assertSee('PLACE_ID=JPN9999', false)
+        ->assertSee('CONSUME_TOKEN=0', false);
+});
+
+it('responds to mucha update check like the green reference server', function (): void {
+    $this->post('/mucha_front/updatacheck.do', ['gameVer' => 'S1210JPN08.18'])
+        ->assertOk()
+        ->assertSee('RESULTS=001', false)
+        ->assertSee('UPDATE_URL_1=https://127.0.0.1:54430/updUrl1/', false)
+        ->assertSee('UPDATE_SIZE_1=20', false)
+        ->assertSee('CHECK_SIZE_1=20', false)
+        ->assertSee('USER_ID=1', false)
+        ->assertSee('PASSWORD=1', false)
+        ->assertSee('EXE_VER=S1210JPN08.18', false);
 });
 
 it('mirrors startup operation data', function (): void {
@@ -43,6 +67,8 @@ it('mirrors startup operation data', function (): void {
     $response = post_protobuf('/v01r00/chassis/startupauth.php', $request, StartupAuthResponse::class);
 
     expect($response->getResult())->toBe(1)
+        ->and($response->getAryMovieInfo()[0]->getMovieId())->toBe(154)
+        ->and($response->getAryMovieInfo()[0]->getEnableDays())->toBe(9999)
         ->and($response->getAryOperationInfo()[0]->getKeyData())->toBe(10)
         ->and($response->getAryOperationInfo()[0]->getValueData())->toBe('abc');
 });

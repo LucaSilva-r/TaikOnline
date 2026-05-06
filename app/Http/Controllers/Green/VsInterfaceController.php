@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Green;
 
 use App\GameProtocol\Green\Proto\VsInterface\StartupAuthRequest;
 use App\GameProtocol\Green\Proto\VsInterface\StartupAuthResponse;
+use App\GameProtocol\Green\Proto\VsInterface\StartupAuthResponse\MovieData;
 use App\GameProtocol\Green\Proto\VsInterface\StartupAuthResponse\OperationData;
 use App\GameProtocol\Green\Proto\VsInterface\VerupAuthResponse;
 use App\GameProtocol\Green\Proto\VsInterface\VerupCompleteResponse;
@@ -31,7 +32,11 @@ class VsInterfaceController extends Controller
         return $this->payloads->response(
             (new StartupAuthResponse)
                 ->setResult(1)
-                ->setAryMovieInfo([])
+                ->setAryMovieInfo([
+                    (new MovieData)
+                        ->setMovieId(154)
+                        ->setEnableDays(9999),
+                ])
                 ->setAryOperationInfo($operations)
         );
     }

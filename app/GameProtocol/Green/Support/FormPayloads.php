@@ -9,15 +9,9 @@ class FormPayloads
      */
     public function decodeAllNetRequest(string $payload): array
     {
-        if (str_contains($payload, '=')) {
-            parse_str($payload, $values);
-
-            return $this->stringValues($values);
-        }
-
         $compressed = base64_decode(trim($payload), true);
         if ($compressed === false) {
-            return [];
+            return $this->decodePlainForm($payload);
         }
 
         $decompressed = @gzuncompress($compressed);
@@ -26,7 +20,7 @@ class FormPayloads
         }
 
         if ($decompressed === false) {
-            return [];
+            return $this->decodePlainForm($payload);
         }
 
         parse_str($decompressed, $values);
@@ -53,5 +47,19 @@ class FormPayloads
         return collect($values)
             ->mapWithKeys(fn (mixed $value, string $key): array => [$key => is_scalar($value) ? (string) $value : ''])
             ->all();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function decodePlainForm(string $payload): array
+    {
+        if (! str_contains($payload, '=')) {
+            return [];
+        }
+
+        parse_str($payload, $values);
+
+        return $this->stringValues($values);
     }
 }
