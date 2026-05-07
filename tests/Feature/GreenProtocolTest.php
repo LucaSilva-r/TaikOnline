@@ -2,12 +2,26 @@
 
 use App\GameProtocol\Green\Proto\Taiko\BAIDRequest;
 use App\GameProtocol\Green\Proto\Taiko\BAIDResponse;
+use App\GameProtocol\Green\Proto\Taiko\ChallengeCompeRequest;
+use App\GameProtocol\Green\Proto\Taiko\ChallengeCompeResponse;
+use App\GameProtocol\Green\Proto\Taiko\GetfolderRequest;
+use App\GameProtocol\Green\Proto\Taiko\GetfolderResponse;
+use App\GameProtocol\Green\Proto\Taiko\GettelopRequest;
+use App\GameProtocol\Green\Proto\Taiko\GettelopResponse;
 use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest;
 use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest\StageData;
 use App\GameProtocol\Green\Proto\Taiko\PlayResultRequest;
 use App\GameProtocol\Green\Proto\Taiko\PlayResultResponse;
+use App\GameProtocol\Green\Proto\Taiko\RecommendRequest;
+use App\GameProtocol\Green\Proto\Taiko\RecommendResponse;
+use App\GameProtocol\Green\Proto\Taiko\RewardcardcheckRequest;
+use App\GameProtocol\Green\Proto\Taiko\RewardcardcheckResponse;
+use App\GameProtocol\Green\Proto\Taiko\RewardexecutionRequest;
+use App\GameProtocol\Green\Proto\Taiko\RewardexecutionResponse;
 use App\GameProtocol\Green\Proto\Taiko\SelfBestRequest;
 use App\GameProtocol\Green\Proto\Taiko\SelfBestResponse;
+use App\GameProtocol\Green\Proto\Taiko\TournamentcheckRequest;
+use App\GameProtocol\Green\Proto\Taiko\TournamentcheckResponse;
 use App\GameProtocol\Green\Proto\Taiko\UserDataRequest;
 use App\GameProtocol\Green\Proto\Taiko\UserDataResponse;
 use App\GameProtocol\Green\Proto\VsInterface\StartupAuthRequest;
@@ -71,6 +85,37 @@ it('mirrors startup operation data', function (): void {
         ->and($response->getAryMovieInfo()[0]->getEnableDays())->toBe(9999)
         ->and($response->getAryOperationInfo()[0]->getKeyData())->toBe(10)
         ->and($response->getAryOperationInfo()[0]->getValueData())->toBe('abc');
+});
+
+it('supports the reference green optional game endpoints', function (): void {
+    $endpoints = [
+        ['/v11r01/chassis/recommend.php', (new RecommendRequest)->setChassisId('chassis')->setShopId('shop'), RecommendResponse::class],
+        ['/v11r01/chassis/tournamentcheck.php', (new TournamentcheckRequest)->setChassisId('chassis')->setShopId('shop'), TournamentcheckResponse::class],
+        ['/v11r01/chassis/challengecompe.php', (new ChallengeCompeRequest)->setBaid(1)->setChassisId('chassis')->setShopId('shop'), ChallengeCompeResponse::class],
+        ['/v11r01/chassis/rewardcardcheck.php', (new RewardcardcheckRequest)->setAccessCode('12345678901234567890')->setChassisId('chassis')->setShopId('shop'), RewardcardcheckResponse::class],
+        ['/v11r01/chassis/rewardexecution.php', (new RewardexecutionRequest)->setBaid(1)->setChassisId('chassis')->setShopId('shop'), RewardexecutionResponse::class],
+        ['/v11r01/chassis/gettelop.php', (new GettelopRequest)->setChassisId('chassis')->setShopId('shop')->setTelopId(1), GettelopResponse::class],
+    ];
+
+    foreach ($endpoints as [$uri, $request, $responseClass]) {
+        $response = post_protobuf($uri, $request, $responseClass);
+
+        expect($response->getResult())->toBe(1);
+    }
+});
+
+it('returns event folder data for requested folders', function (): void {
+    $request = (new GetfolderRequest)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setFolderId([10, 11]);
+
+    $response = post_protobuf('/v11r01/chassis/getfolder.php', $request, GetfolderResponse::class);
+
+    expect($response->getResult())->toBe(1)
+        ->and($response->getAryEventfolderData())->toHaveCount(2)
+        ->and($response->getAryEventfolderData()[0]->getFolderId())->toBe(10)
+        ->and(iterator_to_array($response->getAryEventfolderData()[0]->getSongNo()))->toBe([1, 2, 3]);
 });
 
 it('creates and reloads cards through baidcheck', function (): void {

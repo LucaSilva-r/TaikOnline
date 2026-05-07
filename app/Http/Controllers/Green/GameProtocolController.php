@@ -5,17 +5,33 @@ namespace App\Http\Controllers\Green;
 use App\GameProtocol\Green\Proto\Taiko\BAIDRequest;
 use App\GameProtocol\Green\Proto\Taiko\BookKeepingRequest;
 use App\GameProtocol\Green\Proto\Taiko\BookKeepingResponse;
+use App\GameProtocol\Green\Proto\Taiko\ChallengeCompeRequest;
+use App\GameProtocol\Green\Proto\Taiko\ChallengeCompeResponse;
 use App\GameProtocol\Green\Proto\Taiko\CrownsDataRequest;
 use App\GameProtocol\Green\Proto\Taiko\CrownsDataResponse;
+use App\GameProtocol\Green\Proto\Taiko\GetfolderRequest;
+use App\GameProtocol\Green\Proto\Taiko\GetfolderResponse;
+use App\GameProtocol\Green\Proto\Taiko\GetfolderResponse\EventfolderData;
+use App\GameProtocol\Green\Proto\Taiko\GettelopRequest;
+use App\GameProtocol\Green\Proto\Taiko\GettelopResponse;
 use App\GameProtocol\Green\Proto\Taiko\HeadClerk2Request;
 use App\GameProtocol\Green\Proto\Taiko\HeadClerk2Response;
 use App\GameProtocol\Green\Proto\Taiko\HeartBeatResponse;
 use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckResponse;
+use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckResponse\InformationData;
 use App\GameProtocol\Green\Proto\Taiko\MydonEntryRequest;
 use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest;
 use App\GameProtocol\Green\Proto\Taiko\PlayResultRequest;
 use App\GameProtocol\Green\Proto\Taiko\PlayResultResponse;
+use App\GameProtocol\Green\Proto\Taiko\RecommendRequest;
+use App\GameProtocol\Green\Proto\Taiko\RecommendResponse;
+use App\GameProtocol\Green\Proto\Taiko\RewardcardcheckRequest;
+use App\GameProtocol\Green\Proto\Taiko\RewardcardcheckResponse;
+use App\GameProtocol\Green\Proto\Taiko\RewardexecutionRequest;
+use App\GameProtocol\Green\Proto\Taiko\RewardexecutionResponse;
 use App\GameProtocol\Green\Proto\Taiko\SelfBestRequest;
+use App\GameProtocol\Green\Proto\Taiko\TournamentcheckRequest;
+use App\GameProtocol\Green\Proto\Taiko\TournamentcheckResponse;
 use App\GameProtocol\Green\Proto\Taiko\UserDataRequest;
 use App\GameProtocol\Green\Services\PlayerProfileService;
 use App\GameProtocol\Green\Services\PlayResultService;
@@ -58,14 +74,14 @@ class GameProtocolController extends Controller
                 ->setHashDefaultSongFlg($this->scoreMapper->emptyFlagBytes())
                 ->setHashMainichidojoAll($this->scoreMapper->emptyFlagBytes(32))
                 ->setHashMainichidojoRare($this->scoreMapper->emptyFlagBytes(32))
-                ->setAryTelopData([])
+                ->setAryTelopData([(new InformationData)->setInfoId(1)->setVerupNo(2)])
                 ->setAryEventfolderData([])
                 ->setAryTaikojukuData([])
                 ->setAryItemshopData([])
                 ->setIsDanplay(true)
                 ->setIsClose(false)
                 ->setIsItemshop(false)
-                ->setIsGhostbattleplay(false)
+                ->setIsGhostbattleplay(true)
         );
     }
 
@@ -162,6 +178,80 @@ class GameProtocolController extends Controller
                 ->setSongHashVer(1)
                 ->setHashCrownFlg($this->scoreMapper->emptyFlagBytes())
         );
+    }
+
+    public function getFolder(Request $request): Response
+    {
+        /** @var GetfolderRequest $message */
+        $message = $this->payloads->parse($request->getContent(), GetfolderRequest::class);
+
+        $folders = collect($message->getFolderId())
+            ->map(fn (mixed $folderId): EventfolderData => (new EventfolderData)
+                ->setFolderId((int) $folderId)
+                ->setSongNo([1, 2, 3])
+                ->setVerupNo(1))
+            ->all();
+
+        return $this->payloads->response(
+            (new GetfolderResponse)
+                ->setResult(1)
+                ->setAryEventfolderData($folders)
+        );
+    }
+
+    public function getTelop(Request $request): Response
+    {
+        /** @var GettelopRequest $message */
+        $this->payloads->parse($request->getContent(), GettelopRequest::class);
+
+        return $this->payloads->response(
+            (new GettelopResponse)
+                ->setResult(1)
+                ->setStartDatetime(now()->subDays(999)->format('Y-m-d H:i:s'))
+                ->setEndDatetime(now()->addDays(999)->format('Y-m-d H:i:s'))
+                ->setTelop('Hello world')
+                ->setVerupNo(2)
+        );
+    }
+
+    public function recommend(Request $request): Response
+    {
+        /** @var RecommendRequest $message */
+        $this->payloads->parse($request->getContent(), RecommendRequest::class);
+
+        return $this->payloads->response((new RecommendResponse)->setResult(1));
+    }
+
+    public function tournamentCheck(Request $request): Response
+    {
+        /** @var TournamentcheckRequest $message */
+        $this->payloads->parse($request->getContent(), TournamentcheckRequest::class);
+
+        return $this->payloads->response((new TournamentcheckResponse)->setResult(1));
+    }
+
+    public function challengeCompe(Request $request): Response
+    {
+        /** @var ChallengeCompeRequest $message */
+        $this->payloads->parse($request->getContent(), ChallengeCompeRequest::class);
+
+        return $this->payloads->response((new ChallengeCompeResponse)->setResult(1));
+    }
+
+    public function rewardCardCheck(Request $request): Response
+    {
+        /** @var RewardcardcheckRequest $message */
+        $this->payloads->parse($request->getContent(), RewardcardcheckRequest::class);
+
+        return $this->payloads->response((new RewardcardcheckResponse)->setResult(1));
+    }
+
+    public function rewardExecution(Request $request): Response
+    {
+        /** @var RewardexecutionRequest $message */
+        $this->payloads->parse($request->getContent(), RewardexecutionRequest::class);
+
+        return $this->payloads->response((new RewardexecutionResponse)->setResult(1));
     }
 
     public function headClerk2(Request $request): Response

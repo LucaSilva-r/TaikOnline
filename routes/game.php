@@ -28,5 +28,12 @@ Route::middleware(LogGreenCabinetTraffic::class)->group(function (): void {
     Route::post('{version}/chassis/playresult.php', [GameProtocolController::class, 'playResult'])->where('version', 'v[0-9]{2}r[0-9]{2}');
     Route::post('{version}/chassis/selfbest.php', [GameProtocolController::class, 'selfBest'])->where('version', 'v[0-9]{2}r[0-9]{2}');
     Route::post('{version}/chassis/crownsdata.php', [GameProtocolController::class, 'crownsData'])->where('version', 'v[0-9]{2}r[0-9]{2}');
+    Route::post('{version}/chassis/getfolder.php', [GameProtocolController::class, 'getFolder'])->where('version', 'v[0-9]{2}r[0-9]{2}');
+    Route::post('{version}/chassis/gettelop.php', [GameProtocolController::class, 'getTelop'])->where('version', 'v[0-9]{2}r[0-9]{2}');
+    Route::post('{version}/chassis/recommend.php', [GameProtocolController::class, 'recommend'])->where('version', 'v[0-9]{2}r[0-9]{2}');
+    Route::post('{version}/chassis/tournamentcheck.php', [GameProtocolController::class, 'tournamentCheck'])->where('version', 'v[0-9]{2}r[0-9]{2}');
+    Route::post('{version}/chassis/challengecompe.php', [GameProtocolController::class, 'challengeCompe'])->where('version', 'v[0-9]{2}r[0-9]{2}');
+    Route::post('{version}/chassis/rewardcardcheck.php', [GameProtocolController::class, 'rewardCardCheck'])->where('version', 'v[0-9]{2}r[0-9]{2}');
+    Route::post('{version}/chassis/rewardexecution.php', [GameProtocolController::class, 'rewardExecution'])->where('version', 'v[0-9]{2}r[0-9]{2}');
     Route::post('{version}/chassis/headclerk2.php', [GameProtocolController::class, 'headClerk2'])->where('version', 'v[0-9]{2}r[0-9]{2}');
 });
