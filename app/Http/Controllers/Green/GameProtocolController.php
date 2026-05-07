@@ -12,6 +12,13 @@ use App\GameProtocol\Green\Proto\Taiko\CrownsDataResponse;
 use App\GameProtocol\Green\Proto\Taiko\GetfolderRequest;
 use App\GameProtocol\Green\Proto\Taiko\GetfolderResponse;
 use App\GameProtocol\Green\Proto\Taiko\GetfolderResponse\EventfolderData;
+use App\GameProtocol\Green\Proto\Taiko\GetghostdataRequest;
+use App\GameProtocol\Green\Proto\Taiko\GetghostdataResponse;
+use App\GameProtocol\Green\Proto\Taiko\GetghostdataResponse\GhostPerfData;
+use App\GameProtocol\Green\Proto\Taiko\GetghostdataResponse\GhostRankData;
+use App\GameProtocol\Green\Proto\Taiko\GetghostscoreRequest;
+use App\GameProtocol\Green\Proto\Taiko\GetghostscoreResponse;
+use App\GameProtocol\Green\Proto\Taiko\GetghostscoreResponse\GhostBestSectionData;
 use App\GameProtocol\Green\Proto\Taiko\GettelopRequest;
 use App\GameProtocol\Green\Proto\Taiko\GettelopResponse;
 use App\GameProtocol\Green\Proto\Taiko\HeadClerk2Request;
@@ -211,6 +218,48 @@ class GameProtocolController extends Controller
                 ->setEndDatetime(now()->addDays(999)->format('Y-m-d H:i:s'))
                 ->setTelop('Hello world')
                 ->setVerupNo(2)
+        );
+    }
+
+    public function getGhostData(Request $request): Response
+    {
+        /** @var GetghostdataRequest $message */
+        $this->payloads->parse($request->getContent(), GetghostdataRequest::class);
+
+        return $this->payloads->response(
+            (new GetghostdataResponse)
+                ->setResult(1)
+                ->setReleaseInfoFlag($this->scoreMapper->emptyFlagBytes())
+                ->setPlayedSongFlag($this->scoreMapper->emptyFlagBytes())
+                ->setTotalWinnings(0)
+                ->setGhostPerfData((new GhostPerfData)->setInputMedian(0)->setInputVariance(0))
+                ->setGhostRecordData((new GhostRankData)
+                    ->setRankId(1)
+                    ->setWinPoint(0)
+                    ->setCertifiedLevelId(0)
+                    ->setAryWinningsData([]))
+                ->setAryTokenData([])
+        );
+    }
+
+    public function getGhostScore(Request $request): Response
+    {
+        /** @var GetghostscoreRequest $message */
+        $this->payloads->parse($request->getContent(), GetghostscoreRequest::class);
+
+        $sections = collect(range(1, 100))
+            ->map(fn (int $section): GhostBestSectionData => (new GhostBestSectionData)
+                ->setSectionNo($section)
+                ->setGoodCnt(0)
+                ->setOkCnt(0)
+                ->setNgCnt(0)
+                ->setPoundCnt(0))
+            ->all();
+
+        return $this->payloads->response(
+            (new GetghostscoreResponse)
+                ->setResult(1)
+                ->setAryBestSectionData($sections)
         );
     }
 

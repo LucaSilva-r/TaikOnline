@@ -6,6 +6,10 @@ use App\GameProtocol\Green\Proto\Taiko\ChallengeCompeRequest;
 use App\GameProtocol\Green\Proto\Taiko\ChallengeCompeResponse;
 use App\GameProtocol\Green\Proto\Taiko\GetfolderRequest;
 use App\GameProtocol\Green\Proto\Taiko\GetfolderResponse;
+use App\GameProtocol\Green\Proto\Taiko\GetghostdataRequest;
+use App\GameProtocol\Green\Proto\Taiko\GetghostdataResponse;
+use App\GameProtocol\Green\Proto\Taiko\GetghostscoreRequest;
+use App\GameProtocol\Green\Proto\Taiko\GetghostscoreResponse;
 use App\GameProtocol\Green\Proto\Taiko\GettelopRequest;
 use App\GameProtocol\Green\Proto\Taiko\GettelopResponse;
 use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest;
@@ -116,6 +120,36 @@ it('returns event folder data for requested folders', function (): void {
         ->and($response->getAryEventfolderData())->toHaveCount(2)
         ->and($response->getAryEventfolderData()[0]->getFolderId())->toBe(10)
         ->and(iterator_to_array($response->getAryEventfolderData()[0]->getSongNo()))->toBe([1, 2, 3]);
+});
+
+it('returns placeholder ghost battle player data', function (): void {
+    $request = (new GetghostdataRequest)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setBaid(1);
+
+    $response = post_protobuf('/v11r01/chassis/getghostdata.php', $request, GetghostdataResponse::class);
+
+    expect($response->getResult())->toBe(1)
+        ->and($response->getGhostPerfData())->not->toBeNull()
+        ->and($response->getGhostRecordData())->not->toBeNull()
+        ->and($response->getReleaseInfoFlag())->toHaveLength(512)
+        ->and($response->getPlayedSongFlag())->toHaveLength(512);
+});
+
+it('returns placeholder ghost battle score sections', function (): void {
+    $request = (new GetghostscoreRequest)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setBaid(1)
+        ->setSongNo(100)
+        ->setLevel(3);
+
+    $response = post_protobuf('/v11r01/chassis/getghostscore.php', $request, GetghostscoreResponse::class);
+
+    expect($response->getResult())->toBe(1)
+        ->and($response->getAryBestSectionData())->toHaveCount(100)
+        ->and($response->getAryBestSectionData()[0]->getSectionNo())->toBe(1);
 });
 
 it('creates and reloads cards through baidcheck', function (): void {
