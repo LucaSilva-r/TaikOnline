@@ -10,9 +10,11 @@
     import type { NavItem } from '@/types';
 
     let {
+        external = true,
         items = [],
         class: className = '',
     }: {
+        external?: boolean;
         items: NavItem[];
         class?: string;
     } = $props();
@@ -31,7 +33,7 @@
                             <a
                                 {...props}
                                 href={toUrl(item.href)}
-                                target="_blank"
+                                target={external ? "_blank" : undefined}
                                 rel="noopener noreferrer"
                                 class={props.class}
                             >
