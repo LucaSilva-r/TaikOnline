@@ -1,10 +1,11 @@
 <script lang="ts">
-    import { Link } from '@inertiajs/svelte';
+    import { Link, page } from '@inertiajs/svelte';
     import Activity from 'lucide-svelte/icons/activity';
     import BookOpen from 'lucide-svelte/icons/book-open';
     import FolderGit2 from 'lucide-svelte/icons/folder-git-2';
     import LayoutGrid from 'lucide-svelte/icons/layout-grid';
     import Server from 'lucide-svelte/icons/server';
+    import ShieldCheck from 'lucide-svelte/icons/shield-check';
     import Users from 'lucide-svelte/icons/users';
     import type { Snippet } from 'svelte';
     import AppLogo from '@/components/AppLogo.svelte';
@@ -30,7 +31,9 @@
         children?: Snippet;
     } = $props();
 
-    const mainNavItems: NavItem[] = [
+    const isAdmin = $derived(page.props.auth.user?.role === 'admin');
+
+    const mainNavItems = $derived<NavItem[]>([
         {
             title: 'Dashboard',
             href: dashboard(),
@@ -51,7 +54,16 @@
             href: '/green/status',
             icon: Server,
         },
-    ];
+        ...(isAdmin
+            ? [
+                  {
+                      title: 'Users',
+                      href: '/admin/users',
+                      icon: ShieldCheck,
+                  },
+              ]
+            : []),
+    ]);
 
     const footerNavItems: NavItem[] = [
         {

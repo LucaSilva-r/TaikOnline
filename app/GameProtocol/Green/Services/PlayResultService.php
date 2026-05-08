@@ -20,7 +20,7 @@ class PlayResultService
     {
         $player = Player::query()->find($data->getBaid());
         if (! $player instanceof Player) {
-            return 0;
+            return 1;
         }
 
         $playedAt = $this->parsePlayedAt($data->getPlayDatetime());
