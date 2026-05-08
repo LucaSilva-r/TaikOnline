@@ -45,16 +45,6 @@
 
     const footerNavItems: NavItem[] = [
         { title: 'Back to site', href: home(), icon: Home },
-        {
-            title: 'Repository',
-            href: 'https://github.com/laravel/svelte-starter-kit',
-            icon: FolderGit2,
-        },
-        {
-            title: 'Documentation',
-            href: 'https://laravel.com/docs/starter-kits#svelte',
-            icon: BookOpen,
-        },
     ];
 </script>
 
@@ -82,7 +72,7 @@
     </SidebarContent>
 
     <SidebarFooter>
-        <NavFooter items={footerNavItems} />
+        <NavFooter external={false} items={footerNavItems} />
         <NavUser />
     </SidebarFooter>
 </Sidebar>
