@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -32,6 +33,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'last_played_at',
     'access_token',
     'person_id',
+    'user_id',
 ])]
 class Player extends Model
 {
@@ -61,5 +63,10 @@ class Player extends Model
     public function songBests(): HasMany
     {
         return $this->hasMany(SongBest::class, 'baid', 'baid');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }
