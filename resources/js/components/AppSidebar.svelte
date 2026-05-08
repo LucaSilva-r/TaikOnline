@@ -1,8 +1,9 @@
 <script lang="ts">
-    import { Link, page } from '@inertiajs/svelte';
+    import { Link } from '@inertiajs/svelte';
     import Activity from 'lucide-svelte/icons/activity';
     import BookOpen from 'lucide-svelte/icons/book-open';
     import FolderGit2 from 'lucide-svelte/icons/folder-git-2';
+    import Home from 'lucide-svelte/icons/home';
     import LayoutGrid from 'lucide-svelte/icons/layout-grid';
     import Server from 'lucide-svelte/icons/server';
     import ShieldCheck from 'lucide-svelte/icons/shield-check';
@@ -22,7 +23,10 @@
         SidebarMenuItem,
     } from '@/components/ui/sidebar';
     import { toUrl } from '@/lib/utils';
-    import { dashboard } from '@/routes';
+    import { dashboard, recentPlays, status } from '@/routes/admin';
+    import adminPlayers from '@/routes/admin/players';
+    import adminUsers from '@/routes/admin/users';
+    import { home } from '@/routes';
     import type { NavItem } from '@/types';
 
     let {
@@ -31,41 +35,16 @@
         children?: Snippet;
     } = $props();
 
-    const isAdmin = $derived(page.props.auth.user?.role === 'admin');
-
-    const mainNavItems = $derived<NavItem[]>([
-        {
-            title: 'Dashboard',
-            href: dashboard(),
-            icon: LayoutGrid,
-        },
-        {
-            title: 'Players',
-            href: '/green/players',
-            icon: Users,
-        },
-        {
-            title: 'Recent Plays',
-            href: '/green/recent-plays',
-            icon: Activity,
-        },
-        {
-            title: 'Server Status',
-            href: '/green/status',
-            icon: Server,
-        },
-        ...(isAdmin
-            ? [
-                  {
-                      title: 'Users',
-                      href: '/admin/users',
-                      icon: ShieldCheck,
-                  },
-              ]
-            : []),
-    ]);
+    const mainNavItems: NavItem[] = [
+        { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
+        { title: 'Players', href: adminPlayers.index(), icon: Users },
+        { title: 'Recent Plays', href: recentPlays(), icon: Activity },
+        { title: 'Server Status', href: status(), icon: Server },
+        { title: 'Users', href: adminUsers.index(), icon: ShieldCheck },
+    ];
 
     const footerNavItems: NavItem[] = [
+        { title: 'Back to site', href: home(), icon: Home },
         {
             title: 'Repository',
             href: 'https://github.com/laravel/svelte-starter-kit',

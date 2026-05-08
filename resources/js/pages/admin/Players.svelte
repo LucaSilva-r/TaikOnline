@@ -1,12 +1,14 @@
 <script module lang="ts">
+    import playersRoutes from '@/routes/admin/players';
     export const layout = {
-        breadcrumbs: [{ title: 'Players', href: '/green/players' }],
+        breadcrumbs: [{ title: 'Players', href: playersRoutes.index() }],
     };
 </script>
 
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
     import AppHead from '@/components/AppHead.svelte';
+    import { toUrl } from '@/lib/utils';
 
     type Player = {
         baid: number;
@@ -48,7 +50,7 @@
                 {#each players.data as player (player.baid)}
                     <tr class="border-t">
                         <td class="px-3 py-2">
-                            <Link class="font-medium underline-offset-4 hover:underline" href={`/green/players/${player.baid}`}>
+                            <Link class="font-medium underline-offset-4 hover:underline" href={toUrl(playersRoutes.show(player.baid))}>
                                 {player.baid}
                             </Link>
                         </td>

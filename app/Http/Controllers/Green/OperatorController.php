@@ -13,7 +13,7 @@ class OperatorController extends Controller
 {
     public function players(): Response
     {
-        return Inertia::render('green/Players', [
+        return Inertia::render('admin/Players', [
             'players' => Player::query()
                 ->with('card')
                 ->withCount(['playResults', 'songBests'])
@@ -34,7 +34,7 @@ class OperatorController extends Controller
     {
         $player->load(['card', 'songBests' => fn ($query) => $query->orderByDesc('best_score')->limit(20)]);
 
-        return Inertia::render('green/PlayerDetail', [
+        return Inertia::render('admin/PlayerDetail', [
             'player' => [
                 'baid' => $player->baid,
                 'mydon_name' => $player->mydon_name,
@@ -65,7 +65,7 @@ class OperatorController extends Controller
 
     public function recentPlays(): Response
     {
-        return Inertia::render('green/RecentPlays', [
+        return Inertia::render('admin/RecentPlays', [
             'results' => SongPlayResult::query()
                 ->with('player')
                 ->latest('played_at')
@@ -84,7 +84,7 @@ class OperatorController extends Controller
 
     public function status(GameDataCatalog $catalog): Response
     {
-        return Inertia::render('green/Status', [
+        return Inertia::render('admin/Status', [
             'gameData' => $catalog->status(),
             'protobuf' => [
                 'taiko' => file_exists(base_path('protobuf/taiko.proto')),

@@ -1,6 +1,7 @@
 <script module lang="ts">
+    import { recentPlays } from '@/routes/admin';
     export const layout = {
-        breadcrumbs: [{ title: 'Recent Plays', href: '/green/recent-plays' }],
+        breadcrumbs: [{ title: 'Recent Plays', href: recentPlays() }],
     };
 </script>
 

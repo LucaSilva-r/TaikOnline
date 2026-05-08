@@ -5,18 +5,22 @@ use App\Http\Controllers\Green\OperatorController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
-Route::inertia('/', 'Welcome', [
+Route::inertia('/', 'Home', [
     'canRegister' => Features::enabled(Features::registration()),
 ])->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'Dashboard')->name('dashboard');
-    Route::get('green/players', [OperatorController::class, 'players'])->name('green.players');
-    Route::get('green/players/{player}', [OperatorController::class, 'player'])->name('green.players.show');
-    Route::get('green/recent-plays', [OperatorController::class, 'recentPlays'])->name('green.recent-plays');
-    Route::get('green/status', [OperatorController::class, 'status'])->name('green.status');
+Route::inertia('rankings', 'Rankings')->name('rankings');
+Route::inertia('community', 'Community')->name('community');
 
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::inertia('/', 'admin/Dashboard')->name('dashboard');
+
+        Route::get('players', [OperatorController::class, 'players'])->name('players.index');
+        Route::get('players/{player}', [OperatorController::class, 'player'])->name('players.show');
+        Route::get('recent-plays', [OperatorController::class, 'recentPlays'])->name('recent-plays');
+        Route::get('status', [OperatorController::class, 'status'])->name('status');
+
         Route::get('users', [UserController::class, 'index'])->name('users.index');
         Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
         Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
