@@ -5,10 +5,14 @@
 </script>
 
 <script lang="ts">
-    import { Form, page } from '@inertiajs/svelte';
+    import { Form, page, router } from '@inertiajs/svelte';
     import UserController from '@/actions/App/Http/Controllers/Admin/UserController';
     import AppHead from '@/components/AppHead.svelte';
     import { Button } from '@/components/ui/button';
+
+    function goToEdit(id: number) {
+        router.visit(`/admin/users/${id}/edit`);
+    }
 
     type AdminUser = {
         id: number;
@@ -18,14 +22,10 @@
         created_at: string | null;
     };
 
-    type RoleOption = { value: string; label: string };
-
     let {
         users,
-        roles,
     }: {
         users: { data: AdminUser[] };
-        roles: RoleOption[];
     } = $props();
 
     const currentUserId = $derived(page.props.auth.user.id);
@@ -36,7 +36,7 @@
 <div class="flex flex-1 flex-col gap-4 p-4">
     <div>
         <h1 class="text-xl font-semibold">User management</h1>
-        <p class="text-sm text-muted-foreground">Manage roles and remove accounts.</p>
+        <p class="text-sm text-muted-foreground">Edit users or remove accounts.</p>
     </div>
 
     <div class="overflow-hidden rounded-md border">
@@ -57,58 +57,41 @@
                         <td class="px-3 py-2">{user.id}</td>
                         <td class="px-3 py-2 font-medium">{user.name}</td>
                         <td class="px-3 py-2">{user.email}</td>
-                        <td class="px-3 py-2">
-                            <Form
-                                {...UserController.updateRole.form(user.id)}
-                                options={{ preserveScroll: true }}
-                                class="flex items-center gap-2"
-                            >
-                                {#snippet children({ processing })}
-                                    <select
-                                        name="role"
-                                        value={user.role}
-                                        disabled={user.id === currentUserId}
-                                        class="rounded-md border bg-background px-2 py-1 text-sm"
-                                    >
-                                        {#each roles as role (role.value)}
-                                            <option value={role.value}>{role.label}</option>
-                                        {/each}
-                                    </select>
-                                    <Button
-                                        type="submit"
-                                        size="sm"
-                                        variant="secondary"
-                                        disabled={processing || user.id === currentUserId}
-                                    >
-                                        Save
-                                    </Button>
-                                {/snippet}
-                            </Form>
-                        </td>
+                        <td class="px-3 py-2">{user.role}</td>
                         <td class="px-3 py-2">{user.created_at ?? '-'}</td>
                         <td class="px-3 py-2 text-right">
-                            {#if user.id !== currentUserId}
-                                <Form
-                                    {...UserController.destroy.form(user.id)}
-                                    options={{ preserveScroll: true }}
+                            <div class="flex justify-end gap-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onclick={() => goToEdit(user.id)}
                                 >
-                                    {#snippet children({ processing })}
-                                        <Button
-                                            type="submit"
-                                            size="sm"
-                                            variant="destructive"
-                                            disabled={processing}
-                                            onclick={(event: Event) => {
-                                                if (!confirm(`Delete ${user.email}?`)) {
-                                                    event.preventDefault();
-                                                }
-                                            }}
-                                        >
-                                            Delete
-                                        </Button>
-                                    {/snippet}
-                                </Form>
-                            {/if}
+                                    Edit
+                                </Button>
+                                {#if user.id !== currentUserId}
+                                    <Form
+                                        {...UserController.destroy.form(user.id)}
+                                        options={{ preserveScroll: true }}
+                                    >
+                                        {#snippet children({ processing })}
+                                            <Button
+                                                type="submit"
+                                                size="sm"
+                                                variant="destructive"
+                                                disabled={processing}
+                                                onclick={(event: Event) => {
+                                                    if (!confirm(`Delete ${user.email}?`)) {
+                                                        event.preventDefault();
+                                                    }
+                                                }}
+                                            >
+                                                Delete
+                                            </Button>
+                                        {/snippet}
+                                    </Form>
+                                {/if}
+                            </div>
                         </td>
                     </tr>
                 {/each}

@@ -18,6 +18,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('users', [UserController::class, 'index'])->name('users.index');
+        Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+        Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::put('users/{user}/password', [UserController::class, 'updatePassword'])->name('users.password');
+        Route::post('users/{user}/access-code', [UserController::class, 'bindAccessCode'])->name('users.access-code.bind');
+        Route::delete('users/{user}/access-code', [UserController::class, 'unbindAccessCode'])->name('users.access-code.unbind');
         Route::patch('users/{user}/role', [UserController::class, 'updateRole'])->name('users.role');
         Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     });
