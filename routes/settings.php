@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Settings\AccessCodeController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use Illuminate\Support\Facades\Route;
@@ -9,6 +10,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
+
+    Route::patch('settings/access-code', [AccessCodeController::class, 'update'])->name('access-code.update');
+    Route::delete('settings/access-code', [AccessCodeController::class, 'destroy'])->name('access-code.destroy');
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {

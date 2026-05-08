@@ -258,6 +258,46 @@ it('saves play results and updates self bests', function (): void {
         ->and($bestResponse->getArySelfbestScore()[0]->getSelfBestScore())->toBe(876543);
 });
 
+it('acknowledges anonymous play results without retrying', function (): void {
+    $stage = (new StageData)
+        ->setSongNo(99)
+        ->setLevel(3)
+        ->setPlayResult(1)
+        ->setPlayScore(249710);
+
+    $data = (new PlayResultDataRequest)
+        ->setBaid(0)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('2026-05-07 20:26:20')
+        ->setIsRight(false)
+        ->setCardType(0)
+        ->setIsTwoPlayers(false)
+        ->setAryStageInfo([$stage])
+        ->setBonusDailyFlg(false)
+        ->setBonusWeeklyFlg(false)
+        ->setBonusMonthlyFlg(false)
+        ->setGetDonmedal(0)
+        ->setGetKatsumedal(0)
+        ->setGenderType(0)
+        ->setPlayerAge(0)
+        ->setPlayMode(0)
+        ->setAreaCode(0)
+        ->setReserved('');
+
+    $request = (new PlayResultRequest)
+        ->setBaidConf(0)
+        ->setChassisIdConf('chassis')
+        ->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-07 20:26:20')
+        ->setPlayresultData(gzencode($data->serializeToString()));
+
+    $response = post_protobuf('/v11r01/chassis/playresult.php', $request, PlayResultResponse::class);
+
+    expect($response->getResult())->toBe(1)
+        ->and(SongPlayResult::query()->count())->toBe(0);
+});
+
 /**
  * @template TMessage of Message
  *
