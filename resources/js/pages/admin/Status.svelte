@@ -1,6 +1,7 @@
 <script module lang="ts">
+    import { status } from '@/routes/admin';
     export const layout = {
-        breadcrumbs: [{ title: 'Server Status', href: '/green/status' }],
+        breadcrumbs: [{ title: 'Server Status', href: status() }],
     };
 </script>
 

@@ -1,7 +1,8 @@
 <script module lang="ts">
+    import players from '@/routes/admin/players';
     export const layout = {
         breadcrumbs: [
-            { title: 'Players', href: '/green/players' },
+            { title: 'Players', href: players.index() },
             { title: 'Detail', href: '#' },
         ],
     };
