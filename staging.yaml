@@ -1,0 +1,135 @@
+
+services:
+    laravel.test:
+        build:
+            context: './docker/8.5'
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: '${WWWGROUP}'
+        image: 'sail-8.5/app'
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        expose:
+            - '8080'
+        ports:
+            #- '${APP_PORT:-8080}:8080'
+            - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
+        environment:
+            WWWUSER: '${WWWUSER}'
+            LARAVEL_SAIL: 1
+            SUPERVISOR_PHP_COMMAND: '/usr/bin/php -d variables_order=EGPCS /var/www/html/artisan serve --host=0.0.0.0 --port=8080'
+            XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
+            XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
+            IGNITION_LOCAL_SITES_PATH: '${PWD}'
+        volumes:
+            - '.:/var/www/html'
+        labels:
+            - 'traefik.enable=true'
+            - 'traefik.docker.network=main'
+            - 'traefik.http.routers.taikonline.entrypoints=websecure'
+            - 'traefik.http.routers.taikonline.rule=Host(`taiko.silvaserv.it`)'
+            - 'traefik.http.routers.taikonline.tls=true'
+            - 'traefik.http.routers.taikonline.tls.certresolver=lets-encrypt'
+            - 'traefik.http.routers.taikonline.service=taikonline'
+            - 'traefik.http.services.taikonline.loadbalancer.server.port=8080'
+
+            - 'traefik.http.routers.taiko-green-http.entrypoints=web'
+            - 'traefik.http.routers.taiko-green-http.rule=Host(`naominet.jp`)'
+            - 'traefik.http.routers.taiko-green-http.priority=1000'
+            - 'traefik.http.routers.taiko-green-http.service=taikonline'
+            - 'traefik.http.routers.taiko-green-http.tls=false'
+            - 'traefik.http.routers.taiko-green-http.middlewares=strip-cabinet-headers'
+            - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.Host='
+            - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.X-Powered-By='
+            - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.Cache-Control='
+            - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.Expires='
+            - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.Pragma='
+
+        networks:
+            main:
+                aliases:
+                    - laravel-app
+        depends_on:
+            - pgsql
+
+    legacy-tls-proxy:
+        build:
+            context: './docker/legacy-tls-proxy'
+        image: 'taikonline/legacy-tls-proxy'
+        restart: unless-stopped
+        expose:
+            - '443'
+        ports:
+            - '${TAIKO_GREEN_MUCHA_PORT:-10122}:10122'
+            - '${TAIKO_GREEN_GAME_PORT_1:-54430}:54430'
+            - '${TAIKO_GREEN_GAME_PORT_2:-54431}:54431'
+            - '${TAIKO_GREEN_GAME_PORT_CN:-57402}:57402'
+        labels:
+            - 'traefik.enable=true'
+            - 'traefik.docker.network=main'
+            - 'traefik.tcp.routers.taiko-green-garmc.entrypoints=websecure'
+            - 'traefik.tcp.routers.taiko-green-garmc.rule=HostSNI(`vsapi.taiko-p.jp`) || HostSNI(`v402-front.mucha-prd.nbgi-amnet.jp`) || HostSNI(`mobirouter.loc`) || HostSNI(`tenporouter.loc`) || HostSNI(`bbrouter.loc`) || HostSNI(`dslrouter.loc`)'
+            - 'traefik.tcp.routers.taiko-green-garmc.tls.passthrough=true'
+            - 'traefik.tcp.services.taiko-green-garmc.loadbalancer.server.port=443'
+            - 'traefik.http.routers.taiko-green-garmc.tls=false'
+
+        environment:
+            BACKEND_HOST: 'laravel-app'
+            BACKEND_PORT: '8080'
+            LISTEN_PORTS: '10122,54430,54431,57402,443'
+            TAIKO_GREEN_CERT_PFX: '/certificates/cert.pfx'
+            TAIKO_GREEN_CERT_PASSWORD: '${TAIKO_GREEN_CERT_PASSWORD:-}'
+        volumes:
+            - './certificates:/certificates:ro'
+        networks:
+            - main
+        depends_on:
+            - laravel.test
+    dnsmasq:
+        build:
+            context: './docker/dnsmasq'
+        image: 'taikonline/dnsmasq'
+        restart: unless-stopped
+        ports:
+            - '13789:53/udp'
+            - '13789:53/tcp'
+        environment:
+            TAIKO_GREEN_DNS_ADDRESS: '${TAIKO_GREEN_DNS_ADDRESS:-127.0.0.1}'
+            TAIKO_GREEN_DNS_UPSTREAM: '${TAIKO_GREEN_DNS_UPSTREAM:-1.1.1.1}'
+        networks:
+            - main
+    pgsql:
+        image: 'postgres:18-alpine'
+        ports:
+            - '${FORWARD_DB_PORT:-5432}:5432'
+        environment:
+            PGPASSWORD: '${DB_PASSWORD:-secret}'
+            POSTGRES_DB: '${DB_DATABASE}'
+            POSTGRES_USER: '${DB_USERNAME}'
+            POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
+        volumes:
+            - 'sail-pgsql:/var/lib/postgresql'
+            - './docker/pgsql/create-testing-database.sql:/docker-entrypoint-initdb.d/10-create-testing-database.sql'
+        networks:
+            - main
+        healthcheck:
+            test:
+                - CMD
+                - pg_isready
+                - '-q'
+                - '-d'
+                - '${DB_DATABASE}'
+                - '-U'
+                - '${DB_USERNAME}'
+            retries: 3
+            timeout: 5s
+
+
+networks:
+    main:
+        external: true
+volumes:
+    sail-pgsql:
+        driver: local
+    sail-redis:
+        driver: local
