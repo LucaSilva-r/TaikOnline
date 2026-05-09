@@ -58,6 +58,7 @@ it('responds to mucha board auth with green service urls', function (): void {
         ->assertSee('RESULTS=001', false)
         ->assertSee('CHARGE_URL=https://127.0.0.1:54430/charge/', false)
         ->assertSee('FILE_URL=https://127.0.0.1:54430/file/', false)
+        ->assertSee('FORCE_BOOT=0', false)
         ->assertSee('PLACE_ID=JPN9999', false)
         ->assertSee('CONSUME_TOKEN=0', false);
 });
