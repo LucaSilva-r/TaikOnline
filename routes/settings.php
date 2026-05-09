@@ -19,6 +19,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('settings/cabinets', [CabinetController::class, 'store'])
         ->middleware('throttle:6,1')
         ->name('cabinets.store');
+    Route::get('settings/cabinets/{cabinet}', [CabinetController::class, 'show'])->name('cabinets.show');
+    Route::patch('settings/cabinets/{cabinet}/config', [CabinetController::class, 'updateConfig'])->name('cabinets.config');
     Route::delete('settings/cabinets/{cabinet}', [CabinetController::class, 'destroy'])->name('cabinets.destroy');
     Route::get('settings/cabinets/{cabinet}/download', [CabinetController::class, 'download'])->name('cabinets.download');
 });

@@ -12,8 +12,9 @@
 </script>
 
 <script lang="ts">
-    import { Form } from '@inertiajs/svelte';
+    import { Form, Link } from '@inertiajs/svelte';
     import CabinetController from '@/actions/App/Http/Controllers/Settings/CabinetController';
+    import { toUrl } from '@/lib/utils';
     import AppHead from '@/components/AppHead.svelte';
     import Heading from '@/components/Heading.svelte';
     import InputError from '@/components/InputError.svelte';
@@ -67,7 +68,12 @@
                 <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div class="space-y-1">
                         <div class="flex items-center gap-2">
-                            <span class="font-medium">{cab.nickname ?? 'Unnamed cabinet'}</span>
+                            <Link
+                                href={toUrl(CabinetController.show.url({ cabinet: cab.serial }))}
+                                class="font-medium hover:underline"
+                            >
+                                {cab.nickname ?? 'Unnamed cabinet'}
+                            </Link>
                             {#if cab.is_online}
                                 <Badge variant="default">Online</Badge>
                             {:else}
