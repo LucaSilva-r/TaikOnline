@@ -23,6 +23,7 @@ use App\GameProtocol\Green\Proto\Taiko\GettelopRequest;
 use App\GameProtocol\Green\Proto\Taiko\GettelopResponse;
 use App\GameProtocol\Green\Proto\Taiko\HeadClerk2Request;
 use App\GameProtocol\Green\Proto\Taiko\HeadClerk2Response;
+use App\GameProtocol\Green\Proto\Taiko\HeartBeatRequest;
 use App\GameProtocol\Green\Proto\Taiko\HeartBeatResponse;
 use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckResponse;
 use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckResponse\InformationData;
@@ -48,6 +49,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CabinetBookkeepingLog;
 use App\Models\HeadClerkLog;
 use App\Models\Player;
+use App\Services\CabinetService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -58,10 +60,19 @@ class GameProtocolController extends Controller
         private readonly PlayerProfileService $profiles,
         private readonly PlayResultService $playResults,
         private readonly ScoreMapper $scoreMapper,
+        private readonly CabinetService $cabinets,
     ) {}
 
-    public function heartbeat(): Response
+    public function heartbeat(Request $request): Response
     {
+        /** @var HeartBeatRequest $message */
+        $message = $this->payloads->parse($request->getContent(), HeartBeatRequest::class);
+
+        $serial = $message->getChassisId();
+        if ($serial !== '') {
+            $this->cabinets->recordHeartbeat($serial, $request->ip());
+        }
+
         return $this->payloads->response(
             (new HeartBeatResponse)
                 ->setResult(1)
