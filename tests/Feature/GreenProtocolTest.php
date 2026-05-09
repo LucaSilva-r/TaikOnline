@@ -31,6 +31,7 @@ use App\GameProtocol\Green\Proto\Taiko\UserDataResponse;
 use App\GameProtocol\Green\Proto\VsInterface\StartupAuthRequest;
 use App\GameProtocol\Green\Proto\VsInterface\StartupAuthRequest\OperationData as StartupOperationData;
 use App\GameProtocol\Green\Proto\VsInterface\StartupAuthResponse;
+use App\Models\Cabinet;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\SongBest;
@@ -74,6 +75,8 @@ it('responds to mucha update check like the green reference server', function ()
 });
 
 it('mirrors startup operation data', function (): void {
+    Cabinet::query()->create(['serial' => 'chassis']);
+
     $request = (new StartupAuthRequest)
         ->setChassisId('chassis')
         ->setHddVer(1)

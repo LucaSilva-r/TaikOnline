@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Settings\AccessCodeController;
+use App\Http\Controllers\Settings\CabinetController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use Illuminate\Support\Facades\Route;
@@ -13,6 +14,13 @@ Route::middleware(['auth'])->group(function () {
 
     Route::patch('settings/access-code', [AccessCodeController::class, 'update'])->name('access-code.update');
     Route::delete('settings/access-code', [AccessCodeController::class, 'destroy'])->name('access-code.destroy');
+
+    Route::get('settings/cabinets', [CabinetController::class, 'index'])->name('cabinets.index');
+    Route::post('settings/cabinets', [CabinetController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('cabinets.store');
+    Route::delete('settings/cabinets/{cabinet}', [CabinetController::class, 'destroy'])->name('cabinets.destroy');
+    Route::get('settings/cabinets/{cabinet}/download', [CabinetController::class, 'download'])->name('cabinets.download');
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {

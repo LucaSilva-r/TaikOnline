@@ -10,6 +10,7 @@ use App\GameProtocol\Green\Proto\VsInterface\VerupAuthResponse;
 use App\GameProtocol\Green\Proto\VsInterface\VerupCompleteResponse;
 use App\GameProtocol\Green\Support\ProtocolPayloads;
 use App\Http\Controllers\Controller;
+use App\Models\Cabinet;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -21,6 +22,11 @@ class VsInterfaceController extends Controller
     {
         /** @var StartupAuthRequest $message */
         $message = $this->payloads->parse($request->getContent(), StartupAuthRequest::class);
+
+        $serial = $message->getChassisId();
+        if ($serial !== '' && ! Cabinet::query()->whereKey($serial)->exists()) {
+            return $this->payloads->response((new StartupAuthResponse)->setResult(0));
+        }
 
         $operations = [];
         foreach ($message->getAryOperationInfo() as $operation) {
