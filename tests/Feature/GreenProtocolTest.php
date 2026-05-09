@@ -63,6 +63,8 @@ it('responds to mucha board auth with green service urls', function (): void {
 });
 
 it('responds to mucha update check like the green reference server', function (): void {
+    config()->set('taiko_green.mucha_force_update', false);
+
     $this->post('/mucha_front/updatacheck.do', ['gameVer' => 'S1210JPN08.18'])
         ->assertOk()
         ->assertSee('RESULTS=001', false)

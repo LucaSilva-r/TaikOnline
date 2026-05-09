@@ -6,6 +6,8 @@ use App\GameProtocol\Green\Support\FormPayloads;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AllNetController extends Controller
 {
@@ -95,23 +97,80 @@ class AllNetController extends Controller
         $gameVersion = (string) ($request->input('gameVer') ?? $request->input('game_ver') ?? $request->input('gameVersion') ?? 'S1110JPN13.02');
         $muchaGameUrl = (string) config('taiko_green.mucha_game_url');
 
+        $forced = (bool) config('taiko_green.mucha_force_update');
+        $advertisedVer = $forced
+            ? (string) config('taiko_green.mucha_forced_target_ver')
+            : $gameVersion;
+
+        $chunkSize = '0';
+        if ($forced) {
+            $path = (string) config('taiko_green.mucha_chunk_path');
+            if (is_file($path)) {
+                $chunkSize = (string) filesize($path);
+            }
+        }
+
+        Log::channel('mucha')->info('updatacheck', [
+            'cab_ver' => $gameVersion,
+            'advertised_ver' => $advertisedVer,
+            'forced' => $forced,
+            'chunk_size' => $chunkSize,
+            'request' => $request->all(),
+        ]);
+
         return $this->formResponse([
             'RESULTS' => '001',
             'UPDATE_URL_1' => $muchaGameUrl.'/updUrl1/',
-            'UPDATE_SIZE_1' => '20',
+            'UPDATE_SIZE_1' => $chunkSize !== '0' ? $chunkSize : '20',
             'UPDATE_CRC_1' => '00000000',
             'CHECK_URL_1' => $muchaGameUrl.'/checkUrl/',
-            'CHECK_SIZE_1' => '20',
+            'CHECK_SIZE_1' => $chunkSize !== '0' ? $chunkSize : '20',
             'CHECK_CRC_1' => '00000000',
-            'EXE_VER_1' => $gameVersion,
+            'EXE_VER_1' => $advertisedVer,
             'INFO_SIZE_1' => '0',
             'COM_SIZE_1' => '0',
             'COM_TIME_1' => '0',
             'LAN_INFO_SIZE_1' => '0',
             'USER_ID' => '1',
             'PASSWORD' => '1',
-            'EXE_VER' => $gameVersion,
+            'EXE_VER' => $advertisedVer,
         ]);
+    }
+
+    public function muchaChunkImage(Request $request): BinaryFileResponse|Response
+    {
+        $path = (string) config('taiko_green.mucha_chunk_path');
+
+        Log::channel('mucha')->info('chunk_download_request', [
+            'path' => $path,
+            'exists' => is_file($path),
+            'size' => is_file($path) ? filesize($path) : 0,
+            'range' => $request->header('Range'),
+            'user_agent' => $request->userAgent(),
+            'client_ip' => $request->ip(),
+        ]);
+
+        if (! is_file($path)) {
+            return response('', 404, ['Content-Type' => 'application/octet-stream']);
+        }
+
+        return response()->file($path, [
+            'Content-Type' => 'application/octet-stream',
+        ]);
+    }
+
+    public function muchaDownloadState(Request $request): Response
+    {
+        Log::channel('mucha')->info('downloadstate', $request->all());
+
+        return $this->formResponse(['RESULTS' => '001']);
+    }
+
+    public function muchaDownloadError(Request $request): Response
+    {
+        Log::channel('mucha')->warning('downloaderror', $request->all());
+
+        return $this->formResponse(['RESULTS' => '001']);
     }
 
     public function activationSignature(): array

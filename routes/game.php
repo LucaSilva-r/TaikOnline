@@ -10,6 +10,10 @@ Route::middleware(LogGreenCabinetTraffic::class)->group(function (): void {
     Route::post('sys/servlet/PowerOn', [AllNetController::class, 'powerOn']);
     Route::post('mucha_front/boardauth.do', [AllNetController::class, 'boardAuth']);
     Route::post('mucha_front/updatacheck.do', [AllNetController::class, 'updateCheck']);
+    Route::post('mucha_front/downloadstate.do', [AllNetController::class, 'muchaDownloadState']);
+    Route::post('mucha_front/downloaderror.do', [AllNetController::class, 'muchaDownloadError']);
+    Route::match(['get', 'head'], 'updUrl1/{file?}', [AllNetController::class, 'muchaChunkImage'])->where('file', '.*');
+    Route::match(['get', 'head'], 'checkUrl/{file?}', [AllNetController::class, 'muchaChunkImage'])->where('file', '.*');
     Route::post('mucha_activation/signature', [AllNetController::class, 'activationSignature']);
     Route::post('mucha_activation/otk', [AllNetController::class, 'activationOtk']);
     Route::post('v1/s12-jp-dev/garm.SystemBoard/RegisterSystemBoard', [AllNetController::class, 'garm']);

@@ -11,4 +11,8 @@ return [
     'region' => (int) env('TAIKO_GREEN_REGION', 1),
     'data_path' => env('TAIKO_GREEN_DATA_PATH', storage_path('app/game-data')),
     'traffic_log_enabled' => (bool) env('TAIKO_GREEN_TRAFFIC_LOG_ENABLED', true),
+
+    'mucha_force_update' => (bool) env('TAIKO_GREEN_MUCHA_FORCE_UPDATE', false),
+    'mucha_forced_target_ver' => env('TAIKO_GREEN_MUCHA_TARGET_VER', 'S1110JPN99.99'),
+    'mucha_chunk_path' => env('TAIKO_GREEN_MUCHA_CHUNK_PATH', storage_path('app/mucha/chunk.img')),
 ];

@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <ctype.h>
 #include <errno.h>
 #include <gnutls/gnutls.h>
 #include <netdb.h>
@@ -15,7 +16,36 @@
 #define BUFFER_SIZE 16384
 #define MAX_PORTS 16
 
-static gnutls_certificate_credentials_t xcred;
+/*
+ * Per-port TLS credentials. Each listening port loads its own (cert, key)
+ * pair so the proxy can present a different certificate chain depending on
+ * which embedded CA the cabinet is going to validate against.
+ *
+ * The default path layout, populated by scripts/generate-mucha-certs.sh:
+ *
+ *   /certificates/generated/mucha/leaf.pem    (chain: leaf + ca)
+ *   /certificates/generated/mucha/leaf.key
+ *   /certificates/generated/vsapi/leaf.pem
+ *   /certificates/generated/vsapi/leaf.key
+ *
+ * Per-port assignments come from env vars CERT_<port>_CHAIN and
+ * CERT_<port>_KEY. Ports without an explicit override fall back to the
+ * legacy single-cert pair at /tmp/taiko-cert.{crt,key} that start.sh
+ * extracts from the existing cert.pfx.
+ */
+
+struct port_cred {
+    int port;
+    gnutls_certificate_credentials_t creds;
+    char *chain_path;
+    char *key_path;
+};
+
+static struct port_cred port_creds[MAX_PORTS];
+static int port_creds_count = 0;
+static gnutls_certificate_credentials_t fallback_creds;
+static int fallback_loaded = 0;
+
 static const char *priority = "NORMAL:-VERS-ALL:+VERS-TLS1.0:+RSA:+AES-128-CBC:+AES-256-CBC:+3DES-CBC:+ARCFOUR-128:+SHA1:+SHA256:+SIGN-RSA-SHA1:+SIGN-RSA-SHA256:+COMP-NULL:%COMPAT";
 static const char *backend_host = "laravel.test";
 static const char *backend_port = "80";
@@ -24,6 +54,13 @@ struct client_args {
     int fd;
     int listen_port;
 };
+
+static gnutls_certificate_credentials_t creds_for_port(int port) {
+    for (int i = 0; i < port_creds_count; i++) {
+        if (port_creds[i].port == port) return port_creds[i].creds;
+    }
+    return fallback_loaded ? fallback_creds : NULL;
+}
 
 static int send_all_plain(int fd, const char *buf, size_t len) {
     size_t off = 0;
@@ -79,9 +116,16 @@ static void *handle_client(void *argp) {
     gnutls_session_t session;
     char buffer[BUFFER_SIZE];
 
+    gnutls_certificate_credentials_t creds = creds_for_port(listen_port);
+    if (!creds) {
+        fprintf(stderr, "no credentials registered for port %d\n", listen_port);
+        close(client_fd);
+        return NULL;
+    }
+
     gnutls_init(&session, GNUTLS_SERVER);
     gnutls_priority_set_direct(session, priority, NULL);
-    gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
+    gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, creds);
     gnutls_transport_set_int(session, client_fd);
 
     int ret = gnutls_handshake(session);
@@ -177,6 +221,61 @@ static int parse_ports(const char *value, int *ports) {
     return count;
 }
 
+/*
+ * Read CERT_<port>_CHAIN / CERT_<port>_KEY from the environment for a given
+ * port. Returns 1 if both are set (and non-empty), 0 otherwise. The two
+ * output buffers must be at least 256 bytes.
+ */
+static int env_cert_for_port(int port, char *chain_out, char *key_out) {
+    char chain_var[64];
+    char key_var[64];
+    snprintf(chain_var, sizeof(chain_var), "CERT_%d_CHAIN", port);
+    snprintf(key_var, sizeof(key_var), "CERT_%d_KEY", port);
+
+    const char *chain = getenv(chain_var);
+    const char *key = getenv(key_var);
+    if (!chain || !*chain || !key || !*key) return 0;
+
+    snprintf(chain_out, 256, "%s", chain);
+    snprintf(key_out, 256, "%s", key);
+    return 1;
+}
+
+static int load_creds_for_port(int port) {
+    char chain_path[256];
+    char key_path[256];
+
+    if (!env_cert_for_port(port, chain_path, key_path)) {
+        if (!fallback_loaded) {
+            fprintf(stderr, "no CERT_%d_CHAIN/CERT_%d_KEY set and no fallback creds loaded\n", port, port);
+            return -1;
+        }
+        fprintf(stderr, "port %d using fallback (legacy cert.pfx) creds\n", port);
+        return 0;
+    }
+
+    if (port_creds_count >= MAX_PORTS) return -1;
+
+    gnutls_certificate_credentials_t creds;
+    if (gnutls_certificate_allocate_credentials(&creds) != 0) return -1;
+
+    int rc = gnutls_certificate_set_x509_key_file(creds, chain_path, key_path, GNUTLS_X509_FMT_PEM);
+    if (rc < 0) {
+        fprintf(stderr, "port %d: failed to load %s + %s: %s\n", port, chain_path, key_path, gnutls_strerror(rc));
+        gnutls_certificate_free_credentials(creds);
+        return -1;
+    }
+
+    port_creds[port_creds_count].port = port;
+    port_creds[port_creds_count].creds = creds;
+    port_creds[port_creds_count].chain_path = strdup(chain_path);
+    port_creds[port_creds_count].key_path = strdup(key_path);
+    port_creds_count++;
+
+    fprintf(stderr, "port %d: loaded TLS chain=%s key=%s\n", port, chain_path, key_path);
+    return 0;
+}
+
 int main(void) {
     signal(SIGPIPE, SIG_IGN);
 
@@ -188,13 +287,20 @@ int main(void) {
     if (!env_ports || strlen(env_ports) == 0) env_ports = "10122,54430,54431,57402,443";
 
     gnutls_global_init();
-    gnutls_certificate_allocate_credentials(&xcred);
 
-    int ret = gnutls_certificate_set_x509_key_file(
-        xcred, "/tmp/taiko-cert.crt", "/tmp/taiko-cert.key", GNUTLS_X509_FMT_PEM);
-    if (ret < 0) {
-        fprintf(stderr, "certificate load failed: %s\n", gnutls_strerror(ret));
-        return 1;
+    /* Optional fallback creds from the legacy single-pfx start.sh path. */
+    const char *fallback_chain = "/tmp/taiko-cert.crt";
+    const char *fallback_key = "/tmp/taiko-cert.key";
+    if (access(fallback_chain, R_OK) == 0 && access(fallback_key, R_OK) == 0) {
+        if (gnutls_certificate_allocate_credentials(&fallback_creds) == 0
+            && gnutls_certificate_set_x509_key_file(fallback_creds, fallback_chain, fallback_key, GNUTLS_X509_FMT_PEM) == 0) {
+            fallback_loaded = 1;
+            fprintf(stderr, "fallback creds loaded from %s + %s\n", fallback_chain, fallback_key);
+        } else {
+            fprintf(stderr, "fallback cred load failed; per-port CERT_<port>_CHAIN/KEY required\n");
+        }
+    } else {
+        fprintf(stderr, "no fallback cert at %s; per-port CERT_<port>_CHAIN/KEY required\n", fallback_chain);
     }
 
     int ports[MAX_PORTS];
@@ -202,6 +308,7 @@ int main(void) {
     int fds[MAX_PORTS];
 
     for (int i = 0; i < count; i++) {
+        if (load_creds_for_port(ports[i]) != 0) return 1;
         fds[i] = listen_on(ports[i]);
         if (fds[i] < 0) {
             fprintf(stderr, "listen on %d failed: %s\n", ports[i], strerror(errno));
