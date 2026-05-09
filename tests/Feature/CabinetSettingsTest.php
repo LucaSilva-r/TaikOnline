@@ -1,5 +1,8 @@
 <?php
 
+use App\GameProtocol\Green\Proto\VsInterface\StartupAuthRequest;
+use App\GameProtocol\Green\Proto\VsInterface\StartupAuthRequest\OperationData as StartupOperationData;
+use App\GameProtocol\Green\Proto\VsInterface\StartupAuthResponse;
 use App\Models\Cabinet;
 use App\Models\User;
 use App\Services\CabinetService;
@@ -101,6 +104,110 @@ it('downloads a zip with both files for the owner', function () {
 
     $zip->close();
     @unlink($tmp);
+});
+
+it('captures reported config and echoes when no desired config is set', function () {
+    Cabinet::query()->create(['serial' => '268415000001']);
+
+    $request = (new StartupAuthRequest)
+        ->setChassisId('268415000001')
+        ->setShopId('JPN0123')
+        ->setRackId('A01')
+        ->setCountryId('JPN')
+        ->setHddVer(1113)
+        ->setUsbmemVer(1100)
+        ->setUsbmemKey('USBKEY123')
+        ->setAryOperationInfo([
+            (new StartupOperationData)->setKeyData(1)->setValueData('1'),
+            (new StartupOperationData)->setKeyData(3)->setValueData('0'),
+        ]);
+
+    $raw = test()->call(
+        'POST',
+        '/v01r00/chassis/startupauth.php',
+        [],
+        [],
+        [],
+        ['CONTENT_TYPE' => 'application/protobuf'],
+        $request->serializeToString()
+    );
+
+    $raw->assertOk();
+
+    $response = new StartupAuthResponse;
+    $response->mergeFromString($raw->getContent());
+
+    expect($response->getResult())->toBe(1);
+
+    $ops = iterator_to_array($response->getAryOperationInfo());
+    expect($ops)->toHaveCount(2)
+        ->and($ops[0]->getKeyData())->toBe(1)
+        ->and($ops[0]->getValueData())->toBe('1');
+
+    $cabinet = Cabinet::query()->whereKey('268415000001')->first();
+    expect($cabinet->reported_config)->toBe([
+        ['key' => 1, 'value' => base64_encode('1')],
+        ['key' => 3, 'value' => base64_encode('0')],
+    ])->and($cabinet->last_reported_at)->not->toBeNull()
+        ->and($cabinet->reported_meta)->toBe([
+            'shop_id' => 'JPN0123',
+            'rack_id' => 'A01',
+            'country_id' => 'JPN',
+            'hdd_ver' => 1113,
+            'usbmem_ver' => 1100,
+            'usbmem_key' => 'USBKEY123',
+        ]);
+});
+
+it('returns desired config back to the cabinet when set', function () {
+    Cabinet::query()->create([
+        'serial' => '268415000002',
+        'desired_config' => [
+            ['key' => 7, 'value' => base64_encode('hello')],
+        ],
+    ]);
+
+    $request = (new StartupAuthRequest)
+        ->setChassisId('268415000002')
+        ->setAryOperationInfo([
+            (new StartupOperationData)->setKeyData(1)->setValueData('1'),
+        ]);
+
+    $raw = test()->call(
+        'POST',
+        '/v01r00/chassis/startupauth.php',
+        [],
+        [],
+        [],
+        ['CONTENT_TYPE' => 'application/protobuf'],
+        $request->serializeToString()
+    );
+
+    $response = new StartupAuthResponse;
+    $response->mergeFromString($raw->getContent());
+
+    $ops = iterator_to_array($response->getAryOperationInfo());
+    expect($ops)->toHaveCount(1)
+        ->and($ops[0]->getKeyData())->toBe(7)
+        ->and($ops[0]->getValueData())->toBe('hello');
+});
+
+it('saves desired config via the controller', function () {
+    $user = User::factory()->create();
+    $cabinet = app(CabinetService::class)->allocate($user, 'cab');
+
+    $this->actingAs($user)
+        ->patch("/settings/cabinets/{$cabinet->serial}/config", [
+            'desired_config' => [
+                ['key' => 1, 'value' => base64_encode('1')],
+            ],
+        ])
+        ->assertRedirect("/settings/cabinets/{$cabinet->serial}");
+
+    $cabinet->refresh();
+    expect($cabinet->desired_config)->toBe([
+        ['key' => 1, 'value' => base64_encode('1')],
+    ]);
 });
 
 it('records heartbeat through CabinetService', function () {

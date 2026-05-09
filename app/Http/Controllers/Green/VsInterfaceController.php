@@ -24,15 +24,42 @@ class VsInterfaceController extends Controller
         $message = $this->payloads->parse($request->getContent(), StartupAuthRequest::class);
 
         $serial = $message->getChassisId();
-        if ($serial !== '' && ! Cabinet::query()->whereKey($serial)->exists()) {
+        $cabinet = $serial !== '' ? Cabinet::query()->whereKey($serial)->first() : null;
+
+        if ($serial !== '' && $cabinet === null) {
             return $this->payloads->response((new StartupAuthResponse)->setResult(0));
         }
 
-        $operations = [];
+        $reported = [];
         foreach ($message->getAryOperationInfo() as $operation) {
+            $reported[] = [
+                'key' => $operation->getKeyData(),
+                'value' => base64_encode($operation->getValueData()),
+            ];
+        }
+
+        if ($cabinet !== null) {
+            $cabinet->update([
+                'reported_config' => $reported,
+                'reported_meta' => [
+                    'shop_id' => $message->getShopId(),
+                    'rack_id' => $message->getRackId(),
+                    'country_id' => $message->getCountryId(),
+                    'hdd_ver' => $message->getHddVer(),
+                    'usbmem_ver' => $message->getUsbmemVer(),
+                    'usbmem_key' => $message->getUsbmemKey(),
+                ],
+                'last_reported_at' => now(),
+            ]);
+        }
+
+        $payload = $cabinet?->desired_config ?? $reported;
+
+        $operations = [];
+        foreach ($payload as $entry) {
             $operations[] = (new OperationData)
-                ->setKeyData($operation->getKeyData())
-                ->setValueData($operation->getValueData());
+                ->setKeyData((int) $entry['key'])
+                ->setValueData(base64_decode($entry['value']));
         }
 
         return $this->payloads->response(

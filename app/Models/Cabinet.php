@@ -13,6 +13,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'registered_at',
     'last_heartbeat_at',
     'last_ip',
+    'reported_config',
+    'reported_meta',
+    'desired_config',
+    'last_reported_at',
 ])]
 class Cabinet extends Model
 {
@@ -31,6 +35,10 @@ class Cabinet extends Model
         return [
             'registered_at' => 'datetime',
             'last_heartbeat_at' => 'datetime',
+            'last_reported_at' => 'datetime',
+            'reported_config' => 'array',
+            'reported_meta' => 'array',
+            'desired_config' => 'array',
         ];
     }
 
