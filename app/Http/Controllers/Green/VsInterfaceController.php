@@ -26,10 +26,6 @@ class VsInterfaceController extends Controller
         $serial = $message->getChassisId();
         $cabinet = $serial !== '' ? Cabinet::query()->whereKey($serial)->first() : null;
 
-        if ($serial !== '' && $cabinet === null) {
-            return $this->payloads->response((new StartupAuthResponse)->setResult(0));
-        }
-
         $reported = [];
         foreach ($message->getAryOperationInfo() as $operation) {
             $reported[] = [
