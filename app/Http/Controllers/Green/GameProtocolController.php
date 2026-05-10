@@ -88,10 +88,6 @@ class GameProtocolController extends Controller
         return $this->payloads->response(
             (new InitialdatacheckResponse)
                 ->setResult(1)
-                ->setSongHashVer(1)
-                ->setHashDefaultSongFlg($this->scoreMapper->emptyFlagBytes())
-                ->setHashMainichidojoAll($this->scoreMapper->emptyFlagBytes(32))
-                ->setHashMainichidojoRare($this->scoreMapper->emptyFlagBytes(32))
                 ->setAryTelopData([(new InformationData)->setInfoId(1)->setVerupNo(2)])
                 ->setAryEventfolderData([])
                 ->setAryTaikojukuData([])
@@ -225,8 +221,8 @@ class GameProtocolController extends Controller
         return $this->payloads->response(
             (new GettelopResponse)
                 ->setResult(1)
-                ->setStartDatetime(now()->subDays(999)->format('Y-m-d H:i:s'))
-                ->setEndDatetime(now()->addDays(999)->format('Y-m-d H:i:s'))
+                ->setStartDatetime(now()->subDays(999)->format('YmdHis'))
+                ->setEndDatetime(now()->addDays(999)->format('YmdHis'))
                 ->setTelop('Hello world')
                 ->setVerupNo(2)
         );
