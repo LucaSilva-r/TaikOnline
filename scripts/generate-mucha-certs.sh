@@ -13,11 +13,12 @@
 #   donder     0x010f2e10  CA   ~?    bytes max (vsapi.donderhiroba.jp)
 #               (legacy chain, kept for completeness)
 #
-# Each cert uses 1024-bit RSA with the same field set as the original embedded
-# certs, which keeps the PEM body small enough to fit in the reserved slot.
-# The patcher refuses replacements that exceed the slot length, so do not
-# bump these to RSA-2048 without first confirming the slot reservation can
-# absorb the larger PEM.
+# RSA-2048 leaf+CA. The SPRX-side mbedTLS client (M3+) does its own TLS
+# with verify_mode = NONE, so the EBOOT-embedded CA slot is no longer the
+# trust anchor and slot-size limits no longer apply. If you ever go back
+# to patching EBOOT.elf with these CAs via patch_eboot_usb_probe.py,
+# either drop back to 1024-bit or confirm the slot reservation absorbs
+# the larger PEM first.
 
 set -euo pipefail
 
@@ -73,14 +74,14 @@ generate_pair() {
     mkdir -p "${dir}"
 
     # CA
-    openssl genrsa -out "${dir}/ca.key" 1024 2>/dev/null
+    openssl genrsa -out "${dir}/ca.key" 2048 2>/dev/null
     openssl req -new -x509 -key "${dir}/ca.key" \
         -days "${DAYS}" -sha256 \
         -subj "${ca_subj}" \
         -out "${dir}/ca.pem"
 
     # Leaf
-    openssl genrsa -out "${dir}/leaf.key" 1024 2>/dev/null
+    openssl genrsa -out "${dir}/leaf.key" 2048 2>/dev/null
 
     local cnf="${dir}/leaf.cnf"
     cat > "${cnf}" <<EOF
