@@ -73,13 +73,13 @@ class AllNetController extends Controller
             'CHARGE_URL' => $muchaGameUrl.'/charge/',
             'COUNTRY_CD' => (string) config('taiko_green.country'),
             'DONGLE_FLG' => '1',
-            'EXPIRATION_DATE' => 'null',
+            'EXPIRATION_DATE' => '20351231',
             'FILE_URL' => $muchaGameUrl.'/file/',
             'FORCE_BOOT' => '0',
             'PLACE_ID' => $placeId,
             'PREFECTURE_ID' => '14',
             'SERVER_TIME' => $serverTime,
-            'UTC_SERVER_TIME' => now('UTC')->format('YmdHi'),
+            'SERVER_TIME_UTC' => now('UTC')->format('YmdHi'),
             'SHOP_NAME' => (string) config('taiko_green.shop_name'),
             'SHOP_NAME_EN' => (string) config('taiko_green.shop_name'),
             'SHOP_NICKNAME' => 'W',
@@ -118,13 +118,18 @@ class AllNetController extends Controller
             'request' => $request->all(),
         ]);
 
+        // Cabinet downloads + decrypts UPDATE_URL_1 when UPDATE_SIZE_1 > 0,
+        // then verifies signature/CRC. Without Namco's signing key the
+        // decrypt always fails -> error 5-36 (UPDATE SERVER AUTH SIGNATURE).
+        // Setting size to 0 (when not forced) makes the cabinet skip the
+        // download/verify path entirely.
         return $this->formResponse([
             'RESULTS' => '001',
             'UPDATE_URL_1' => $muchaGameUrl.'/updUrl1/',
-            'UPDATE_SIZE_1' => $chunkSize !== '0' ? $chunkSize : '20',
+            'UPDATE_SIZE_1' => $chunkSize !== '0' ? $chunkSize : '0',
             'UPDATE_CRC_1' => '00000000',
             'CHECK_URL_1' => $muchaGameUrl.'/checkUrl/',
-            'CHECK_SIZE_1' => $chunkSize !== '0' ? $chunkSize : '20',
+            'CHECK_SIZE_1' => $chunkSize !== '0' ? $chunkSize : '0',
             'CHECK_CRC_1' => '00000000',
             'EXE_VER_1' => $advertisedVer,
             'INFO_SIZE_1' => '0',
