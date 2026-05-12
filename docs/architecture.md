@@ -1,0 +1,172 @@
+# TaikOnline Architecture
+
+TaikOnline is a Laravel application for running and administering a Taiko no Tatsujin Green cabinet-compatible backend. It has two main surfaces:
+
+- A normal web application for players and administrators, built with Laravel, Fortify, Inertia, Svelte, Tailwind, and Wayfinder.
+- A cabinet-facing protocol server that mimics the network endpoints expected by Taiko Green cabinets and stores player, score, card, cabinet, and bookkeeping data.
+
+The project is not only a dashboard. The cabinet protocol routes are part of the core application and are wired into Laravel's HTTP kernel alongside the web UI.
+
+## Runtime Shape
+
+Laravel is bootstrapped in `bootstrap/app.php`.
+
+Important routing detail: `routes/game.php` is registered as Laravel's `api` route file with `apiPrefix: ''`. That means cabinet endpoints are mounted at the root path, not under `/api`.
+
+Main route files:
+
+- `routes/web.php` contains public pages, authenticated player/admin pages, and admin user management routes.
+- `routes/settings.php` contains authenticated settings pages for profiles, security, player customization, access-code binding, and cabinet management.
+- `routes/game.php` contains cabinet, ALL.Net, Mucha, VS interface, and game protocol endpoints. It also has a catch-all logger for unknown cabinet requests.
+
+The Svelte app starts in `resources/js/app.ts`. Inertia page names map to components under `resources/js/pages`. Layout selection is centralized in `resources/js/app.ts`:
+
+- `auth/*` pages use the auth layout.
+- `admin/*` pages use the app/admin layout.
+- `settings/*` pages use the player layout plus settings layout.
+- Everything else uses the player layout.
+
+Wayfinder is enabled in `vite.config.ts`, so frontend code should prefer generated route/action helpers from `resources/js/actions`, `resources/js/routes`, and `resources/js/wayfinder` instead of hard-coded URLs.
+
+## Major Areas
+
+### Web UI
+
+The web UI lives mostly in:
+
+- `resources/js/pages` for Inertia Svelte pages.
+- `resources/js/components` for shared Svelte components.
+- `resources/js/layouts` for page shells.
+- `resources/css/app.css` for Tailwind-driven styling.
+- `app/Http/Controllers/Admin` and `app/Http/Controllers/Settings` for web-facing data and mutations.
+
+Authentication is handled by Laravel Fortify. Fortify's views are configured in `app/Providers/FortifyServiceProvider.php` and rendered as Inertia pages under `resources/js/pages/auth`.
+
+### Cabinet Protocol
+
+The cabinet-facing code is under:
+
+- `routes/game.php`
+- `app/Http/Controllers/Green`
+- `app/GameProtocol/Green`
+- `config/taiko_green.php`
+
+`AllNetController` handles form/text-style boot, board auth, update check, Mucha download status, activation, and GARM-compatible endpoints.
+
+`VsInterfaceController` handles protobuf-based startup and version update authorization endpoints, including reading and applying cabinet operation config.
+
+`GameProtocolController` handles protobuf-based gameplay endpoints such as heartbeat, initial data check, BAID/card lookup, MyDon registration, user data, play result upload, self best, ghost data, rewards, and bookkeeping.
+
+`LogGreenCabinetTraffic` writes structured JSONL request/response captures to `storage/logs/taiko-green-traffic.jsonl` when `taiko_green.traffic_log_enabled` is enabled. This is important for discovering unknown cabinet behavior and comparing real request bodies against the current handlers.
+
+### Domain Data
+
+Core models live in `app/Models`:
+
+- `User` is the Laravel/Fortify account.
+- `Player` is the Taiko player profile, keyed by `baid`.
+- `GameCard` maps access codes to players.
+- `SongPlayResult` stores individual play submissions.
+- `SongBest` stores per-player/song/difficulty bests.
+- `Token` stores token counts.
+- `Cabinet` stores registered cabinet serials, heartbeats, reported config, and desired config.
+- `CabinetBookkeepingLog` and `HeadClerkLog` store cabinet operational logs.
+
+The initial Taiko Green schema is in `database/migrations/2026_05_05_000000_create_taiko_green_tables.php`, with later migrations adding user-player links, roles, and cabinet config/reporting fields.
+
+Game data files are expected under `storage/app/game-data` by default. Mucha update files are configured through `taiko_green.mucha_chunk_path`, defaulting to `storage/app/mucha/chunk.img`.
+
+## Protobufs
+
+The protobuf files in `protobuf/` define the binary messages used by the cabinet-facing VS interface and game protocol endpoints:
+
+- `protobuf/taiko.proto` defines most `taiko.green` request/response messages used by `GameProtocolController`.
+- `protobuf/vsinterface.proto` defines `taiko.vsinterface` startup/version authorization messages used by `VsInterfaceController`.
+- `protobuf/descriptor.proto` is a local descriptor definition and is not the main application protocol.
+
+Generated PHP classes are committed under `app/GameProtocol/Green/Proto`. They are generated by:
+
+```bash
+composer proto:generate
+```
+
+That command runs `scripts/generate-protobuf.sh`, downloads a local `protoc` into `tools/protoc` if needed, deletes the generated proto PHP directory, regenerates it from `protobuf/taiko.proto` and `protobuf/vsinterface.proto`, then formats the generated PHP with Pint when available.
+
+The generated classes are used directly by controllers and services. `ProtocolPayloads` is the small wrapper that:
+
+- Parses raw request bytes into a generated protobuf message.
+- Serializes response messages back to `application/protobuf`.
+- Handles the special gzip/offset decoding used by play result payloads.
+
+Important limitation: the protobuf schemas are incomplete.
+
+They are partial, reverse-engineered definitions for the endpoints this app currently understands. Missing fields, unknown message types, incorrect field numbers, or under-modeled nested structures are expected when new cabinet flows are explored. Do not assume the `.proto` files are authoritative for the full Taiko Green protocol.
+
+When adding or fixing protocol behavior:
+
+- Start from `routes/game.php` to find the endpoint.
+- Check the matching controller method in `app/Http/Controllers/Green`.
+- Check the generated request/response class in `app/GameProtocol/Green/Proto`.
+- If the generated class is missing a field or message, update the source `.proto` file in `protobuf/`, then run `composer proto:generate`.
+- Use `storage/logs/taiko-green-traffic.jsonl` and the `mucha` log channel to compare real cabinet payloads with the schema.
+- Treat unknown protobuf bytes as evidence that the schema may need to be expanded, not as proof that the controller is wrong.
+
+Because generation deletes and recreates `app/GameProtocol/Green/Proto`, avoid hand-editing generated classes. Make schema changes in `protobuf/*.proto`.
+
+## Request Flow Examples
+
+### Cabinet Heartbeat
+
+1. Cabinet posts to `/{version}/chassis/heartbeat.php`.
+2. `routes/game.php` sends the request to `GameProtocolController::heartbeat`.
+3. `ProtocolPayloads` parses the raw protobuf body into `HeartBeatRequest`.
+4. `CabinetService` records heartbeat details when a chassis ID is present.
+5. The controller returns a serialized `HeartBeatResponse`.
+
+### Play Result Upload
+
+1. Cabinet posts to `/{version}/chassis/playresult.php`.
+2. `GameProtocolController::playResult` parses `PlayResultRequest`.
+3. The nested play-result payload is inflated through `ProtocolPayloads::inflatePlayResultData`.
+4. The inflated bytes are parsed as `PlayResultDataRequest`.
+5. `PlayResultService` stores play results and updates best scores.
+6. The controller returns `PlayResultResponse`.
+
+### Web Page
+
+1. A browser hits a named route from `routes/web.php` or `routes/settings.php`.
+2. The route returns either `Route::inertia(...)` or a controller response using Inertia.
+3. Inertia resolves the matching Svelte component under `resources/js/pages`.
+4. `resources/js/app.ts` assigns the correct layout.
+5. Frontend forms and links should use Wayfinder-generated helpers where possible.
+
+## Local Development Commands
+
+Common commands:
+
+```bash
+composer run dev
+composer test
+composer proto:generate
+npm run types:check
+npm run lint:check
+npm run format:check
+php artisan test --compact
+```
+
+For PHP formatting after PHP changes:
+
+```bash
+vendor/bin/pint --dirty --format agent
+```
+
+For frontend changes, run the narrowest relevant check first, usually `npm run types:check`, `npm run lint:check`, or `npm run build`.
+
+## Navigation Tips For AI Agents
+
+- Do not search only the web UI when asked about cabinet behavior. Start in `routes/game.php` and `app/Http/Controllers/Green`.
+- Do not hand-edit `app/GameProtocol/Green/Proto`; edit `protobuf/*.proto` and regenerate.
+- Generated Wayfinder files under `resources/js/actions`, `resources/js/routes`, and `resources/js/wayfinder` are frontend route glue, not business logic.
+- Cabinet logs in `storage/logs` are often more useful than browser logs for protocol debugging.
+- The protobuf files are intentionally incomplete. Missing protocol coverage is normal in this repo.
+- Existing tests under `tests/Feature/GreenProtocolTest.php` and `tests/Feature/CabinetSettingsTest.php` are the best starting points for cabinet-facing behavior changes.
