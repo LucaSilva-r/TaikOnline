@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'baid',
+    'game_version',
     'chassis_id',
     'shop_id',
     'played_at',
@@ -34,6 +35,7 @@ class SongPlayResult extends Model
     protected function casts(): array
     {
         return [
+            'game_version' => 'string',
             'played_at' => 'datetime',
             'is_right' => 'boolean',
             'is_two_players' => 'boolean',

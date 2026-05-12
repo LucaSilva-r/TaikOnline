@@ -16,7 +16,7 @@ class PlayResultService
 {
     public function __construct(private readonly ScoreMapper $scoreMapper) {}
 
-    public function save(PlayResultDataRequest $data): int
+    public function save(PlayResultDataRequest $data, string $gameVersion): int
     {
         $player = Player::query()->find($data->getBaid());
         if (! $player instanceof Player) {
@@ -34,6 +34,7 @@ class PlayResultService
 
             SongPlayResult::query()->create([
                 'baid' => $player->baid,
+                'game_version' => $gameVersion,
                 'chassis_id' => $data->getChassisId(),
                 'shop_id' => $data->getShopId(),
                 'played_at' => $playedAt,
@@ -61,7 +62,7 @@ class PlayResultService
                 ],
             ]);
 
-            $this->updateBest($player, $stage, $rank);
+            $this->updateBest($player, $stage, $rank, $gameVersion);
         }
 
         $player->update([
@@ -78,10 +79,12 @@ class PlayResultService
     /**
      * @param  iterable<int>  $songNumbers
      */
-    public function selfBest(Player $player, int $level, iterable $songNumbers): SelfBestResponse
+    public function selfBest(Player $player, int $level, string $gameVersion, iterable $songNumbers): SelfBestResponse
     {
         $numbers = collect($songNumbers)->map(fn (mixed $value): int => (int) $value)->filter()->values();
-        $query = SongBest::query()->where('baid', $player->baid);
+        $query = SongBest::query()
+            ->where('baid', $player->baid)
+            ->where('game_version', $gameVersion);
 
         if ($level > 0) {
             $query->where('level', $level);
@@ -105,10 +108,11 @@ class PlayResultService
             ->setAryShinSelfbestScore([]);
     }
 
-    private function updateBest(Player $player, StageData $stage, int $rank): void
+    private function updateBest(Player $player, StageData $stage, int $rank, string $gameVersion): void
     {
         $best = SongBest::query()->firstOrNew([
             'baid' => $player->baid,
+            'game_version' => $gameVersion,
             'song_no' => $stage->getSongNo(),
             'level' => $stage->getLevel(),
         ]);

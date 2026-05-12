@@ -38,6 +38,14 @@ it('correctly maps song fields from XML data', function (): void {
         ->and($song->flags['demoplay'])->toBeFalse();
 });
 
+it('accepts update identifiers and stores the canonical version', function (): void {
+    $output = Artisan::call('app:import-songs', ['version' => 'ST-11100-1']);
+
+    expect($output)->toBe(0)
+        ->and(Song::where('version', 'green')->count())->toBe(853)
+        ->and(Song::where('version', 'ST-11100-1')->count())->toBe(0);
+});
+
 it('correctly handles songs with multiple flag types', function (): void {
     Artisan::call('app:import-songs', ['version' => 'green']);
 
@@ -189,8 +197,10 @@ it('isolates songs by version', function (): void {
 
 it('reports errors for unknown genre gracefully', function (): void {
     // Create a temp XML with an invalid genre
-    $tempDir = storage_path('app/game-data/test-invalid');
+    $rootDir = storage_path('app/game-data-test-invalid');
+    $tempDir = "{$rootDir}/green";
     mkdir($tempDir, 0755, true);
+    config()->set('taiko_green.data_path', $rootDir);
 
     $xmlContent = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <boost_serialization signature="serialization::archive" version="10">
@@ -206,14 +216,15 @@ it('reports errors for unknown genre gracefully', function (): void {
 
     file_put_contents("{$tempDir}/musicinfo.xml", $xmlContent);
 
-    $output = Artisan::call('app:import-songs', ['version' => 'test-invalid']);
+    $output = Artisan::call('app:import-songs', ['version' => 'green']);
 
     expect($output)->toBe(1)
-        ->and(Song::where('version', 'test-invalid')->count())->toBe(0);
+        ->and(Song::where('version', 'green')->count())->toBe(0);
 
     // Cleanup
     unlink("{$tempDir}/musicinfo.xml");
     rmdir($tempDir);
+    rmdir($rootDir);
 });
 
 it('fails when xml file does not exist', function (): void {

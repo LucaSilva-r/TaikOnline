@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Green;
 
+use App\Enums\TaikoGameVersion;
 use App\GameProtocol\Green\Proto\Taiko\BAIDRequest;
 use App\GameProtocol\Green\Proto\Taiko\BookKeepingRequest;
 use App\GameProtocol\Green\Proto\Taiko\BookKeepingResponse;
@@ -52,6 +53,7 @@ use App\Models\Player;
 use App\Services\CabinetService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Config;
 
 class GameProtocolController extends Controller
 {
@@ -151,7 +153,7 @@ class GameProtocolController extends Controller
         return $this->payloads->response($this->profiles->userData($player));
     }
 
-    public function playResult(Request $request): Response
+    public function playResult(Request $request, string $version): Response
     {
         /** @var PlayResultRequest $message */
         $message = $this->payloads->parse($request->getContent(), PlayResultRequest::class);
@@ -162,23 +164,39 @@ class GameProtocolController extends Controller
         );
 
         return $this->payloads->response(
-            (new PlayResultResponse)->setResult($this->playResults->save($data))
+            (new PlayResultResponse)->setResult($this->playResults->save($data, $this->catalogVersion($version)))
         );
     }
 
-    public function selfBest(Request $request): Response
+    public function selfBest(Request $request, string $version): Response
     {
         /** @var SelfBestRequest $message */
         $message = $this->payloads->parse($request->getContent(), SelfBestRequest::class);
         $player = Player::query()->find($message->getBaid());
+        $catalogVersion = $this->catalogVersion($version);
 
         if (! $player instanceof Player) {
-            return $this->payloads->response($this->playResults->selfBest(new Player, $message->getLevel(), []));
+            return $this->payloads->response($this->playResults->selfBest(new Player, $message->getLevel(), $catalogVersion, []));
         }
 
         return $this->payloads->response(
-            $this->playResults->selfBest($player, $message->getLevel(), $message->getArySongNo())
+            $this->playResults->selfBest($player, $message->getLevel(), $catalogVersion, $message->getArySongNo())
         );
+    }
+
+    private function catalogVersion(string $routeVersion): string
+    {
+        $configured = Config::get("taiko_green.route_catalog_versions.{$routeVersion}");
+
+        if (is_string($configured) && $configured !== '') {
+            return TaikoGameVersion::fromInput($configured)?->value ?? TaikoGameVersion::Green->value;
+        }
+
+        $default = Config::get('taiko_green.catalog_version', TaikoGameVersion::Green->value);
+
+        return is_string($default)
+            ? TaikoGameVersion::fromInput($default)?->value ?? TaikoGameVersion::Green->value
+            : TaikoGameVersion::Green->value;
     }
 
     public function crownsData(Request $request): Response

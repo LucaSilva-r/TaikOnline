@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\SongController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Green\OperatorController;
+use App\Http\Controllers\RankingController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -10,7 +11,7 @@ Route::inertia('/', 'Home', [
     'canRegister' => Features::enabled(Features::registration()),
 ])->name('home');
 
-Route::inertia('rankings', 'Rankings')->name('rankings');
+Route::get('rankings', [RankingController::class, 'index'])->name('rankings');
 Route::inertia('community', 'Community')->name('community');
 
 Route::middleware(['auth', 'verified'])->group(function () {

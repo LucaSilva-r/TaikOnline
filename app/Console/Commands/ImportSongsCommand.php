@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Enums\SongGenre;
 use App\Enums\SongPartsSet;
 use App\Enums\SongWai2PartsSet;
+use App\Enums\TaikoGameVersion;
 use App\Models\Song;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
@@ -17,10 +18,18 @@ class ImportSongsCommand extends Command
 
     public function handle(): int
     {
-        $version = $this->argument('version');
+        $versionInput = (string) $this->argument('version');
+        $gameVersion = TaikoGameVersion::fromInput($versionInput);
+        if (! $gameVersion instanceof TaikoGameVersion) {
+            $this->error("Unknown game version: {$versionInput}");
+
+            return self::FAILURE;
+        }
+
+        $version = $gameVersion->value;
         $dataPath = Config::get('taiko_green.data_path', storage_path('app/game-data'));
 
-        $xmlPath = "{$dataPath}/{$version}/musicinfo.xml";
+        $xmlPath = $this->musicInfoPath((string) $dataPath, $versionInput, $gameVersion);
         if (! file_exists($xmlPath)) {
             $this->error("File not found: {$xmlPath}");
 
@@ -159,5 +168,22 @@ class ImportSongsCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    private function musicInfoPath(string $dataPath, string $versionInput, TaikoGameVersion $gameVersion): string
+    {
+        $candidates = [
+            "{$dataPath}/{$versionInput}/musicinfo.xml",
+            "{$dataPath}/{$gameVersion->value}/musicinfo.xml",
+            "{$dataPath}/{$gameVersion->updateIdentifier()}/musicinfo.xml",
+        ];
+
+        foreach (array_unique($candidates) as $candidate) {
+            if (file_exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return $candidates[0];
     }
 }
