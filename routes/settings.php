@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Settings\AccessCodeController;
 use App\Http\Controllers\Settings\CabinetController;
+use App\Http\Controllers\Settings\CustomizeController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use Illuminate\Support\Facades\Route;
@@ -14,6 +15,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::patch('settings/access-code', [AccessCodeController::class, 'update'])->name('access-code.update');
     Route::delete('settings/access-code', [AccessCodeController::class, 'destroy'])->name('access-code.destroy');
+
+    Route::get('settings/customize', [CustomizeController::class, 'edit'])->name('customize.edit');
+    Route::patch('settings/customize', [CustomizeController::class, 'update'])->name('customize.update');
 
     Route::get('settings/cabinets', [CabinetController::class, 'index'])->name('cabinets.index');
     Route::post('settings/cabinets', [CabinetController::class, 'store'])
