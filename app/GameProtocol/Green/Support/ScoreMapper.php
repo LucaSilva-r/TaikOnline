@@ -22,4 +22,31 @@ class ScoreMapper
     {
         return str_repeat("\0", $bytes);
     }
+
+    /**
+     * @param  iterable<int>  $songNumbers
+     */
+    public function songFlagBytes(iterable $songNumbers, int $bytes = 512): string
+    {
+        $flags = array_fill(0, $bytes, 0);
+
+        foreach ($songNumbers as $songNo) {
+            $songNo = (int) $songNo;
+
+            if ($songNo < 1) {
+                continue;
+            }
+
+            $bitIndex = $songNo - 1;
+            $byteIndex = intdiv($bitIndex, 8);
+
+            if ($byteIndex >= $bytes) {
+                continue;
+            }
+
+            $flags[$byteIndex] |= 1 << ($bitIndex % 8);
+        }
+
+        return implode('', array_map(static fn (int $flag): string => chr($flag), $flags));
+    }
 }

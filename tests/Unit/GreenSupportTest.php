@@ -28,3 +28,10 @@ it('maps score ranks conservatively', function (): void {
         ->and($mapper->rankForScore(900000))->toBe(6)
         ->and($mapper->rankForScore(1))->toBe(1);
 });
+
+it('maps song numbers to flag bytes', function (): void {
+    $flags = (new ScoreMapper)->songFlagBytes([1, 8, 9], 2);
+
+    expect(ord($flags[0]))->toBe(129)
+        ->and(ord($flags[1]))->toBe(1);
+});

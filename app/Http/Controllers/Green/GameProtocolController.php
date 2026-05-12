@@ -26,6 +26,7 @@ use App\GameProtocol\Green\Proto\Taiko\HeadClerk2Request;
 use App\GameProtocol\Green\Proto\Taiko\HeadClerk2Response;
 use App\GameProtocol\Green\Proto\Taiko\HeartBeatRequest;
 use App\GameProtocol\Green\Proto\Taiko\HeartBeatResponse;
+use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckRequest;
 use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckResponse;
 use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckResponse\InformationData;
 use App\GameProtocol\Green\Proto\Taiko\MydonEntryRequest;
@@ -50,6 +51,8 @@ use App\Http\Controllers\Controller;
 use App\Models\CabinetBookkeepingLog;
 use App\Models\HeadClerkLog;
 use App\Models\Player;
+use App\Models\Song;
+use App\Models\SongPlayResult;
 use App\Services\CabinetService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -85,11 +88,17 @@ class GameProtocolController extends Controller
         );
     }
 
-    public function initialDataCheck(): Response
+    public function initialDataCheck(Request $request, string $version): Response
     {
+        /** @var InitialdatacheckRequest $message */
+        $this->payloads->parse($request->getContent(), InitialdatacheckRequest::class);
+        $releaseSongFlag = $this->releaseSongFlag($this->catalogVersion($version));
+
         return $this->payloads->response(
             (new InitialdatacheckResponse)
                 ->setResult(1)
+                ->setSongHashVer(1)
+                ->setHashDefaultSongFlg($releaseSongFlag)
                 ->setAryTelopData([(new InformationData)->setInfoId(1)->setVerupNo(2)])
                 ->setAryEventfolderData([])
                 ->setAryTaikojukuData([])
@@ -140,17 +149,18 @@ class GameProtocolController extends Controller
         return $this->payloads->response($this->profiles->registerMydon($message));
     }
 
-    public function userData(Request $request): Response
+    public function userData(Request $request, string $version): Response
     {
         /** @var UserDataRequest $message */
         $message = $this->payloads->parse($request->getContent(), UserDataRequest::class);
         $player = Player::query()->find($message->getBaid());
+        $catalogVersion = $this->catalogVersion($version);
 
         if (! $player instanceof Player) {
-            return $this->payloads->response($this->profiles->userData(new Player));
+            return $this->payloads->response($this->profiles->userData(new Player, $catalogVersion));
         }
 
-        return $this->payloads->response($this->profiles->userData($player));
+        return $this->payloads->response($this->profiles->userData($player, $catalogVersion));
     }
 
     public function playResult(Request $request, string $version): Response
@@ -246,7 +256,7 @@ class GameProtocolController extends Controller
         );
     }
 
-    public function getGhostData(Request $request): Response
+    public function getGhostData(Request $request, string $version): Response
     {
         /** @var GetghostdataRequest $message */
         $this->payloads->parse($request->getContent(), GetghostdataRequest::class);
@@ -255,7 +265,7 @@ class GameProtocolController extends Controller
             (new GetghostdataResponse)
                 ->setResult(1)
                 ->setReleaseInfoFlag($this->scoreMapper->emptyFlagBytes())
-                ->setPlayedSongFlag($this->scoreMapper->emptyFlagBytes())
+                ->setPlayedSongFlag($this->ghostPlayedSongFlag($this->catalogVersion($version)))
                 ->setTotalWinnings(0)
                 ->setGhostPerfData((new GhostPerfData)->setInputMedian(0)->setInputVariance(0))
                 ->setGhostRecordData((new GhostRankData)
@@ -267,18 +277,56 @@ class GameProtocolController extends Controller
         );
     }
 
-    public function getGhostScore(Request $request): Response
+    public function getGhostScore(Request $request, string $version): Response
     {
         /** @var GetghostscoreRequest $message */
-        $this->payloads->parse($request->getContent(), GetghostscoreRequest::class);
+        $message = $this->payloads->parse($request->getContent(), GetghostscoreRequest::class);
 
-        $sections = collect(range(1, 100))
-            ->map(fn (int $section): GhostBestSectionData => (new GhostBestSectionData)
-                ->setSectionNo($section)
-                ->setGoodCnt(0)
-                ->setOkCnt(0)
-                ->setNgCnt(0)
-                ->setPoundCnt(0))
+        $plays = SongPlayResult::query()
+            ->select(['baid', 'score', 'ghost_sections'])
+            ->where('game_version', $this->catalogVersion($version))
+            ->where('song_no', $message->getSongNo())
+            ->where('level', $message->getLevel())
+            ->whereNotNull('ghost_sections')
+            ->orderByDesc('score')
+            ->get();
+
+        if ($plays->isEmpty()) {
+            return $this->payloads->response(
+                (new GetghostscoreResponse)
+                    ->setResult(1)
+                    ->setAryBestSectionData([])
+            );
+        }
+
+        $allSections = $plays
+            ->unique('baid')
+            ->map(fn (SongPlayResult $play): array => $play->ghost_sections)
+            ->filter(fn (array $sections): bool => $sections !== [])
+            ->values()
+            ->all();
+
+        if ($allSections === []) {
+            return $this->payloads->response(
+                (new GetghostscoreResponse)
+                    ->setResult(1)
+                    ->setAryBestSectionData([])
+            );
+        }
+
+        $sectionCount = max(array_map('count', $allSections));
+        $sections = collect(range(0, $sectionCount - 1))
+            ->map(function (int $index) use ($allSections): GhostBestSectionData {
+                $randomKey = array_rand($allSections);
+                $section = $allSections[$randomKey][$index] ?? null;
+
+                return (new GhostBestSectionData)
+                    ->setSectionNo($index + 1)
+                    ->setGoodCnt($section['good_cnt'] ?? 0)
+                    ->setOkCnt($section['ok_cnt'] ?? 0)
+                    ->setNgCnt($section['ng_cnt'] ?? 0)
+                    ->setPoundCnt($section['pound_cnt'] ?? 0);
+            })
             ->all();
 
         return $this->payloads->response(
@@ -286,6 +334,28 @@ class GameProtocolController extends Controller
                 ->setResult(1)
                 ->setAryBestSectionData($sections)
         );
+    }
+
+    private function ghostPlayedSongFlag(string $gameVersion): string
+    {
+        $songNumbers = SongPlayResult::query()
+            ->where('game_version', $gameVersion)
+            ->whereNotNull('ghost_sections')
+            ->distinct()
+            ->pluck('song_no')
+            ->map(fn (mixed $songNo): int => (int) $songNo);
+
+        return $this->scoreMapper->songFlagBytes($songNumbers);
+    }
+
+    private function releaseSongFlag(string $gameVersion): string
+    {
+        $songNumbers = Song::query()
+            ->where('version', $gameVersion)
+            ->pluck('song_no')
+            ->map(fn (mixed $songNo): int => (int) $songNo);
+
+        return $this->scoreMapper->songFlagBytes($songNumbers);
     }
 
     public function recommend(Request $request): Response

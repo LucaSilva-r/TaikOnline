@@ -29,6 +29,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'music_category',
     'selected_folder_id',
     'raw_stage',
+    'ghost_sections',
 ])]
 class SongPlayResult extends Model
 {
@@ -40,6 +41,7 @@ class SongPlayResult extends Model
             'is_right' => 'boolean',
             'is_two_players' => 'boolean',
             'raw_stage' => 'array',
+            'ghost_sections' => 'array',
         ];
     }
 

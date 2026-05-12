@@ -4,6 +4,7 @@ namespace App\GameProtocol\Green\Services;
 
 use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest;
 use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest\StageData;
+use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest\StageData\GhostStageData;
 use App\GameProtocol\Green\Proto\Taiko\SelfBestResponse;
 use App\GameProtocol\Green\Proto\Taiko\SelfBestResponse\SelfBestData;
 use App\GameProtocol\Green\Support\ScoreMapper;
@@ -60,6 +61,7 @@ class PlayResultService
                     'is_favorite' => $stage->getIsFavorite(),
                     'is_recent' => $stage->getIsRecent(),
                 ],
+                'ghost_sections' => $this->extractGhostSections($stage),
             ]);
 
             $this->updateBest($player, $stage, $rank, $gameVersion);
@@ -155,5 +157,24 @@ class PlayResultService
             ->take(20)
             ->values()
             ->all();
+    }
+
+    private function extractGhostSections(StageData $stage): ?array
+    {
+        if (! $stage->hasGhostStagedata() || ! $stage->getGhostStagedata() instanceof GhostStageData) {
+            return null;
+        }
+
+        $sections = [];
+        foreach ($stage->getGhostStagedata()->getArySectionData() as $index => $section) {
+            $sections[$index] = [
+                'good_cnt' => (int) $section->getGoodCnt(),
+                'ok_cnt' => (int) $section->getOkCnt(),
+                'ng_cnt' => (int) $section->getNgCnt(),
+                'pound_cnt' => (int) $section->getPoundCnt(),
+            ];
+        }
+
+        return $sections ?: null;
     }
 }
