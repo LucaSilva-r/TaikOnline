@@ -48,6 +48,7 @@ class OperatorController extends Controller
                 ->limit(25)
                 ->get()
                 ->map(fn (SongPlayResult $result): array => [
+                    'game_version' => $result->game_version,
                     'song_no' => $result->song_no,
                     'level' => $result->level,
                     'score' => $result->score,
@@ -55,6 +56,7 @@ class OperatorController extends Controller
                     'played_at' => optional($result->played_at)->toDateTimeString(),
                 ]),
             'bests' => $player->songBests->map(fn ($best): array => [
+                'game_version' => $best->game_version,
                 'song_no' => $best->song_no,
                 'level' => $best->level,
                 'best_score' => $best->best_score,
@@ -73,6 +75,7 @@ class OperatorController extends Controller
                 ->through(fn (SongPlayResult $result): array => [
                     'baid' => $result->baid,
                     'mydon_name' => $result->player?->mydon_name,
+                    'game_version' => $result->game_version,
                     'song_no' => $result->song_no,
                     'level' => $result->level,
                     'score' => $result->score,

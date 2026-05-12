@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\TaikoGameVersion;
+
 return [
     'game_url' => env('TAIKO_GREEN_GAME_URL', 'vsapi.taiko-p.jp'),
     'allnet_host' => env('TAIKO_GREEN_ALLNET_HOST', env('TAIKO_GREEN_DNS_ADDRESS', '127.0.0.1')),
@@ -10,6 +12,8 @@ return [
     'country' => env('TAIKO_GREEN_COUNTRY', 'JPN'),
     'region' => (int) env('TAIKO_GREEN_REGION', 1),
     'data_path' => env('TAIKO_GREEN_DATA_PATH', storage_path('app/game-data')),
+    'catalog_version' => env('TAIKO_GREEN_CATALOG_VERSION', TaikoGameVersion::Green->value),
+    'route_catalog_versions' => [],
     'traffic_log_enabled' => (bool) env('TAIKO_GREEN_TRAFFIC_LOG_ENABLED', true),
 
     'mucha_force_update' => (bool) env('TAIKO_GREEN_MUCHA_FORCE_UPDATE', false),

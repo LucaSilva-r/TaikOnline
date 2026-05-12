@@ -249,6 +249,7 @@ it('saves play results and updates self bests', function (): void {
 
     expect($response->getResult())->toBe(1)
         ->and(SongPlayResult::query()->count())->toBe(1)
+        ->and(SongPlayResult::query()->first()->game_version)->toBe('green')
         ->and(SongBest::query()->first()->best_score)->toBe(876543);
 
     $bestRequest = (new SelfBestRequest)
@@ -262,6 +263,35 @@ it('saves play results and updates self bests', function (): void {
 
     expect($bestResponse->getResult())->toBe(1)
         ->and($bestResponse->getArySelfbestScore()[0]->getSelfBestScore())->toBe(876543);
+});
+
+it('keeps self bests separate per catalog version', function (): void {
+    config()->set('taiko_green.route_catalog_versions', [
+        'v08r00' => 'ST-10100-1',
+        'v11r01' => 'ST-11100-1',
+    ]);
+
+    $player = Player::query()->create();
+
+    post_protobuf('/v08r00/chassis/playresult.php', play_result_request($player, 2, 900000), PlayResultResponse::class);
+    post_protobuf('/v11r01/chassis/playresult.php', play_result_request($player, 2, 700000), PlayResultResponse::class);
+
+    expect(SongBest::query()->count())->toBe(2)
+        ->and(SongBest::query()->where('game_version', 'blue')->first()->best_score)->toBe(900000)
+        ->and(SongBest::query()->where('game_version', 'green')->first()->best_score)->toBe(700000);
+
+    $selfBestRequest = (new SelfBestRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setLevel(3)
+        ->setArySongNo([2]);
+
+    $blueBest = post_protobuf('/v08r00/chassis/selfbest.php', $selfBestRequest, SelfBestResponse::class);
+    $greenBest = post_protobuf('/v11r01/chassis/selfbest.php', $selfBestRequest, SelfBestResponse::class);
+
+    expect($blueBest->getArySelfbestScore()[0]->getSelfBestScore())->toBe(900000)
+        ->and($greenBest->getArySelfbestScore()[0]->getSelfBestScore())->toBe(700000);
 });
 
 it('acknowledges anonymous play results without retrying', function (): void {
@@ -327,4 +357,42 @@ function post_protobuf(string $uri, Message $request, string $responseClass): Me
     $message->mergeFromString($response->getContent());
 
     return $message;
+}
+
+function play_result_request(Player $player, int $songNo, int $score): PlayResultRequest
+{
+    $stage = (new StageData)
+        ->setSongNo($songNo)
+        ->setLevel(3)
+        ->setPlayResult(2)
+        ->setPlayScore($score);
+
+    $data = (new PlayResultDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('2026-05-05 20:00:00')
+        ->setIsRight(true)
+        ->setCardType(1)
+        ->setIsTwoPlayers(false)
+        ->setAryStageInfo([$stage])
+        ->setBonusDailyFlg(false)
+        ->setBonusWeeklyFlg(false)
+        ->setBonusMonthlyFlg(false)
+        ->setGetDonmedal(0)
+        ->setGetKatsumedal(0)
+        ->setGenderType(0)
+        ->setPlayerAge(0)
+        ->setPlayMode(0)
+        ->setAreaCode(0)
+        ->setReserved('')
+        ->setDifficultyPlayedCourse(3)
+        ->setDifficultyPlayedStar(8);
+
+    return (new PlayResultRequest)
+        ->setBaidConf($player->baid)
+        ->setChassisIdConf('chassis')
+        ->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-05 20:00:00')
+        ->setPlayresultData(gzencode($data->serializeToString()));
 }
