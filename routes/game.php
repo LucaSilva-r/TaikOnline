@@ -4,6 +4,8 @@ use App\Http\Controllers\Green\AllNetController;
 use App\Http\Controllers\Green\GameProtocolController;
 use App\Http\Controllers\Green\VsInterfaceController;
 use App\Http\Middleware\LogGreenCabinetTraffic;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(LogGreenCabinetTraffic::class)->group(function (): void {
@@ -14,7 +16,7 @@ Route::middleware(LogGreenCabinetTraffic::class)->group(function (): void {
     Route::post('mucha_front/downloaderror.do', [AllNetController::class, 'muchaDownloadError']);
     Route::match(['get', 'head'], 'updUrl1/{file?}', [AllNetController::class, 'muchaChunkImage'])->where('file', '.*');
     Route::match(['get', 'head'], 'checkUrl/{file?}', [AllNetController::class, 'muchaChunkImage'])->where('file', '.*');
-    Route::post('mucha_activation/signature', [AllNetController::class, 'activationSignature']);
+    Route::post('muchja_activation/signature', [AllNetController::class, 'activationSignature']);
     Route::post('mucha_activation/otk', [AllNetController::class, 'activationOtk']);
     Route::post('v1/s12-jp-dev/garm.SystemBoard/RegisterSystemBoard', [AllNetController::class, 'garm']);
     Route::post('v1/s12-jp-dev/garm.SystemBoard/RegisterSystemBoardBilling', [AllNetController::class, 'garm']);
@@ -43,3 +45,22 @@ Route::middleware(LogGreenCabinetTraffic::class)->group(function (): void {
     Route::post('{version}/chassis/rewardexecution.php', [GameProtocolController::class, 'rewardExecution'])->where('version', 'v[0-9]{2}r[0-9]{2}');
     Route::post('{version}/chassis/headclerk2.php', [GameProtocolController::class, 'headClerk2'])->where('version', 'v[0-9]{2}r[0-9]{2}');
 });
+
+// Catch-all so we observe whatever the cabinet hits but we don't yet route.
+// Logs path + method + body to storage/logs/mucha.log so we can see what
+// test menu probes (e.g. network check 3) need next.
+Route::any('{any?}', function (Request $request) {
+    Log::channel('mucha')->warning('unhandled cab request', [
+        'method' => $request->method(),
+        'path' => '/'.ltrim($request->path(), '/'),
+        'host' => $request->getHost(),
+        'port' => $request->getPort(),
+        'query' => $request->query(),
+        'form' => $request->all(),
+        'body_sha256' => hash('sha256', $request->getContent()),
+        'body_hex_prefix' => bin2hex(substr($request->getContent(), 0, 64)),
+        'headers' => collect($request->headers->all())->only(['host', 'user-agent', 'content-type', 'content-length'])->all(),
+    ]);
+
+    return response('RESULTS=001&STATUS=1', 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+})->where('any', '.*')->fallback();

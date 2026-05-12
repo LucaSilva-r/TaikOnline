@@ -4,6 +4,7 @@
     import BookOpen from 'lucide-svelte/icons/book-open';
     import FolderGit2 from 'lucide-svelte/icons/folder-git-2';
     import Home from 'lucide-svelte/icons/home';
+    import Disc from 'lucide-svelte/icons/disc';
     import LayoutGrid from 'lucide-svelte/icons/layout-grid';
     import Server from 'lucide-svelte/icons/server';
     import ShieldCheck from 'lucide-svelte/icons/shield-check';
@@ -23,9 +24,11 @@
         SidebarMenuItem,
     } from '@/components/ui/sidebar';
     import { toUrl } from '@/lib/utils';
-    import { dashboard, recentPlays, status } from '@/routes/admin';
+    import adminRoute from '@/routes/admin';
     import adminPlayers from '@/routes/admin/players';
+    import adminSongs from '@/routes/admin/songs';
     import adminUsers from '@/routes/admin/users';
+    const { dashboard, recentPlays, status } = adminRoute;
     import { home } from '@/routes';
     import type { NavItem } from '@/types';
 
@@ -39,6 +42,7 @@
         { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
         { title: 'Players', href: adminPlayers.index(), icon: Users },
         { title: 'Recent Plays', href: recentPlays(), icon: Activity },
+        { title: 'Songs', href: adminSongs.index(), icon: Disc },
         { title: 'Server Status', href: status(), icon: Server },
         { title: 'Users', href: adminUsers.index(), icon: ShieldCheck },
     ];
