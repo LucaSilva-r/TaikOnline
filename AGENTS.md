@@ -53,6 +53,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 ## Documentation Files
 
+- Project documentation is located in the `docs/` folder.
 - You must only create documentation files if explicitly requested by the user.
 
 ## Replies
