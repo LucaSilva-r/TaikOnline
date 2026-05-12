@@ -1,5 +1,8 @@
 <?php
 
+use App\Enums\SongGenre;
+use App\Enums\SongPartsSet;
+use App\Enums\SongWai2PartsSet;
 use App\GameProtocol\Green\Proto\Taiko\BAIDRequest;
 use App\GameProtocol\Green\Proto\Taiko\BAIDResponse;
 use App\GameProtocol\Green\Proto\Taiko\ChallengeCompeRequest;
@@ -12,8 +15,12 @@ use App\GameProtocol\Green\Proto\Taiko\GetghostscoreRequest;
 use App\GameProtocol\Green\Proto\Taiko\GetghostscoreResponse;
 use App\GameProtocol\Green\Proto\Taiko\GettelopRequest;
 use App\GameProtocol\Green\Proto\Taiko\GettelopResponse;
+use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckRequest;
+use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckResponse;
 use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest;
 use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest\StageData;
+use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest\StageData\GhostStageData;
+use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest\StageData\GhostStageData\GhostStageSectionData;
 use App\GameProtocol\Green\Proto\Taiko\PlayResultRequest;
 use App\GameProtocol\Green\Proto\Taiko\PlayResultResponse;
 use App\GameProtocol\Green\Proto\Taiko\RecommendRequest;
@@ -34,6 +41,7 @@ use App\GameProtocol\Green\Proto\VsInterface\StartupAuthResponse;
 use App\Models\Cabinet;
 use App\Models\GameCard;
 use App\Models\Player;
+use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use Google\Protobuf\Internal\Message;
@@ -97,6 +105,47 @@ it('mirrors startup operation data', function (): void {
         ->and($response->getAryOperationInfo()[0]->getValueData())->toBe('abc');
 });
 
+it('returns default released songs during initial data check', function (): void {
+    create_song('green', 1);
+    create_song('green', 8);
+    create_song('blue', 9);
+
+    $request = (new InitialdatacheckRequest)
+        ->setChassisId('chassis')
+        ->setShopId('shop');
+
+    $response = post_protobuf('/v11r01/chassis/initialdatacheck.php', $request, InitialdatacheckResponse::class);
+
+    expect($response->getResult())->toBe(1)
+        ->and($response->getSongHashVer())->toBe(1)
+        ->and(ord($response->getHashDefaultSongFlg()[0]))->toBe(129)
+        ->and(ord($response->getHashDefaultSongFlg()[1]))->toBe(0);
+});
+
+it('returns carded player released songs from the route catalog version', function (): void {
+    config()->set('taiko_green.route_catalog_versions', [
+        'v08r00' => 'ST-10100-1',
+        'v11r01' => 'ST-11100-1',
+    ]);
+
+    create_song('green', 1);
+    create_song('blue', 9);
+
+    $player = Player::query()->create();
+    $request = (new UserDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop');
+
+    $greenResponse = post_protobuf('/v11r01/chassis/userdata.php', $request, UserDataResponse::class);
+    $blueResponse = post_protobuf('/v08r00/chassis/userdata.php', $request, UserDataResponse::class);
+
+    expect(ord($greenResponse->getHashReleaseSongFlg()[0]))->toBe(1)
+        ->and(ord($greenResponse->getHashReleaseSongFlg()[1]))->toBe(0)
+        ->and(ord($blueResponse->getHashReleaseSongFlg()[0]))->toBe(0)
+        ->and(ord($blueResponse->getHashReleaseSongFlg()[1]))->toBe(1);
+});
+
 it('supports the reference green optional game endpoints', function (): void {
     $endpoints = [
         ['/v11r01/chassis/recommend.php', (new RecommendRequest)->setChassisId('chassis')->setShopId('shop'), RecommendResponse::class],
@@ -143,7 +192,7 @@ it('returns placeholder ghost battle player data', function (): void {
         ->and($response->getPlayedSongFlag())->toHaveLength(512);
 });
 
-it('returns placeholder ghost battle score sections', function (): void {
+it('returns empty ghost battle score sections when no data exists', function (): void {
     $request = (new GetghostscoreRequest)
         ->setChassisId('chassis')
         ->setShopId('shop')
@@ -154,8 +203,124 @@ it('returns placeholder ghost battle score sections', function (): void {
     $response = post_protobuf('/v11r01/chassis/getghostscore.php', $request, GetghostscoreResponse::class);
 
     expect($response->getResult())->toBe(1)
-        ->and($response->getAryBestSectionData())->toHaveCount(100)
-        ->and($response->getAryBestSectionData()[0]->getSectionNo())->toBe(1);
+        ->and($response->getAryBestSectionData())->toHaveCount(0);
+});
+
+it('stores ghost battle sections and serves the best play per player', function (): void {
+    $player = Player::query()->create();
+
+    $ghostStageData1 = new GhostStageData([
+        'ary_section_data' => [
+            new GhostStageSectionData(['good_cnt' => 100, 'ok_cnt' => 5, 'ng_cnt' => 2, 'pound_cnt' => 3]),
+            new GhostStageSectionData(['good_cnt' => 95, 'ok_cnt' => 8, 'ng_cnt' => 4, 'pound_cnt' => 1]),
+        ],
+    ]);
+
+    $ghostStageData2 = new GhostStageData([
+        'ary_section_data' => [
+            new GhostStageSectionData(['good_cnt' => 80, 'ok_cnt' => 15, 'ng_cnt' => 10, 'pound_cnt' => 0]),
+            new GhostStageSectionData(['good_cnt' => 70, 'ok_cnt' => 20, 'ng_cnt' => 5, 'pound_cnt' => 2]),
+        ],
+    ]);
+
+    $stage1 = (new StageData)
+        ->setSongNo(100)->setLevel(3)->setPlayResult(2)->setPlayScore(876543)
+        ->setGoodCnt(500)->setOkCnt(20)->setNgCnt(3)->setPoundCnt(11)
+        ->setComboCnt(450)->setHitCnt(523)->setMusicCateg(1)
+        ->setSelectedFolderId(7)->setStarLevel(8)->setSupportLevel(0)
+        ->setGhostStagedata($ghostStageData1);
+
+    $data1 = (new PlayResultDataRequest)
+        ->setBaid($player->baid)->setChassisId('chassis')->setShopId('shop')
+        ->setPlayDatetime('2026-05-05 20:00:00')->setIsRight(true)->setCardType(1)
+        ->setIsTwoPlayers(false)->setAryStageInfo([$stage1])
+        ->setBonusDailyFlg(false)->setBonusWeeklyFlg(false)->setBonusMonthlyFlg(false)
+        ->setGetDonmedal(0)->setGetKatsumedal(0)->setGenderType(0)
+        ->setPlayerAge(0)->setPlayMode(0)->setAreaCode(0)->setReserved('')
+        ->setDifficultyPlayedCourse(3)->setDifficultyPlayedStar(8);
+
+    $request1 = (new PlayResultRequest)
+        ->setBaidConf($player->baid)->setChassisIdConf('chassis')->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-05 20:00:00')
+        ->setPlayresultData(gzencode($data1->serializeToString()));
+
+    $response1 = post_protobuf('/v08r00/chassis/playresult.php', $request1, PlayResultResponse::class);
+    expect($response1->getResult())->toBe(1);
+
+    $stage2 = (new StageData)
+        ->setSongNo(100)->setLevel(3)->setPlayResult(2)->setPlayScore(850000)
+        ->setGoodCnt(480)->setOkCnt(25)->setNgCnt(5)->setPoundCnt(8)
+        ->setComboCnt(430)->setHitCnt(500)->setMusicCateg(1)
+        ->setSelectedFolderId(7)->setStarLevel(8)->setSupportLevel(0)
+        ->setGhostStagedata($ghostStageData2);
+
+    $data2 = (new PlayResultDataRequest)
+        ->setBaid($player->baid)->setChassisId('chassis')->setShopId('shop')
+        ->setPlayDatetime('2026-05-05 21:00:00')->setIsRight(true)->setCardType(1)
+        ->setIsTwoPlayers(false)->setAryStageInfo([$stage2])
+        ->setBonusDailyFlg(false)->setBonusWeeklyFlg(false)->setBonusMonthlyFlg(false)
+        ->setGetDonmedal(0)->setGetKatsumedal(0)->setGenderType(0)
+        ->setPlayerAge(0)->setPlayMode(0)->setAreaCode(0)->setReserved('')
+        ->setDifficultyPlayedCourse(3)->setDifficultyPlayedStar(8);
+
+    $request2 = (new PlayResultRequest)
+        ->setBaidConf($player->baid)->setChassisIdConf('chassis')->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-05 21:00:00')
+        ->setPlayresultData(gzencode($data2->serializeToString()));
+
+    $response2 = post_protobuf('/v08r00/chassis/playresult.php', $request2, PlayResultResponse::class);
+    expect($response2->getResult())->toBe(1);
+
+    expect(SongPlayResult::query()->whereNotNull('ghost_sections')->count())->toBe(2);
+
+    $storedGhost = SongPlayResult::query()->where('song_no', 100)->firstOrFail()->ghost_sections;
+    expect($storedGhost[0]['good_cnt'])->toBe(100)
+        ->and($storedGhost[1]['ok_cnt'])->toBe(8);
+
+    $ghostScoreRequest = (new GetghostscoreRequest)
+        ->setChassisId('chassis')->setShopId('shop')
+        ->setBaid(1)->setSongNo(100)->setLevel(3);
+
+    $ghostScoreResponse = post_protobuf('/v11r01/chassis/getghostscore.php', $ghostScoreRequest, GetghostscoreResponse::class);
+    expect($ghostScoreResponse->getResult())->toBe(1)
+        ->and(count(iterator_to_array($ghostScoreResponse->getAryBestSectionData())))->toBe(2);
+
+    $sections = iterator_to_array($ghostScoreResponse->getAryBestSectionData());
+    expect($sections[0]->getGoodCnt())->toBe(100)
+        ->and($sections[1]->getOkCnt())->toBe(8);
+});
+
+it('keeps ghost battle sections separate per catalog version', function (): void {
+    config()->set('taiko_green.route_catalog_versions', [
+        'v08r00' => 'ST-10100-1',
+        'v11r01' => 'ST-11100-1',
+    ]);
+
+    $player = Player::query()->create();
+
+    post_protobuf(
+        '/v08r00/chassis/playresult.php',
+        play_result_request($player, 200, 900000, ghost_stage_data(12)),
+        PlayResultResponse::class,
+    );
+    post_protobuf(
+        '/v11r01/chassis/playresult.php',
+        play_result_request($player, 200, 700000, ghost_stage_data(34)),
+        PlayResultResponse::class,
+    );
+
+    $request = (new GetghostscoreRequest)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setBaid($player->baid)
+        ->setSongNo(200)
+        ->setLevel(3);
+
+    $blue = post_protobuf('/v08r00/chassis/getghostscore.php', $request, GetghostscoreResponse::class);
+    $green = post_protobuf('/v11r01/chassis/getghostscore.php', $request, GetghostscoreResponse::class);
+
+    expect($blue->getAryBestSectionData()[0]->getGoodCnt())->toBe(12)
+        ->and($green->getAryBestSectionData()[0]->getGoodCnt())->toBe(34);
 });
 
 it('creates and reloads cards through baidcheck', function (): void {
@@ -359,13 +524,17 @@ function post_protobuf(string $uri, Message $request, string $responseClass): Me
     return $message;
 }
 
-function play_result_request(Player $player, int $songNo, int $score): PlayResultRequest
+function play_result_request(Player $player, int $songNo, int $score, ?GhostStageData $ghostStageData = null): PlayResultRequest
 {
     $stage = (new StageData)
         ->setSongNo($songNo)
         ->setLevel(3)
         ->setPlayResult(2)
         ->setPlayScore($score);
+
+    if ($ghostStageData instanceof GhostStageData) {
+        $stage->setGhostStagedata($ghostStageData);
+    }
 
     $data = (new PlayResultDataRequest)
         ->setBaid($player->baid)
@@ -395,4 +564,29 @@ function play_result_request(Player $player, int $songNo, int $score): PlayResul
         ->setShopIdConf('shop')
         ->setPlayDatetimeConf('2026-05-05 20:00:00')
         ->setPlayresultData(gzencode($data->serializeToString()));
+}
+
+function create_song(string $version, int $songNo): Song
+{
+    return Song::query()->create([
+        'version' => $version,
+        'song_no' => $songNo,
+        'music_id' => "{$version}-{$songNo}",
+        'unique_id' => $songNo,
+        'title' => "Song {$songNo}",
+        'genre' => SongGenre::Jpop,
+        'partsset' => SongPartsSet::Taiko,
+        'wai2_partsset' => SongWai2PartsSet::Taiko,
+        'flags' => [],
+        'tags' => [],
+    ]);
+}
+
+function ghost_stage_data(int $goodCount): GhostStageData
+{
+    return new GhostStageData([
+        'ary_section_data' => [
+            new GhostStageSectionData(['good_cnt' => $goodCount, 'ok_cnt' => 1, 'ng_cnt' => 0, 'pound_cnt' => 0]),
+        ],
+    ]);
 }

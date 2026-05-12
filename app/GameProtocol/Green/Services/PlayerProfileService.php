@@ -11,6 +11,7 @@ use App\GameProtocol\Green\Proto\Taiko\UserDataResponse;
 use App\GameProtocol\Green\Support\ScoreMapper;
 use App\Models\GameCard;
 use App\Models\Player;
+use App\Models\Song;
 use Illuminate\Support\Str;
 
 class PlayerProfileService
@@ -75,7 +76,7 @@ class PlayerProfileService
             ->setPersonid($card->player->person_id);
     }
 
-    public function userData(Player $player): UserDataResponse
+    public function userData(Player $player, string $gameVersion): UserDataResponse
     {
         return (new UserDataResponse)
             ->setResult(1)
@@ -83,7 +84,7 @@ class PlayerProfileService
             ->setAryFavoriteSongNo($player->favorite_song_numbers ?? [])
             ->setAryRecentSongNo($player->recent_song_numbers ?? [])
             ->setSongHashVer(1)
-            ->setHashReleaseSongFlg($this->scoreMapper->emptyFlagBytes())
+            ->setHashReleaseSongFlg($this->releaseSongFlag($gameVersion))
             ->setIsDevil(false)
             ->setDispScoreType(0)
             ->setAryFriendInfo([])
@@ -106,6 +107,16 @@ class PlayerProfileService
             ->setDifficultyPlayedStar((int) $player->difficulty_played_star)
             ->setIsChallengecompe(false)
             ->setIsTojiru(false);
+    }
+
+    private function releaseSongFlag(string $gameVersion): string
+    {
+        $songNumbers = Song::query()
+            ->where('version', $gameVersion)
+            ->pluck('song_no')
+            ->map(fn (mixed $songNo): int => (int) $songNo);
+
+        return $this->scoreMapper->songFlagBytes($songNumbers);
     }
 
     private function baidResponse(Player $player, string $accessCode, bool $isNew): BAIDResponse
