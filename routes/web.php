@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\SongController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Green\OperatorController;
 use Illuminate\Support\Facades\Route;
@@ -19,6 +20,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('players', [OperatorController::class, 'players'])->name('players.index');
         Route::get('players/{player}', [OperatorController::class, 'player'])->name('players.show');
         Route::get('recent-plays', [OperatorController::class, 'recentPlays'])->name('recent-plays');
+        Route::get('songs', [SongController::class, 'index'])->name('songs.index');
         Route::get('status', [OperatorController::class, 'status'])->name('status');
 
         Route::get('users', [UserController::class, 'index'])->name('users.index');
