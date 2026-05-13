@@ -29,6 +29,7 @@ enum SongPartsSet: string
     case Pzd = 'pzd';
     case Taiko = 'taiko';
     case Toho = 'toho';
+    case Touken = 'touken';
     case Tt = 'tt';
     case Ymck = 'ymck';
     case Yokai = 'yokai';
@@ -65,6 +66,7 @@ enum SongPartsSet: string
             self::Pzd => 'Puzzle & Dragons',
             self::Taiko => 'Taiko Original',
             self::Toho => 'Toho',
+            self::Touken => 'Touken Ranbu',
             self::Tt => 'TT',
             self::Ymck => 'YMCK',
             self::Yokai => 'Yo-kai Watch',

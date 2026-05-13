@@ -14,9 +14,9 @@ fi
 TMP="$ROOT/storage/framework/protobuf-generated"
 rm -rf "$ROOT/app/GameProtocol/Green/Proto" "$TMP"
 mkdir -p "$TMP"
-"$PROTOC" --proto_path="$ROOT/protobuf" --php_out="$TMP" \
-    "$ROOT/protobuf/taiko.proto" \
-    "$ROOT/protobuf/vsinterface.proto"
+"$PROTOC" --proto_path="$ROOT/protobuf/green" --php_out="$TMP" \
+    "$ROOT/protobuf/green/taiko.proto" \
+    "$ROOT/protobuf/green/vsinterface.proto"
 
 mkdir -p "$ROOT/app/GameProtocol"
 mv "$TMP/App/GameProtocol/Green/Proto" "$ROOT/app/GameProtocol/Green/"

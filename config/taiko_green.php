@@ -13,7 +13,13 @@ return [
     'region' => (int) env('TAIKO_GREEN_REGION', 1),
     'data_path' => env('TAIKO_GREEN_DATA_PATH', storage_path('app/game-data')),
     'catalog_version' => env('TAIKO_GREEN_CATALOG_VERSION', TaikoGameVersion::Green->value),
-    'route_catalog_versions' => [],
+    'route_catalog_versions' => [
+        'v10' => TaikoGameVersion::Blue->value,
+        'v11' => TaikoGameVersion::Green->value,
+    ],
+    'startup_movie_ids' => [
+        'v11' => 154,
+    ],
     'traffic_log_enabled' => (bool) env('TAIKO_GREEN_TRAFFIC_LOG_ENABLED', true),
 
     'mucha_force_update' => (bool) env('TAIKO_GREEN_MUCHA_FORCE_UPDATE', false),
