@@ -90,8 +90,10 @@ class OperatorController extends Controller
         return Inertia::render('admin/Status', [
             'gameData' => $catalog->status(),
             'protobuf' => [
-                'taiko' => file_exists(base_path('protobuf/taiko.proto')),
-                'vsinterface' => file_exists(base_path('protobuf/vsinterface.proto')),
+                'taiko' => file_exists(base_path('protobuf/green/taiko.proto')),
+                'vsinterface' => file_exists(base_path('protobuf/green/vsinterface.proto')),
+                'taiko_blue' => file_exists(base_path('protobuf/blue/taiko.proto')),
+                'vsinterface_blue' => file_exists(base_path('protobuf/blue/vsinterface.proto')),
                 'generated' => file_exists(app_path('GameProtocol/Green/Proto/Taiko/BAIDRequest.php')),
             ],
         ]);

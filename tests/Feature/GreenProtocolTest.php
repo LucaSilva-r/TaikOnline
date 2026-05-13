@@ -46,6 +46,7 @@ use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 
 uses(RefreshDatabase::class);
 
@@ -90,7 +91,7 @@ it('mirrors startup operation data', function (): void {
 
     $request = (new StartupAuthRequest)
         ->setChassisId('chassis')
-        ->setHddVer(1)
+        ->setHddVer(1113)
         ->setShopId('shop')
         ->setAryOperationInfo([
             (new StartupOperationData)->setKeyData(10)->setValueData('abc'),
@@ -101,6 +102,23 @@ it('mirrors startup operation data', function (): void {
     expect($response->getResult())->toBe(1)
         ->and($response->getAryMovieInfo()[0]->getMovieId())->toBe(154)
         ->and($response->getAryMovieInfo()[0]->getEnableDays())->toBe(9999)
+        ->and($response->getAryOperationInfo()[0]->getKeyData())->toBe(10)
+        ->and($response->getAryOperationInfo()[0]->getValueData())->toBe('abc');
+});
+
+it('does not advertise green startup movies to blue cabinets', function (): void {
+    $request = (new StartupAuthRequest)
+        ->setChassisId('chassis')
+        ->setHddVer(1010)
+        ->setShopId('shop')
+        ->setAryOperationInfo([
+            (new StartupOperationData)->setKeyData(10)->setValueData('abc'),
+        ]);
+
+    $response = post_protobuf('/v01r00/chassis/startupauth.php', $request, StartupAuthResponse::class);
+
+    expect($response->getResult())->toBe(1)
+        ->and(iterator_to_array($response->getAryMovieInfo()))->toBe([])
         ->and($response->getAryOperationInfo()[0]->getKeyData())->toBe(10)
         ->and($response->getAryOperationInfo()[0]->getValueData())->toBe('abc');
 });
@@ -120,6 +138,26 @@ it('returns default released songs during initial data check', function (): void
         ->and($response->getSongHashVer())->toBe(1)
         ->and(ord($response->getHashDefaultSongFlg()[0]))->toBe(129)
         ->and(ord($response->getHashDefaultSongFlg()[1]))->toBe(0);
+});
+
+it('uses the blue catalog for blue power on route revisions', function (): void {
+    create_song('green', 1);
+    create_song('blue', 9);
+
+    $request = (new InitialdatacheckRequest)
+        ->setChassisId('chassis')
+        ->setShopId('shop');
+
+    foreach (['v10r01', 'v10r02', 'v10r03'] as $routeVersion) {
+        $response = post_protobuf_raw("/{$routeVersion}/chassis/initialdatacheck.php", $request);
+        $body = $response->getContent();
+
+        expect(bin2hex(substr($body, 0, 7)))->toBe('080110011a8004')
+            ->and(ord($body[7]))->toBe(0)
+            ->and(ord($body[8]))->toBe(1)
+            ->and(str_contains($body, hex2bin('7001')))->toBeTrue()
+            ->and(str_contains($body, hex2bin('6801')))->toBeFalse();
+    }
 });
 
 it('returns carded player released songs from the route catalog version', function (): void {
@@ -507,6 +545,16 @@ it('acknowledges anonymous play results without retrying', function (): void {
  */
 function post_protobuf(string $uri, Message $request, string $responseClass): Message
 {
+    $response = post_protobuf_raw($uri, $request);
+
+    $message = new $responseClass;
+    $message->mergeFromString($response->getContent());
+
+    return $message;
+}
+
+function post_protobuf_raw(string $uri, Message $request): TestResponse
+{
     $response = test()->call(
         'POST',
         $uri,
@@ -518,10 +566,8 @@ function post_protobuf(string $uri, Message $request, string $responseClass): Me
     );
 
     $response->assertOk();
-    $message = new $responseClass;
-    $message->mergeFromString($response->getContent());
 
-    return $message;
+    return $response;
 }
 
 function play_result_request(Player $player, int $songNo, int $score, ?GhostStageData $ghostStageData = null): PlayResultRequest

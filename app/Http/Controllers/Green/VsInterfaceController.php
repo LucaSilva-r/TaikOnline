@@ -13,6 +13,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Cabinet;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Config;
 
 class VsInterfaceController extends Controller
 {
@@ -58,16 +59,20 @@ class VsInterfaceController extends Controller
                 ->setValueData(base64_decode($entry['value']));
         }
 
-        return $this->payloads->response(
-            (new StartupAuthResponse)
-                ->setResult(1)
-                ->setAryMovieInfo([
-                    (new MovieData)
-                        ->setMovieId(154)
-                        ->setEnableDays(9999),
-                ])
-                ->setAryOperationInfo($operations)
-        );
+        $response = (new StartupAuthResponse)
+            ->setResult(1)
+            ->setAryOperationInfo($operations);
+
+        $movieId = $this->startupMovieId($message->getHddVer());
+        if ($movieId !== null) {
+            $response->setAryMovieInfo([
+                (new MovieData)
+                    ->setMovieId($movieId)
+                    ->setEnableDays(9999),
+            ]);
+        }
+
+        return $this->payloads->response($response);
     }
 
     public function verupAuth(): Response
@@ -78,5 +83,17 @@ class VsInterfaceController extends Controller
     public function verupComplete(): Response
     {
         return $this->payloads->response((new VerupCompleteResponse)->setResult(1));
+    }
+
+    private function startupMovieId(int $hddVersion): ?int
+    {
+        $configured = Config::get("taiko_green.startup_movie_ids.{$hddVersion}");
+
+        if (! is_int($configured)) {
+            $majorVersion = sprintf('v%02d', intdiv($hddVersion, 100));
+            $configured = Config::get("taiko_green.startup_movie_ids.{$majorVersion}");
+        }
+
+        return is_int($configured) ? $configured : null;
     }
 }
