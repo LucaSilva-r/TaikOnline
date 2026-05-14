@@ -52,17 +52,33 @@ services:
         depends_on:
             - pgsql
 
-    tls-proxy:
+    legacy-tls-proxy:
         build:
-            context: './docker/tls-proxy'
-        image: 'taikonline/tls-proxy'
+            context: './docker/legacy-tls-proxy'
+        image: 'taikonline/legacy-tls-proxy'
         restart: unless-stopped
         ports:
-            # 10122 (Mucha) intentionally not exposed — see nginx.conf.
+            - '${TAIKO_GREEN_MUCHA_PORT:-10122}:10122'
             - '${TAIKO_GREEN_GAME_PORT_1:-54430}:54430'
             - '${TAIKO_GREEN_GAME_PORT_2:-54431}:54431'
             - '${TAIKO_GREEN_GAME_PORT_CN:-57402}:57402'
 #           - '${TAIKO_GREEN_GARMC_PORT:-443}:443'
+        environment:
+            BACKEND_HOST: 'laravel-app'
+            BACKEND_PORT: '8080'
+            LISTEN_PORTS: '10122,54430,54431,57402,443'
+            TAIKO_GREEN_CERT_PFX: '/certificates/cert.pfx'
+            TAIKO_GREEN_CERT_PASSWORD: '${TAIKO_GREEN_CERT_PASSWORD:-}'
+            CERT_10122_CHAIN: '/certificates/generated/mucha/chain.pem'
+            CERT_10122_KEY:   '/certificates/generated/mucha/leaf.key'
+            CERT_54430_CHAIN: '/certificates/generated/vsapi/chain.pem'
+            CERT_54430_KEY:   '/certificates/generated/vsapi/leaf.key'
+            CERT_54431_CHAIN: '/certificates/generated/vsapi/chain.pem'
+            CERT_54431_KEY:   '/certificates/generated/vsapi/leaf.key'
+            CERT_57402_CHAIN: '/certificates/generated/vsapi/chain.pem'
+            CERT_57402_KEY:   '/certificates/generated/vsapi/leaf.key'
+            CERT_443_CHAIN:   '/certificates/generated/vsapi/chain.pem'
+            CERT_443_KEY:     '/certificates/generated/vsapi/leaf.key'
         volumes:
             - './certificates:/certificates:ro'
         depends_on:
