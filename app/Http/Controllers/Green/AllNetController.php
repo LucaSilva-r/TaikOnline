@@ -75,7 +75,7 @@ class AllNetController extends Controller
             'DONGLE_FLG' => '1',
             'EXPIRATION_DATE' => '20351231',
             'FILE_URL' => $muchaGameUrl.'/file/',
-            'FORCE_BOOT' => '0',
+            'FORCE_BOOT' => '1',
             'PLACE_ID' => $placeId,
             'PREFECTURE_ID' => '14',
             'SERVER_TIME' => $serverTime,
@@ -123,14 +123,11 @@ class AllNetController extends Controller
         // decrypt always fails -> error 5-36 (UPDATE SERVER AUTH SIGNATURE).
         // Setting size to 0 (when not forced) makes the cabinet skip the
         // download/verify path entirely.
-        return $this->formResponse([
+        $response = [
             'RESULTS' => '001',
             'UPDATE_URL_1' => $muchaGameUrl.'/updUrl1/',
             'UPDATE_SIZE_1' => $chunkSize !== '0' ? $chunkSize : '0',
             'UPDATE_CRC_1' => '00000000',
-            'CHECK_URL_1' => $muchaGameUrl.'/checkUrl/',
-            'CHECK_SIZE_1' => $chunkSize !== '0' ? $chunkSize : '0',
-            'CHECK_CRC_1' => '00000000',
             'EXE_VER_1' => $advertisedVer,
             'INFO_SIZE_1' => '0',
             'COM_SIZE_1' => '0',
@@ -139,7 +136,15 @@ class AllNetController extends Controller
             'USER_ID' => '1',
             'PASSWORD' => '1',
             'EXE_VER' => $advertisedVer,
-        ]);
+        ];
+
+        if ($forced) {
+            $response['CHECK_URL_1'] = $muchaGameUrl.'/checkUrl/';
+            $response['CHECK_SIZE_1'] = $chunkSize;
+            $response['CHECK_CRC_1'] = '00000000';
+        }
+
+        return $this->formResponse($response);
     }
 
     public function muchaChunkImage(Request $request): BinaryFileResponse|Response
