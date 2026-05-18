@@ -16,6 +16,10 @@ address=/dslrouter.loc/${TAIKO_GREEN_DNS_ADDRESS}
 address=/naominet.jp/${TAIKO_GREEN_DNS_ADDRESS}
 address=/v402-front.mucha-prd.nbgi-amnet.jp/${TAIKO_GREEN_DNS_ADDRESS}
 address=/vsapi.taiko-p.jp/${TAIKO_GREEN_DNS_ADDRESS}
+address=/donderhiroba.jp/${TAIKO_GREEN_DNS_ADDRESS}
+address=/gsapi.donderhiroba.jp/${TAIKO_GREEN_DNS_ADDRESS}
+address=/vsapi.donderhiroba.jp/${TAIKO_GREEN_DNS_ADDRESS}
+address=/dhcp01.prv.mucha-prd.nbgi-amnet.jp/${TAIKO_GREEN_DNS_ADDRESS}
 EOF
 
 exec dnsmasq --conf-file=/etc/dnsmasq.conf
