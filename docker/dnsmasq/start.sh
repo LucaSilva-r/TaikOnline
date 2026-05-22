@@ -15,6 +15,7 @@ address=/mobirouter.loc/${TAIKO_GREEN_DNS_ADDRESS}
 address=/tenporouter.loc/${TAIKO_GREEN_DNS_ADDRESS}
 address=/bbrouter.loc/${TAIKO_GREEN_DNS_ADDRESS}
 address=/dslrouter.loc/${TAIKO_GREEN_DNS_ADDRESS}
+address=/nbgi.loc/${TAIKO_GREEN_DNS_ADDRESS}
 address=/naominet.jp/${TAIKO_GREEN_DNS_ADDRESS}
 address=/v402-front.mucha-prd.nbgi-amnet.jp/${TAIKO_GREEN_DNS_ADDRESS}
 address=/vsapi.taiko-p.jp/${TAIKO_GREEN_DNS_ADDRESS}
