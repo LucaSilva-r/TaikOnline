@@ -8,6 +8,8 @@ cat > /etc/dnsmasq.conf <<EOF
 no-daemon
 log-queries
 log-facility=-
+no-resolv
+local-service
 server=${TAIKO_GREEN_DNS_UPSTREAM}
 address=/mobirouter.loc/${TAIKO_GREEN_DNS_ADDRESS}
 address=/tenporouter.loc/${TAIKO_GREEN_DNS_ADDRESS}
