@@ -32,18 +32,13 @@ services:
             - 'traefik.http.routers.taikonline.tls.certresolver=lets-encrypt'
             - 'traefik.http.routers.taikonline.service=taikonline'
             - 'traefik.http.services.taikonline.loadbalancer.server.port=8080'
+            # - 'traefik.http.routers.taikonline.middlewares=strip-cabinet-headers'
 
-            - 'traefik.http.routers.taiko-green-http.entrypoints=web'
-            - 'traefik.http.routers.taiko-green-http.rule=Host(`naominet.jp`)'
-            - 'traefik.http.routers.taiko-green-http.priority=1000'
-            - 'traefik.http.routers.taiko-green-http.service=taikonline'
-            - 'traefik.http.routers.taiko-green-http.tls=false'
-            - 'traefik.http.routers.taiko-green-http.middlewares=strip-cabinet-headers'
-            - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.Host='
-            - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.X-Powered-By='
-            - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.Cache-Control='
-            - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.Expires='
-            - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.Pragma='
+            # - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.Host='
+            # - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.X-Powered-By='
+            # - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.Cache-Control='
+            # - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.Expires='
+            # - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.Pragma='
 
         networks:
             main:
@@ -52,45 +47,6 @@ services:
         depends_on:
             - pgsql
 
-    tls-proxy:
-        build:
-            context: './docker/tls-proxy'
-        image: 'taikonline/tls-proxy'
-        restart: unless-stopped
-        ports:
-            # 10122 (Mucha) intentionally not exposed — see nginx.conf.
-            - '${TAIKO_GREEN_GAME_PORT_1:-54430}:54430'
-            - '${TAIKO_GREEN_GAME_PORT_2:-54431}:54431'
-            - '${TAIKO_GREEN_GAME_PORT_CN:-57402}:57402'
-#           - '${TAIKO_GREEN_GARMC_PORT:-443}:443'
-        volumes:
-            - './certificates:/certificates:ro'
-        depends_on:
-            - laravel.test
-        labels:
-            - 'traefik.enable=true'
-            - 'traefik.docker.network=main'
-            - 'traefik.tcp.routers.taiko-green-garmc.entrypoints=websecure'
-            - 'traefik.tcp.routers.taiko-green-garmc.rule=HostSNI(`vsapi.taiko-p.jp`) || HostSNI(`v402-front.mucha-prd.nbgi-amnet.jp`) || HostSNI(`mobirouter.loc`) || HostSNI(`tenporouter.loc`) || HostSNI(`bbrouter.loc`) || HostSNI(`dslrouter.loc`)'
-            - 'traefik.tcp.routers.taiko-green-garmc.tls.passthrough=true'
-            - 'traefik.tcp.services.taiko-green-garmc.loadbalancer.server.port=443'
-            - 'traefik.http.routers.taiko-green-garmc.tls=false'
-        networks:
-            - main
-
-    dnsmasq:
-        build:
-            context: './docker/dnsmasq'
-        image: 'taikonline/dnsmasq'
-        restart: unless-stopped
-        ports:
-            - '13789:53/udp'
-            - '13789:53/tcp'
-        environment:
-            TAIKO_GREEN_DNS_ADDRESS: '${TAIKO_GREEN_DNS_ADDRESS:-127.0.0.1}'
-            TAIKO_GREEN_DNS_UPSTREAM: '${TAIKO_GREEN_DNS_UPSTREAM:-1.1.1.1}'
-        networks:
-            - main
     pgsql:
         image: 'postgres:18-alpine'
         ports:

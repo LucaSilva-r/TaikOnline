@@ -29,47 +29,6 @@ services:
         depends_on:
             - pgsql
         restart: unless-stopped
-    tls-proxy:
-        build:
-            context: './docker/tls-proxy'
-        image: 'taikonline/tls-proxy'
-        restart: unless-stopped
-        ports:
-            - '${TAIKO_GREEN_MUCHA_PORT:-10122}:10122'
-            - '${TAIKO_GREEN_GAME_PORT_1:-54430}:54430'
-            - '${TAIKO_GREEN_GAME_PORT_2:-54431}:54431'
-            - '${TAIKO_GREEN_GAME_PORT_CN:-57402}:57402'
-            - '${TAIKO_GREEN_GARMC_PORT:-443}:443'
-        volumes:
-            - './certificates:/certificates:ro'
-        networks:
-            - sail
-        depends_on:
-            - laravel.test
-    cabinet-http-proxy:
-        image: 'nginx:1.29-alpine'
-        restart: unless-stopped
-        ports:
-            - '${TAIKO_GREEN_HTTP_PORT:-80}:80'
-        volumes:
-            - './docker/cabinet-http-proxy/nginx.conf:/etc/nginx/nginx.conf:ro'
-        networks:
-            - sail
-        depends_on:
-            - laravel.test
-    dnsmasq:
-        build:
-            context: './docker/dnsmasq'
-        image: 'taikonline/dnsmasq'
-        restart: unless-stopped
-        ports:
-            - '${TAIKO_GREEN_DNS_BIND:-127.0.0.1}:${TAIKO_GREEN_DNS_PORT:-53}:53/udp'
-            - '${TAIKO_GREEN_DNS_BIND:-127.0.0.1}:${TAIKO_GREEN_DNS_PORT:-53}:53/tcp'
-        environment:
-            TAIKO_GREEN_DNS_ADDRESS: '${TAIKO_GREEN_DNS_ADDRESS:-127.0.0.1}'
-            TAIKO_GREEN_DNS_UPSTREAM: '${TAIKO_GREEN_DNS_UPSTREAM:-1.1.1.1}'
-        networks:
-            - sail
     pgsql:
         image: 'postgres:18-alpine'
         container_name: pgsql
