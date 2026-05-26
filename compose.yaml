@@ -11,7 +11,7 @@ services:
         expose:
             - '8080'
         ports:
-            - '${APP_PORT:-8080}:8080'
+            #- '${APP_PORT:-8080}:8080'
             - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
         environment:
             WWWUSER: '${WWWUSER}'
@@ -29,6 +29,20 @@ services:
         depends_on:
             - pgsql
         restart: unless-stopped
+    tls-proxy:
+        build:
+            context: './docker/tls-proxy'
+            dockerfile: Dockerfile
+        ports:
+            - '${HTTPS_PORT:-443}:443'
+        volumes:
+            - './certificates/local:/certificates/local:ro'
+        networks:
+            - sail
+        depends_on:
+            - laravel.test
+        restart: unless-stopped
+
     pgsql:
         image: 'postgres:18-alpine'
         container_name: pgsql
