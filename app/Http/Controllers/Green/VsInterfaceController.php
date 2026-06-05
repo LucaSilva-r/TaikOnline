@@ -2,12 +2,9 @@
 
 namespace App\Http\Controllers\Green;
 
-use App\GameProtocol\Green\Proto\VsInterface\StartupAuthRequest;
-use App\GameProtocol\Green\Proto\VsInterface\StartupAuthResponse;
-use App\GameProtocol\Green\Proto\VsInterface\StartupAuthResponse\MovieData;
-use App\GameProtocol\Green\Proto\VsInterface\StartupAuthResponse\OperationData;
-use App\GameProtocol\Green\Proto\VsInterface\VerupAuthResponse;
-use App\GameProtocol\Green\Proto\VsInterface\VerupCompleteResponse;
+use App\Enums\TaikoGameVersion;
+use App\GameProtocol\Green\Support\MessageWriter;
+use App\GameProtocol\Green\Support\ProtocolMessageResolver;
 use App\GameProtocol\Green\Support\ProtocolPayloads;
 use App\Http\Controllers\Controller;
 use App\Models\Cabinet;
@@ -17,12 +14,19 @@ use Illuminate\Support\Facades\Config;
 
 class VsInterfaceController extends Controller
 {
-    public function __construct(private readonly ProtocolPayloads $payloads) {}
+    public function __construct(
+        private readonly ProtocolPayloads $payloads,
+        private readonly ProtocolMessageResolver $messages,
+        private readonly MessageWriter $writer,
+    ) {}
 
-    public function startupAuth(Request $request): Response
+    public function startupAuth(Request $request, string $version): Response
     {
-        /** @var StartupAuthRequest $message */
-        $message = $this->payloads->parse($request->getContent(), StartupAuthRequest::class);
+        $game = $this->version($version);
+        $message = $this->payloads->parse(
+            $request->getContent(),
+            $this->messages->class($game, 'StartupAuthRequest', 'VsInterface'),
+        );
 
         $serial = $message->getChassisId();
         $cabinet = $serial !== '' ? Cabinet::query()->whereKey($serial)->first() : null;
@@ -54,35 +58,60 @@ class VsInterfaceController extends Controller
 
         $operations = [];
         foreach ($payload as $entry) {
-            $operations[] = (new OperationData)
-                ->setKeyData((int) $entry['key'])
-                ->setValueData(base64_decode($entry['value']));
+            $operations[] = $this->writer->fill(
+                $this->messages->make($game, 'StartupAuthResponse\\OperationData', 'VsInterface'),
+                [
+                    'setKeyData' => (int) $entry['key'],
+                    'setValueData' => base64_decode($entry['value']),
+                ],
+            );
         }
 
-        $response = (new StartupAuthResponse)
-            ->setResult(1)
-            ->setAryOperationInfo($operations);
+        $response = $this->writer->fill(
+            $this->messages->make($game, 'StartupAuthResponse', 'VsInterface'),
+            [
+                'setResult' => 1,
+                'setAryOperationInfo' => $operations,
+            ],
+        );
 
         $movieId = $this->startupMovieId($message->getHddVer());
         if ($movieId !== null) {
-            $response->setAryMovieInfo([
-                (new MovieData)
-                    ->setMovieId($movieId)
-                    ->setEnableDays(9999),
+            $this->writer->set($response, 'setAryMovieInfo', [
+                $this->writer->fill(
+                    $this->messages->make($game, 'StartupAuthResponse\\MovieData', 'VsInterface'),
+                    [
+                        'setMovieId' => $movieId,
+                        'setEnableDays' => 9999,
+                    ],
+                ),
             ]);
         }
 
         return $this->payloads->response($response);
     }
 
-    public function verupAuth(): Response
+    public function verupAuth(Request $request, string $version): Response
     {
-        return $this->payloads->response((new VerupAuthResponse)->setResult(1));
+        $game = $this->version($version);
+
+        return $this->payloads->response(
+            $this->writer->set($this->messages->make($game, 'VerupAuthResponse', 'VsInterface'), 'setResult', 1)
+        );
     }
 
-    public function verupComplete(): Response
+    public function verupComplete(Request $request, string $version): Response
     {
-        return $this->payloads->response((new VerupCompleteResponse)->setResult(1));
+        $game = $this->version($version);
+
+        return $this->payloads->response(
+            $this->writer->set($this->messages->make($game, 'VerupCompleteResponse', 'VsInterface'), 'setResult', 1)
+        );
+    }
+
+    private function version(string $routeVersion): TaikoGameVersion
+    {
+        return TaikoGameVersion::fromRouteVersion($routeVersion) ?? TaikoGameVersion::Green;
     }
 
     private function startupMovieId(int $hddVersion): ?int

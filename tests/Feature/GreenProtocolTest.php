@@ -3,41 +3,46 @@
 use App\Enums\SongGenre;
 use App\Enums\SongPartsSet;
 use App\Enums\SongWai2PartsSet;
-use App\GameProtocol\Green\Proto\Taiko\BAIDRequest;
-use App\GameProtocol\Green\Proto\Taiko\BAIDResponse;
-use App\GameProtocol\Green\Proto\Taiko\ChallengeCompeRequest;
-use App\GameProtocol\Green\Proto\Taiko\ChallengeCompeResponse;
-use App\GameProtocol\Green\Proto\Taiko\GetfolderRequest;
-use App\GameProtocol\Green\Proto\Taiko\GetfolderResponse;
-use App\GameProtocol\Green\Proto\Taiko\GetghostdataRequest;
-use App\GameProtocol\Green\Proto\Taiko\GetghostdataResponse;
-use App\GameProtocol\Green\Proto\Taiko\GetghostscoreRequest;
-use App\GameProtocol\Green\Proto\Taiko\GetghostscoreResponse;
-use App\GameProtocol\Green\Proto\Taiko\GettelopRequest;
-use App\GameProtocol\Green\Proto\Taiko\GettelopResponse;
-use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckRequest;
-use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckResponse;
-use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest;
-use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest\StageData;
-use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest\StageData\GhostStageData;
-use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest\StageData\GhostStageData\GhostStageSectionData;
-use App\GameProtocol\Green\Proto\Taiko\PlayResultRequest;
-use App\GameProtocol\Green\Proto\Taiko\PlayResultResponse;
-use App\GameProtocol\Green\Proto\Taiko\RecommendRequest;
-use App\GameProtocol\Green\Proto\Taiko\RecommendResponse;
-use App\GameProtocol\Green\Proto\Taiko\RewardcardcheckRequest;
-use App\GameProtocol\Green\Proto\Taiko\RewardcardcheckResponse;
-use App\GameProtocol\Green\Proto\Taiko\RewardexecutionRequest;
-use App\GameProtocol\Green\Proto\Taiko\RewardexecutionResponse;
-use App\GameProtocol\Green\Proto\Taiko\SelfBestRequest;
-use App\GameProtocol\Green\Proto\Taiko\SelfBestResponse;
-use App\GameProtocol\Green\Proto\Taiko\TournamentcheckRequest;
-use App\GameProtocol\Green\Proto\Taiko\TournamentcheckResponse;
-use App\GameProtocol\Green\Proto\Taiko\UserDataRequest;
-use App\GameProtocol\Green\Proto\Taiko\UserDataResponse;
-use App\GameProtocol\Green\Proto\VsInterface\StartupAuthRequest;
-use App\GameProtocol\Green\Proto\VsInterface\StartupAuthRequest\OperationData as StartupOperationData;
-use App\GameProtocol\Green\Proto\VsInterface\StartupAuthResponse;
+use App\Enums\TaikoGameVersion;
+use App\GameProtocol\Green\Proto\Green\Taiko\BAIDRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\BAIDResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\BookKeepingRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\BookKeepingResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\ChallengeCompeRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\ChallengeCompeResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\GetfolderRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\GetfolderResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\GetghostdataRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\GetghostdataResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\GetghostscoreRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\GetghostscoreResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\GettelopRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\GettelopResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\InitialdatacheckRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\InitialdatacheckResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\PlayResultDataRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\PlayResultDataRequest\StageData;
+use App\GameProtocol\Green\Proto\Green\Taiko\PlayResultDataRequest\StageData\GhostStageData;
+use App\GameProtocol\Green\Proto\Green\Taiko\PlayResultDataRequest\StageData\GhostStageData\GhostStageSectionData;
+use App\GameProtocol\Green\Proto\Green\Taiko\PlayResultRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\PlayResultResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\RecommendRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\RecommendResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\RewardcardcheckRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\RewardcardcheckResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\RewardexecutionRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\RewardexecutionResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\SelfBestRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\SelfBestResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\TournamentcheckRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\TournamentcheckResponse;
+use App\GameProtocol\Green\Proto\Green\Taiko\UserDataRequest;
+use App\GameProtocol\Green\Proto\Green\Taiko\UserDataResponse;
+use App\GameProtocol\Green\Proto\Green\VsInterface\StartupAuthRequest;
+use App\GameProtocol\Green\Proto\Green\VsInterface\StartupAuthRequest\OperationData as StartupOperationData;
+use App\GameProtocol\Green\Proto\Green\VsInterface\StartupAuthResponse;
+use App\GameProtocol\Green\Support\MuchaCrypto;
+use App\GameProtocol\Green\Support\ProtocolMessageResolver;
 use App\Models\Cabinet;
 use App\Models\GameCard;
 use App\Models\Player;
@@ -72,6 +77,50 @@ it('responds to mucha board auth with green service urls', function (): void {
         ->assertSee('CONSUME_TOKEN=0', false);
 });
 
+it('echoes mucha board auth country codes for regional taiko red cabinets', function (): void {
+    $this->post('/mucha_front/boardauth.do', [
+        'gameCd' => 'ST87',
+        'gameVer' => 'ST870ASB00.06',
+        'countryCd' => 'ASB',
+        'sendDate' => '20260527',
+        'serialNum' => '3F1F9FB168BA64BD19F842D4968EA93A',
+        'placeId' => 'AAA00000',
+    ])
+        ->assertOk()
+        ->assertSee('RESULTS=001', false)
+        ->assertSee('COUNTRY_CD=ASB', false)
+        ->assertSee('EXPIRATION_DATE=null', false)
+        ->assertSee('FORCE_BOOT=0', false);
+});
+
+it('responds to mucha registration auth for taiko red cabinets', function (): void {
+    $response = $this->post('/mucha_front/regiauth.do', [
+        'gameCd' => 'ST87',
+        'serialNum' => '268410000000',
+        'countryCd' => 'JPN',
+        'registrationCd' => 'EB1AB7D6B0ADDDA2',
+        'sendDate' => '20260527',
+        'useToken' => '0',
+        'allToken' => '5',
+        'placeId' => 'AAA00000',
+        'storeRouterIp' => '127.0.0.1',
+    ]);
+
+    $response
+        ->assertOk()
+        ->assertSee('RESULTS=001', false)
+        ->assertSee('ALL_TOKEN=6499cd86289c1307', false)
+        ->assertSee('ADD_TOKEN=a3755fbb352db6a3', false);
+
+    parse_str($response->getContent(), $payload);
+
+    $muchaCrypto = app(MuchaCrypto::class);
+
+    expect($muchaCrypto->tokenKey('20260527'))->toBe('72026052')
+        ->and($muchaCrypto->decryptToken($payload['ALL_TOKEN'], '72026052'))->toBe('5')
+        ->and($muchaCrypto->decryptToken($payload['ADD_TOKEN'], '72026052'))->toBe('0');
+});
+
 it('responds to mucha update check like the green reference server', function (): void {
     config()->set('taiko_green.mucha_force_update', false);
 
@@ -79,8 +128,8 @@ it('responds to mucha update check like the green reference server', function ()
         ->assertOk()
         ->assertSee('RESULTS=001', false)
         ->assertSee('UPDATE_URL_1=https://127.0.0.1:54430/updUrl1/', false)
-        ->assertSee('UPDATE_SIZE_1=20', false)
-        ->assertSee('CHECK_SIZE_1=20', false)
+        ->assertSee('UPDATE_SIZE_1=0', false)
+        ->assertDontSee('CHECK_SIZE_1', false)
         ->assertSee('USER_ID=1', false)
         ->assertSee('PASSWORD=1', false)
         ->assertSee('EXE_VER=S1210JPN08.18', false);
@@ -104,6 +153,59 @@ it('mirrors startup operation data', function (): void {
         ->and($response->getAryMovieInfo()[0]->getEnableDays())->toBe(9999)
         ->and($response->getAryOperationInfo()[0]->getKeyData())->toBe(10)
         ->and($response->getAryOperationInfo()[0]->getValueData())->toBe('abc');
+});
+
+it('accepts regional startup route suffixes used by taiko red', function (): void {
+    $request = (new StartupAuthRequest)
+        ->setChassisId('268410000000')
+        ->setHddVer(800)
+        ->setShopId('AAA00000')
+        ->setCountryId('ASB')
+        ->setAryOperationInfo([
+            (new StartupOperationData)->setKeyData(1)->setValueData('1'),
+            (new StartupOperationData)->setKeyData(2)->setValueData('2'),
+        ]);
+
+    $response = post_protobuf('/v01r00_tw/chassis/startupauth.php', $request, StartupAuthResponse::class);
+
+    expect($response->getResult())->toBe(1)
+        ->and($response->getAryOperationInfo())->toHaveCount(2)
+        ->and($response->getAryOperationInfo()[0]->getKeyData())->toBe(1)
+        ->and($response->getAryOperationInfo()[1]->getValueData())->toBe('2');
+});
+
+it('dispatches taiko red root setup protobuf requests', function (): void {
+    $initialRequest = (new InitialdatacheckRequest)
+        ->setChassisId('268410000000')
+        ->setShopId('AAA00000');
+
+    $initialResponse = post_protobuf('/', $initialRequest, InitialdatacheckResponse::class);
+
+    expect($initialResponse->getResult())->toBe(1)
+        ->and($initialResponse->getSongHashVer())->toBe(99);
+
+    $telopRequest = (new GettelopRequest)
+        ->setChassisId('268410000000')
+        ->setShopId('AAA00000')
+        ->setTelopId(1);
+
+    $telopResponse = post_protobuf('/', $telopRequest, GettelopResponse::class);
+
+    expect($telopResponse->getResult())->toBe(1)
+        ->and($telopResponse->getTelop())->toBe('Hello world');
+
+    $bookKeepingRequest = (new BookKeepingRequest)
+        ->setChassisId('268410000000')
+        ->setShopId('AAA00000')
+        ->setUpdateDate('20260527')
+        ->setCreditCost1(2)
+        ->setCreditCost2(2)
+        ->setCreditSongs1(2)
+        ->setCreditSongs2(2);
+
+    $bookKeepingResponse = post_protobuf('/', $bookKeepingRequest, BookKeepingResponse::class);
+
+    expect($bookKeepingResponse->getResult())->toBe(1);
 });
 
 it('does not advertise green startup movies to blue cabinets', function (): void {
@@ -282,7 +384,7 @@ it('stores ghost battle sections and serves the best play per player', function 
         ->setPlayDatetimeConf('2026-05-05 20:00:00')
         ->setPlayresultData(gzencode($data1->serializeToString()));
 
-    $response1 = post_protobuf('/v08r00/chassis/playresult.php', $request1, PlayResultResponse::class);
+    $response1 = post_protobuf('/v11r01/chassis/playresult.php', $request1, PlayResultResponse::class);
     expect($response1->getResult())->toBe(1);
 
     $stage2 = (new StageData)
@@ -306,7 +408,7 @@ it('stores ghost battle sections and serves the best play per player', function 
         ->setPlayDatetimeConf('2026-05-05 21:00:00')
         ->setPlayresultData(gzencode($data2->serializeToString()));
 
-    $response2 = post_protobuf('/v08r00/chassis/playresult.php', $request2, PlayResultResponse::class);
+    $response2 = post_protobuf('/v11r01/chassis/playresult.php', $request2, PlayResultResponse::class);
     expect($response2->getResult())->toBe(1);
 
     expect(SongPlayResult::query()->whereNotNull('ghost_sections')->count())->toBe(2);
@@ -328,24 +430,16 @@ it('stores ghost battle sections and serves the best play per player', function 
         ->and($sections[1]->getOkCnt())->toBe(8);
 });
 
-it('keeps ghost battle sections separate per catalog version', function (): void {
-    config()->set('taiko_green.route_catalog_versions', [
-        'v08r00' => 'ST-10100-1',
-        'v11r01' => 'ST-11100-1',
-    ]);
-
+it('keys stored ghost battle sections to the green catalog version', function (): void {
     $player = Player::query()->create();
 
-    post_protobuf(
-        '/v08r00/chassis/playresult.php',
-        play_result_request($player, 200, 900000, ghost_stage_data(12)),
-        PlayResultResponse::class,
-    );
     post_protobuf(
         '/v11r01/chassis/playresult.php',
         play_result_request($player, 200, 700000, ghost_stage_data(34)),
         PlayResultResponse::class,
     );
+
+    expect(SongPlayResult::query()->where('game_version', 'green')->whereNotNull('ghost_sections')->count())->toBe(1);
 
     $request = (new GetghostscoreRequest)
         ->setChassisId('chassis')
@@ -354,11 +448,9 @@ it('keeps ghost battle sections separate per catalog version', function (): void
         ->setSongNo(200)
         ->setLevel(3);
 
-    $blue = post_protobuf('/v08r00/chassis/getghostscore.php', $request, GetghostscoreResponse::class);
     $green = post_protobuf('/v11r01/chassis/getghostscore.php', $request, GetghostscoreResponse::class);
 
-    expect($blue->getAryBestSectionData()[0]->getGoodCnt())->toBe(12)
-        ->and($green->getAryBestSectionData()[0]->getGoodCnt())->toBe(34);
+    expect($green->getAryBestSectionData()[0]->getGoodCnt())->toBe(34);
 });
 
 it('creates and reloads cards through baidcheck', function (): void {
@@ -448,7 +540,7 @@ it('saves play results and updates self bests', function (): void {
         ->setPlayDatetimeConf('2026-05-05 20:00:00')
         ->setPlayresultData(gzencode($data->serializeToString()));
 
-    $response = post_protobuf('/v08r00/chassis/playresult.php', $request, PlayResultResponse::class);
+    $response = post_protobuf('/v11r01/chassis/playresult.php', $request, PlayResultResponse::class);
 
     expect($response->getResult())->toBe(1)
         ->and(SongPlayResult::query()->count())->toBe(1)
@@ -462,25 +554,18 @@ it('saves play results and updates self bests', function (): void {
         ->setLevel(3)
         ->setArySongNo([100]);
 
-    $bestResponse = post_protobuf('/v08r00/chassis/selfbest.php', $bestRequest, SelfBestResponse::class);
+    $bestResponse = post_protobuf('/v11r01/chassis/selfbest.php', $bestRequest, SelfBestResponse::class);
 
     expect($bestResponse->getResult())->toBe(1)
         ->and($bestResponse->getArySelfbestScore()[0]->getSelfBestScore())->toBe(876543);
 });
 
-it('keeps self bests separate per catalog version', function (): void {
-    config()->set('taiko_green.route_catalog_versions', [
-        'v08r00' => 'ST-10100-1',
-        'v11r01' => 'ST-11100-1',
-    ]);
-
+it('keys stored self bests to the green catalog version', function (): void {
     $player = Player::query()->create();
 
-    post_protobuf('/v08r00/chassis/playresult.php', play_result_request($player, 2, 900000), PlayResultResponse::class);
     post_protobuf('/v11r01/chassis/playresult.php', play_result_request($player, 2, 700000), PlayResultResponse::class);
 
-    expect(SongBest::query()->count())->toBe(2)
-        ->and(SongBest::query()->where('game_version', 'blue')->first()->best_score)->toBe(900000)
+    expect(SongBest::query()->count())->toBe(1)
         ->and(SongBest::query()->where('game_version', 'green')->first()->best_score)->toBe(700000);
 
     $selfBestRequest = (new SelfBestRequest)
@@ -490,11 +575,9 @@ it('keeps self bests separate per catalog version', function (): void {
         ->setLevel(3)
         ->setArySongNo([2]);
 
-    $blueBest = post_protobuf('/v08r00/chassis/selfbest.php', $selfBestRequest, SelfBestResponse::class);
     $greenBest = post_protobuf('/v11r01/chassis/selfbest.php', $selfBestRequest, SelfBestResponse::class);
 
-    expect($blueBest->getArySelfbestScore()[0]->getSelfBestScore())->toBe(900000)
-        ->and($greenBest->getArySelfbestScore()[0]->getSelfBestScore())->toBe(700000);
+    expect($greenBest->getArySelfbestScore()[0]->getSelfBestScore())->toBe(700000);
 });
 
 it('acknowledges anonymous play results without retrying', function (): void {
@@ -536,6 +619,23 @@ it('acknowledges anonymous play results without retrying', function (): void {
     expect($response->getResult())->toBe(1)
         ->and(SongPlayResult::query()->count())->toBe(0);
 });
+
+it('answers heartbeat in every version dialect from its own route', function (TaikoGameVersion $version): void {
+    $resolver = app(ProtocolMessageResolver::class);
+
+    $requestClass = $resolver->class($version, 'HeartBeatRequest');
+    $request = (new $requestClass)
+        ->setChassisId('chassis')
+        ->setShopId('shop');
+
+    $uri = "/{$version->routeMajor()}r00/chassis/heartbeat.php";
+    $response = post_protobuf($uri, $request, $resolver->class($version, 'HeartBeatResponse'));
+
+    expect($response->getResult())->toBe(1);
+})->with(array_map(
+    static fn (TaikoGameVersion $version): array => [$version],
+    TaikoGameVersion::cases(),
+));
 
 /**
  * @template TMessage of Message

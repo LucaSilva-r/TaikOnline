@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Green;
 
 use App\GameProtocol\Green\Support\FormPayloads;
+use App\GameProtocol\Green\Support\MuchaCrypto;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -11,7 +12,10 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AllNetController extends Controller
 {
-    public function __construct(private readonly FormPayloads $forms) {}
+    public function __construct(
+        private readonly FormPayloads $forms,
+        private readonly MuchaCrypto $muchaCrypto,
+    ) {}
 
     public function powerOn(Request $request): Response
     {
@@ -48,6 +52,7 @@ class AllNetController extends Controller
     public function boardAuth(Request $request): Response
     {
         $placeId = (string) ($request->input('place_id') ?? $request->input('placeId') ?? '');
+        $countryCode = (string) ($request->input('countryCd') ?: config('taiko_green.country'));
         $muchaGameUrl = (string) config('taiko_green.mucha_game_url');
         $serverTime = now()->format('YmdHi');
 
@@ -71,11 +76,11 @@ class AllNetController extends Controller
             'AREA_FULL_3_EN' => '',
             'AUTH_INTERVAL' => '86400',
             'CHARGE_URL' => $muchaGameUrl.'/charge/',
-            'COUNTRY_CD' => (string) config('taiko_green.country'),
+            'COUNTRY_CD' => $countryCode,
             'DONGLE_FLG' => '1',
-            'EXPIRATION_DATE' => '20351231',
+            'EXPIRATION_DATE' => 'null',
             'FILE_URL' => $muchaGameUrl.'/file/',
-            'FORCE_BOOT' => '1',
+            'FORCE_BOOT' => '0',
             'PLACE_ID' => $placeId,
             'PREFECTURE_ID' => '14',
             'SERVER_TIME' => $serverTime,
@@ -89,6 +94,27 @@ class AllNetController extends Controller
             'URL_3' => $muchaGameUrl.'/url3/',
             'USE_TOKEN' => '0',
             'CONSUME_TOKEN' => '0',
+        ]);
+    }
+
+    public function regiAuth(Request $request): Response
+    {
+        Log::channel('mucha')->info('regiauth', [
+            'game_cd' => $request->input('gameCd'),
+            'serial_num' => $request->input('serialNum'),
+            'country_cd' => $request->input('countryCd'),
+            'place_id' => $request->input('placeId'),
+            'use_token' => $request->input('useToken'),
+            'all_token' => $request->input('allToken'),
+        ]);
+
+        $allToken = (string) ($request->input('allToken') ?? '0');
+        $tokenKey = $this->muchaCrypto->tokenKey($request->input('sendDate'));
+
+        return $this->formResponse([
+            'RESULTS' => '001',
+            'ALL_TOKEN' => $this->muchaCrypto->encryptToken($allToken, $tokenKey),
+            'ADD_TOKEN' => $this->muchaCrypto->encryptToken(0, $tokenKey),
         ]);
     }
 

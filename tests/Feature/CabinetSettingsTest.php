@@ -1,8 +1,8 @@
 <?php
 
-use App\GameProtocol\Green\Proto\VsInterface\StartupAuthRequest;
-use App\GameProtocol\Green\Proto\VsInterface\StartupAuthRequest\OperationData as StartupOperationData;
-use App\GameProtocol\Green\Proto\VsInterface\StartupAuthResponse;
+use App\GameProtocol\Green\Proto\Green\VsInterface\StartupAuthRequest;
+use App\GameProtocol\Green\Proto\Green\VsInterface\StartupAuthRequest\OperationData as StartupOperationData;
+use App\GameProtocol\Green\Proto\Green\VsInterface\StartupAuthResponse;
 use App\Models\Cabinet;
 use App\Models\User;
 use App\Services\CabinetService;
