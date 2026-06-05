@@ -8,9 +8,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(LogGreenCabinetTraffic::class)->group(function (): void {
+$protocolVersionPattern = 'v[0-9]{2}r[0-9]{2}(?:_[a-z]{2})?';
+
+Route::middleware(LogGreenCabinetTraffic::class)->group(function () use ($protocolVersionPattern): void {
     Route::post('sys/servlet/PowerOn', [AllNetController::class, 'powerOn']);
     Route::post('mucha_front/boardauth.do', [AllNetController::class, 'boardAuth']);
+    Route::post('mucha_front/regiauth.do', [AllNetController::class, 'regiAuth']);
     Route::post('mucha_front/updatacheck.do', [AllNetController::class, 'updateCheck']);
     Route::post('mucha_front/downloadstate.do', [AllNetController::class, 'muchaDownloadState']);
     Route::post('mucha_front/downloaderror.do', [AllNetController::class, 'muchaDownloadError']);
@@ -21,29 +24,30 @@ Route::middleware(LogGreenCabinetTraffic::class)->group(function (): void {
     Route::post('v1/s12-jp-dev/garm.SystemBoard/RegisterSystemBoard', [AllNetController::class, 'garm']);
     Route::post('v1/s12-jp-dev/garm.SystemBoard/RegisterSystemBoardBilling', [AllNetController::class, 'garm']);
     Route::post('v1/s12-jp-dev/garm.Monitoring/Ping', [AllNetController::class, 'garm']);
+    Route::post('/', [GameProtocolController::class, 'rootSetup']);
 
-    Route::post('{version}/chassis/startupauth.php', [VsInterfaceController::class, 'startupAuth'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/verupauth.php', [VsInterfaceController::class, 'verupAuth'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/verupcomplete.php', [VsInterfaceController::class, 'verupComplete'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/heartbeat.php', [GameProtocolController::class, 'heartbeat'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/initialdatacheck.php', [GameProtocolController::class, 'initialDataCheck'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/bookkeeping.php', [GameProtocolController::class, 'bookKeeping'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/baidcheck.php', [GameProtocolController::class, 'baid'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/mydonentry.php', [GameProtocolController::class, 'mydonEntry'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/userdata.php', [GameProtocolController::class, 'userData'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/playresult.php', [GameProtocolController::class, 'playResult'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/selfbest.php', [GameProtocolController::class, 'selfBest'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/crownsdata.php', [GameProtocolController::class, 'crownsData'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/getfolder.php', [GameProtocolController::class, 'getFolder'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/gettelop.php', [GameProtocolController::class, 'getTelop'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/getghostdata.php', [GameProtocolController::class, 'getGhostData'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/getghostscore.php', [GameProtocolController::class, 'getGhostScore'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/recommend.php', [GameProtocolController::class, 'recommend'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/tournamentcheck.php', [GameProtocolController::class, 'tournamentCheck'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/challengecompe.php', [GameProtocolController::class, 'challengeCompe'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/rewardcardcheck.php', [GameProtocolController::class, 'rewardCardCheck'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/rewardexecution.php', [GameProtocolController::class, 'rewardExecution'])->where('version', 'v[0-9]{2}r[0-9]{2}');
-    Route::post('{version}/chassis/headclerk2.php', [GameProtocolController::class, 'headClerk2'])->where('version', 'v[0-9]{2}r[0-9]{2}');
+    Route::post('{version}/chassis/startupauth.php', [VsInterfaceController::class, 'startupAuth'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/verupauth.php', [VsInterfaceController::class, 'verupAuth'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/verupcomplete.php', [VsInterfaceController::class, 'verupComplete'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/heartbeat.php', [GameProtocolController::class, 'heartbeat'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/initialdatacheck.php', [GameProtocolController::class, 'initialDataCheck'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/bookkeeping.php', [GameProtocolController::class, 'bookKeeping'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/baidcheck.php', [GameProtocolController::class, 'baid'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/mydonentry.php', [GameProtocolController::class, 'mydonEntry'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/userdata.php', [GameProtocolController::class, 'userData'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/playresult.php', [GameProtocolController::class, 'playResult'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/selfbest.php', [GameProtocolController::class, 'selfBest'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/crownsdata.php', [GameProtocolController::class, 'crownsData'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/getfolder.php', [GameProtocolController::class, 'getFolder'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/gettelop.php', [GameProtocolController::class, 'getTelop'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/getghostdata.php', [GameProtocolController::class, 'getGhostData'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/getghostscore.php', [GameProtocolController::class, 'getGhostScore'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/recommend.php', [GameProtocolController::class, 'recommend'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/tournamentcheck.php', [GameProtocolController::class, 'tournamentCheck'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/challengecompe.php', [GameProtocolController::class, 'challengeCompe'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/rewardcardcheck.php', [GameProtocolController::class, 'rewardCardCheck'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/rewardexecution.php', [GameProtocolController::class, 'rewardExecution'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/headclerk2.php', [GameProtocolController::class, 'headClerk2'])->where('version', $protocolVersionPattern);
 });
 
 // Catch-all so we observe whatever the cabinet hits but we don't yet route.

@@ -2,32 +2,36 @@
 
 namespace App\GameProtocol\Green\Services;
 
-use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest;
-use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest\StageData;
-use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest\StageData\GhostStageData;
-use App\GameProtocol\Green\Proto\Taiko\SelfBestResponse;
-use App\GameProtocol\Green\Proto\Taiko\SelfBestResponse\SelfBestData;
+use App\Enums\TaikoGameVersion;
+use App\GameProtocol\Green\Support\MessageWriter;
+use App\GameProtocol\Green\Support\ProtocolMessageResolver;
 use App\GameProtocol\Green\Support\ScoreMapper;
 use App\Models\Player;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use Carbon\CarbonImmutable;
+use Google\Protobuf\Internal\Message;
 
 class PlayResultService
 {
-    public function __construct(private readonly ScoreMapper $scoreMapper) {}
+    public function __construct(
+        private readonly ScoreMapper $scoreMapper,
+        private readonly ProtocolMessageResolver $messages,
+        private readonly MessageWriter $writer,
+    ) {}
 
-    public function save(PlayResultDataRequest $data, string $gameVersion): int
+    public function save(Message $data, TaikoGameVersion $version): int
     {
         $player = Player::query()->find($data->getBaid());
         if (! $player instanceof Player) {
             return 1;
         }
 
+        $gameVersion = $version->value;
         $playedAt = $this->parsePlayedAt($data->getPlayDatetime());
 
         foreach ($data->getAryStageInfo() as $stage) {
-            if (! $stage instanceof StageData) {
+            if (! $stage instanceof Message) {
                 continue;
             }
 
@@ -81,12 +85,12 @@ class PlayResultService
     /**
      * @param  iterable<int>  $songNumbers
      */
-    public function selfBest(Player $player, int $level, string $gameVersion, iterable $songNumbers): SelfBestResponse
+    public function selfBest(Player $player, int $level, TaikoGameVersion $version, iterable $songNumbers): Message
     {
         $numbers = collect($songNumbers)->map(fn (mixed $value): int => (int) $value)->filter()->values();
         $query = SongBest::query()
             ->where('baid', $player->baid)
-            ->where('game_version', $gameVersion);
+            ->where('game_version', $version->value);
 
         if ($level > 0) {
             $query->where('level', $level);
@@ -97,20 +101,25 @@ class PlayResultService
         }
 
         $items = $query->get()
-            ->map(fn (SongBest $best): SelfBestData => (new SelfBestData)
-                ->setSongNo((int) $best->song_no)
-                ->setSelfBestScore((int) $best->best_score)
-                ->setUraBestScore(0))
+            ->map(fn (SongBest $best): Message => $this->writer->fill(
+                $this->messages->make($version, 'SelfBestResponse\\SelfBestData'),
+                [
+                    'setSongNo' => (int) $best->song_no,
+                    'setSelfBestScore' => (int) $best->best_score,
+                    'setUraBestScore' => 0,
+                ],
+            ))
             ->all();
 
-        return (new SelfBestResponse)
-            ->setResult(1)
-            ->setLevel($level)
-            ->setArySelfbestScore($items)
-            ->setAryShinSelfbestScore([]);
+        return $this->writer->fill($this->messages->make($version, 'SelfBestResponse'), [
+            'setResult' => 1,
+            'setLevel' => $level,
+            'setArySelfbestScore' => $items,
+            'setAryShinSelfbestScore' => [],
+        ]);
     }
 
-    private function updateBest(Player $player, StageData $stage, int $rank, string $gameVersion): void
+    private function updateBest(Player $player, Message $stage, int $rank, string $gameVersion): void
     {
         $best = SongBest::query()->firstOrNew([
             'baid' => $player->baid,
@@ -144,11 +153,11 @@ class PlayResultService
     /**
      * @return array<int, int>
      */
-    private function recentSongs(Player $player, PlayResultDataRequest $data): array
+    private function recentSongs(Player $player, Message $data): array
     {
         $songs = collect($data->getAryStageInfo())
-            ->filter(fn (mixed $stage): bool => $stage instanceof StageData)
-            ->map(fn (StageData $stage): int => $stage->getSongNo());
+            ->filter(fn (mixed $stage): bool => $stage instanceof Message)
+            ->map(fn (Message $stage): int => $stage->getSongNo());
 
         return $songs
             ->merge($player->recent_song_numbers ?? [])
@@ -159,9 +168,9 @@ class PlayResultService
             ->all();
     }
 
-    private function extractGhostSections(StageData $stage): ?array
+    private function extractGhostSections(Message $stage): ?array
     {
-        if (! $stage->hasGhostStagedata() || ! $stage->getGhostStagedata() instanceof GhostStageData) {
+        if (! $stage->hasGhostStagedata() || ! $stage->getGhostStagedata() instanceof Message) {
             return null;
         }
 

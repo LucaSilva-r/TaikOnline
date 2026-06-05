@@ -1,0 +1,58 @@
+syntax = "proto2";
+
+message StartupAuthRequest {
+  message OperationData {
+    required uint32 key_data = 1;
+    required bytes value_data = 2;
+  }
+  required string chassis_id = 1;
+  optional string usbmem_key = 2;
+  required uint32 hdd_ver = 3;
+  optional uint32 usbmem_ver = 4;
+  required string shop_id = 5;
+  optional string rack_id = 6;
+  optional string country_id = 7;
+  repeated StartupAuthRequest.OperationData ary_operation_info = 8;
+}
+
+message StartupAuthResponse {
+  message MovieData {
+    required uint32 movie_id = 1;
+    required uint32 enable_days = 2;
+  }
+  message OperationData {
+    required uint32 key_data = 1;
+    required bytes value_data = 2;
+  }
+  required uint32 result = 1;
+  repeated StartupAuthResponse.MovieData ary_movie_info = 2;
+  repeated StartupAuthResponse.OperationData ary_operation_info = 3;
+}
+
+message VerupAuthRequest {
+  required string chassis_id = 1;
+  required string usbmem_key = 2;
+  required uint32 hdd_ver = 3;
+  required uint32 usbmem_ver = 4;
+  required string shop_id = 5;
+  optional string rack_id = 6;
+  optional string country_id = 7;
+}
+
+message VerupAuthResponse {
+  required uint32 result = 1;
+}
+
+message VerupCompleteRequest {
+  required string chassis_id = 1;
+  required string usbmem_key = 2;
+  required uint32 hdd_ver = 3;
+  required uint32 usbmem_ver = 4;
+  required string shop_id = 5;
+  optional string rack_id = 6;
+  optional string country_id = 7;
+}
+
+message VerupCompleteResponse {
+  required uint32 result = 1;
+}
