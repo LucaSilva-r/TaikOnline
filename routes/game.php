@@ -40,6 +40,11 @@ Route::middleware(LogGreenCabinetTraffic::class)->group(function () use ($protoc
     Route::post('{version}/chassis/crownsdata.php', [GameProtocolController::class, 'crownsData'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/getfolder.php', [GameProtocolController::class, 'getFolder'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/gettelop.php', [GameProtocolController::class, 'getTelop'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/defaultsong.php', [GameProtocolController::class, 'defaultSong'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/foldercheck.php', [GameProtocolController::class, 'folderCheck'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/telopcheck.php', [GameProtocolController::class, 'telopCheck'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/taikojuku.php', [GameProtocolController::class, 'taikojuku'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/songhash.php', [GameProtocolController::class, 'songHash'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/getghostdata.php', [GameProtocolController::class, 'getGhostData'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/getghostscore.php', [GameProtocolController::class, 'getGhostScore'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/recommend.php', [GameProtocolController::class, 'recommend'])->where('version', $protocolVersionPattern);

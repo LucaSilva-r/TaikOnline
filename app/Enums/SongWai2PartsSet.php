@@ -4,6 +4,7 @@ namespace App\Enums;
 
 enum SongWai2PartsSet: string
 {
+    case None = '';
     case A3 = 'A3';
     case A302 = 'A3_02';
     case I7Id7 = 'i7id7';
@@ -16,6 +17,7 @@ enum SongWai2PartsSet: string
     public function label(): string
     {
         return match ($this) {
+            self::None => 'None',
             self::A3 => 'A3',
             self::A302 => 'A3 Encore',
             self::I7Id7 => 'i7id7 (Idolmaster 7th)',
