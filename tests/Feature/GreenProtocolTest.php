@@ -44,6 +44,7 @@ use App\GameProtocol\Green\Proto\Green\VsInterface\StartupAuthResponse;
 use App\GameProtocol\Green\Support\MuchaCrypto;
 use App\GameProtocol\Green\Support\ProtocolMessageResolver;
 use App\Models\Cabinet;
+use App\Models\CabinetBookkeepingLog;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\Song;
@@ -620,13 +621,111 @@ it('acknowledges anonymous play results without retrying', function (): void {
         ->and(SongPlayResult::query()->count())->toBe(0);
 });
 
+it('answers the older-version check endpoints (murasaki)', function (): void {
+    $resolver = app(ProtocolMessageResolver::class);
+    $version = TaikoGameVersion::Murasaki;
+    $major = $version->routeMajor();
+
+    $endpoints = [
+        ['defaultsong', 'DefaultsongRequest', 'DefaultsongResponse'],
+        ['foldercheck', 'FoldercheckRequest', 'FoldercheckResponse'],
+        ['telopcheck', 'TelopcheckRequest', 'TelopcheckResponse'],
+    ];
+
+    foreach ($endpoints as [$endpoint, $reqName, $respName]) {
+        $reqClass = $resolver->class($version, $reqName);
+        $request = (new $reqClass)->setChassisId('chassis')->setShopId('shop');
+
+        $response = post_protobuf("/{$major}r00/chassis/{$endpoint}.php", $request, $resolver->class($version, $respName));
+
+        expect($response->getResult())->toBe(1);
+    }
+
+    $jukuClass = $resolver->class($version, 'TaikojukuRequest');
+    $juku = (new $jukuClass)->setChassisId('chassis')->setShopId('shop')->setGetDan([1, 2, 3]);
+    $jukuResponse = post_protobuf("/{$major}r00/chassis/taikojuku.php", $juku, $resolver->class($version, 'TaikojukuResponse'));
+
+    expect($jukuResponse->getResult())->toBe(1)
+        ->and(iterator_to_array($jukuResponse->getAryJukupackData()))->toBe([]);
+});
+
+it('answers the songhash endpoint (momoiro)', function (): void {
+    $resolver = app(ProtocolMessageResolver::class);
+    $version = TaikoGameVersion::Momoiro;
+
+    $reqClass = $resolver->class($version, 'SonghashRequest');
+    $request = (new $reqClass)->setChassisId('268410000000');
+
+    $response = post_protobuf(
+        "/{$version->routeMajor()}r00/chassis/songhash.php",
+        $request,
+        $resolver->class($version, 'SonghashResponse'),
+    );
+
+    expect($response->getResult())->toBe(1)
+        ->and($response->getSongHashVer())->toBe(99);
+});
+
+it('resolves momoiro message names despite casing drift (TelopCheck)', function (): void {
+    $resolver = app(ProtocolMessageResolver::class);
+    $version = TaikoGameVersion::Momoiro;
+
+    $reqClass = $resolver->class($version, 'TelopcheckRequest');
+    expect($reqClass)->toBe('App\\GameProtocol\\Green\\Proto\\Momoiro\\Taiko\\TelopCheckRequest');
+
+    $request = (new $reqClass)->setChassisId('chassis');
+    $response = post_protobuf('/v04r00/chassis/telopcheck.php', $request, $resolver->class($version, 'TelopcheckResponse'));
+
+    expect($response->getResult())->toBe(1);
+});
+
+it('handles momoiro bookkeeping with the renamed app_play_cnt field', function (): void {
+    $resolver = app(ProtocolMessageResolver::class);
+    $version = TaikoGameVersion::Momoiro;
+
+    $reqClass = $resolver->class($version, 'BookKeepingRequest');
+    $request = (new $reqClass)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setUpdateDate('20260605')
+        ->setAppPlayCnt(7)
+        ->setServiceSwCnt(2)
+        ->setFreePlayCnt(1);
+
+    $response = post_protobuf('/v04r00/chassis/bookkeeping.php', $request, $resolver->class($version, 'BookKeepingResponse'));
+
+    expect($response->getResult())->toBe(1)
+        ->and(CabinetBookkeepingLog::query()->first()->all_play_count)->toBe(7);
+});
+
+it('creates a card through baidcheck for versions without nested CostumeData', function (TaikoGameVersion $version): void {
+    $resolver = app(ProtocolMessageResolver::class);
+
+    $reqClass = $resolver->class($version, 'BAIDRequest');
+    $request = (new $reqClass)
+        ->setDeviceType(1)
+        ->setAccessCode('12345678901234567890')
+        ->setChipId('chip')
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setCountryId('JPN');
+
+    $response = post_protobuf("/{$version->routeMajor()}r00/chassis/baidcheck.php", $request, $resolver->class($version, 'BAIDResponse'));
+
+    expect($response->getResult())->toBe(1)
+        ->and($response->getPlayerType())->toBe(1)
+        ->and(GameCard::query()->where('access_code', '12345678901234567890')->exists())->toBeTrue();
+})->with([
+    'sorairo' => [TaikoGameVersion::Sorairo],
+    'momoiro' => [TaikoGameVersion::Momoiro],
+    'kimidori' => [TaikoGameVersion::Kimidori],
+]);
+
 it('answers heartbeat in every version dialect from its own route', function (TaikoGameVersion $version): void {
     $resolver = app(ProtocolMessageResolver::class);
 
     $requestClass = $resolver->class($version, 'HeartBeatRequest');
-    $request = (new $requestClass)
-        ->setChassisId('chassis')
-        ->setShopId('shop');
+    $request = (new $requestClass)->setChassisId('chassis');
 
     $uri = "/{$version->routeMajor()}r00/chassis/heartbeat.php";
     $response = post_protobuf($uri, $request, $resolver->class($version, 'HeartBeatResponse'));

@@ -115,7 +115,7 @@ class GameProtocolController extends Controller
             'chassis_id' => $message->getChassisId(),
             'shop_id' => $message->getShopId(),
             'update_date' => $message->getUpdateDate(),
-            'all_play_count' => $message->getAllPlayCnt(),
+            'all_play_count' => $this->read($message, 'getAllPlayCnt', 'getAppPlayCnt'),
             'service_switch_count' => $message->getServiceSwCnt(),
             'free_play_count' => $message->getFreePlayCnt(),
             'payload' => [
@@ -242,6 +242,73 @@ class GameProtocolController extends Controller
                 'setEndDatetime' => now()->addDays(999)->format('YmdHis'),
                 'setTelop' => 'Hello world',
                 'setVerupNo' => 2,
+            ])
+        );
+    }
+
+    public function songHash(Request $request, string $version): Response
+    {
+        $game = $this->version($version);
+        $this->parse($request, $game, 'SonghashRequest');
+
+        return $this->payloads->response(
+            $this->writer->fill($this->messages->make($game, 'SonghashResponse'), [
+                'setResult' => 1,
+                'setSongHashVer' => 99,
+                'setSongHashTbl' => '',
+            ])
+        );
+    }
+
+    public function defaultSong(Request $request, string $version): Response
+    {
+        $game = $this->version($version);
+        $this->parse($request, $game, 'DefaultsongRequest');
+
+        return $this->payloads->response(
+            $this->writer->fill($this->messages->make($game, 'DefaultsongResponse'), [
+                'setResult' => 1,
+                'setSongHashVer' => 99,
+                'setHashDefaultSongFlg' => $this->releaseSongFlag($game->value),
+            ])
+        );
+    }
+
+    public function folderCheck(Request $request, string $version): Response
+    {
+        $game = $this->version($version);
+        $this->parse($request, $game, 'FoldercheckRequest');
+
+        return $this->payloads->response(
+            $this->writer->fill($this->messages->make($game, 'FoldercheckResponse'), [
+                'setResult' => 1,
+                'setFolderId' => [],
+            ])
+        );
+    }
+
+    public function telopCheck(Request $request, string $version): Response
+    {
+        $game = $this->version($version);
+        $this->parse($request, $game, 'TelopcheckRequest');
+
+        return $this->payloads->response(
+            $this->writer->fill($this->messages->make($game, 'TelopcheckResponse'), [
+                'setResult' => 1,
+                'setTelopId' => [],
+            ])
+        );
+    }
+
+    public function taikojuku(Request $request, string $version): Response
+    {
+        $game = $this->version($version);
+        $this->parse($request, $game, 'TaikojukuRequest');
+
+        return $this->payloads->response(
+            $this->writer->fill($this->messages->make($game, 'TaikojukuResponse'), [
+                'setResult' => 1,
+                'setAryJukupackData' => [],
             ])
         );
     }
@@ -419,6 +486,21 @@ class GameProtocolController extends Controller
     private function parse(Request $request, TaikoGameVersion $version, string $name): Message
     {
         return $this->payloads->parse($request->getContent(), $this->messages->class($version, $name));
+    }
+
+    /**
+     * Read the first getter that exists on a message, tolerating field renames
+     * between versions (e.g. all_play_cnt vs app_play_cnt).
+     */
+    private function read(Message $message, string ...$getters): mixed
+    {
+        foreach ($getters as $getter) {
+            if (method_exists($message, $getter)) {
+                return $message->{$getter}();
+            }
+        }
+
+        return null;
     }
 
     private function usesBlueInitialDataSchema(string $routeVersion): bool

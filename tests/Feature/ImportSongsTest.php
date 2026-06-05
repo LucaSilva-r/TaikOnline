@@ -5,230 +5,182 @@ use App\Enums\SongPartsSet;
 use App\Enums\SongWai2PartsSet;
 use App\Models\Song;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
 
-it('imports all songs from green musicinfo.xml', function (): void {
-    $output = Artisan::call('app:import-songs', ['version' => 'green']);
-
-    expect($output)->toBe(0)
-        ->and(Song::where('version', 'green')->count())->toBe(853);
+beforeEach(function (): void {
+    $this->dataPath = storage_path('framework/testing/game-data-'.Str::random(8));
+    config()->set('taiko_green.data_path', $this->dataPath);
 });
 
-it('correctly maps song fields from XML data', function (): void {
-    Artisan::call('app:import-songs', ['version' => 'green']);
+afterEach(function (): void {
+    if (is_dir($this->dataPath)) {
+        exec('rm -rf '.escapeshellarg($this->dataPath));
+    }
+});
 
-    $song = Song::where('version', 'green')
-        ->where('music_id', 'ynzums')
-        ->first();
+/**
+ * @param  array<int, array<string, mixed>>  $songs
+ */
+function musicinfoXml(array $songs): string
+{
+    $body = '';
+    foreach ($songs as $song) {
+        $tags = '';
+        for ($i = 0; $i < 16; $i++) {
+            $tags .= '<tag>'.(int) ($song['tags'][$i] ?? 0).'</tag>';
+        }
+        $wai2 = array_key_exists('wai2', $song) ? "<wai2partsset>{$song['wai2']}</wai2partsset>" : '';
+        $body .= '<Data>'
+            ."<musicid>{$song['musicid']}</musicid>"
+            ."<uniqueid>{$song['uniqueid']}</uniqueid>"
+            .'<newrelease>'.(int) ($song['newrelease'] ?? 0).'</newrelease>'
+            .'<secret>'.(int) ($song['secret'] ?? 0).'</secret>'
+            .'<papamama>'.(int) ($song['papamama'] ?? 0).'</papamama>'
+            .'<hasextreme>'.(int) ($song['hasextreme'] ?? 0).'</hasextreme>'
+            ."<partsset>{$song['partsset']}</partsset>"
+            .$wai2
+            ."<musicname>{$song['title']}</musicname>"
+            ."<genrename>{$song['genre']}</genrename>"
+            .'<demoplay>'.(int) ($song['demoplay'] ?? 0).'</demoplay>'
+            .$tags
+            .'</Data>';
+    }
 
-    expect($song)->not->toBeNull()
-        ->and($song->version)->toBe('green')
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        .'<boost_serialization signature="serialization::archive" version="10">'
+        .'<MusicInfo class_id="0" tracking_level="0" version="0">'.$body.'</MusicInfo>'
+        .'</boost_serialization>';
+}
+
+/**
+ * @param  array<int, array<string, mixed>>  $songs
+ */
+function writeMusicinfo(string $path, array $songs): void
+{
+    if (! is_dir(dirname($path))) {
+        mkdir(dirname($path), 0775, true);
+    }
+    file_put_contents($path, musicinfoXml($songs));
+}
+
+it('imports songs and maps every field', function (): void {
+    writeMusicinfo("{$this->dataPath}/green/musicinfo.xml", [
+        ['musicid' => 'aaa', 'uniqueid' => 873, 'title' => '馬と鹿', 'genre' => 'J-POP', 'partsset' => 'taiko', 'wai2' => 'taiko', 'newrelease' => 1, 'tags' => [0, 0, 0, 0, 13]],
+    ]);
+
+    $exit = Artisan::call('app:import-songs', ['version' => 'green']);
+    $song = Song::query()->where('version', 'green')->where('music_id', 'aaa')->first();
+
+    expect($exit)->toBe(0)
         ->and($song->song_no)->toBe(873)
-        ->and($song->music_id)->toBe('ynzums')
         ->and($song->unique_id)->toBe(873)
         ->and($song->title)->toBe('馬と鹿')
         ->and($song->genre)->toBe(SongGenre::Jpop)
         ->and($song->partsset)->toBe(SongPartsSet::Taiko)
         ->and($song->wai2_partsset)->toBe(SongWai2PartsSet::Taiko)
-        ->and($song->flags['hasextreme'])->toBeFalse()
-        ->and($song->flags['papamama'])->toBeFalse()
-        ->and($song->flags['secret'])->toBeFalse()
         ->and($song->flags['newrelease'])->toBeTrue()
-        ->and($song->flags['demoplay'])->toBeFalse();
+        ->and($song->flags['hasextreme'])->toBeFalse()
+        ->and($song->tags)->toHaveCount(16)
+        ->and($song->tags[4])->toBe(13);
 });
 
-it('accepts update identifiers and stores the canonical version', function (): void {
-    $output = Artisan::call('app:import-songs', ['version' => 'ST-11100-1']);
+it('accepts an update identifier and stores the canonical version', function (): void {
+    writeMusicinfo("{$this->dataPath}/green/musicinfo.xml", [
+        ['musicid' => 'aaa', 'uniqueid' => 1, 'title' => 'A', 'genre' => 'J-POP', 'partsset' => 'taiko'],
+    ]);
 
-    expect($output)->toBe(0)
-        ->and(Song::where('version', 'green')->count())->toBe(853)
-        ->and(Song::where('version', 'ST-11100-1')->count())->toBe(0);
+    $exit = Artisan::call('app:import-songs', ['version' => 'ST-11100-1']);
+
+    expect($exit)->toBe(0)
+        ->and(Song::query()->where('version', 'green')->count())->toBe(1)
+        ->and(Song::query()->where('version', 'ST-11100-1')->count())->toBe(0);
 });
 
-it('correctly handles songs with multiple flag types', function (): void {
-    Artisan::call('app:import-songs', ['version' => 'green']);
+it('stores an empty wai2 partsset when the element is absent', function (): void {
+    // The reduced base musicinfo (older versions) omits wai2partsset entirely.
+    writeMusicinfo("{$this->dataPath}/sorairo/musicinfo.xml", [
+        ['musicid' => 'aaa', 'uniqueid' => 1, 'title' => 'A', 'genre' => 'ナムコオリジナル', 'partsset' => 'taiko'],
+    ]);
 
-    $evedrm = Song::where('version', 'green')
-        ->where('music_id', 'evedrm')
-        ->first();
+    $exit = Artisan::call('app:import-songs', ['version' => 'sorairo']);
+    $song = Song::query()->where('version', 'sorairo')->first();
 
-    expect($evedrm)->not->toBeNull()
-        ->and($evedrm->flags['hasextreme'])->toBeTrue()
-        ->and($evedrm->title)->toBe('ドラマツルギー');
-
-    $manpu2 = Song::where('version', 'green')
-        ->where('music_id', 'manpu2')
-        ->first();
-
-    expect($manpu2)->not->toBeNull()
-        ->and($manpu2->flags['papamama'])->toBeTrue()
-        ->and($manpu2->flags['hasextreme'])->toBeTrue();
+    expect($exit)->toBe(0)
+        ->and($song->wai2_partsset)->toBe(SongWai2PartsSet::None)
+        ->and($song->genre)->toBe(SongGenre::NamcoOriginal);
 });
 
-it('resolves all unique genre values correctly', function (): void {
-    Artisan::call('app:import-songs', ['version' => 'green']);
+it('skips unknown genre or partsset rows without failing', function (): void {
+    writeMusicinfo("{$this->dataPath}/green/musicinfo.xml", [
+        ['musicid' => 'good', 'uniqueid' => 1, 'title' => 'A', 'genre' => 'J-POP', 'partsset' => 'taiko'],
+        ['musicid' => 'badgenre', 'uniqueid' => 2, 'title' => 'B', 'genre' => 'Nope', 'partsset' => 'taiko'],
+        ['musicid' => 'badparts', 'uniqueid' => 3, 'title' => 'C', 'genre' => 'J-POP', 'partsset' => 'nope'],
+    ]);
 
-    $xml = simplexml_load_file(storage_path('app/game-data/green/musicinfo.xml'));
-    $genreNames = [];
-    foreach ($xml->MusicInfo->Data as $data) {
-        $genreNames[] = (string) $data->genrename;
-    }
-    $uniqueGenres = array_unique($genreNames);
+    $exit = Artisan::call('app:import-songs', ['version' => 'green']);
 
-    $storedGenres = Song::where('version', 'green')
-        ->pluck('genre')
-        ->map(fn ($e) => $e->value)
-        ->unique()
-        ->all();
-
-    expect($storedGenres)->toHaveCount(count($uniqueGenres))
-        ->and(SongGenre::cases())->toHaveCount(9);
+    expect($exit)->toBe(0)
+        ->and(Song::query()->where('version', 'green')->count())->toBe(1)
+        ->and(Song::query()->where('music_id', 'good')->exists())->toBeTrue();
 });
 
-it('resolves all unique partsset values correctly', function (): void {
-    Artisan::call('app:import-songs', ['version' => 'green']);
-
-    $xml = simplexml_load_file(storage_path('app/game-data/green/musicinfo.xml'));
-    $partsSetNames = [];
-    foreach ($xml->MusicInfo->Data as $data) {
-        $partsSetNames[] = (string) $data->partsset;
-    }
-    $uniquePartsSets = array_unique($partsSetNames);
-
-    $storedPartsSets = Song::where('version', 'green')
-        ->pluck('partsset')
-        ->map(fn ($e) => $e->value)
-        ->unique()
-        ->all();
-
-    expect($storedPartsSets)->toHaveCount(count($uniquePartsSets))
-        ->and(SongPartsSet::cases())->toHaveCount(32);
-});
-
-it('resolves all unique wai2_partsset values correctly', function (): void {
-    Artisan::call('app:import-songs', ['version' => 'green']);
-
-    $xml = simplexml_load_file(storage_path('app/game-data/green/musicinfo.xml'));
-    $wai2Names = [];
-    foreach ($xml->MusicInfo->Data as $data) {
-        $wai2Names[] = (string) $data->wai2partsset;
-    }
-    $uniqueWai2s = array_unique($wai2Names);
-
-    $storedWai2s = Song::where('version', 'green')
-        ->pluck('wai2_partsset')
-        ->map(fn ($e) => $e->value)
-        ->unique()
-        ->all();
-
-    expect($storedWai2s)->toHaveCount(count($uniqueWai2s))
-        ->and(SongWai2PartsSet::cases())->toHaveCount(8);
-});
-
-it('stores and preserves tags array correctly', function (): void {
-    Artisan::call('app:import-songs', ['version' => 'green']);
-
-    $natsu = Song::where('version', 'green')
-        ->where('music_id', 'natsu')
-        ->first();
-
-    expect($natsu)->not->toBeNull()
-        ->and($natsu->tags)->toHaveCount(16)
-        ->and(count(array_filter($natsu->tags, fn ($t) => $t > 0)))->toBeGreaterThan(0);
-});
-
-it('stores tags array with correct length for all songs', function (): void {
-    Artisan::call('app:import-songs', ['version' => 'green']);
-
-    $allCorrect = Song::where('version', 'green')
-        ->get()
-        ->every(fn (Song $song) => count($song->tags) === 16);
-
-    expect($allCorrect)->toBeTrue();
-
-    // Verify songs with non-zero tags have correct sums
-    $dchero = Song::where('version', 'green')
-        ->where('music_id', 'dchero')
-        ->first();
-
-    expect($dchero)->not->toBeNull()
-        ->and($dchero->tags)->toHaveCount(16)
-        ->and(array_sum($dchero->tags))->toBeGreaterThan(0);
-});
-
-it('upserts songs on re-import', function (): void {
-    Artisan::call('app:import-songs', ['version' => 'green']);
-    $firstCount = Song::where('version', 'green')->count();
+it('upserts songs idempotently on re-import', function (): void {
+    writeMusicinfo("{$this->dataPath}/green/musicinfo.xml", [
+        ['musicid' => 'aaa', 'uniqueid' => 1, 'title' => 'A', 'genre' => 'J-POP', 'partsset' => 'taiko'],
+        ['musicid' => 'bbb', 'uniqueid' => 2, 'title' => 'B', 'genre' => 'J-POP', 'partsset' => 'taiko'],
+    ]);
 
     Artisan::call('app:import-songs', ['version' => 'green']);
-    $secondCount = Song::where('version', 'green')->count();
-
-    expect($secondCount)->toBe($firstCount)
-        ->and(Song::where('version', 'green')->count())->toBe(853);
-});
-
-it('maintains data integrity after re-import', function (): void {
     Artisan::call('app:import-songs', ['version' => 'green']);
 
-    $songBefore = Song::where('version', 'green')
-        ->where('music_id', 'ynzums')
-        ->first();
-
-    Artisan::call('app:import-songs', ['version' => 'green']);
-
-    $songAfter = Song::where('version', 'green')
-        ->where('music_id', 'ynzums')
-        ->first();
-
-    expect($songBefore->unique_id)->toBe($songAfter->unique_id)
-        ->and($songBefore->title)->toBe($songAfter->title)
-        ->and($songBefore->genre)->toBe($songAfter->genre)
-        ->and($songBefore->partsset)->toBe($songAfter->partsset);
+    expect(Song::query()->where('version', 'green')->count())->toBe(2);
 });
 
-it('isolates songs by version', function (): void {
-    Artisan::call('app:import-songs', ['version' => 'green']);
+it('imports every version when no version is given', function (): void {
+    writeMusicinfo("{$this->dataPath}/green/musicinfo.xml", [
+        ['musicid' => 'g1', 'uniqueid' => 1, 'title' => 'G', 'genre' => 'J-POP', 'partsset' => 'taiko'],
+    ]);
+    writeMusicinfo("{$this->dataPath}/blue/musicinfo.xml", [
+        ['musicid' => 'b1', 'uniqueid' => 1, 'title' => 'B', 'genre' => 'J-POP', 'partsset' => 'taiko'],
+        ['musicid' => 'b2', 'uniqueid' => 2, 'title' => 'B2', 'genre' => 'J-POP', 'partsset' => 'taiko'],
+    ]);
 
-    expect(Song::where('version', 'green')->count())->toBe(853)
-        ->and(Song::where('version', 'blue')->count())->toBe(0)
-        ->and(Song::where('version', 'test-version')->count())->toBe(0);
+    $exit = Artisan::call('app:import-songs');
+
+    expect($exit)->toBe(0)
+        ->and(Song::query()->where('version', 'green')->count())->toBe(1)
+        ->and(Song::query()->where('version', 'blue')->count())->toBe(2)
+        ->and(Song::query()->where('version', 'red')->count())->toBe(0);
 });
 
-it('reports errors for unknown genre gracefully', function (): void {
-    // Create a temp XML with an invalid genre
-    $rootDir = storage_path('app/game-data-test-invalid');
-    $tempDir = "{$rootDir}/green";
-    mkdir($tempDir, 0755, true);
-    config()->set('taiko_green.data_path', $rootDir);
+it('copies the fullest musicinfo from a game dump via --source', function (): void {
+    $source = storage_path('framework/testing/dump-'.Str::random(8));
+    $folder = "{$source}/SCEEXE001 GREEN/USRDIR/data";
+    // Base list is reduced; the board-config variant is the authoritative catalog.
+    writeMusicinfo("{$folder}/musicinfo.xml", [
+        ['musicid' => 'base1', 'uniqueid' => 1, 'title' => 'A', 'genre' => 'J-POP', 'partsset' => 'taiko'],
+    ]);
+    writeMusicinfo("{$folder}/config/S11100-1/musicinfo.xml", [
+        ['musicid' => 'full1', 'uniqueid' => 1, 'title' => 'A', 'genre' => 'J-POP', 'partsset' => 'taiko'],
+        ['musicid' => 'full2', 'uniqueid' => 2, 'title' => 'B', 'genre' => 'J-POP', 'partsset' => 'taiko'],
+    ]);
 
-    $xmlContent = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<boost_serialization signature="serialization::archive" version="10">
-<MusicInfo class_id="0" tracking_level="0" version="0">
-<Data>
-<musicid>test1</musicid><uniqueid>999</uniqueid><newrelease>0</newrelease><secret>0</secret>
-<papamama>0</papamama><hasextreme>0</hasextreme><partsset>taiko</partsset><wai2partsset>taiko</wai2partsset>
-<musicname>Test Song</musicname><genrename>UnknownGenre</genrename><demoplay>0</demoplay>
-<tag>0</tag><tag>0</tag><tag>0</tag><tag>0</tag><tag>13</tag><tag>0</tag>
-<tag>0</tag><tag>0</tag><tag>0</tag><tag>55</tag><tag>0</tag><tag>0</tag>
-<tag>0</tag><tag>0</tag><tag>0</tag><tag>0</tag>
-</Data></MusicInfo></boost_serialization>';
+    $exit = Artisan::call('app:import-songs', ['version' => 'green', '--source' => $source]);
 
-    file_put_contents("{$tempDir}/musicinfo.xml", $xmlContent);
+    expect($exit)->toBe(0)
+        ->and(file_exists("{$this->dataPath}/green/musicinfo.xml"))->toBeTrue()
+        ->and(Song::query()->where('version', 'green')->count())->toBe(2)
+        ->and(Song::query()->where('music_id', 'full2')->exists())->toBeTrue();
 
-    $output = Artisan::call('app:import-songs', ['version' => 'green']);
-
-    expect($output)->toBe(1)
-        ->and(Song::where('version', 'green')->count())->toBe(0);
-
-    // Cleanup
-    unlink("{$tempDir}/musicinfo.xml");
-    rmdir($tempDir);
-    rmdir($rootDir);
+    exec('rm -rf '.escapeshellarg($source));
 });
 
-it('fails when xml file does not exist', function (): void {
-    $output = Artisan::call('app:import-songs', ['version' => 'nonexistent-version']);
+it('fails for an unknown version argument', function (): void {
+    expect(Artisan::call('app:import-songs', ['version' => 'nonexistent']))->toBe(1);
+});
 
-    expect($output)->toBe(1);
+it('fails when the file is missing for an explicitly requested version', function (): void {
+    expect(Artisan::call('app:import-songs', ['version' => 'green']))->toBe(1);
 });

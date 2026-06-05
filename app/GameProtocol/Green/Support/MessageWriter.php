@@ -26,8 +26,15 @@ class MessageWriter
 
     public function set(Message $message, string $setter, mixed $value): Message
     {
-        if (method_exists($message, $setter)) {
+        if ($value === null || ! method_exists($message, $setter)) {
+            return $message;
+        }
+
+        try {
             $message->{$setter}($value);
+        } catch (\TypeError) {
+            // Field type drifts between versions (e.g. `title` is a string in
+            // green but a uint32 id in sorairo); skip rather than fail.
         }
 
         return $message;

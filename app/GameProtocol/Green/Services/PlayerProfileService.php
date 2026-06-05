@@ -146,7 +146,7 @@ class PlayerProfileService
             'setColorFace' => (int) $player->color_face,
             'setColorBody' => (int) $player->color_body,
             'setColorLimb' => (int) $player->color_limb,
-            'setAryCostumedata' => $this->messages->make($version, 'BAIDResponse\\CostumeData'),
+            'setAryCostumedata' => $this->messages->tryMake($version, 'BAIDResponse\\CostumeData'),
             'setAryFavoriteCostumedata' => [],
             'setCostumeFlg1' => $this->scoreMapper->emptyFlagBytes(),
             'setCostumeFlg2' => $this->scoreMapper->emptyFlagBytes(),

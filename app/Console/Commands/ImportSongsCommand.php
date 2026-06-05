@@ -12,174 +12,262 @@ use Illuminate\Support\Facades\Config;
 
 class ImportSongsCommand extends Command
 {
-    protected $signature = 'app:import-songs {version}';
+    protected $signature = 'app:import-songs {version? : Game version (omit to import every version)} {--source= : Root of a PS3 game/ dump to copy musicinfo.xml from before importing}';
 
-    protected $description = 'Import songs from a musicinfo.xml file for the given version';
+    protected $description = 'Import songs from musicinfo.xml for one or all Taiko versions';
 
     public function handle(): int
     {
-        $versionInput = (string) $this->argument('version');
-        $gameVersion = TaikoGameVersion::fromInput($versionInput);
-        if (! $gameVersion instanceof TaikoGameVersion) {
-            $this->error("Unknown game version: {$versionInput}");
+        $source = $this->option('source');
+        $versionArg = $this->argument('version');
 
-            return self::FAILURE;
+        if ($versionArg !== null) {
+            $version = TaikoGameVersion::fromInput((string) $versionArg);
+            if (! $version instanceof TaikoGameVersion) {
+                $this->error("Unknown game version: {$versionArg}");
+
+                return self::FAILURE;
+            }
+            $versions = [$version];
+        } else {
+            $versions = TaikoGameVersion::cases();
         }
 
-        $version = $gameVersion->value;
-        $dataPath = Config::get('taiko_green.data_path', storage_path('app/game-data'));
+        $dataPath = (string) Config::get('taiko_green.data_path', storage_path('app/game-data'));
+        $fatal = false;
 
-        $xmlPath = $this->musicInfoPath((string) $dataPath, $versionInput, $gameVersion);
-        if (! file_exists($xmlPath)) {
-            $this->error("File not found: {$xmlPath}");
+        foreach ($versions as $version) {
+            if ($source !== null && ! $this->syncFromSource((string) $source, $dataPath, $version)) {
+                continue;
+            }
 
-            return self::FAILURE;
+            $counts = $this->importVersion($dataPath, $version);
+            if ($counts === null) {
+                // Missing/unreadable file is only fatal when the user asked for this one version.
+                $fatal = $fatal || $versionArg !== null;
+
+                continue;
+            }
+
+            $this->info(sprintf(
+                '%s: %d created, %d updated, %d skipped (of %d)',
+                $version->value,
+                $counts['created'],
+                $counts['updated'],
+                $counts['skipped'],
+                $counts['total'],
+            ));
+        }
+
+        return $fatal ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * Copy <source>/<game-folder>/USRDIR/data/musicinfo.xml into the canonical
+     * storage location for this version. Returns false (with a warning) when the
+     * source cannot be located.
+     */
+    private function syncFromSource(string $source, string $dataPath, TaikoGameVersion $version): bool
+    {
+        $folder = $this->locateGameFolder($source, $version);
+        if ($folder === null) {
+            $this->warn("No game folder for {$version->value} under {$source}");
+
+            return false;
+        }
+
+        $sourceFile = $this->bestMusicInfo($folder);
+        if ($sourceFile === null) {
+            $this->warn("No musicinfo.xml for {$version->value} under {$folder}");
+
+            return false;
+        }
+
+        $targetDir = "{$dataPath}/{$version->value}";
+        if (! is_dir($targetDir) && ! mkdir($targetDir, 0775, true) && ! is_dir($targetDir)) {
+            $this->warn("Could not create {$targetDir}");
+
+            return false;
+        }
+
+        copy($sourceFile, "{$targetDir}/musicinfo.xml");
+
+        return true;
+    }
+
+    /**
+     * The authoritative catalog for a version is the fullest musicinfo.xml in its
+     * own game folder: the base USRDIR/data/musicinfo.xml is a reduced list, while
+     * the per-board variant under config/<board>/ carries the complete catalog (and
+     * some versions only ship one or the other). Picking the file with the most
+     * <Data> entries selects the right one without mapping board ids.
+     */
+    private function bestMusicInfo(string $folder): ?string
+    {
+        $data = "{$folder}/USRDIR/data";
+        $candidates = [];
+        if (is_file("{$data}/musicinfo.xml")) {
+            $candidates[] = "{$data}/musicinfo.xml";
+        }
+        if (is_dir("{$data}/config")) {
+            foreach (scandir("{$data}/config") ?: [] as $board) {
+                if ($board === '.' || $board === '..') {
+                    continue;
+                }
+                $path = "{$data}/config/{$board}/musicinfo.xml";
+                if (is_file($path)) {
+                    $candidates[] = $path;
+                }
+            }
+        }
+
+        $best = null;
+        $bestCount = -1;
+        foreach ($candidates as $path) {
+            $xml = @simplexml_load_file($path);
+            $count = $xml === false ? 0 : count($xml->MusicInfo?->Data ?? []);
+            if ($count > $bestCount) {
+                $bestCount = $count;
+                $best = $path;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * Find the game-dump folder whose name contains this version's colour label
+     * (e.g. "SCEEXE001 RED" for RED).
+     */
+    private function locateGameFolder(string $source, TaikoGameVersion $version): ?string
+    {
+        if (! is_dir($source)) {
+            return null;
+        }
+
+        foreach (scandir($source) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+
+            $path = "{$source}/{$entry}";
+            if (is_dir($path) && stripos($entry, $version->label()) !== false) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{total: int, created: int, updated: int, skipped: int}|null
+     */
+    private function importVersion(string $dataPath, TaikoGameVersion $version): ?array
+    {
+        $xmlPath = $this->musicInfoPath($dataPath, $version);
+        if (! is_file($xmlPath)) {
+            $this->warn("No musicinfo.xml for {$version->value} at {$xmlPath}");
+
+            return null;
         }
 
         $xml = simplexml_load_file($xmlPath);
         if ($xml === false) {
-            $this->error("Failed to parse XML file: {$xmlPath}");
+            $this->warn("Failed to parse {$xmlPath}");
 
-            return self::FAILURE;
+            return null;
         }
 
         /** @var \SimpleXMLElement[] $dataElements */
-        $musicInfo = $xml->MusicInfo;
-        $dataElements = $musicInfo?->Data ?? [];
-        $total = count($dataElements);
-        $this->info("Found {$total} songs in {$xmlPath}");
-
+        $dataElements = $xml->MusicInfo?->Data ?? [];
         $created = 0;
         $updated = 0;
         $skipped = 0;
-        $errors = 0;
 
-        foreach ($dataElements as $index => $songData) {
+        foreach ($dataElements as $songData) {
             $musicId = (string) $songData->musicid;
+
+            $genre = SongGenre::tryFromXml((string) $songData->genrename);
+            $partsSet = SongPartsSet::tryFrom((string) $songData->partsset);
+            if ($genre === null || $partsSet === null) {
+                $this->warn(sprintf(
+                    "%s: skipped %s (genre '%s', partsset '%s')",
+                    $version->value,
+                    $musicId,
+                    (string) $songData->genrename,
+                    (string) $songData->partsset,
+                ));
+                $skipped++;
+
+                continue;
+            }
+
+            // wai2partsset is absent in some serializations; treat empty/unknown as blank.
+            $wai2 = SongWai2PartsSet::tryFrom((string) $songData->wai2partsset)?->value ?? '';
             $uniqueId = (int) $songData->uniqueid;
-            $title = (string) $songData->musicname;
-            $genreName = (string) $songData->genrename;
-            $partsSetName = (string) $songData->partsset;
-            $wai2PartsSetName = (string) $songData->wai2partsset;
-            $newRelease = (int) $songData->newrelease;
-            $secret = (int) $songData->secret;
-            $papamama = (int) $songData->papamama;
-            $hasextreme = (int) $songData->hasextreme;
-            $demoplay = (int) $songData->demoplay;
 
-            $tags = [];
-            foreach ($songData->tag as $tagValue) {
-                $tags[] = (int) $tagValue;
-            }
+            $attributes = [
+                'song_no' => $uniqueId,
+                'unique_id' => $uniqueId,
+                'title' => (string) $songData->musicname,
+                'title_en' => null,
+                'genre' => $genre->value,
+                'partsset' => $partsSet->value,
+                'wai2_partsset' => $wai2,
+                'flags' => [
+                    'hasextreme' => (int) $songData->hasextreme === 1,
+                    'papamama' => (int) $songData->papamama === 1,
+                    'secret' => (int) $songData->secret === 1,
+                    'newrelease' => (int) $songData->newrelease === 1,
+                    'demoplay' => (int) $songData->demoplay === 1,
+                ],
+                'tags' => $this->tags($songData),
+            ];
 
-            // Pad to 16 tags if needed
-            while (count($tags) < 16) {
-                $tags[] = 0;
-            }
-
-            try {
-                $genreEnum = SongGenre::fromXml($genreName);
-
-                $partsSetEnum = SongPartsSet::tryFrom($partsSetName);
-                if ($partsSetEnum === null) {
-                    $this->warn("[{$index}] Unknown partsset '{$partsSetName}' for song {$musicId}");
-                    $errors++;
-
-                    continue;
-                }
-
-                $wai2PartsSetEnum = SongWai2PartsSet::tryFrom($wai2PartsSetName);
-                if ($wai2PartsSetEnum === null) {
-                    $this->warn("[{$index}] Unknown wai2partsset '{$wai2PartsSetName}' for song {$musicId}");
-                    $errors++;
-
-                    continue;
-                }
-
-                $record = Song::where('version', $version)
-                    ->where('music_id', $musicId)
-                    ->first();
-
-                if ($record === null) {
-                    Song::create([
-                        'version' => $version,
-                        'song_no' => $uniqueId,
-                        'music_id' => $musicId,
-                        'unique_id' => $uniqueId,
-                        'title' => $title,
-                        'title_en' => null,
-                        'genre' => $genreEnum->value,
-                        'partsset' => $partsSetEnum->value,
-                        'wai2_partsset' => $wai2PartsSetEnum->value,
-                        'flags' => [
-                            'hasextreme' => $hasextreme === 1,
-                            'papamama' => $papamama === 1,
-                            'secret' => $secret === 1,
-                            'newrelease' => $newRelease === 1,
-                            'demoplay' => $demoplay === 1,
-                        ],
-                        'tags' => $tags,
-                    ]);
-                    $created++;
-                } else {
-                    $record->update([
-                        'song_no' => $uniqueId,
-                        'unique_id' => $uniqueId,
-                        'title' => $title,
-                        'title_en' => null,
-                        'genre' => $genreEnum->value,
-                        'partsset' => $partsSetEnum->value,
-                        'wai2_partsset' => $wai2PartsSetEnum->value,
-                        'flags' => [
-                            'hasextreme' => $hasextreme === 1,
-                            'papamama' => $papamama === 1,
-                            'secret' => $secret === 1,
-                            'newrelease' => $newRelease === 1,
-                            'demoplay' => $demoplay === 1,
-                        ],
-                        'tags' => $tags,
-                    ]);
-                    $updated++;
-                }
-            } catch (\Throwable $e) {
-                if ($e instanceof \InvalidArgumentException && str_contains($e->getMessage(), 'Unknown genre')) {
-                    $this->warn("[{$index}] Unknown genre '{$genreName}' for song {$musicId}");
-                    $errors++;
-
-                    continue;
-                }
-
-                $this->error("[{$index}] Failed to import '{$musicId}': {$e->getMessage()}");
-                $errors++;
+            $record = Song::query()->where('version', $version->value)->where('music_id', $musicId)->first();
+            if ($record === null) {
+                Song::query()->create(['version' => $version->value, 'music_id' => $musicId, ...$attributes]);
+                $created++;
+            } else {
+                $record->update($attributes);
+                $updated++;
             }
         }
 
-        $currentCount = Song::where('version', $version)->count();
-
-        $this->newLine();
-        $this->info("Import complete for version '{$version}':");
-        $this->line("  Total songs in file: {$total}");
-        $this->line("  Songs created:       {$created}");
-        $this->line("  Songs updated:       {$updated}");
-        $this->line("  Errors:              {$errors}");
-
-        if ($errors > 0) {
-            return self::FAILURE;
-        }
-
-        return self::SUCCESS;
+        return [
+            'total' => count($dataElements),
+            'created' => $created,
+            'updated' => $updated,
+            'skipped' => $skipped,
+        ];
     }
 
-    private function musicInfoPath(string $dataPath, string $versionInput, TaikoGameVersion $gameVersion): string
+    /**
+     * @return array<int, int>
+     */
+    private function tags(\SimpleXMLElement $songData): array
+    {
+        $tags = [];
+        foreach ($songData->tag as $tagValue) {
+            $tags[] = (int) $tagValue;
+        }
+
+        while (count($tags) < 16) {
+            $tags[] = 0;
+        }
+
+        return $tags;
+    }
+
+    private function musicInfoPath(string $dataPath, TaikoGameVersion $version): string
     {
         $candidates = [
-            "{$dataPath}/{$versionInput}/musicinfo.xml",
-            "{$dataPath}/{$gameVersion->value}/musicinfo.xml",
-            "{$dataPath}/{$gameVersion->updateIdentifier()}/musicinfo.xml",
+            "{$dataPath}/{$version->value}/musicinfo.xml",
+            "{$dataPath}/{$version->updateIdentifier()}/musicinfo.xml",
         ];
 
-        foreach (array_unique($candidates) as $candidate) {
-            if (file_exists($candidate)) {
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) {
                 return $candidate;
             }
         }

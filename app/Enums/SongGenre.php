@@ -29,6 +29,22 @@ enum SongGenre: string
         };
     }
 
+    public static function tryFromXml(string $xmlValue): ?self
+    {
+        return match ($xmlValue) {
+            'J-POP' => self::Jpop,
+            'アニメ' => self::Anime,
+            'クラシック' => self::Classical,
+            'ゲームミュージック' => self::GameMusic,
+            'ナムコオリジナル' => self::NamcoOriginal,
+            'バラエティ' => self::Variety,
+            'ボーカロイド' => self::Vocaloid,
+            'メドレー' => self::Medley,
+            '童謡' => self::ChildrensSongs,
+            default => null,
+        };
+    }
+
     public function label(): string
     {
         return match ($this) {
