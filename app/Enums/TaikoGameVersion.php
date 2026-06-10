@@ -46,7 +46,7 @@ enum TaikoGameVersion: string
 
     /**
      * StudlyCase segment used for this version's generated protobuf namespace,
-     * e.g. App\GameProtocol\Green\Proto\{Studly}\Taiko.
+     * e.g. App\GameProtocol\Proto\{Studly}\Taiko.
      */
     public function namespaceSegment(): string
     {

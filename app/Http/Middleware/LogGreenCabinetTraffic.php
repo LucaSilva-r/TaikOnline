@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\GameProtocol\Green\Support\FormPayloads;
+use App\GameProtocol\Support\FormPayloads;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;

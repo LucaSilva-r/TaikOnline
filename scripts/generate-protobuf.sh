@@ -14,7 +14,7 @@ set -euo pipefail
 # we inject a DISTINCT package per version (taiko.<value> / vsinterface.<value>)
 # so the protobuf descriptor pool gets unique fully-qualified symbols and the 9
 # dialects can coexist in one process. php_namespace puts each version in its own
-# App\GameProtocol\Green\Proto\<Studly>\{Taiko,VsInterface} namespace.
+# App\GameProtocol\Proto\<Studly>\{Taiko,VsInterface} namespace.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROTOC="$ROOT/tools/protoc/bin/protoc"
@@ -34,7 +34,7 @@ if [[ ! -x "$PROTOC" ]]; then
 fi
 
 TMP="$ROOT/storage/framework/protobuf-generated"
-rm -rf "$ROOT/app/GameProtocol/Green/Proto" "$TMP"
+rm -rf "$ROOT/app/GameProtocol/Proto" "$TMP"
 mkdir -p "$TMP/out"
 
 # Injects "package <pkg>;" plus php namespace options just after the syntax line.
@@ -68,24 +68,24 @@ for version in "${VERSIONS[@]}"; do
 
     annotate_proto "$srcdir/taiko.proto" "$work/taiko.proto" \
         "taiko.$version" \
-        "App\\GameProtocol\\Green\\Proto\\$studly\\Taiko" \
-        "App\\GameProtocol\\Green\\Proto\\$studly\\Metadata"
+        "App\\GameProtocol\\Proto\\$studly\\Taiko" \
+        "App\\GameProtocol\\Proto\\$studly\\Metadata"
 
     annotate_proto "$srcdir/vsinterface.proto" "$work/vsinterface.proto" \
         "vsinterface.$version" \
-        "App\\GameProtocol\\Green\\Proto\\$studly\\VsInterface" \
-        "App\\GameProtocol\\Green\\Proto\\$studly\\Metadata"
+        "App\\GameProtocol\\Proto\\$studly\\VsInterface" \
+        "App\\GameProtocol\\Proto\\$studly\\Metadata"
 
     "$PROTOC" --proto_path="$work" --php_out="$TMP/out" \
         "$work/taiko.proto" "$work/vsinterface.proto"
 
-    echo "generated $version -> App\\GameProtocol\\Green\\Proto\\$studly"
+    echo "generated $version -> App\\GameProtocol\\Proto\\$studly"
 done
 
 mkdir -p "$ROOT/app/GameProtocol"
-mv "$TMP/out/App/GameProtocol/Green/Proto" "$ROOT/app/GameProtocol/Green/"
+mv "$TMP/out/App/GameProtocol/Proto" "$ROOT/app/GameProtocol/"
 rm -rf "$TMP"
 
 if [[ -x "$ROOT/vendor/bin/pint" ]]; then
-    "$ROOT/vendor/bin/pint" "$ROOT/app/GameProtocol/Green/Proto" --format agent >/dev/null
+    "$ROOT/vendor/bin/pint" "$ROOT/app/GameProtocol/Proto" --format agent >/dev/null
 fi

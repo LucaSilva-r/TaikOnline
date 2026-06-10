@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Green;
 
 use App\Enums\TaikoGameVersion;
-use App\GameProtocol\Green\Support\MessageWriter;
-use App\GameProtocol\Green\Support\ProtocolMessageResolver;
-use App\GameProtocol\Green\Support\ProtocolPayloads;
+use App\GameProtocol\Support\MessageWriter;
+use App\GameProtocol\Support\ProtocolMessageResolver;
+use App\GameProtocol\Support\ProtocolPayloads;
 use App\Http\Controllers\Controller;
 use App\Models\Cabinet;
 use Illuminate\Http\Request;
