@@ -10,6 +10,8 @@ use App\GameProtocol\Proto\Green\Taiko\BookKeepingRequest;
 use App\GameProtocol\Proto\Green\Taiko\BookKeepingResponse;
 use App\GameProtocol\Proto\Green\Taiko\ChallengeCompeRequest;
 use App\GameProtocol\Proto\Green\Taiko\ChallengeCompeResponse;
+use App\GameProtocol\Proto\Green\Taiko\CrownsDataRequest;
+use App\GameProtocol\Proto\Green\Taiko\CrownsDataResponse;
 use App\GameProtocol\Proto\Green\Taiko\GetfolderRequest;
 use App\GameProtocol\Proto\Green\Taiko\GetfolderResponse;
 use App\GameProtocol\Proto\Green\Taiko\GetghostdataRequest;
@@ -21,6 +23,7 @@ use App\GameProtocol\Proto\Green\Taiko\GettelopResponse;
 use App\GameProtocol\Proto\Green\Taiko\InitialdatacheckRequest;
 use App\GameProtocol\Proto\Green\Taiko\InitialdatacheckResponse;
 use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest;
+use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest\CostumeData as PlayCostumeData;
 use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest\StageData;
 use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest\StageData\GhostStageData;
 use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest\StageData\GhostStageData\GhostStageSectionData;
@@ -47,6 +50,7 @@ use App\Models\Cabinet;
 use App\Models\CabinetBookkeepingLog;
 use App\Models\GameCard;
 use App\Models\Player;
+use App\Models\PlayerCosmetic;
 use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
@@ -581,6 +585,265 @@ it('keys stored self bests to the green catalog version', function (): void {
     expect($greenBest->getArySelfbestScore()[0]->getSelfBestScore())->toBe(700000);
 });
 
+it('records crowns from play results and serves them as a gzip bitfield', function (): void {
+    $player = Player::query()->create();
+
+    // play_result_request plays song 100 at level 3 (Hard) with play_result 2 = gold.
+    post_protobuf('/v11r01/chassis/playresult.php', play_result_request($player, 100, 876543), PlayResultResponse::class);
+
+    expect(SongBest::query()->where('song_no', 100)->where('level', 3)->first()->best_crown)->toBe(2);
+
+    $request = (new CrownsDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop');
+
+    $response = post_protobuf('/v11r01/chassis/crownsdata.php', $request, CrownsDataResponse::class);
+
+    expect($response->getResult())->toBe(1);
+
+    $inflated = gzdecode($response->getHashCrownFlg());
+
+    // gold crown (wire state 3) on difficulty slot 2 (Hard) => value 3 << 4 = 0x30,
+    // packed at bit offset song_no*10 = 1000 => byte 125 holds bits 4 and 5.
+    expect(strlen($inflated))->toBe(1280)
+        ->and(ord($inflated[125]))->toBe(0x30)
+        ->and(array_sum(array_map('ord', str_split($inflated))))->toBe(0x30);
+});
+
+it('upgrades a crown without a higher score on a later cleaner play', function (): void {
+    $player = Player::query()->create();
+
+    // First play: a clear (play_result 1) at a high score.
+    post_protobuf('/v11r01/chassis/playresult.php', play_result_request_with_crown($player, 100, 980000, 1), PlayResultResponse::class);
+    expect(SongBest::query()->where('song_no', 100)->first()->best_crown)->toBe(1);
+
+    // Later play: lower score but a full combo (play_result 2). Crown upgrades,
+    // score stays.
+    post_protobuf('/v11r01/chassis/playresult.php', play_result_request_with_crown($player, 100, 500000, 2), PlayResultResponse::class);
+
+    $best = SongBest::query()->where('song_no', 100)->first();
+    expect($best->best_crown)->toBe(2)
+        ->and($best->best_score)->toBe(980000);
+});
+
+it('grants cosmetic unlocks from a play result and renders them as flag bitsets', function (): void {
+    $player = Player::query()->create();
+
+    $stage = (new StageData)->setSongNo(100)->setLevel(3)->setPlayResult(2)->setPlayScore(800000);
+
+    $data = (new PlayResultDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('2026-05-05 20:00:00')
+        ->setIsRight(true)
+        ->setAryStageInfo([$stage])
+        ->setReleaseSongNo([5])
+        ->setGetToneNo([3])
+        ->setGetTitleNo([7])
+        ->setGetCostumeNo1([2])
+        ->setGetCostumeNo3([10])
+        ->setReserved('');
+
+    $request = (new PlayResultRequest)
+        ->setBaidConf($player->baid)
+        ->setChassisIdConf('chassis')
+        ->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-05 20:00:00')
+        ->setPlayresultData(gzencode($data->serializeToString()));
+
+    post_protobuf('/v11r01/chassis/playresult.php', $request, PlayResultResponse::class);
+
+    $player->refresh();
+    expect($player->unlocked_song_numbers)->toBe([5]);
+
+    $cosmetic = PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'green')->firstOrFail();
+    expect($cosmetic->unlocked_tones)->toBe([3])
+        ->and($cosmetic->unlocked_titles)->toBe([7])
+        ->and($cosmetic->unlocked_costumes['1'])->toBe([2])
+        ->and($cosmetic->unlocked_costumes['3'])->toBe([10]);
+
+    $userResponse = post_protobuf('/v11r01/chassis/userdata.php', (new UserDataRequest)
+        ->setBaid($player->baid)->setChassisId('chassis')->setShopId('shop'), UserDataResponse::class);
+
+    $tone = $userResponse->getToneFlg();
+    $title = $userResponse->getTitleFlg();
+
+    expect(strlen($tone))->toBe(16)
+        ->and(ord($tone[0]))->toBe(0x08)
+        ->and(strlen($title))->toBe(128)
+        ->and(ord($title[0]))->toBe(0x80);
+});
+
+it('renders costume unlock flags in the baid response', function (): void {
+    $player = Player::query()->create();
+    PlayerCosmetic::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'green',
+        'unlocked_costumes' => ['1' => [2], '3' => [10]],
+    ]);
+
+    GameCard::query()->create([
+        'access_code' => '88888888888888888888',
+        'baid' => $player->baid,
+        'chip_id' => 'chip',
+        'device_type' => '1',
+        'country_id' => 'JPN',
+    ]);
+
+    $response = post_protobuf('/v11r01/chassis/baidcheck.php', (new BAIDRequest)
+        ->setAccessCode('88888888888888888888')->setChipId('chip')
+        ->setChassisId('chassis')->setShopId('shop')->setCountryId('JPN'), BAIDResponse::class);
+
+    $flg1 = $response->getCostumeFlg1();
+    $flg3 = $response->getCostumeFlg3();
+
+    expect(strlen($flg1))->toBe(32)
+        ->and(ord($flg1[0]))->toBe(0x04)
+        ->and(ord($flg3[1]))->toBe(0x04);
+});
+
+it('persists the equipped costume from a play result and returns it on baid', function (): void {
+    $player = Player::query()->create();
+    GameCard::query()->create([
+        'access_code' => '77777777777777777777',
+        'baid' => $player->baid,
+        'chip_id' => 'chip',
+        'device_type' => '1',
+        'country_id' => 'JPN',
+    ]);
+
+    $stage = (new StageData)->setSongNo(100)->setLevel(3)->setPlayResult(2)->setPlayScore(800000);
+
+    $data = (new PlayResultDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('2026-05-05 20:00:00')
+        ->setIsRight(true)
+        ->setAryStageInfo([$stage])
+        ->setAryCurrentCostume((new PlayCostumeData)
+            ->setCostume1(11)->setCostume2(22)->setCostume3(33)->setCostume4(44)->setCostume5(55))
+        ->setReserved('');
+
+    $request = (new PlayResultRequest)
+        ->setBaidConf($player->baid)
+        ->setChassisIdConf('chassis')
+        ->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-05 20:00:00')
+        ->setPlayresultData(gzencode($data->serializeToString()));
+
+    post_protobuf('/v11r01/chassis/playresult.php', $request, PlayResultResponse::class);
+
+    $cosmetic = PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'green')->firstOrFail();
+    expect($cosmetic->costume_1)->toBe(11)
+        ->and($cosmetic->costume_5)->toBe(55);
+
+    $baid = post_protobuf('/v11r01/chassis/baidcheck.php', (new BAIDRequest)
+        ->setAccessCode('77777777777777777777')->setChipId('chip')
+        ->setChassisId('chassis')->setShopId('shop')->setCountryId('JPN'), BAIDResponse::class);
+
+    expect($baid->getAryCostumedata()->getCostume1())->toBe(11)
+        ->and($baid->getAryCostumedata()->getCostume3())->toBe(33)
+        ->and($baid->getAryCostumedata()->getCostume5())->toBe(55);
+});
+
+it('keeps costume unlocks scoped to the version that granted them', function (): void {
+    $player = Player::query()->create();
+
+    // Grant tone 3 on green (v11); blue (v10) must not see it.
+    $data = (new PlayResultDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('2026-05-05 20:00:00')
+        ->setIsRight(true)
+        ->setAryStageInfo([(new StageData)->setSongNo(100)->setLevel(3)->setPlayResult(2)->setPlayScore(800000)])
+        ->setGetToneNo([3])
+        ->setReserved('');
+
+    post_protobuf('/v11r01/chassis/playresult.php', (new PlayResultRequest)
+        ->setBaidConf($player->baid)->setChassisIdConf('chassis')->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-05 20:00:00')
+        ->setPlayresultData(gzencode($data->serializeToString())), PlayResultResponse::class);
+
+    expect(PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'green')->value('unlocked_tones'))->toBe([3])
+        ->and(PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'blue')->exists())->toBeFalse();
+});
+
+it('persists the last-used tone and options as the player defaults', function (): void {
+    $player = Player::query()->create();
+    GameCard::query()->create([
+        'access_code' => '66666666666666666666',
+        'baid' => $player->baid,
+        'chip_id' => 'chip',
+        'device_type' => '1',
+        'country_id' => 'JPN',
+    ]);
+
+    // tone_flg with bit 5 set => tone id 5; option_flg little-endian 10.
+    $stage = (new StageData)
+        ->setSongNo(100)->setLevel(3)->setPlayResult(2)->setPlayScore(800000)
+        ->setToneFlg("\x20")
+        ->setOptionFlg("\x0A\x00\x00\x00");
+
+    $data = (new PlayResultDataRequest)
+        ->setBaid($player->baid)->setChassisId('chassis')->setShopId('shop')
+        ->setPlayDatetime('2026-05-05 20:00:00')->setIsRight(true)
+        ->setAryStageInfo([$stage])->setReserved('');
+
+    post_protobuf('/v11r01/chassis/playresult.php', (new PlayResultRequest)
+        ->setBaidConf($player->baid)->setChassisIdConf('chassis')->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-05 20:00:00')
+        ->setPlayresultData(gzencode($data->serializeToString())), PlayResultResponse::class);
+
+    $cosmetic = PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'green')->firstOrFail();
+    expect($cosmetic->default_tone_setting)->toBe(5)
+        ->and($cosmetic->default_option_setting)->toBe(10);
+
+    $baid = post_protobuf('/v11r01/chassis/baidcheck.php', (new BAIDRequest)
+        ->setAccessCode('66666666666666666666')->setChipId('chip')
+        ->setChassisId('chassis')->setShopId('shop')->setCountryId('JPN'), BAIDResponse::class);
+    expect($baid->getDefaultToneSetting())->toBe(5);
+
+    $user = post_protobuf('/v11r01/chassis/userdata.php', (new UserDataRequest)
+        ->setBaid($player->baid)->setChassisId('chassis')->setShopId('shop'), UserDataResponse::class);
+    expect($user->getOptionFlg())->toBe("\x0A\x00\x00\x00");
+});
+
+it('returns version-scoped equipped title on baid', function (): void {
+    $player = Player::query()->create();
+    PlayerCosmetic::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'green',
+        'title' => 'Master of Don',
+        'titleplate_id' => 42,
+    ]);
+    GameCard::query()->create([
+        'access_code' => '55555555555555555555',
+        'baid' => $player->baid,
+        'chip_id' => 'chip',
+        'device_type' => '1',
+        'country_id' => 'JPN',
+    ]);
+
+    $green = post_protobuf('/v11r01/chassis/baidcheck.php', (new BAIDRequest)
+        ->setAccessCode('55555555555555555555')->setChipId('chip')
+        ->setChassisId('chassis')->setShopId('shop')->setCountryId('JPN'), BAIDResponse::class);
+
+    expect($green->getTitle())->toBe('Master of Don')
+        ->and($green->getTitleplateId())->toBe(42);
+
+    // A version with no cosmetic row returns no equipped title.
+    $blue = post_protobuf('/v10r00/chassis/baidcheck.php', (new BAIDRequest)
+        ->setAccessCode('55555555555555555555')->setChipId('chip')
+        ->setChassisId('chassis')->setShopId('shop')->setCountryId('JPN'), BAIDResponse::class);
+
+    expect($blue->getTitle())->toBe('')
+        ->and($blue->getTitleplateId())->toBe(0);
+});
+
 it('acknowledges anonymous play results without retrying', function (): void {
     $stage = (new StageData)
         ->setSongNo(99)
@@ -799,6 +1062,35 @@ function play_result_request(Player $player, int $songNo, int $score, ?GhostStag
         ->setPlayerAge(0)
         ->setPlayMode(0)
         ->setAreaCode(0)
+        ->setReserved('')
+        ->setDifficultyPlayedCourse(3)
+        ->setDifficultyPlayedStar(8);
+
+    return (new PlayResultRequest)
+        ->setBaidConf($player->baid)
+        ->setChassisIdConf('chassis')
+        ->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-05 20:00:00')
+        ->setPlayresultData(gzencode($data->serializeToString()));
+}
+
+function play_result_request_with_crown(Player $player, int $songNo, int $score, int $playResult): PlayResultRequest
+{
+    $stage = (new StageData)
+        ->setSongNo($songNo)
+        ->setLevel(3)
+        ->setPlayResult($playResult)
+        ->setPlayScore($score);
+
+    $data = (new PlayResultDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('2026-05-05 20:00:00')
+        ->setIsRight(true)
+        ->setCardType(1)
+        ->setIsTwoPlayers(false)
+        ->setAryStageInfo([$stage])
         ->setReserved('')
         ->setDifficultyPlayedCourse(3)
         ->setDifficultyPlayedStar(8);
