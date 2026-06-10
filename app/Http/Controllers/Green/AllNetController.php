@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Green;
 
-use App\GameProtocol\Green\Support\FormPayloads;
-use App\GameProtocol\Green\Support\MuchaCrypto;
+use App\GameProtocol\Support\FormPayloads;
+use App\GameProtocol\Support\MuchaCrypto;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;

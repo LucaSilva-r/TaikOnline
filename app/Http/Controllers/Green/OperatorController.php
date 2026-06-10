@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Green;
 
-use App\GameProtocol\Green\Support\GameDataCatalog;
+use App\GameProtocol\Support\GameDataCatalog;
 use App\Http\Controllers\Controller;
 use App\Models\Player;
 use App\Models\SongPlayResult;

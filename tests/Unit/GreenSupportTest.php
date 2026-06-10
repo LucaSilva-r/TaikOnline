@@ -1,8 +1,8 @@
 <?php
 
-use App\GameProtocol\Green\Support\FormPayloads;
-use App\GameProtocol\Green\Support\ProtocolPayloads;
-use App\GameProtocol\Green\Support\ScoreMapper;
+use App\GameProtocol\Support\FormPayloads;
+use App\GameProtocol\Support\ProtocolPayloads;
+use App\GameProtocol\Support\ScoreMapper;
 
 it('decodes allnet base64 zlib forms', function (): void {
     $payload = base64_encode(gzcompress('game_id=S121&token=123'));
