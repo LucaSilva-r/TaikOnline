@@ -8,17 +8,59 @@ use App\GameProtocol\Support\ProtocolMessageResolver;
 use App\GameProtocol\Support\ScoreMapper;
 use App\Models\GameCard;
 use App\Models\Player;
+use App\Models\PlayerCosmetic;
 use App\Models\Song;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Support\Str;
 
 class PlayerProfileService
 {
+    /**
+     * Fixed cabinet bitset sizes (bytes) for cosmetic unlock flags.
+     */
+    private const TONE_FLAG_BYTES = 16;
+
+    private const TITLE_FLAG_BYTES = 128;
+
+    private const COSTUME_FLAG_BYTES = 32;
+
     public function __construct(
         private readonly ScoreMapper $scoreMapper,
         private readonly ProtocolMessageResolver $messages,
         private readonly MessageWriter $writer,
     ) {}
+
+    /**
+     * Render one costume slot's unlocked ids into its flag bitset. Costumes are
+     * stored as a {slot => [ids]} map in the version-scoped cosmetic row.
+     */
+    private function costumeFlag(PlayerCosmetic $cosmetic, int $slot): string
+    {
+        $ids = ($cosmetic->unlocked_costumes ?? [])[(string) $slot] ?? [];
+
+        return $this->scoreMapper->idFlagBytes($ids, self::COSTUME_FLAG_BYTES);
+    }
+
+    /**
+     * Build the equipped-costume message from the version-scoped cosmetic row.
+     * Older dialects have no nested CostumeData type, so this returns null when
+     * the message is unavailable for the version.
+     */
+    private function equippedCostumeData(TaikoGameVersion $version, PlayerCosmetic $cosmetic): ?Message
+    {
+        $costume = $this->messages->tryMake($version, 'BAIDResponse\\CostumeData');
+        if (! $costume instanceof Message) {
+            return null;
+        }
+
+        return $this->writer->fill($costume, [
+            'setCostume1' => (int) $cosmetic->costume_1,
+            'setCostume2' => (int) $cosmetic->costume_2,
+            'setCostume3' => (int) $cosmetic->costume_3,
+            'setCostume4' => (int) $cosmetic->costume_4,
+            'setCostume5' => (int) $cosmetic->costume_5,
+        ]);
+    }
 
     public function baid(Message $request, TaikoGameVersion $version): Message
     {
@@ -81,6 +123,8 @@ class PlayerProfileService
 
     public function userData(Player $player, TaikoGameVersion $version): Message
     {
+        $cosmetic = PlayerCosmetic::resolve((int) $player->baid, $version);
+
         return $this->writer->fill($this->messages->make($version, 'UserDataResponse'), [
             'setResult' => 1,
             'setIsExplain' => false,
@@ -93,9 +137,9 @@ class PlayerProfileService
             'setAryFriendInfo' => [],
             'setDispLevelTotal' => 0,
             'setDispLevelChassis' => 0,
-            'setOptionFlg' => pack('V', (int) $player->default_option_setting),
-            'setToneFlg' => $this->scoreMapper->emptyFlagBytes(),
-            'setTitleFlg' => $this->scoreMapper->emptyFlagBytes(),
+            'setOptionFlg' => pack('V', (int) $cosmetic->default_option_setting),
+            'setToneFlg' => $this->scoreMapper->idFlagBytes($cosmetic->unlocked_tones ?? [], self::TONE_FLAG_BYTES),
+            'setTitleFlg' => $this->scoreMapper->idFlagBytes($cosmetic->unlocked_titles ?? [], self::TITLE_FLAG_BYTES),
             'setSongPushedCnt' => 0,
             'setSongFavoriteCnt' => count($player->favorite_song_numbers ?? []),
             'setSongRecentCnt' => count($player->recent_song_numbers ?? []),
@@ -103,7 +147,7 @@ class PlayerProfileService
             'setRecommendSong' => 0,
             'setRecommendBestSong' => [],
             'setDispLevelSelf' => 0,
-            'setDefaultOptionSetting' => pack('V', (int) $player->default_option_setting),
+            'setDefaultOptionSetting' => pack('V', (int) $cosmetic->default_option_setting),
             'setDefaultShinSetting' => false,
             'setDispTaikojukuDan' => 0,
             'setDifficultyPlayedCourse' => (int) $player->difficulty_played_course,
@@ -129,6 +173,8 @@ class PlayerProfileService
 
     private function baidResponse(TaikoGameVersion $version, Player $player, string $accessCode, bool $isNew): Message
     {
+        $cosmetic = PlayerCosmetic::resolve((int) $player->baid, $version);
+
         return $this->writer->fill($this->messages->make($version, 'BAIDResponse'), [
             'setResult' => 1,
             'setPlayerType' => $isNew ? 1 : 0,
@@ -141,18 +187,18 @@ class PlayerProfileService
             'setPurposeId' => 0,
             'setRegionId' => (int) config('taiko_green.region'),
             'setMydonName' => $player->mydon_name ?? '',
-            'setTitle' => $player->title ?? '',
-            'setTitleplateId' => (int) $player->titleplate_id,
+            'setTitle' => $cosmetic->title ?? '',
+            'setTitleplateId' => (int) $cosmetic->titleplate_id,
             'setColorFace' => (int) $player->color_face,
             'setColorBody' => (int) $player->color_body,
             'setColorLimb' => (int) $player->color_limb,
-            'setAryCostumedata' => $this->messages->tryMake($version, 'BAIDResponse\\CostumeData'),
+            'setAryCostumedata' => $this->equippedCostumeData($version, $cosmetic),
             'setAryFavoriteCostumedata' => [],
-            'setCostumeFlg1' => $this->scoreMapper->emptyFlagBytes(),
-            'setCostumeFlg2' => $this->scoreMapper->emptyFlagBytes(),
-            'setCostumeFlg3' => $this->scoreMapper->emptyFlagBytes(),
-            'setCostumeFlg4' => $this->scoreMapper->emptyFlagBytes(),
-            'setCostumeFlg5' => $this->scoreMapper->emptyFlagBytes(),
+            'setCostumeFlg1' => $this->costumeFlag($cosmetic, 1),
+            'setCostumeFlg2' => $this->costumeFlag($cosmetic, 2),
+            'setCostumeFlg3' => $this->costumeFlag($cosmetic, 3),
+            'setCostumeFlg4' => $this->costumeFlag($cosmetic, 4),
+            'setCostumeFlg5' => $this->costumeFlag($cosmetic, 5),
             'setTotalGetDonmedal' => (int) $player->total_get_donmedal,
             'setTotalUseDonmedal' => (int) $player->total_use_donmedal,
             'setTotalGetKatsumedal' => (int) $player->total_get_katsumedal,
@@ -167,7 +213,7 @@ class PlayerProfileService
             'setGotDanextraFlg' => $this->scoreMapper->emptyFlagBytes(64),
             'setAccesstoken' => $player->access_token ?? '',
             'setContentInfo' => '',
-            'setDefaultToneSetting' => (int) $player->default_tone_setting,
+            'setDefaultToneSetting' => (int) $cosmetic->default_tone_setting,
             'setPersonid' => $player->person_id ?? '',
             'setWaiwaiTutorialFlg' => 0,
         ]);

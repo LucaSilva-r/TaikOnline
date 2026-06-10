@@ -13,6 +13,7 @@ use App\Models\CabinetBookkeepingLog;
 use App\Models\HeadClerkLog;
 use App\Models\Player;
 use App\Models\Song;
+use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use App\Services\CabinetService;
 use Google\Protobuf\Internal\Message;
@@ -165,13 +166,20 @@ class GameHandler
 
     public function crownsData(Request $request, TaikoGameVersion $game): Response
     {
-        $this->parse($request, $game, 'CrownsDataRequest');
+        $message = $this->parse($request, $game, 'CrownsDataRequest');
+
+        $bests = SongBest::query()
+            ->select(['song_no', 'level', 'best_crown'])
+            ->where('baid', $message->getBaid())
+            ->where('game_version', $game->value)
+            ->where('best_crown', '>', 0)
+            ->get();
 
         return $this->payloads->response(
             $this->writer->fill($this->messages->make($game, 'CrownsDataResponse'), [
                 'setResult' => 1,
                 'setSongHashVer' => 99,
-                'setHashCrownFlg' => $this->scoreMapper->emptyFlagBytes(),
+                'setHashCrownFlg' => $this->scoreMapper->crownFlagBytes($bests),
             ])
         );
     }

@@ -11,17 +11,12 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[Fillable([
     'mydon_name',
     'mydon_name_language',
-    'title',
-    'titleplate_id',
     'color_face',
     'color_body',
     'color_limb',
     'favorite_song_numbers',
     'recent_song_numbers',
     'unlocked_song_numbers',
-    'unlocked_costumes',
-    'default_tone_setting',
-    'default_option_setting',
     'difficulty_played_course',
     'difficulty_played_star',
     'difficulty_played_sort',
@@ -45,7 +40,6 @@ class Player extends Model
             'favorite_song_numbers' => 'array',
             'recent_song_numbers' => 'array',
             'unlocked_song_numbers' => 'array',
-            'unlocked_costumes' => 'array',
             'last_played_at' => 'datetime',
         ];
     }
@@ -63,6 +57,11 @@ class Player extends Model
     public function songBests(): HasMany
     {
         return $this->hasMany(SongBest::class, 'baid', 'baid');
+    }
+
+    public function cosmetics(): HasMany
+    {
+        return $this->hasMany(PlayerCosmetic::class, 'baid', 'baid');
     }
 
     public function user(): BelongsTo

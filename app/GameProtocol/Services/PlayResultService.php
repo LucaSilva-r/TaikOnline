@@ -7,6 +7,7 @@ use App\GameProtocol\Support\MessageWriter;
 use App\GameProtocol\Support\ProtocolMessageResolver;
 use App\GameProtocol\Support\ScoreMapper;
 use App\Models\Player;
+use App\Models\PlayerCosmetic;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use Carbon\CarbonImmutable;
@@ -79,7 +80,151 @@ class PlayResultService
             'total_credit_count' => (int) $player->total_credit_count + 1,
         ]);
 
+        if (method_exists($data, 'getReleaseSongNo')) {
+            $player->update([
+                'unlocked_song_numbers' => $this->mergeIds($player->unlocked_song_numbers ?? [], $data->getReleaseSongNo()),
+            ]);
+        }
+
+        $this->persistCosmetics($player, $data, $version);
+
         return 1;
+    }
+
+    /**
+     * Persist the version-scoped cosmetic state a play result carries: the
+     * costume/tone/title unlocks granted this play and the equipped costume.
+     * Cosmetic ids map to different items per version, so this is keyed per
+     * (baid, game_version). Getters are guarded for older dialects that omit
+     * some of these fields.
+     */
+    private function persistCosmetics(Player $player, Message $data, TaikoGameVersion $version): void
+    {
+        $cosmetic = PlayerCosmetic::resolve($player->baid, $version);
+
+        if (method_exists($data, 'getGetToneNo')) {
+            $cosmetic->unlocked_tones = $this->mergeIds($cosmetic->unlocked_tones ?? [], $data->getGetToneNo());
+        }
+
+        if (method_exists($data, 'getGetTitleNo')) {
+            $cosmetic->unlocked_titles = $this->mergeIds($cosmetic->unlocked_titles ?? [], $data->getGetTitleNo());
+        }
+
+        $costumes = $cosmetic->unlocked_costumes ?? [];
+        for ($slot = 1; $slot <= 5; $slot++) {
+            $getter = "getGetCostumeNo{$slot}";
+            if (method_exists($data, $getter)) {
+                $costumes[(string) $slot] = $this->mergeIds($costumes[(string) $slot] ?? [], $data->{$getter}());
+            }
+        }
+        $cosmetic->unlocked_costumes = $costumes;
+
+        $this->applyEquippedCostume($cosmetic, $data);
+        $this->applyDefaultSettings($cosmetic, $data);
+
+        $cosmetic->save();
+    }
+
+    /**
+     * Carry the tone and play options the player used on their last stage into
+     * the cosmetic row so the cabinet pre-selects them next session. The cabinet
+     * reports the tone as a bitfield (one bit = the equipped tone id) and the
+     * options as a little-endian flag value.
+     */
+    private function applyDefaultSettings(PlayerCosmetic $cosmetic, Message $data): void
+    {
+        if (! method_exists($data, 'getAryStageInfo')) {
+            return;
+        }
+
+        $stage = collect($data->getAryStageInfo())
+            ->filter(fn (mixed $stage): bool => $stage instanceof Message)
+            ->last();
+
+        if (! $stage instanceof Message) {
+            return;
+        }
+
+        if (method_exists($stage, 'getToneFlg')) {
+            $toneId = $this->firstSetBit($stage->getToneFlg());
+            if ($toneId !== null) {
+                $cosmetic->default_tone_setting = $toneId;
+            }
+        }
+
+        if (method_exists($stage, 'getOptionFlg')) {
+            $cosmetic->default_option_setting = $this->leInt($stage->getOptionFlg());
+        }
+    }
+
+    /**
+     * Index of the lowest set bit in a flag bitfield, or null when empty.
+     */
+    private function firstSetBit(string $flag): ?int
+    {
+        $length = strlen($flag);
+        for ($byte = 0; $byte < $length; $byte++) {
+            $value = ord($flag[$byte]);
+            if ($value === 0) {
+                continue;
+            }
+
+            for ($bit = 0; $bit < 8; $bit++) {
+                if (($value & (1 << $bit)) !== 0) {
+                    return $byte * 8 + $bit;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Decode up to four little-endian bytes into an unsigned integer.
+     */
+    private function leInt(string $bytes): int
+    {
+        $padded = str_pad(substr($bytes, 0, 4), 4, "\0");
+
+        return unpack('V', $padded)[1];
+    }
+
+    /**
+     * Mirror the cabinet's currently-worn costume into the cosmetic row so it
+     * persists across sessions for this version.
+     */
+    private function applyEquippedCostume(PlayerCosmetic $cosmetic, Message $data): void
+    {
+        if (! method_exists($data, 'getAryCurrentCostume') || ! $data->hasAryCurrentCostume()) {
+            return;
+        }
+
+        $costume = $data->getAryCurrentCostume();
+        if (! $costume instanceof Message) {
+            return;
+        }
+
+        for ($slot = 1; $slot <= 5; $slot++) {
+            $cosmetic->{"costume_{$slot}"} = (int) $costume->{"getCostume{$slot}"}();
+        }
+    }
+
+    /**
+     * Merge incoming ids into an existing list, dropping zeros/duplicates.
+     *
+     * @param  array<int, int>  $existing
+     * @param  iterable<int>  $incoming
+     * @return array<int, int>
+     */
+    private function mergeIds(array $existing, iterable $incoming): array
+    {
+        return collect($existing)
+            ->merge(collect($incoming)->map(fn (mixed $id): int => (int) $id))
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 
     /**
@@ -128,13 +273,38 @@ class PlayResultService
             'level' => $stage->getLevel(),
         ]);
 
+        $dirty = ! $best->exists;
+
         if (! $best->exists || $stage->getPlayScore() >= (int) $best->best_score) {
             $best->fill([
                 'best_score' => $stage->getPlayScore(),
                 'best_score_rank' => $rank,
                 'best_play_result' => $stage->getPlayResult(),
-            ])->save();
+            ]);
+            $dirty = true;
         }
+
+        // Crowns improve independently of score: a later lower-scoring full combo
+        // still upgrades the crown. Rank order matches the stored values
+        // (0 none < 1 clear < 2 gold < 3 dondaful).
+        $crown = $this->crownForPlayResult($stage->getPlayResult());
+        if ($crown > (int) $best->best_crown) {
+            $best->best_crown = $crown;
+            $dirty = true;
+        }
+
+        if ($dirty) {
+            $best->save();
+        }
+    }
+
+    /**
+     * Clamp the cabinet's play_result to a crown rank (1 clear, 2 gold,
+     * 3 dondaful); anything else counts as no crown.
+     */
+    private function crownForPlayResult(int $playResult): int
+    {
+        return ($playResult >= 1 && $playResult <= 3) ? $playResult : 0;
     }
 
     private function parsePlayedAt(string $value): CarbonImmutable
