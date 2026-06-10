@@ -37,6 +37,8 @@ use App\GameProtocol\Proto\Green\Taiko\RewardexecutionRequest;
 use App\GameProtocol\Proto\Green\Taiko\RewardexecutionResponse;
 use App\GameProtocol\Proto\Green\Taiko\SelfBestRequest;
 use App\GameProtocol\Proto\Green\Taiko\SelfBestResponse;
+use App\GameProtocol\Proto\Green\Taiko\TaikojukuRequest;
+use App\GameProtocol\Proto\Green\Taiko\TaikojukuResponse;
 use App\GameProtocol\Proto\Green\Taiko\TournamentcheckRequest;
 use App\GameProtocol\Proto\Green\Taiko\TournamentcheckResponse;
 use App\GameProtocol\Proto\Green\Taiko\UserDataRequest;
@@ -48,6 +50,7 @@ use App\GameProtocol\Support\MuchaCrypto;
 use App\GameProtocol\Support\ProtocolMessageResolver;
 use App\Models\Cabinet;
 use App\Models\CabinetBookkeepingLog;
+use App\Models\DanCourse;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
@@ -842,6 +845,53 @@ it('returns version-scoped equipped title on baid', function (): void {
 
     expect($blue->getTitle())->toBe('')
         ->and($blue->getTitleplateId())->toBe(0);
+});
+
+it('serves dan dojo courses for requested dan slots', function (): void {
+    $dan5 = DanCourse::query()->create([
+        'version' => 'green', 'dan' => 5, 'unique_id' => 20008, 'name' => '1kyu', 'difficulty' => 3, 'verup_no' => 1,
+    ]);
+    $dan5->songs()->createMany([
+        ['song_no' => 628, 'level' => 2, 'sort_order' => 0],
+        ['song_no' => 94, 'level' => 2, 'sort_order' => 1],
+        ['song_no' => 686, 'level' => 2, 'sort_order' => 2],
+    ]);
+    $dan6 = DanCourse::query()->create([
+        'version' => 'green', 'dan' => 6, 'unique_id' => 20010, 'name' => 'shodan', 'difficulty' => 3, 'verup_no' => 1,
+    ]);
+    $dan6->songs()->create(['song_no' => 372, 'level' => 3, 'sort_order' => 0]);
+
+    // Requesting only dan 5 returns just that course with its songs in order.
+    $response = post_protobuf('/v11r01/chassis/taikojuku.php', (new TaikojukuRequest)
+        ->setChassisId('chassis')->setShopId('shop')->setGetDan([5]), TaikojukuResponse::class);
+
+    $packs = iterator_to_array($response->getAryJukupackData());
+    expect($response->getResult())->toBe(1)
+        ->and($packs)->toHaveCount(1)
+        ->and($packs[0]->getGetDan())->toBe(5)
+        ->and($packs[0]->getVerupNo())->toBe(1);
+
+    $songs = iterator_to_array($packs[0]->getAryJukusongData());
+    expect($songs)->toHaveCount(3)
+        ->and($songs[0]->getSongNo())->toBe(628)
+        ->and($songs[0]->getLevel())->toBe(2)
+        ->and($songs[2]->getSongNo())->toBe(686);
+
+    // No requested slots returns every course for the version.
+    $all = post_protobuf('/v11r01/chassis/taikojuku.php', (new TaikojukuRequest)
+        ->setChassisId('chassis')->setShopId('shop'), TaikojukuResponse::class);
+    expect(iterator_to_array($all->getAryJukupackData()))->toHaveCount(2);
+});
+
+it('scopes dan dojo courses to the requesting version', function (): void {
+    DanCourse::query()->create(['version' => 'green', 'dan' => 5, 'unique_id' => 1, 'name' => 'g', 'difficulty' => 3])
+        ->songs()->create(['song_no' => 628, 'level' => 2, 'sort_order' => 0]);
+
+    // Blue (v10) has no courses imported: the dojo comes back empty, not green's.
+    $blue = post_protobuf('/v10r00/chassis/taikojuku.php', (new TaikojukuRequest)
+        ->setChassisId('chassis')->setShopId('shop')->setGetDan([5]), TaikojukuResponse::class);
+
+    expect(iterator_to_array($blue->getAryJukupackData()))->toHaveCount(0);
 });
 
 it('acknowledges anonymous play results without retrying', function (): void {
