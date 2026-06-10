@@ -10,6 +10,8 @@ use App\GameProtocol\Support\ProtocolMessageResolver;
 use App\GameProtocol\Support\ProtocolPayloads;
 use App\GameProtocol\Support\ScoreMapper;
 use App\Models\CabinetBookkeepingLog;
+use App\Models\DanCourse;
+use App\Models\DanCourseSong;
 use App\Models\HeadClerkLog;
 use App\Models\Player;
 use App\Models\Song;
@@ -274,12 +276,45 @@ class GameHandler
 
     public function taikojuku(Request $request, TaikoGameVersion $game): Response
     {
-        $this->parse($request, $game, 'TaikojukuRequest');
+        $message = $this->parse($request, $game, 'TaikojukuRequest');
+
+        $requested = collect($message->getGetDan())
+            ->map(fn (mixed $dan): int => (int) $dan)
+            ->filter(fn (int $dan): bool => $dan >= 1 && $dan <= 25)
+            ->values();
+
+        $query = DanCourse::query()
+            ->with('songs')
+            ->where('version', $game->value)
+            ->orderBy('dan');
+
+        if ($requested->isNotEmpty()) {
+            $query->whereIn('dan', $requested->all());
+        }
+
+        $packs = $query->get()
+            ->map(fn (DanCourse $course): Message => $this->writer->fill(
+                $this->messages->make($game, 'TaikojukuResponse\\JukupackData'),
+                [
+                    'setGetDan' => (int) $course->dan,
+                    'setVerupNo' => (int) $course->verup_no,
+                    'setAryJukusongData' => $course->songs
+                        ->map(fn (DanCourseSong $song): Message => $this->writer->fill(
+                            $this->messages->make($game, 'TaikojukuResponse\\JukupackData\\JukusongData'),
+                            [
+                                'setSongNo' => (int) $song->song_no,
+                                'setLevel' => (int) $song->level,
+                            ],
+                        ))
+                        ->all(),
+                ],
+            ))
+            ->all();
 
         return $this->payloads->response(
             $this->writer->fill($this->messages->make($game, 'TaikojukuResponse'), [
                 'setResult' => 1,
-                'setAryJukupackData' => [],
+                'setAryJukupackData' => $packs,
             ])
         );
     }
