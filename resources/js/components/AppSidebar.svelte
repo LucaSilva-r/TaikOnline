@@ -53,7 +53,11 @@
     ];
 
     const footerNavItems: NavItem[] = [
-        { title: 'Back to site', href: home(taikoParam), icon: Home },
+        {
+            title: 'Back to site',
+            href: home({ taikoVersion: 'green' }),
+            icon: Home,
+        },
     ];
 </script>
 
