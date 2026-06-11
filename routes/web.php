@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\DanDojoController;
 use App\Http\Controllers\Admin\SongController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Green\OperatorController;
@@ -22,6 +23,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('players/{player}', [OperatorController::class, 'player'])->name('players.show');
         Route::get('recent-plays', [OperatorController::class, 'recentPlays'])->name('recent-plays');
         Route::get('songs', [SongController::class, 'index'])->name('songs.index');
+        Route::get('dan-dojo', [DanDojoController::class, 'index'])->name('dan-dojo.index');
+        Route::post('dan-dojo/{version}/randomize', [DanDojoController::class, 'randomize'])->name('dan-dojo.randomize');
         Route::get('status', [OperatorController::class, 'status'])->name('status');
 
         Route::get('users', [UserController::class, 'index'])->name('users.index');

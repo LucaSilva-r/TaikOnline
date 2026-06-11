@@ -4,20 +4,24 @@ The dan dojo (段位道場 / *taikojuku*) is a ranked challenge mode: a player a
 fixed set of songs back-to-back under pass conditions to earn a dan rank. Each
 challenge level (`get_dan`, 1–25) is a **course** the server defines.
 
-## What the server controls vs the cabinet
+## Source of truth: the cabinet's local file
 
-This is the key fact for authoring courses:
+> **The cabinet reads its dan dojo from the local `musicmedleyinfo.xml` file, not
+> from the server.** The `taikojuku.php` protocol response is *not* consumed by the
+> cabinet today — the online data-update path that would deliver it has not been
+> made to work. To actually change a cabinet's dojo you replace its
+> `musicmedleyinfo.xml` (the operator has file authority through Taiko Zucchini). A
+> server-driven push API is possible but out of scope for now.
 
-- **The server chooses the songs.** The `taikojuku.php` response carries, per dan
-  slot, the list of `(song_no, level)` to play.
-- **The cabinet evaluates pass/fail.** The cabinet has its own bundled
-  `musicmedleyinfo` datatable and reads the pass conditions (soul gauge, hit/miss
-  thresholds, score) for that dan slot from it. The server does not send conditions.
+What this means for this server:
 
-So the song list is fully server-authored, while the pass thresholds for a given dan
-slot come from whatever the cabinet shipped with. A course is therefore reproducible
-from a tiny amount of data — you do **not** need a dump to define one, only the
-`(dan, [songs], verup_no)` tuple.
+- The `dan_courses` tables, the import command, and the `taikojuku.php` handler are a
+  **catalog and authoring layer**. They record and generate dan courses, and the
+  handler is the correct protocol behaviour for if/when the update path works — but
+  changes here do not reach a cabinet on their own.
+- A course is fully described by `(dan, [songs (song_no, level)], verup_no)` plus, in
+  the file, the pass conditions. Pass/fail is evaluated entirely on the cabinet from
+  the file's `Conditions`/`ExcellentConditions`.
 
 ## Protocol flow
 
@@ -103,6 +107,34 @@ $course->songs()->createMany([
 The cabinet will play those songs for dan 1 and judge the run against its own dan-1
 pass conditions. Practical limits: 1–25 dan slots, up to 10 songs per course, and
 `song_no` values that exist in that version's catalog.
+
+### Daily-challenge randomizer
+
+`App\Services\DanCourseRandomizer` is the reference implementation of server
+authoring: `randomize($version)` replaces a version's courses with a fresh set
+(10 courses × 3 songs) drawn at random from that version's `songs` catalog, bumping
+`verup_no` to `time()` so the cabinet re-reads. It needs no datatable — only
+imported songs — which is what makes it usable for daily challenges on any version.
+
+> **Level must be a chart the song actually has.** The dojo `level` is the chart
+> difficulty: 0 easy, 1 normal, 2 hard, 3 oni, 4 ura. Real datatables use 0–3 in
+> every version; ura (4) appears only in the murasaki/white/red/yellow dojos and
+> only rarely, always paired with a song that has an ura chart. Green and blue never
+> use ura. Assigning a level the picked song does not have makes the cabinet
+> **crash** when it opens the dojo (this is what `level = 4` on random green songs
+> did). The randomizer caps at 3 (oni is near-universal); emitting 4 would require
+> restricting picks to `hasextreme` songs.
+
+The admin **Dan Dojo** page (`/admin/dan-dojo`,
+`Admin\DanDojoController`) lists every version's published courses and exposes a
+per-version **Randomize** button that calls the service. A version with no imported
+songs is skipped.
+
+> Because the cabinet reads the dojo from its local file (see above), randomizing
+> updates the server's catalog but does not change a running cabinet on its own. To
+> deploy a generated set you would render it to a `musicmedleyinfo.xml` — including
+> per-course pass conditions, which the randomizer does not yet produce — and load
+> that file onto the cabinet. That export/deploy step is future work.
 
 For importing real courses from arcade dumps, see
 [game data import](../operations/game-data-import.md).
