@@ -25,6 +25,7 @@
     } from '@/components/ui/sidebar';
     import { toUrl } from '@/lib/utils';
     import adminRoute from '@/routes/admin';
+    import adminDanDojo from '@/routes/admin/dan-dojo';
     import adminPlayers from '@/routes/admin/players';
     import adminSongs from '@/routes/admin/songs';
     import adminUsers from '@/routes/admin/users';
@@ -43,6 +44,7 @@
         { title: 'Players', href: adminPlayers.index(), icon: Users },
         { title: 'Recent Plays', href: recentPlays(), icon: Activity },
         { title: 'Songs', href: adminSongs.index(), icon: Disc },
+        { title: 'Dan Dojo', href: adminDanDojo.index(), icon: BookOpen },
         { title: 'Server Status', href: status(), icon: Server },
         { title: 'Users', href: adminUsers.index(), icon: ShieldCheck },
     ];
