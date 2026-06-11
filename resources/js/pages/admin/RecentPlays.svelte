@@ -1,7 +1,8 @@
 <script module lang="ts">
     import { recentPlays } from '@/routes/admin';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     export const layout = {
-        breadcrumbs: [{ title: 'Recent Plays', href: recentPlays() }],
+        breadcrumbs: [{ title: 'Recent Plays', href: recentPlays(taikoRouteParam()) }],
     };
 </script>
 

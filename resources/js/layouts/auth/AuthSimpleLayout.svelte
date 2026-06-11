@@ -2,6 +2,7 @@
     import { Link } from '@inertiajs/svelte';
     import type { Snippet } from 'svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     import { home } from '@/routes';
 
     let {
@@ -22,7 +23,7 @@
         <div class="flex flex-col gap-8">
             <div class="flex flex-col items-center gap-4">
                 <Link
-                    href={home()}
+                    href={home(taikoRouteParam())}
                     class="flex flex-col items-center gap-2 font-medium"
                 >
                     <div

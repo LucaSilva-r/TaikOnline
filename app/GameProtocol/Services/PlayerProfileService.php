@@ -159,10 +159,6 @@ class PlayerProfileService
 
     private function releaseSongFlag(string $gameVersion): string
     {
-        // TEST: report every possible song (4096 bits) as released so custom
-        // injected songs (e.g. uniqueid 1000) pass the carousel enable gate.
-        return str_repeat("\xFF", 512);
-
         $songNumbers = Song::query()
             ->where('version', $gameVersion)
             ->pluck('song_no')

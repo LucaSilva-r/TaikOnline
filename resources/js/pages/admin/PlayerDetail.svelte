@@ -1,8 +1,9 @@
 <script module lang="ts">
     import players from '@/routes/admin/players';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     export const layout = {
         breadcrumbs: [
-            { title: 'Players', href: players.index() },
+            { title: 'Players', href: players.index(taikoRouteParam()) },
             { title: 'Detail', href: '#' },
         ],
     };

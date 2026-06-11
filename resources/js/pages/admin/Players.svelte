@@ -1,13 +1,15 @@
 <script module lang="ts">
     import playersRoutes from '@/routes/admin/players';
+    import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
     export const layout = {
-        breadcrumbs: [{ title: 'Players', href: playersRoutes.index() }],
+        breadcrumbs: [{ title: 'Players', href: playersRoutes.index(taikoRouteParamForLayout()) }],
     };
 </script>
 
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
     import AppHead from '@/components/AppHead.svelte';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
 
     type Player = {
@@ -50,7 +52,7 @@
                 {#each players.data as player (player.baid)}
                     <tr class="border-t">
                         <td class="px-3 py-2">
-                            <Link class="font-medium underline-offset-4 hover:underline" href={toUrl(playersRoutes.show(player.baid))}>
+                            <Link class="font-medium underline-offset-4 hover:underline" href={toUrl(playersRoutes.show({ ...taikoRouteParam(), player: player.baid }))}>
                                 {player.baid}
                             </Link>
                         </td>

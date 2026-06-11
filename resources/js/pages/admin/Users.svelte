@@ -1,6 +1,9 @@
 <script module lang="ts">
+    import usersRoutesForLayout from '@/routes/admin/users';
+    import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
+
     export const layout = {
-        breadcrumbs: [{ title: 'Users', href: '/admin/users' }],
+        breadcrumbs: [{ title: 'Users', href: usersRoutesForLayout.index(taikoRouteParamForLayout()) }],
     };
 </script>
 
@@ -9,9 +12,11 @@
     import UserController from '@/actions/App/Http/Controllers/Admin/UserController';
     import AppHead from '@/components/AppHead.svelte';
     import { Button } from '@/components/ui/button';
+    import { taikoRouteParam } from '@/lib/taiko-version';
+    import usersRoutes from '@/routes/admin/users';
 
     function goToEdit(id: number) {
-        router.visit(`/admin/users/${id}/edit`);
+        router.visit(usersRoutes.edit({ ...taikoRouteParam(), user: id }));
     }
 
     type AdminUser = {
@@ -71,7 +76,7 @@
                                 </Button>
                                 {#if user.id !== currentUserId}
                                     <Form
-                                        {...UserController.destroy.form(user.id)}
+                                        {...UserController.destroy.form({ ...taikoRouteParam(), user: user.id })}
                                         options={{ preserveScroll: true }}
                                     >
                                         {#snippet children({ processing })}

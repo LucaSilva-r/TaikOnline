@@ -15,6 +15,7 @@
         DialogTrigger,
     } from '@/components/ui/dialog';
     import { Label } from '@/components/ui/label';
+    import { taikoRouteParam } from '@/lib/taiko-version';
 </script>
 
 <div class="space-y-6">
@@ -40,7 +41,7 @@
             </DialogTrigger>
             <DialogContent>
                 <Form
-                    {...ProfileController.destroy.form()}
+                    {...ProfileController.destroy.form(taikoRouteParam())}
                     class="space-y-6"
                     options={{ preserveScroll: true }}
                 >

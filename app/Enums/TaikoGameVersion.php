@@ -14,6 +14,11 @@ enum TaikoGameVersion: string
     case Blue = 'blue';
     case Green = 'green';
 
+    public static function default(): self
+    {
+        return self::Green;
+    }
+
     public function updateIdentifier(): string
     {
         return match ($this) {

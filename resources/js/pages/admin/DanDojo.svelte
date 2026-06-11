@@ -1,7 +1,8 @@
 <script module lang="ts">
     import danDojoRoutes from '@/routes/admin/dan-dojo';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     export const layout = {
-        breadcrumbs: [{ title: 'Dan Dojo', href: danDojoRoutes.index() }],
+        breadcrumbs: [{ title: 'Dan Dojo', href: danDojoRoutes.index(taikoRouteParam()) }],
     };
 </script>
 
@@ -28,7 +29,7 @@
     function randomize(version: string) {
         randomizing = version;
         router.post(
-            danDojoRoutes.randomize(version).url,
+            danDojoRoutes.randomize({ ...taikoRouteParam(), version }).url,
             {},
             {
                 preserveScroll: true,

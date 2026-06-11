@@ -2,16 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TaikoGameVersion;
 use App\Models\SongBest;
 use Illuminate\Database\Query\JoinClause;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class RankingController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $version = $request->attributes->get('taikoGameVersion');
+        if (! $version instanceof TaikoGameVersion) {
+            abort(404);
+        }
+
         $rows = SongBest::query()
+            ->where('song_bests.game_version', $version->value)
             ->join('players', 'players.baid', '=', 'song_bests.baid')
             ->join('users', 'users.id', '=', 'players.user_id')
             ->leftJoin('songs', function (JoinClause $join): void {
