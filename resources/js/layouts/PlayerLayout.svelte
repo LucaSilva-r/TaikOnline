@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Link, page } from '@inertiajs/svelte';
+    import Menu from 'lucide-svelte/icons/menu';
     import ShieldCheck from 'lucide-svelte/icons/shield-check';
     import type { Snippet } from 'svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
@@ -16,6 +17,12 @@
         DropdownMenuContent,
         DropdownMenuTrigger,
     } from '@/components/ui/dropdown-menu';
+    import {
+        Sheet,
+        SheetContent,
+        SheetHeader,
+        SheetTitle,
+    } from '@/components/ui/sheet';
     import { Toaster } from '@/components/ui/sonner';
     import UserMenuContent from '@/components/UserMenuContent.svelte';
     import { currentUrlState } from '@/lib/currentUrl.svelte';
@@ -36,6 +43,7 @@
     const isAdmin = $derived(auth?.user?.role === 'admin');
     const url = currentUrlState();
     const taikoParam = taikoRouteParam();
+    let mobileMenuOpen = $state(false);
 
     const navItems = $derived([
         { title: 'Home', href: toUrl(home(taikoParam)) },
@@ -59,17 +67,57 @@
 </script>
 
 <div class="flex min-h-screen flex-col bg-background text-foreground">
+    <Sheet bind:open={mobileMenuOpen}>
+        <SheetContent side="left" class="w-[300px] p-6">
+            <SheetTitle class="sr-only">Navigation menu</SheetTitle>
+            <SheetHeader class="flex justify-start text-left">
+                <div class="flex items-center gap-2">
+                    <AppLogoIcon class="size-6 fill-current text-primary" />
+                    <span class="font-semibold">TaikOnline</span>
+                </div>
+            </SheetHeader>
+
+            <nav class="mt-6 grid gap-1">
+                {#each navItems as item (item.href)}
+                    {@const active = url.isCurrentUrl(item.href, url.currentUrl)}
+                    <Link
+                        href={item.href}
+                        onclick={() => (mobileMenuOpen = false)}
+                        class="rounded-md px-3 py-2 text-sm font-medium transition {active
+                            ? 'bg-accent text-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-foreground'}"
+                    >
+                        {item.title}
+                    </Link>
+                {/each}
+            </nav>
+        </SheetContent>
+    </Sheet>
+
     <header class="border-b border-border/60 bg-background/80 backdrop-blur">
-        <div class="mx-auto flex h-14 w-full max-w-7xl items-center gap-6 px-4">
+        <div class="mx-auto flex h-14 w-full max-w-7xl items-center gap-2 px-4 sm:gap-4 lg:gap-6">
+            <div class="lg:hidden">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    class="size-9"
+                    onclick={() => (mobileMenuOpen = true)}
+                    aria-expanded={mobileMenuOpen}
+                >
+                    <Menu class="size-5" />
+                    <span class="sr-only">Open navigation menu</span>
+                </Button>
+            </div>
+
             <Link
                 href={toUrl(home(taikoParam))}
-                class="flex items-center gap-2"
+                class="flex min-w-0 items-center gap-2"
             >
                 <AppLogoIcon class="size-6 fill-current text-primary" />
-                <span class="font-semibold">TaikOnline</span>
+                <span class="hidden font-semibold sm:inline">TaikOnline</span>
             </Link>
 
-            <nav class="flex h-full items-center gap-1">
+            <nav class="hidden h-full items-center gap-1 lg:flex">
                 {#each navItems as item (item.href)}
                     {@const active = url.isCurrentUrl(
                         item.href,
@@ -86,7 +134,7 @@
                 {/each}
             </nav>
 
-            <div class="ml-auto flex items-center gap-2">
+            <div class="ml-auto flex min-w-0 items-center gap-2">
                 <TaikoVersionSelect />
 
                 {#if auth?.user}

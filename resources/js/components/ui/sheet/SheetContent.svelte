@@ -58,7 +58,7 @@
         ></button>
         <div
             class={cn(
-                'fixed relative flex flex-col gap-4 overflow-y-auto border-none bg-background p-6 shadow-lg',
+                'fixed flex flex-col gap-4 overflow-y-auto border-none bg-background p-6 shadow-lg',
                 sideClasses[side] ?? sideClasses.right,
                 sizeClasses[side] ?? sizeClasses.right,
                 className,
