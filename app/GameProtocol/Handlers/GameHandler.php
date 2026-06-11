@@ -72,7 +72,7 @@ class GameHandler
         return $this->payloads->response(
             $this->writer->fill($this->messages->make($game, 'InitialdatacheckResponse'), [
                 'setResult' => 1,
-                'setSongHashVer' => 99,
+                'setSongHashVer' => (int) $request->attributes->get('songHashVersion', 1),
                 'setHashDefaultSongFlg' => $releaseSongFlag,
                 'setAryTelopData' => [$information],
                 'setAryEventfolderData' => [],
@@ -506,10 +506,6 @@ class GameHandler
 
     protected function releaseSongFlag(string $gameVersion): string
     {
-        // TEST: report every possible song (4096 bits) as available so custom
-        // injected songs (e.g. uniqueid 1000) pass the carousel enable gate.
-        return str_repeat("\xFF", 512);
-
         $songNumbers = Song::query()
             ->where('version', $gameVersion)
             ->pluck('song_no')

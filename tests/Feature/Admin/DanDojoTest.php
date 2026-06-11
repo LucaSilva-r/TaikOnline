@@ -4,6 +4,7 @@ use App\Enums\SongGenre;
 use App\Enums\SongPartsSet;
 use App\Enums\SongWai2PartsSet;
 use App\Models\DanCourse;
+use App\Models\DanCourseSong;
 use App\Models\Song;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,13 +31,13 @@ function seed_version_songs(string $version, int $count): void
 
 test('admins can view the dan dojo page', function (): void {
     $this->actingAs(User::factory()->admin()->create())
-        ->get('/admin/dan-dojo')
+        ->get('/green/admin/dan-dojo')
         ->assertOk();
 });
 
 test('non-admins cannot view the dan dojo page', function (): void {
     $this->actingAs(User::factory()->create())
-        ->get('/admin/dan-dojo')
+        ->get('/green/admin/dan-dojo')
         ->assertForbidden();
 });
 
@@ -44,7 +45,7 @@ test('randomizing authors courses from the version song catalog', function (): v
     seed_version_songs('green', 30);
 
     $this->actingAs(User::factory()->admin()->create())
-        ->post('/admin/dan-dojo/green/randomize')
+        ->post('/green/admin/dan-dojo/green/randomize')
         ->assertRedirect();
 
     $courses = DanCourse::query()->where('version', 'green')->with('songs')->get();
@@ -63,10 +64,10 @@ test('randomized courses only use chart difficulties the cabinet accepts (0-3)',
     seed_version_songs('green', 30);
 
     $this->actingAs(User::factory()->admin()->create())
-        ->post('/admin/dan-dojo/green/randomize');
+        ->post('/green/admin/dan-dojo/green/randomize');
 
     // Level 4 (ura) is not a valid dan chart difficulty and crashes the cabinet.
-    $levels = App\Models\DanCourseSong::query()
+    $levels = DanCourseSong::query()
         ->whereIn('dan_course_id', DanCourse::query()->where('version', 'green')->pluck('id'))
         ->pluck('level')
         ->unique();
@@ -79,8 +80,8 @@ test('randomizing replaces the previous course set', function (): void {
     seed_version_songs('green', 30);
     $admin = User::factory()->admin()->create();
 
-    $this->actingAs($admin)->post('/admin/dan-dojo/green/randomize');
-    $this->actingAs($admin)->post('/admin/dan-dojo/green/randomize');
+    $this->actingAs($admin)->post('/green/admin/dan-dojo/green/randomize');
+    $this->actingAs($admin)->post('/green/admin/dan-dojo/green/randomize');
 
     // Still exactly one set, not stacked.
     expect(DanCourse::query()->where('version', 'green')->count())->toBe(10);
@@ -88,7 +89,7 @@ test('randomizing replaces the previous course set', function (): void {
 
 test('randomizing a version without songs creates nothing', function (): void {
     $this->actingAs(User::factory()->admin()->create())
-        ->post('/admin/dan-dojo/blue/randomize')
+        ->post('/green/admin/dan-dojo/blue/randomize')
         ->assertRedirect();
 
     expect(DanCourse::query()->where('version', 'blue')->count())->toBe(0);

@@ -111,6 +111,22 @@ class VsInterfaceController extends Controller
 
     private function version(string $routeVersion): TaikoGameVersion
     {
+        $normalized = strtolower(trim($routeVersion));
+        $major = preg_match('/^(v\d{2})/', $normalized, $matches) === 1 ? $matches[1] : null;
+        $catalogVersion = Config::get("taiko_green.route_catalog_versions.{$normalized}");
+
+        if ($catalogVersion === null && $major !== null) {
+            $catalogVersion = Config::get("taiko_green.route_catalog_versions.{$major}");
+        }
+
+        if (is_string($catalogVersion)) {
+            $version = TaikoGameVersion::fromInput($catalogVersion);
+
+            if ($version instanceof TaikoGameVersion) {
+                return $version;
+            }
+        }
+
         return TaikoGameVersion::fromRouteVersion($routeVersion) ?? TaikoGameVersion::Green;
     }
 

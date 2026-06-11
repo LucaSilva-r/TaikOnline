@@ -1,11 +1,12 @@
 <script module lang="ts">
     import { dashboard } from '@/routes/admin';
+    import { taikoRouteParam } from '@/lib/taiko-version';
 
     export const layout = {
         breadcrumbs: [
             {
                 title: 'Dashboard',
-                href: dashboard(),
+                href: dashboard(taikoRouteParam()),
             },
         ],
     };

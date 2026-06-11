@@ -5,6 +5,7 @@
     import { Button } from '@/components/ui/button';
     import { Separator } from '@/components/ui/separator';
     import { currentUrlState } from '@/lib/currentUrl.svelte';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
     import { edit as editAppearance } from '@/routes/appearance';
     import { index as indexCabinets } from '@/routes/cabinets';
@@ -22,23 +23,23 @@
     const sidebarNavItems: NavItem[] = [
         {
             title: 'Profile',
-            href: editProfile(),
+            href: editProfile(taikoRouteParam()),
         },
         {
             title: 'Security',
-            href: editSecurity(),
+            href: editSecurity(taikoRouteParam()),
         },
         {
             title: 'Customization',
-            href: editCustomize(),
+            href: editCustomize(taikoRouteParam()),
         },
         {
             title: 'Cabinets',
-            href: indexCabinets(),
+            href: indexCabinets(taikoRouteParam()),
         },
         {
             title: 'Appearance',
-            href: editAppearance(),
+            href: editAppearance(taikoRouteParam()),
         },
     ];
 

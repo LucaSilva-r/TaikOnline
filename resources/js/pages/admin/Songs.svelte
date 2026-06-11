@@ -1,7 +1,8 @@
 <script module lang="ts">
     import songsRoutes from '@/routes/admin/songs';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     export const layout = {
-        breadcrumbs: [{ title: 'Songs', href: songsRoutes.index() }],
+        breadcrumbs: [{ title: 'Songs', href: songsRoutes.index(taikoRouteParam()) }],
     };
 </script>
 

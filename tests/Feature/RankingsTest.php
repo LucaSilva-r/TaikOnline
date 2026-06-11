@@ -8,7 +8,7 @@ use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\User;
 
-it('groups rankings by song title while keeping catalog leaderboards separate', function (): void {
+it('shows rankings for the selected version only', function (): void {
     Song::query()->create([
         'version' => 'blue',
         'song_no' => 2,
@@ -72,17 +72,19 @@ it('groups rankings by song title while keeping catalog leaderboards separate', 
         'best_play_result' => 2,
     ]);
 
-    $this->get('/rankings')
+    $this->get('/green/rankings')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Rankings')
             ->has('songGroups', 1)
             ->where('songGroups.0.title', 'Shared Song')
-            ->has('songGroups.0.versions', 2)
-            ->where('songGroups.0.versions.0.game_version', 'blue')
-            ->where('songGroups.0.versions.0.entries.0.player_name', 'Blue Account')
-            ->where('songGroups.0.versions.1.game_version', 'green')
-            ->where('songGroups.0.versions.1.entries.0.player_name', 'Green Account')
-            ->missing('songGroups.0.versions.1.entries.1')
+            ->has('songGroups.0.versions', 1)
+            ->where('songGroups.0.versions.0.game_version', 'green')
+            ->where('songGroups.0.versions.0.entries.0.player_name', 'Green Account')
+            ->missing('songGroups.0.versions.0.entries.1')
         );
+});
+
+it('does not expose all-version rankings publicly', function (): void {
+    $this->get('/all/rankings')->assertNotFound();
 });

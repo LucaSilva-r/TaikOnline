@@ -1,11 +1,12 @@
 <script module lang="ts">
     import { index } from '@/routes/cabinets';
+    import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
 
     export const layout = {
         breadcrumbs: [
             {
                 title: 'Cabinet settings',
-                href: index(),
+                href: index(taikoRouteParamForLayout()),
             },
         ],
     };
@@ -14,6 +15,7 @@
 <script lang="ts">
     import { Form, Link } from '@inertiajs/svelte';
     import CabinetController from '@/actions/App/Http/Controllers/Settings/CabinetController';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
     import AppHead from '@/components/AppHead.svelte';
     import Heading from '@/components/Heading.svelte';
@@ -69,7 +71,7 @@
                     <div class="space-y-1">
                         <div class="flex items-center gap-2">
                             <Link
-                                href={toUrl(CabinetController.show.url({ cabinet: cab.serial }))}
+                                href={toUrl(CabinetController.show.url({ ...taikoRouteParam(), cabinet: cab.serial }))}
                                 class="font-medium hover:underline"
                             >
                                 {cab.nickname ?? 'Unnamed cabinet'}
@@ -91,7 +93,7 @@
                         <Button variant="outline" size="sm" asChild>
                             {#snippet children(props)}
                                 <a
-                                    href={CabinetController.download.url({ cabinet: cab.serial })}
+                                    href={CabinetController.download.url({ ...taikoRouteParam(), cabinet: cab.serial })}
                                     download
                                     class="{props.class} whitespace-nowrap"
                                 >
@@ -105,7 +107,7 @@
                             </DialogTrigger>
                             <DialogContent>
                                 <Form
-                                    {...CabinetController.destroy.form({ cabinet: cab.serial })}
+                                    {...CabinetController.destroy.form({ ...taikoRouteParam(), cabinet: cab.serial })}
                                     options={{ preserveScroll: true }}
                                 >
                                     {#snippet children({ processing })}
@@ -148,7 +150,7 @@
     />
 
     <Form
-        {...CabinetController.store.form()}
+        {...CabinetController.store.form(taikoRouteParam())}
         class="space-y-6"
         options={{ preserveScroll: true }}
         resetOnSuccess

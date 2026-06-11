@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\TaikoGameVersion;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -41,7 +42,38 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'taikoVersion' => [
+                'scope' => $request->attributes->get('taikoVersionScope', TaikoGameVersion::default()->value),
+                'isAll' => (bool) $request->attributes->get('taikoVersionIsAll', false),
+                'current' => $this->currentVersion($request),
+                'versions' => collect(TaikoGameVersion::cases())
+                    ->map(fn (TaikoGameVersion $version): array => $this->versionPayload($version))
+                    ->values()
+                    ->all(),
+                'allowAll' => $request->routeIs('admin.*'),
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+        ];
+    }
+
+    /**
+     * @return array{value: string, label: string}|null
+     */
+    private function currentVersion(Request $request): ?array
+    {
+        $version = $request->attributes->get('taikoGameVersion');
+
+        return $version instanceof TaikoGameVersion ? $this->versionPayload($version) : null;
+    }
+
+    /**
+     * @return array{value: string, label: string}
+     */
+    private function versionPayload(TaikoGameVersion $version): array
+    {
+        return [
+            'value' => $version->value,
+            'label' => $version->label(),
         ];
     }
 }

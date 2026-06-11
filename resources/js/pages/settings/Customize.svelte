@@ -1,11 +1,12 @@
 <script module lang="ts">
     import { edit } from '@/routes/customize';
+    import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
 
     export const layout = {
         breadcrumbs: [
             {
                 title: 'Customization settings',
-                href: edit(),
+                href: edit(taikoRouteParamForLayout()),
             },
         ],
     };
@@ -18,6 +19,7 @@
     import Heading from '@/components/Heading.svelte';
     import InputError from '@/components/InputError.svelte';
     import { Button } from '@/components/ui/button';
+    import { taikoRouteParam } from '@/lib/taiko-version';
 
     const COLORS: string[] = [
         '#f94729', '#68c0c1', '#dd1400', '#f8f1df', '#019587', '#00bf86',
@@ -33,7 +35,7 @@
         '#ff67be', '#ffb4df', '#000000',
     ];
 
-   const COLOR_IDS = Array.from({ length: 63 }, (_, index) => index);
+    const COLOR_IDS = Array.from({ length: 63 }, (_, index) => index);
 
     let {
         hasAccessCode,
@@ -73,7 +75,7 @@
         </div>
     {:else}
         <Form
-            {...CustomizeController.update.form()}
+            {...CustomizeController.update.form(taikoRouteParam())}
             class="space-y-6"
             options={{ preserveScroll: true }}
         >

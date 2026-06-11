@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\TaikoGameVersion;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 /*
@@ -17,6 +19,10 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+beforeEach(function (): void {
+    URL::defaults(['taikoVersion' => TaikoGameVersion::default()->value]);
+});
 
 /*
 |--------------------------------------------------------------------------

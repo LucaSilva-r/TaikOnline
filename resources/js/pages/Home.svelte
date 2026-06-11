@@ -2,6 +2,7 @@
     import { Link, page } from '@inertiajs/svelte';
     import AppHead from '@/components/AppHead.svelte';
     import { buttonVariants } from '@/components/ui/button';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
     import { community, login, rankings, register } from '@/routes';
 
@@ -12,6 +13,7 @@
     } = $props();
 
     const auth = $derived(page.props.auth);
+    const taikoParam = taikoRouteParam();
 </script>
 
 <AppHead title="Home" />
@@ -27,13 +29,13 @@
     <div class="mt-8 flex flex-wrap justify-center gap-3">
         {#if auth?.user}
             <Link
-                href={toUrl(rankings())}
+                href={toUrl(rankings(taikoParam))}
                 class={buttonVariants({ variant: 'default' })}
             >
                 Browse Rankings
             </Link>
             <Link
-                href={toUrl(community())}
+                href={toUrl(community(taikoParam))}
                 class={buttonVariants({ variant: 'outline' })}
             >
                 Community

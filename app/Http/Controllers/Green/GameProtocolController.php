@@ -7,6 +7,7 @@ use App\GameProtocol\Handlers\GameHandlerRegistry;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Config;
 
 /**
  * Thin HTTP entrypoint for the in-game protocol. Resolves the cabinet's dialect
@@ -155,6 +156,8 @@ class GameProtocolController extends Controller
             return $this->dispatch(self::DEFAULT_ROUTE_VERSION, 'getTelop', $request);
         }
 
+        $request->attributes->set('songHashVersion', 99);
+
         return $this->dispatch('v01r00_tw', 'initialDataCheck', $request);
     }
 
@@ -164,9 +167,30 @@ class GameProtocolController extends Controller
      */
     private function dispatch(string $routeVersion, string $method, Request $request): Response
     {
-        $game = TaikoGameVersion::fromRouteVersion($routeVersion) ?? TaikoGameVersion::Green;
+        $game = $this->version($routeVersion);
 
         return $this->handlers->for($game)->{$method}($request, $game);
+    }
+
+    private function version(string $routeVersion): TaikoGameVersion
+    {
+        $normalized = strtolower(trim($routeVersion));
+        $major = preg_match('/^(v\d{2})/', $normalized, $matches) === 1 ? $matches[1] : null;
+        $catalogVersion = Config::get("taiko_green.route_catalog_versions.{$normalized}");
+
+        if ($catalogVersion === null && $major !== null) {
+            $catalogVersion = Config::get("taiko_green.route_catalog_versions.{$major}");
+        }
+
+        if (is_string($catalogVersion)) {
+            $version = TaikoGameVersion::fromInput($catalogVersion);
+
+            if ($version instanceof TaikoGameVersion) {
+                return $version;
+            }
+        }
+
+        return TaikoGameVersion::fromRouteVersion($routeVersion) ?? TaikoGameVersion::Green;
     }
 
     private function hasProtobufField(string $payload, int $fieldNumber, int $wireType): bool

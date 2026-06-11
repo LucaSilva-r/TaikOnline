@@ -1,4 +1,5 @@
 import type { Auth } from '@/types/auth';
+import type { TaikoVersionContext } from '@/lib/taiko-version';
 
 // Extend ImportMeta interface for Vite...
 declare module 'vite/client' {
@@ -21,6 +22,7 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            taikoVersion: TaikoVersionContext;
             sidebarOpen: boolean;
             [key: string]: unknown;
         };

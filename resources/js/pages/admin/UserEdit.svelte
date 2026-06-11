@@ -1,7 +1,10 @@
 <script module lang="ts">
+    import usersRoutesForLayout from '@/routes/admin/users';
+    import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
+
     export const layout = {
         breadcrumbs: [
-            { title: 'Users', href: '/admin/users' },
+            { title: 'Users', href: usersRoutesForLayout.index(taikoRouteParamForLayout()) },
             { title: 'Edit', href: '' },
         ],
     };
@@ -16,6 +19,8 @@
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
+    import { taikoRouteParam } from '@/lib/taiko-version';
+    import usersRoutes from '@/routes/admin/users';
 
     type AdminUser = {
         id: number;
@@ -50,7 +55,7 @@
     />
 
     <Form
-        {...UserController.update.form(user.id)}
+        {...UserController.update.form({ ...taikoRouteParam(), user: user.id })}
         class="max-w-xl space-y-6"
         options={{ preserveScroll: true }}
     >
@@ -107,7 +112,7 @@
                 <Button type="submit" disabled={processing}>Save</Button>
                 <Button asChild variant="ghost">
                     {#snippet children(props)}
-                        <Link href="/admin/users" {...props}>Cancel</Link>
+                        <Link href={usersRoutes.index(taikoRouteParam())} {...props}>Cancel</Link>
                     {/snippet}
                 </Button>
             </div>
@@ -121,7 +126,7 @@
     />
 
     <Form
-        {...UserController.updatePassword.form(user.id)}
+        {...UserController.updatePassword.form({ ...taikoRouteParam(), user: user.id })}
         class="max-w-xl space-y-6"
         options={{ preserveScroll: true }}
         resetOnSuccess
@@ -169,7 +174,7 @@
                 <Input value={accessCode} readonly class="mt-1 block w-full" />
             </div>
             <Form
-                {...UserController.unbindAccessCode.form(user.id)}
+                {...UserController.unbindAccessCode.form({ ...taikoRouteParam(), user: user.id })}
                 options={{ preserveScroll: true }}
             >
                 {#snippet children({ processing })}
@@ -190,7 +195,7 @@
         </div>
     {:else}
         <Form
-            {...UserController.bindAccessCode.form(user.id)}
+            {...UserController.bindAccessCode.form({ ...taikoRouteParam(), user: user.id })}
             class="max-w-xl space-y-6"
             options={{ preserveScroll: true }}
             resetOnSuccess

@@ -4,15 +4,21 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Song;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class SongController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $isAll = (bool) $request->attributes->get('taikoVersionIsAll', false);
+        $scope = (string) $request->attributes->get('taikoVersionScope');
+
         return Inertia::render('admin/Songs', [
             'songs' => Song::query()
+                ->when(! $isAll, fn ($query) => $query->where('version', $scope))
+                ->when($isAll, fn ($query) => $query->orderBy('version'))
                 ->orderBy('song_no')
                 ->paginate(50)
                 ->through(fn (Song $song): array => [

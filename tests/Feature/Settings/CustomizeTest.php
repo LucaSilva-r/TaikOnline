@@ -9,7 +9,7 @@ uses(RefreshDatabase::class);
 
 it('shows customization page without access code', function (): void {
     $user = User::factory()->create();
-    $response = $this->actingAs($user)->get('/settings/customize');
+    $response = $this->actingAs($user)->get('/green/settings/customize');
 
     $response
         ->assertOk()
@@ -32,7 +32,7 @@ it('shows customization page with access code and saved colors', function (): vo
         'baid' => $player->baid,
     ]);
 
-    $response = $this->actingAs($user)->get('/settings/customize');
+    $response = $this->actingAs($user)->get('/green/settings/customize');
 
     $response
         ->assertOk()
@@ -58,7 +58,7 @@ it('saves customization colors for player with access code', function (): void {
     ]);
 
     $this->actingAs($user)
-        ->patch('/settings/customize', [
+        ->patch('/green/settings/customize', [
             'color_face' => 5,
             'color_body' => 25,
             'color_limb' => 45,
@@ -81,7 +81,7 @@ it('does not save customization when no access code linked', function (): void {
     ]);
 
     $this->actingAs($user)
-        ->patch('/settings/customize', [
+        ->patch('/green/settings/customize', [
             'color_face' => 10,
             'color_body' => 20,
             'color_limb' => 30,

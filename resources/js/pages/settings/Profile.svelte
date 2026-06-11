@@ -1,11 +1,12 @@
 <script module lang="ts">
     import { edit } from '@/routes/profile';
+    import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
 
     export const layout = {
         breadcrumbs: [
             {
                 title: 'Profile settings',
-                href: edit(),
+                href: edit(taikoRouteParamForLayout()),
             },
         ],
     };
@@ -23,6 +24,7 @@
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     import { send } from '@/routes/verification';
 
     let {
@@ -50,7 +52,7 @@
     />
 
     <Form
-        {...ProfileController.update.form()}
+        {...ProfileController.update.form(taikoRouteParam())}
         class="space-y-6"
         options={{ preserveScroll: true }}
     >
@@ -127,7 +129,7 @@
                 <Input value={accessCode} readonly class="mt-1 block w-full" />
             </div>
             <Form
-                {...AccessCodeController.destroy.form()}
+                {...AccessCodeController.destroy.form(taikoRouteParam())}
                 options={{ preserveScroll: true }}
             >
                 {#snippet children({ processing })}
@@ -142,7 +144,7 @@
         </div>
     {:else}
         <Form
-            {...AccessCodeController.update.form()}
+            {...AccessCodeController.update.form(taikoRouteParam())}
             class="space-y-6"
             options={{ preserveScroll: true }}
             resetOnSuccess

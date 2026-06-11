@@ -9,6 +9,7 @@
         CardHeader,
         CardTitle,
     } from '@/components/ui/card';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     import { home } from '@/routes';
 
     let {
@@ -27,7 +28,7 @@
 >
     <div class="flex w-full max-w-md flex-col gap-6">
         <Link
-            href={home()}
+            href={home(taikoRouteParam())}
             class="flex items-center gap-2 self-center font-medium"
         >
             <div class="flex h-9 w-9 items-center justify-center">

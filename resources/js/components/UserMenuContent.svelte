@@ -9,6 +9,7 @@
         DropdownMenuSeparator,
     } from '@/components/ui/dropdown-menu';
     import UserInfo from '@/components/UserInfo.svelte';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
     import { logout } from '@/routes';
     import { edit } from '@/routes/profile';
@@ -39,7 +40,7 @@
         {#snippet children(props)}
             <Link
                 class={props.class}
-                href={toUrl(edit())}
+                href={toUrl(edit(taikoRouteParam()))}
                 prefetch
                 onclick={props.onClick}
             >

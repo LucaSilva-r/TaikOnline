@@ -4,9 +4,12 @@ import AuthLayout from '@/layouts/AuthLayout.svelte';
 import PlayerLayout from '@/layouts/PlayerLayout.svelte';
 import SettingsLayout from '@/layouts/settings/Layout.svelte';
 import { initializeFlashToast } from '@/lib/flash-toast';
+import { initializeTaikoRouteDefaults } from '@/lib/taiko-version';
 import { initializeTheme } from '@/lib/theme.svelte';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+initializeTaikoRouteDefaults();
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

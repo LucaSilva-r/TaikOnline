@@ -1,11 +1,12 @@
 <script module lang="ts">
     import { index } from '@/routes/cabinets';
+    import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
 
     export const layout = {
         breadcrumbs: [
             {
                 title: 'Cabinet settings',
-                href: index(),
+                href: index(taikoRouteParamForLayout()),
             },
         ],
     };
@@ -20,6 +21,7 @@
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
+    import { taikoRouteParam } from '@/lib/taiko-version';
 
     type Entry = { key: number; value: string };
 
@@ -108,7 +110,7 @@
     function save() {
         saving = true;
         router.patch(
-            CabinetController.updateConfig.url({ cabinet: cabinet.serial }),
+            CabinetController.updateConfig.url({ ...taikoRouteParam(), cabinet: cabinet.serial }),
             { desired_config: desired },
             {
                 preserveScroll: true,

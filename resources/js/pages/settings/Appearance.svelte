@@ -1,11 +1,12 @@
 <script module lang="ts">
     import { edit as editAppearance } from '@/routes/appearance';
+    import { taikoRouteParam } from '@/lib/taiko-version';
 
     export const layout = {
         breadcrumbs: [
             {
                 title: 'Appearance settings',
-                href: editAppearance(),
+                href: editAppearance(taikoRouteParam()),
             },
         ],
     };

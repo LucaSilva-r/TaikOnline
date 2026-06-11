@@ -3,6 +3,7 @@
     import ShieldCheck from 'lucide-svelte/icons/shield-check';
     import type { Snippet } from 'svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
+    import TaikoVersionSelect from '@/components/TaikoVersionSelect.svelte';
     import {
         Avatar,
         AvatarFallback,
@@ -19,6 +20,7 @@
     import UserMenuContent from '@/components/UserMenuContent.svelte';
     import { currentUrlState } from '@/lib/currentUrl.svelte';
     import { getInitials } from '@/lib/initials';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
     import { dashboard } from '@/routes/admin';
     import { community, home, login, rankings, register } from '@/routes';
@@ -32,11 +34,12 @@
     const auth = $derived(page.props.auth);
     const isAdmin = $derived(auth?.user?.role === 'admin');
     const url = currentUrlState();
+    const taikoParam = taikoRouteParam();
 
     const navItems = [
-        { title: 'Home', href: home() },
-        { title: 'Rankings', href: rankings() },
-        { title: 'Community', href: community() },
+        { title: 'Home', href: home(taikoParam) },
+        { title: 'Rankings', href: rankings(taikoParam) },
+        { title: 'Community', href: community(taikoParam) },
     ];
 
     const activeStyles = 'text-foreground border-primary';
@@ -47,7 +50,7 @@
 <div class="flex min-h-screen flex-col bg-background text-foreground">
     <header class="border-b border-border/60 bg-background/80 backdrop-blur">
         <div class="mx-auto flex h-14 w-full max-w-7xl items-center gap-6 px-4">
-            <Link href={toUrl(home())} class="flex items-center gap-2">
+            <Link href={toUrl(home(taikoParam))} class="flex items-center gap-2">
                 <AppLogoIcon class="size-6 fill-current" />
                 <span class="font-semibold">TaikOnline</span>
             </Link>
@@ -67,10 +70,12 @@
             </nav>
 
             <div class="ml-auto flex items-center gap-2">
+                <TaikoVersionSelect />
+
                 {#if auth?.user}
                     {#if isAdmin}
                         <Link
-                            href={toUrl(dashboard())}
+                            href={toUrl(dashboard(taikoParam))}
                             class="{buttonVariants({ variant: 'outline', size: 'sm' })} gap-2"
                         >
                             <ShieldCheck class="size-4" />

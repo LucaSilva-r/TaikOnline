@@ -29,7 +29,7 @@ it('lists only the current user cabinets on the index page', function () {
     app(CabinetService::class)->allocate($user);
     app(CabinetService::class)->allocate($other);
 
-    $response = $this->actingAs($user)->get('/settings/cabinets');
+    $response = $this->actingAs($user)->get('/green/settings/cabinets');
 
     $response->assertOk();
     $response->assertInertia(fn ($page) => $page
@@ -42,8 +42,8 @@ it('registers a new cabinet via the controller', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
-        ->post('/settings/cabinets', ['nickname' => 'Living room'])
-        ->assertRedirect('/settings/cabinets');
+        ->post('/green/settings/cabinets', ['nickname' => 'Living room'])
+        ->assertRedirect('/green/settings/cabinets');
 
     expect(Cabinet::query()->where('user_id', $user->id)->count())->toBe(1);
 });
@@ -52,8 +52,8 @@ it('requires a nickname when registering', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
-        ->from('/settings/cabinets')
-        ->post('/settings/cabinets', ['nickname' => ''])
+        ->from('/green/settings/cabinets')
+        ->post('/green/settings/cabinets', ['nickname' => ''])
         ->assertSessionHasErrors('nickname');
 
     expect(Cabinet::query()->where('user_id', $user->id)->count())->toBe(0);
@@ -64,8 +64,8 @@ it('revokes (deletes) a cabinet owned by the user', function () {
     $cabinet = app(CabinetService::class)->allocate($user);
 
     $this->actingAs($user)
-        ->delete("/settings/cabinets/{$cabinet->serial}")
-        ->assertRedirect('/settings/cabinets');
+        ->delete("/green/settings/cabinets/{$cabinet->serial}")
+        ->assertRedirect('/green/settings/cabinets');
 
     expect(Cabinet::query()->whereKey($cabinet->serial)->exists())->toBeFalse();
 });
@@ -76,7 +76,7 @@ it('forbids revoking another users cabinet', function () {
     $cabinet = app(CabinetService::class)->allocate($owner);
 
     $this->actingAs($intruder)
-        ->delete("/settings/cabinets/{$cabinet->serial}")
+        ->delete("/green/settings/cabinets/{$cabinet->serial}")
         ->assertForbidden();
 });
 
@@ -84,7 +84,7 @@ it('downloads a zip with both files for the owner', function () {
     $user = User::factory()->create();
     $cabinet = app(CabinetService::class)->allocate($user);
 
-    $response = $this->actingAs($user)->get("/settings/cabinets/{$cabinet->serial}/download");
+    $response = $this->actingAs($user)->get("/green/settings/cabinets/{$cabinet->serial}/download");
 
     $response->assertOk();
     $response->assertHeader('content-type', 'application/zip');
@@ -197,12 +197,12 @@ it('saves desired config via the controller', function () {
     $cabinet = app(CabinetService::class)->allocate($user, 'cab');
 
     $this->actingAs($user)
-        ->patch("/settings/cabinets/{$cabinet->serial}/config", [
+        ->patch("/green/settings/cabinets/{$cabinet->serial}/config", [
             'desired_config' => [
                 ['key' => 1, 'value' => base64_encode('1')],
             ],
         ])
-        ->assertRedirect("/settings/cabinets/{$cabinet->serial}");
+        ->assertRedirect("/green/settings/cabinets/{$cabinet->serial}");
 
     $cabinet->refresh();
     expect($cabinet->desired_config)->toBe([

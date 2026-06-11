@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TaikoGameVersion;
 use Laravel\Fortify\Features;
 
 return [
@@ -73,7 +74,7 @@ return [
     |
     */
 
-    'home' => '/',
+    'home' => '/'.TaikoGameVersion::default()->value,
 
     /*
     |--------------------------------------------------------------------------
