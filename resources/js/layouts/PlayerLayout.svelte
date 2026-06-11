@@ -22,6 +22,7 @@
     import { getInitials } from '@/lib/initials';
     import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
+    import { show as boardShow } from '@/routes/board';
     import { community, home, login, rankings, register } from '@/routes';
     import { dashboard } from '@/routes/admin';
 
@@ -36,11 +37,21 @@
     const url = currentUrlState();
     const taikoParam = taikoRouteParam();
 
-    const navItems = [
-        { title: 'Home', href: home(taikoParam) },
-        { title: 'Rankings', href: rankings(taikoParam) },
-        { title: 'Community', href: community(taikoParam) },
-    ];
+    const navItems = $derived([
+        { title: 'Home', href: toUrl(home(taikoParam)) },
+        ...(auth?.user
+            ? [
+                  {
+                      title: 'My Board',
+                      href: toUrl(
+                          boardShow({ ...taikoParam, user: auth.user.id }),
+                      ),
+                  },
+              ]
+            : []),
+        { title: 'Rankings', href: toUrl(rankings(taikoParam)) },
+        { title: 'Community', href: toUrl(community(taikoParam)) },
+    ]);
 
     const activeStyles = 'text-foreground border-primary';
     const inactiveStyles =
@@ -59,13 +70,13 @@
             </Link>
 
             <nav class="flex h-full items-center gap-1">
-                {#each navItems as item (item.href.url)}
+                {#each navItems as item (item.href)}
                     {@const active = url.isCurrentUrl(
                         item.href,
                         url.currentUrl,
                     )}
                     <Link
-                        href={toUrl(item.href)}
+                        href={item.href}
                         class="flex h-14 items-center border-b-2 px-3 text-sm font-medium transition {active
                             ? activeStyles
                             : inactiveStyles}"

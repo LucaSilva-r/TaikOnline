@@ -1,0 +1,201 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Enums\TaikoGameVersion;
+use App\Models\Player;
+use App\Models\PlayerRankSnapshot;
+use App\Models\Song;
+use App\Models\SongBest;
+use App\Models\SongPlayResult;
+use App\Models\User;
+use App\Services\PlayerRankAggregateService;
+use Illuminate\Database\Query\JoinClause;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class BoardController extends Controller
+{
+    public function show(Request $request, User $user, PlayerRankAggregateService $rankAggregates): Response
+    {
+        $version = $request->attributes->get('taikoGameVersion');
+        if (! $version instanceof TaikoGameVersion || (bool) $request->attributes->get('taikoVersionIsAll', false)) {
+            abort(404);
+        }
+
+        $user->load('player');
+
+        $player = $user->player;
+        if (! $player instanceof Player) {
+            return Inertia::render('Board', [
+                'profile' => $this->profilePayload($user, null, $version),
+                'hasPlayer' => false,
+                'summary' => $this->emptySummary(),
+                'rankHistory' => [],
+                'recentPlays' => [],
+                'bestPerformances' => [],
+            ]);
+        }
+
+        $summary = $rankAggregates->forVersion($version)->get($user->id, $this->emptySummary());
+        unset($summary['user_id']);
+
+        return Inertia::render('Board', [
+            'profile' => $this->profilePayload($user, $player, $version),
+            'hasPlayer' => true,
+            'summary' => $summary,
+            'rankHistory' => $this->rankHistory($user, $version),
+            'recentPlays' => $this->recentPlays($player, $version),
+            'bestPerformances' => $this->bestPerformances($player, $version),
+        ]);
+    }
+
+    private function profilePayload(User $user, ?Player $player, TaikoGameVersion $version): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'avatar' => $user->avatar ?? null,
+            'mydon_name' => $player?->mydon_name ?: null,
+            'game_version' => [
+                'value' => $version->value,
+                'label' => $version->label(),
+            ],
+            'last_played_at' => $player?->last_played_at?->toDateTimeString(),
+            'total_credit_count' => (int) ($player?->total_credit_count ?? 0),
+            'don_medals' => [
+                'earned' => (int) ($player?->total_get_donmedal ?? 0),
+                'spent' => (int) ($player?->total_use_donmedal ?? 0),
+            ],
+            'katsu_medals' => [
+                'earned' => (int) ($player?->total_get_katsumedal ?? 0),
+                'spent' => (int) ($player?->total_use_katsumedal ?? 0),
+            ],
+        ];
+    }
+
+    private function emptySummary(): array
+    {
+        return [
+            'rank' => null,
+            'total_score' => 0,
+            'ranked_song_count' => 0,
+            'played_song_count' => 0,
+            'crown_counts' => [
+                'none' => 0,
+                'clear' => 0,
+                'gold' => 0,
+                'dondaful' => 0,
+            ],
+        ];
+    }
+
+    private function rankHistory(User $user, TaikoGameVersion $version): array
+    {
+        return PlayerRankSnapshot::query()
+            ->whereBelongsTo($user)
+            ->where('game_version', $version->value)
+            ->latest('snapshot_date')
+            ->limit(90)
+            ->get()
+            ->sortBy('snapshot_date')
+            ->map(fn (PlayerRankSnapshot $snapshot): array => [
+                'date' => $snapshot->snapshot_date->toDateString(),
+                'rank' => (int) $snapshot->rank,
+                'total_score' => (int) $snapshot->total_score,
+            ])
+            ->all();
+    }
+
+    private function recentPlays(Player $player, TaikoGameVersion $version): array
+    {
+        $resultsTable = (new SongPlayResult)->getTable();
+        $songsTable = (new Song)->getTable();
+
+        return SongPlayResult::query()
+            ->where('baid', $player->baid)
+            ->where("{$resultsTable}.game_version", $version->value)
+            ->leftJoin($songsTable, function (JoinClause $join) use ($resultsTable, $songsTable): void {
+                $join->on("{$songsTable}.version", '=', "{$resultsTable}.game_version")
+                    ->on("{$songsTable}.song_no", '=', "{$resultsTable}.song_no");
+            })
+            ->select([
+                "{$resultsTable}.song_no",
+                "{$resultsTable}.level",
+                "{$resultsTable}.played_at",
+                "{$resultsTable}.play_result",
+                "{$resultsTable}.score",
+                "{$resultsTable}.score_rank",
+                "{$resultsTable}.good_count",
+                "{$resultsTable}.ok_count",
+                "{$resultsTable}.miss_count",
+                "{$resultsTable}.combo_count",
+                "{$songsTable}.title as song_title",
+            ])
+            ->latest("{$resultsTable}.played_at")
+            ->limit(10)
+            ->get()
+            ->map(fn (SongPlayResult $result): array => [
+                'song_title' => $result->song_title ?: "#{$result->song_no}",
+                'song_no' => (int) $result->song_no,
+                'level' => (int) $result->level,
+                'played_at' => $result->played_at?->toDateTimeString(),
+                'play_result' => (int) $result->play_result,
+                'score' => (int) $result->score,
+                'score_rank' => (int) $result->score_rank,
+                'good_count' => (int) $result->good_count,
+                'ok_count' => (int) $result->ok_count,
+                'miss_count' => (int) $result->miss_count,
+                'combo_count' => (int) $result->combo_count,
+            ])
+            ->all();
+    }
+
+    private function bestPerformances(Player $player, TaikoGameVersion $version): array
+    {
+        $bestsTable = (new SongBest)->getTable();
+        $playersTable = (new Player)->getTable();
+        $songsTable = (new Song)->getTable();
+
+        return SongBest::query()
+            ->where("{$bestsTable}.baid", $player->baid)
+            ->where("{$bestsTable}.game_version", $version->value)
+            ->leftJoin($songsTable, function (JoinClause $join) use ($bestsTable, $songsTable): void {
+                $join->on("{$songsTable}.version", '=', "{$bestsTable}.game_version")
+                    ->on("{$songsTable}.song_no", '=', "{$bestsTable}.song_no");
+            })
+            ->select([
+                "{$bestsTable}.game_version",
+                "{$bestsTable}.song_no",
+                "{$bestsTable}.level",
+                "{$bestsTable}.best_score",
+                "{$bestsTable}.best_score_rank",
+                "{$bestsTable}.best_crown",
+                "{$songsTable}.title as song_title",
+            ])
+            ->selectSub(function ($query) use ($bestsTable, $playersTable): void {
+                $query->from("{$bestsTable} as ranked_bests")
+                    ->join("{$playersTable} as ranked_players", 'ranked_players.baid', '=', 'ranked_bests.baid')
+                    ->whereNotNull('ranked_players.user_id')
+                    ->whereColumn('ranked_bests.game_version', "{$bestsTable}.game_version")
+                    ->whereColumn('ranked_bests.song_no', "{$bestsTable}.song_no")
+                    ->whereColumn('ranked_bests.level', "{$bestsTable}.level")
+                    ->whereColumn('ranked_bests.best_score', '>', "{$bestsTable}.best_score")
+                    ->selectRaw('COUNT(*) + 1');
+            }, 'placement')
+            ->orderByDesc("{$bestsTable}.best_score")
+            ->limit(10)
+            ->get()
+            ->map(fn (SongBest $best): array => [
+                'song_title' => $best->song_title ?: "#{$best->song_no}",
+                'song_no' => (int) $best->song_no,
+                'level' => (int) $best->level,
+                'score' => (int) $best->best_score,
+                'score_rank' => (int) $best->best_score_rank,
+                'crown' => (int) $best->best_crown,
+                'placement' => (int) $best->placement,
+            ])
+            ->all();
+    }
+}
