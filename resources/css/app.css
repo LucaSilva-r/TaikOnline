@@ -90,6 +90,23 @@
 }
 
 :root {
+    --taiko-accent: hsl(142 70% 48%);
+    --taiko-accent-label: hsl(142 66% 28%);
+    --taiko-accent-soft: color-mix(
+        in oklch,
+        var(--taiko-accent) 12%,
+        var(--background)
+    );
+    --taiko-accent-border: color-mix(
+        in oklch,
+        var(--taiko-accent) 42%,
+        var(--border)
+    );
+    --taiko-accent-ring: color-mix(
+        in oklch,
+        var(--taiko-accent) 55%,
+        transparent
+    );
     --background: hsl(0 0% 100%);
     --foreground: hsl(0 0% 3.9%);
     --card: hsl(0 0% 100%);

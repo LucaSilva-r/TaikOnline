@@ -149,7 +149,10 @@
                 </Sheet>
             </div>
 
-            <Link href={toUrl(dashboard(taikoParam))} class="flex items-center gap-x-2">
+            <Link
+                href={toUrl(dashboard(taikoParam))}
+                class="flex items-center gap-x-2"
+            >
                 <AppLogo />
             </Link>
 
@@ -179,7 +182,7 @@
                                 </Link>
                                 {#if url.isCurrentUrl(item.href, url.currentUrl)}
                                     <div
-                                        class="absolute bottom-0 left-0 h-0.5 w-full translate-y-px bg-black dark:bg-white"
+                                        class="absolute bottom-0 left-0 h-0.5 w-full translate-y-px bg-primary"
                                     ></div>
                                 {/if}
                             </NavigationMenuItem>

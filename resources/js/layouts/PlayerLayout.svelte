@@ -22,8 +22,8 @@
     import { getInitials } from '@/lib/initials';
     import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
-    import { dashboard } from '@/routes/admin';
     import { community, home, login, rankings, register } from '@/routes';
+    import { dashboard } from '@/routes/admin';
 
     let {
         children,
@@ -50,14 +50,20 @@
 <div class="flex min-h-screen flex-col bg-background text-foreground">
     <header class="border-b border-border/60 bg-background/80 backdrop-blur">
         <div class="mx-auto flex h-14 w-full max-w-7xl items-center gap-6 px-4">
-            <Link href={toUrl(home(taikoParam))} class="flex items-center gap-2">
-                <AppLogoIcon class="size-6 fill-current" />
+            <Link
+                href={toUrl(home(taikoParam))}
+                class="flex items-center gap-2"
+            >
+                <AppLogoIcon class="size-6 fill-current text-primary" />
                 <span class="font-semibold">TaikOnline</span>
             </Link>
 
             <nav class="flex h-full items-center gap-1">
                 {#each navItems as item (item.href.url)}
-                    {@const active = url.isCurrentUrl(item.href, url.currentUrl)}
+                    {@const active = url.isCurrentUrl(
+                        item.href,
+                        url.currentUrl,
+                    )}
                     <Link
                         href={toUrl(item.href)}
                         class="flex h-14 items-center border-b-2 px-3 text-sm font-medium transition {active
@@ -76,7 +82,10 @@
                     {#if isAdmin}
                         <Link
                             href={toUrl(dashboard(taikoParam))}
-                            class="{buttonVariants({ variant: 'outline', size: 'sm' })} gap-2"
+                            class="{buttonVariants({
+                                variant: 'outline',
+                                size: 'sm',
+                            })} gap-2"
                         >
                             <ShieldCheck class="size-4" />
                             Backend
@@ -122,7 +131,10 @@
                     </Link>
                     <Link
                         href={toUrl(register())}
-                        class={buttonVariants({ variant: 'default', size: 'sm' })}
+                        class={buttonVariants({
+                            variant: 'default',
+                            size: 'sm',
+                        })}
                     >
                         Sign up
                     </Link>
