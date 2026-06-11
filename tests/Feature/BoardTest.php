@@ -1,0 +1,191 @@
+<?php
+
+use App\Enums\SongGenre;
+use App\Enums\SongPartsSet;
+use App\Enums\SongWai2PartsSet;
+use App\Models\Player;
+use App\Models\PlayerRankSnapshot;
+use App\Models\Song;
+use App\Models\SongBest;
+use App\Models\SongPlayResult;
+use App\Models\User;
+
+it('shows a public version-scoped player board without sensitive player identifiers', function (): void {
+    $user = User::factory()->create(['name' => 'Firestorm7893']);
+    $otherUser = User::factory()->create(['name' => 'Higher Rank']);
+
+    $player = Player::query()->create([
+        'mydon_name' => 'DON',
+        'user_id' => $user->id,
+        'last_played_at' => now()->subDay(),
+        'total_credit_count' => 25,
+        'total_get_donmedal' => 100,
+        'total_use_donmedal' => 30,
+        'total_get_katsumedal' => 20,
+        'total_use_katsumedal' => 5,
+    ]);
+    $otherPlayer = Player::query()->create(['mydon_name' => 'TOP', 'user_id' => $otherUser->id]);
+
+    createBoardSong('green', 20, 'Green Song');
+    createBoardSong('green', 21, 'Second Song');
+    createBoardSong('blue', 20, 'Blue Song');
+
+    SongBest::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'green',
+        'song_no' => 20,
+        'level' => 4,
+        'best_score' => 900,
+        'best_score_rank' => 8,
+        'best_play_result' => 3,
+        'best_crown' => 3,
+    ]);
+    SongBest::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'green',
+        'song_no' => 21,
+        'level' => 3,
+        'best_score' => 800,
+        'best_score_rank' => 7,
+        'best_play_result' => 2,
+        'best_crown' => 2,
+    ]);
+    SongBest::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'blue',
+        'song_no' => 20,
+        'level' => 4,
+        'best_score' => 999999,
+        'best_score_rank' => 10,
+        'best_play_result' => 3,
+        'best_crown' => 3,
+    ]);
+    SongBest::query()->create([
+        'baid' => $otherPlayer->baid,
+        'game_version' => 'green',
+        'song_no' => 20,
+        'level' => 4,
+        'best_score' => 1000,
+        'best_score_rank' => 8,
+        'best_play_result' => 3,
+        'best_crown' => 3,
+    ]);
+    SongBest::query()->create([
+        'baid' => $otherPlayer->baid,
+        'game_version' => 'green',
+        'song_no' => 21,
+        'level' => 3,
+        'best_score' => 900,
+        'best_score_rank' => 8,
+        'best_play_result' => 2,
+        'best_crown' => 2,
+    ]);
+
+    SongPlayResult::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'green',
+        'played_at' => now(),
+        'song_no' => 20,
+        'level' => 4,
+        'play_result' => 3,
+        'score' => 900,
+        'score_rank' => 8,
+        'good_count' => 400,
+        'ok_count' => 20,
+        'miss_count' => 0,
+        'combo_count' => 420,
+    ]);
+    SongPlayResult::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'blue',
+        'played_at' => now(),
+        'song_no' => 20,
+        'level' => 4,
+        'play_result' => 3,
+        'score' => 999999,
+        'score_rank' => 10,
+    ]);
+
+    PlayerRankSnapshot::query()->create([
+        'user_id' => $user->id,
+        'game_version' => 'green',
+        'rank' => 3,
+        'total_score' => 1200,
+        'ranked_song_count' => 2,
+        'played_song_count' => 1,
+        'crown_counts' => ['none' => 0, 'clear' => 0, 'gold' => 1, 'dondaful' => 1],
+        'snapshot_date' => now()->subDay()->toDateString(),
+    ]);
+    PlayerRankSnapshot::query()->create([
+        'user_id' => $user->id,
+        'game_version' => 'green',
+        'rank' => 2,
+        'total_score' => 1700,
+        'ranked_song_count' => 2,
+        'played_song_count' => 1,
+        'crown_counts' => ['none' => 0, 'clear' => 0, 'gold' => 1, 'dondaful' => 1],
+        'snapshot_date' => now()->toDateString(),
+    ]);
+
+    $this->get("/green/users/{$user->id}/board")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Board')
+            ->where('hasPlayer', true)
+            ->where('profile.id', $user->id)
+            ->where('profile.name', 'Firestorm7893')
+            ->where('profile.mydon_name', 'DON')
+            ->where('profile.game_version.value', 'green')
+            ->missing('profile.email')
+            ->missing('profile.baid')
+            ->where('summary.rank', 2)
+            ->where('summary.total_score', 1700)
+            ->where('summary.crown_counts.dondaful', 1)
+            ->where('summary.crown_counts.gold', 1)
+            ->missing('summary.user_id')
+            ->has('rankHistory', 2)
+            ->has('recentPlays', 1)
+            ->where('recentPlays.0.song_title', 'Green Song')
+            ->missing('recentPlays.0.baid')
+            ->has('bestPerformances', 2)
+            ->where('bestPerformances.0.song_title', 'Green Song')
+            ->where('bestPerformances.0.placement', 2)
+        );
+});
+
+it('renders an empty public board for users without a linked player', function (): void {
+    $user = User::factory()->create(['name' => 'No Card']);
+
+    $this->get("/green/users/{$user->id}/board")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Board')
+            ->where('hasPlayer', false)
+            ->where('profile.name', 'No Card')
+            ->where('summary.rank', null)
+            ->has('recentPlays', 0)
+            ->has('bestPerformances', 0)
+        );
+});
+
+it('does not expose all-version boards publicly', function (): void {
+    $user = User::factory()->create();
+
+    $this->get("/all/users/{$user->id}/board")->assertNotFound();
+});
+
+function createBoardSong(string $version, int $songNo, string $title): void
+{
+    Song::query()->create([
+        'version' => $version,
+        'song_no' => $songNo,
+        'music_id' => "{$version}-{$songNo}",
+        'unique_id' => $songNo,
+        'title' => $title,
+        'genre' => SongGenre::Jpop,
+        'partsset' => SongPartsSet::Taiko,
+        'wai2_partsset' => SongWai2PartsSet::Taiko,
+        'flags' => [],
+        'tags' => [],
+    ]);
+}

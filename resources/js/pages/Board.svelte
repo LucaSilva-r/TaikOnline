@@ -1,0 +1,474 @@
+<script lang="ts">
+    import AppHead from '@/components/AppHead.svelte';
+    import {
+        Avatar,
+        AvatarFallback,
+        AvatarImage,
+    } from '@/components/ui/avatar';
+    import * as Chart from '@/components/ui/chart';
+    import { getInitials } from '@/lib/initials';
+    import { LineChart } from 'layerchart';
+    import Activity from 'lucide-svelte/icons/activity';
+    import CalendarDays from 'lucide-svelte/icons/calendar-days';
+    import Crown from 'lucide-svelte/icons/crown';
+    import Drum from 'lucide-svelte/icons/drum';
+    import Medal from 'lucide-svelte/icons/medal';
+    import Music2 from 'lucide-svelte/icons/music-2';
+    import Star from 'lucide-svelte/icons/star';
+    import Trophy from 'lucide-svelte/icons/trophy';
+
+    type Profile = {
+        id: number;
+        name: string;
+        avatar: string | null;
+        mydon_name: string | null;
+        game_version: {
+            value: string;
+            label: string;
+        };
+        last_played_at: string | null;
+        total_credit_count: number;
+        don_medals: {
+            earned: number;
+            spent: number;
+        };
+        katsu_medals: {
+            earned: number;
+            spent: number;
+        };
+    };
+
+    type CrownCounts = {
+        none: number;
+        clear: number;
+        gold: number;
+        dondaful: number;
+    };
+
+    type Summary = {
+        rank: number | null;
+        total_score: number;
+        ranked_song_count: number;
+        played_song_count: number;
+        crown_counts: CrownCounts;
+    };
+
+    type RankHistoryPoint = {
+        date: string;
+        rank: number;
+        total_score: number;
+    };
+
+    type RecentPlay = {
+        song_title: string;
+        song_no: number;
+        level: number;
+        played_at: string | null;
+        play_result: number;
+        score: number;
+        score_rank: number;
+        good_count: number;
+        ok_count: number;
+        miss_count: number;
+        combo_count: number;
+    };
+
+    type BestPerformance = {
+        song_title: string;
+        song_no: number;
+        level: number;
+        score: number;
+        score_rank: number;
+        crown: number;
+        placement: number;
+    };
+
+    let {
+        profile,
+        hasPlayer,
+        summary,
+        rankHistory,
+        recentPlays,
+        bestPerformances,
+    }: {
+        profile: Profile;
+        hasPlayer: boolean;
+        summary: Summary;
+        rankHistory: RankHistoryPoint[];
+        recentPlays: RecentPlay[];
+        bestPerformances: BestPerformance[];
+    } = $props();
+
+    const numberFormatter = new Intl.NumberFormat();
+    const dateFormatter = new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+    });
+    const fullDateFormatter = new Intl.DateTimeFormat(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+    });
+
+    const chartData = $derived(
+        rankHistory.map((point) => ({
+            ...point,
+            dateValue: new Date(`${point.date}T00:00:00`),
+        })),
+    );
+    const maxRank = $derived(
+        Math.max(1, ...chartData.map((point) => point.rank)),
+    );
+    const chartConfig = {
+        rank: {
+            label: 'Rank',
+            color: 'var(--primary)',
+        },
+    } satisfies Chart.ChartConfig;
+
+    const statItems = $derived([
+        {
+            label: 'Global Rank',
+            value: summary.rank ? `#${numberFormatter.format(summary.rank)}` : '-',
+            icon: Trophy,
+        },
+        {
+            label: 'Total Score',
+            value: numberFormatter.format(summary.total_score),
+            icon: Activity,
+        },
+        {
+            label: 'Ranked Charts',
+            value: numberFormatter.format(summary.ranked_song_count),
+            icon: Music2,
+        },
+        {
+            label: 'Played Songs',
+            value: numberFormatter.format(summary.played_song_count),
+            icon: Drum,
+        },
+    ]);
+
+    function formatFullDate(value: string | null): string {
+        if (!value) {
+            return 'Never';
+        }
+
+        return fullDateFormatter.format(new Date(value));
+    }
+
+    function formatShortDate(value: Date): string {
+        return dateFormatter.format(value);
+    }
+
+    function formatChartDate(value: unknown): string {
+        return value instanceof Date ? formatShortDate(value) : String(value);
+    }
+
+    function difficultyLabel(level: number): string {
+        return (
+            {
+                1: 'Easy',
+                2: 'Normal',
+                3: 'Hard',
+                4: 'Oni',
+                5: 'Ura Oni',
+            }[level] ?? `Lv ${level}`
+        );
+    }
+
+    function crownLabel(crown: number): string {
+        return (
+            {
+                0: 'No crown',
+                1: 'Clear',
+                2: 'Full combo',
+                3: 'Dondaful',
+            }[crown] ?? 'No crown'
+        );
+    }
+</script>
+
+<AppHead title={`${profile.name} Board`} />
+
+<section class="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8">
+    <section class="overflow-hidden rounded-lg border bg-card">
+        <div
+            class="border-b bg-[var(--taiko-accent-soft)] px-5 py-8"
+        >
+            <div class="flex flex-col gap-5 sm:flex-row sm:items-end">
+                <Avatar class="size-24 border-4 border-background shadow-sm">
+                    {#if profile.avatar}
+                        <AvatarImage src={profile.avatar} alt={profile.name} />
+                    {/if}
+                    <AvatarFallback class="text-2xl font-semibold">
+                        {getInitials(profile.name)}
+                    </AvatarFallback>
+                </Avatar>
+
+                <div class="min-w-0 flex-1">
+                    <div
+                        class="mb-3 inline-flex items-center rounded-full border bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground shadow-xs"
+                    >
+                        {profile.game_version.label}
+                    </div>
+                    <h1 class="truncate text-3xl font-semibold tracking-tight">
+                        {profile.name}
+                    </h1>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        {profile.mydon_name ?? 'No MyDon profile linked'}
+                    </p>
+                </div>
+
+                <div class="grid gap-1 text-sm sm:text-right">
+                    <div
+                        class="flex items-center gap-2 text-muted-foreground sm:justify-end"
+                    >
+                        <CalendarDays class="size-4" />
+                        Last played {formatFullDate(profile.last_played_at)}
+                    </div>
+                    <div class="font-medium">
+                        {numberFormatter.format(profile.total_credit_count)}
+                        credits
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {#if !hasPlayer}
+            <div class="p-6 text-sm text-muted-foreground">
+                This user has not linked a player profile yet.
+            </div>
+        {/if}
+    </section>
+
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {#each statItems as item (item.label)}
+            {@const Icon = item.icon}
+            <section class="rounded-lg border bg-card p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <div class="text-sm text-muted-foreground">
+                            {item.label}
+                        </div>
+                        <div class="mt-1 text-2xl font-semibold tabular-nums">
+                            {item.value}
+                        </div>
+                    </div>
+                    <div
+                        class="flex size-10 items-center justify-center rounded-md bg-accent text-primary"
+                    >
+                        <Icon class="size-5" />
+                    </div>
+                </div>
+            </section>
+        {/each}
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
+        <section class="rounded-lg border bg-card">
+            <div class="flex items-center justify-between gap-3 border-b px-5 py-4">
+                <div>
+                    <h2 class="font-semibold">Rank History</h2>
+                    <p class="text-sm text-muted-foreground">
+                        Daily snapshot trend
+                    </p>
+                </div>
+                <Trophy class="size-5 text-primary" />
+            </div>
+
+            <div class="p-5">
+                {#if chartData.length === 0}
+                    <div
+                        class="flex min-h-64 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground"
+                    >
+                        No rank snapshots yet.
+                    </div>
+                {:else}
+                    <Chart.Container
+                        config={chartConfig}
+                        class="min-h-64 w-full"
+                    >
+                        <LineChart
+                            data={chartData}
+                            x="dateValue"
+                            y="rank"
+                            yReverse
+                            axis={true}
+                            yDomain={[1, maxRank]}
+                            series={[
+                                {
+                                    key: 'rank',
+                                    label: chartConfig.rank.label,
+                                    value: 'rank',
+                                    color: chartConfig.rank.color,
+                                },
+                            ]}
+                            props={{
+                                xAxis: {
+                                    format: formatShortDate,
+                                },
+                                yAxis: {
+                                    format: (rank: number) => `#${rank}`,
+                                },
+                            }}
+                        >
+                            {#snippet tooltip()}
+                                <Chart.Tooltip
+                                    labelFormatter={formatChartDate}
+                                />
+                            {/snippet}
+                        </LineChart>
+                    </Chart.Container>
+                {/if}
+            </div>
+        </section>
+
+        <section class="rounded-lg border bg-card">
+            <div class="flex items-center justify-between gap-3 border-b px-5 py-4">
+                <div>
+                    <h2 class="font-semibold">Crowns</h2>
+                    <p class="text-sm text-muted-foreground">
+                        Best clear states
+                    </p>
+                </div>
+                <Crown class="size-5 text-primary" />
+            </div>
+
+            <div class="grid gap-3 p-5">
+                <div class="flex items-center justify-between rounded-md bg-muted/50 p-3">
+                    <span class="text-sm text-muted-foreground">Dondaful</span>
+                    <span class="font-semibold tabular-nums">
+                        {numberFormatter.format(summary.crown_counts.dondaful)}
+                    </span>
+                </div>
+                <div class="flex items-center justify-between rounded-md bg-muted/50 p-3">
+                    <span class="text-sm text-muted-foreground">Full combo</span>
+                    <span class="font-semibold tabular-nums">
+                        {numberFormatter.format(summary.crown_counts.gold)}
+                    </span>
+                </div>
+                <div class="flex items-center justify-between rounded-md bg-muted/50 p-3">
+                    <span class="text-sm text-muted-foreground">Clear</span>
+                    <span class="font-semibold tabular-nums">
+                        {numberFormatter.format(summary.crown_counts.clear)}
+                    </span>
+                </div>
+                <div class="flex items-center justify-between rounded-md bg-muted/50 p-3">
+                    <span class="text-sm text-muted-foreground">No crown</span>
+                    <span class="font-semibold tabular-nums">
+                        {numberFormatter.format(summary.crown_counts.none)}
+                    </span>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="grid gap-6 xl:grid-cols-2">
+        <section class="rounded-lg border bg-card">
+            <div class="flex items-center justify-between gap-3 border-b px-5 py-4">
+                <div>
+                    <h2 class="font-semibold">Recent Plays</h2>
+                    <p class="text-sm text-muted-foreground">
+                        Latest submitted stages
+                    </p>
+                </div>
+                <Drum class="size-5 text-primary" />
+            </div>
+
+            {#if recentPlays.length === 0}
+                <div class="p-5 text-sm text-muted-foreground">
+                    No recent plays for this version.
+                </div>
+            {:else}
+                <div class="divide-y">
+                    {#each recentPlays as play (`${play.song_no}-${play.level}-${play.played_at}`)}
+                        <div class="grid gap-3 px-5 py-4 sm:grid-cols-[1fr_auto]">
+                            <div class="min-w-0">
+                                <div class="truncate font-medium">
+                                    {play.song_title}
+                                </div>
+                                <div
+                                    class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
+                                >
+                                    <span>{difficultyLabel(play.level)}</span>
+                                    <span>{crownLabel(play.play_result)}</span>
+                                    <span>{formatFullDate(play.played_at)}</span>
+                                </div>
+                                <div
+                                    class="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground"
+                                >
+                                    <span>Good {play.good_count}</span>
+                                    <span>Ok {play.ok_count}</span>
+                                    <span>Miss {play.miss_count}</span>
+                                    <span>Combo {play.combo_count}</span>
+                                </div>
+                            </div>
+                            <div class="text-left sm:text-right">
+                                <div class="font-semibold tabular-nums">
+                                    {numberFormatter.format(play.score)}
+                                </div>
+                                <div class="text-sm text-muted-foreground">
+                                    Rank {play.score_rank}
+                                </div>
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+            {/if}
+        </section>
+
+        <section class="rounded-lg border bg-card">
+            <div class="flex items-center justify-between gap-3 border-b px-5 py-4">
+                <div>
+                    <h2 class="font-semibold">Best Performances</h2>
+                    <p class="text-sm text-muted-foreground">
+                        Highest scoring charts
+                    </p>
+                </div>
+                <Star class="size-5 text-primary" />
+            </div>
+
+            {#if bestPerformances.length === 0}
+                <div class="p-5 text-sm text-muted-foreground">
+                    No best scores for this version.
+                </div>
+            {:else}
+                <div class="divide-y">
+                    {#each bestPerformances as best (`${best.song_no}-${best.level}`)}
+                        <div class="grid gap-3 px-5 py-4 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+                            <div
+                                class="flex size-10 items-center justify-center rounded-md bg-accent text-sm font-semibold text-primary"
+                            >
+                                #{best.placement}
+                            </div>
+                            <div class="min-w-0">
+                                <div class="truncate font-medium">
+                                    {best.song_title}
+                                </div>
+                                <div
+                                    class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
+                                >
+                                    <span>{difficultyLabel(best.level)}</span>
+                                    <span>{crownLabel(best.crown)}</span>
+                                    <span>Rank {best.score_rank}</span>
+                                </div>
+                            </div>
+                            <div class="text-left sm:text-right">
+                                <div class="font-semibold tabular-nums">
+                                    {numberFormatter.format(best.score)}
+                                </div>
+                                <div
+                                    class="mt-1 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                                >
+                                    <Medal class="size-3" />
+                                    Best
+                                </div>
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+            {/if}
+        </section>
+    </div>
+</section>
