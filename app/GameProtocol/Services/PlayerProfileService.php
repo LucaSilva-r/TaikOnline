@@ -222,6 +222,7 @@ class PlayerProfileService
             'setColorLimb' => (int) $player->color_limb,
             'setAryCostumedata' => $this->equippedCostumeData($version, $cosmetic),
             'setAryFavoriteCostumedata' => [],
+            'setCostumeFlg' => $this->costumeFlag($cosmetic, 1),
             'setCostumeFlg1' => $this->costumeFlag($cosmetic, 1),
             'setCostumeFlg2' => $this->costumeFlag($cosmetic, 2),
             'setCostumeFlg3' => $this->costumeFlag($cosmetic, 3),
