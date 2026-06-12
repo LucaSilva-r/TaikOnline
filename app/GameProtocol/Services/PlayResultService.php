@@ -514,8 +514,11 @@ class PlayResultService
         }
     }
 
-    private function setBattleBits(?string $source, array $ids, int $byteCount): string
+    private function setBattleBits(mixed $source, array $ids, int $byteCount): string
     {
+        if (is_resource($source)) {
+            $source = stream_get_contents($source);
+        }
         $result = $source ?? str_repeat("\x00", $byteCount);
         if (strlen($result) < $byteCount) {
             $result = str_pad($result, $byteCount, "\x00");

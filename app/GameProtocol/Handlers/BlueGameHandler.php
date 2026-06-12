@@ -64,7 +64,7 @@ class BlueGameHandler extends GameHandler
                     'setMaxDpn' => (int) $row->max_dpn,
                     'setNpcCostumeId' => (int) $row->npc_costume_id,
                     'setNpcCostumeFlg' => $this->buildNpcCostumeFlg($row->npc_costume_flg, (int) $row->npc_costume_id),
-                    'setLastSelectSpecial1' => (int) $row->selected_special_id_1,
+                    'setLastSelectSpecial1' => (int) $row->selected_special_id_1 ?: 1,
                     'setLastSelectSpecial2' => (int) $row->selected_special_id_2,
                     'setLastSelectSpecial3' => (int) $row->selected_special_id_3,
                     'setReleaseSpecialFlg' => $this->buildReleaseSpecialFlg($row->release_special_flg, [
@@ -110,8 +110,11 @@ class BlueGameHandler extends GameHandler
         );
     }
 
-    private function fixedOrZero(?string $source, int $byteCount): string
+    private function fixedOrZero(mixed $source, int $byteCount): string
     {
+        if (is_resource($source)) {
+            $source = stream_get_contents($source);
+        }
         if ($source === null) {
             return str_repeat("\x00", $byteCount);
         }
@@ -138,7 +141,7 @@ class BlueGameHandler extends GameHandler
         $result[$byteIndex] = chr($byteVal);
     }
 
-    private function buildNpcCostumeFlg(?string $source, int $selectedCostumeId): string
+    private function buildNpcCostumeFlg(mixed $source, int $selectedCostumeId): string
     {
         $result = $this->fixedOrZero($source, 4);
         if ($selectedCostumeId < 32) {
@@ -152,8 +155,11 @@ class BlueGameHandler extends GameHandler
         return $result;
     }
 
-    private function buildReleaseSpecialFlg(?string $source, array $selectedSpecials): string
+    private function buildReleaseSpecialFlg(mixed $source, array $selectedSpecials): string
     {
+        if (is_resource($source)) {
+            $source = stream_get_contents($source);
+        }
         $enabledIds = [1, 120];
         if ($source !== null) {
             $enabledIds = array_merge($enabledIds, $this->scoreMapper->flagBytesToIds($source));
@@ -182,8 +188,8 @@ class BlueGameHandler extends GameHandler
             .$this->protobufVarintField(11, 0)
             .$this->protobufVarintField(12, 0)
             .$this->protobufVarintField(14, 1)
-            .$this->protobufBytesField(15, $this->scoreMapper->emptyFlagBytes())
-            .$this->protobufBytesField(16, $this->scoreMapper->emptyFlagBytes())
+            .$this->protobufBytesField(15, "\x02".str_repeat("\x00", 7))
+            .$this->protobufBytesField(16, "\x02".str_repeat("\x00", 14)."\x01")
             .$this->protobufVarintField(17, 0);
 
         return response($body, 200, ['Content-Type' => 'application/protobuf']);
