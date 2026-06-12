@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Models\GameCard;
+use App\Models\Player;
 use App\Models\User;
 use Laravel\Fortify\Features;
 
@@ -75,4 +77,38 @@ test('subsequent registered users are regular users', function () {
     ]);
 
     expect(User::firstWhere('email', 'second@example.com')->role)->toBe(UserRole::User);
+});
+
+test('new users can claim an issued access code during registration', function () {
+    $player = Player::query()->create();
+    GameCard::query()->create([
+        'access_code' => 'AC-REGISTER',
+        'baid' => $player->baid,
+    ]);
+
+    $this->post(route('register.store'), [
+        'name' => 'Card User',
+        'username' => 'carduser',
+        'email' => 'card@example.com',
+        'access_code' => 'AC-REGISTER',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+    ])->assertRedirect(route('home', absolute: false));
+
+    $user = User::firstWhere('email', 'card@example.com');
+
+    expect($player->refresh()->user_id)->toBe($user->id);
+});
+
+test('registration rejects access codes that were not issued by the server', function () {
+    $this->from(route('register'))->post(route('register.store'), [
+        'name' => 'Unknown Card User',
+        'username' => 'unknowncard',
+        'email' => 'unknown-card@example.com',
+        'access_code' => 'NO-SUCH-CODE',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+    ])->assertSessionHasErrors('access_code');
+
+    expect(User::where('email', 'unknown-card@example.com')->exists())->toBeFalse();
 });

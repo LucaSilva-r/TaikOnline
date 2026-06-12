@@ -21,6 +21,18 @@ return [
         'v11' => 154,
     ],
     'traffic_log_enabled' => (bool) env('TAIKO_GREEN_TRAFFIC_LOG_ENABLED', true),
+    'zucchini_api_token_hashes' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('TAIKO_ZUCCHINI_API_TOKEN_HASHES', '')),
+    ))),
+    'nbgic_profile_records' => env('TAIKO_GREEN_NBGIC_PROFILE_RECORDS'),
+    'nbgic_generation_profiles' => array_map(
+        'intval',
+        array_values(array_filter(
+            array_map('trim', explode(',', (string) env('TAIKO_GREEN_NBGIC_GENERATION_PROFILES', '7'))),
+            fn (string $profile): bool => $profile !== '',
+        )),
+    ),
 
     'mucha_force_update' => (bool) env('TAIKO_GREEN_MUCHA_FORCE_UPDATE', false),
     'mucha_forced_target_ver' => env('TAIKO_GREEN_MUCHA_TARGET_VER', 'S1110JPN99.99'),

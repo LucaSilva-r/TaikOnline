@@ -11,7 +11,6 @@ use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Models\Song;
 use Google\Protobuf\Internal\Message;
-use Illuminate\Support\Str;
 
 class PlayerProfileService
 {
@@ -65,43 +64,31 @@ class PlayerProfileService
     public function baid(Message $request, TaikoGameVersion $version): Message
     {
         $card = GameCard::query()->with('player')->find($request->getAccessCode());
-        $isNew = $card === null;
 
-        if ($isNew) {
-            $player = Player::query()->create([
-                'access_token' => Str::random(32),
-                'person_id' => (string) Str::uuid(),
-            ])->refresh();
-
-            $card = GameCard::query()->create([
-                'access_code' => $request->getAccessCode(),
-                'baid' => $player->baid,
-                'chip_id' => $request->getChipId(),
-                'device_type' => (string) $request->getDeviceType(),
-                'country_id' => $request->getCountryId(),
-            ]);
-            $card->setRelation('player', $player);
+        if (! $card instanceof GameCard || ! $card->player instanceof Player) {
+            return $this->baidFailureResponse($version, $request->getAccessCode());
         }
 
-        return $this->baidResponse($version, $card->player, $card->access_code, $isNew);
+        $this->updateCardMetadata($card, $request);
+
+        return $this->baidResponse(
+            $version,
+            $card->player,
+            $card->access_code,
+            empty($card->player->mydon_name),
+        );
     }
 
     public function registerMydon(Message $request, TaikoGameVersion $version): Message
     {
-        $card = GameCard::query()->with('player')->firstOrCreate(
-            ['access_code' => $request->getAccessCode()],
-            [
-                'baid' => Player::query()->create([
-                    'access_token' => Str::random(32),
-                    'person_id' => (string) Str::uuid(),
-                ])->refresh()->baid,
-                'chip_id' => $request->getChipId(),
-                'device_type' => (string) $request->getDeviceType(),
-                'country_id' => $request->getCountryId(),
-            ],
-        );
+        $card = GameCard::query()->with('player')->find($request->getAccessCode());
 
-        $card->loadMissing('player');
+        if (! $card instanceof GameCard || ! $card->player instanceof Player) {
+            return $this->mydonEntryFailureResponse($version, $request->getAccessCode());
+        }
+
+        $this->updateCardMetadata($card, $request);
+
         $card->player->update([
             'mydon_name' => $request->getMydonName(),
         ]);
@@ -118,6 +105,15 @@ class PlayerProfileService
             'setAccesstoken' => $card->player->access_token,
             'setContentInfo' => '',
             'setPersonid' => $card->player->person_id,
+        ]);
+    }
+
+    private function updateCardMetadata(GameCard $card, Message $request): void
+    {
+        $card->update([
+            'chip_id' => $request->getChipId(),
+            'device_type' => (string) $request->getDeviceType(),
+            'country_id' => $request->getCountryId(),
         ]);
     }
 
@@ -167,13 +163,49 @@ class PlayerProfileService
         return $this->scoreMapper->songFlagBytes($songNumbers);
     }
 
-    private function baidResponse(TaikoGameVersion $version, Player $player, string $accessCode, bool $isNew): Message
+    private function baidFailureResponse(TaikoGameVersion $version, string $accessCode): Message
+    {
+        return $this->writer->fill($this->messages->make($version, 'BAIDResponse'), [
+            'setResult' => 0,
+            'setPlayerType' => 1,
+            'setComSvrResult' => 0,
+            'setBaid' => 0,
+            'setAccessCode' => $accessCode,
+            'setCardOwnNum' => 0,
+            'setRegCountryId' => (string) config('taiko_green.country'),
+            'setPurposeId' => 0,
+            'setRegionId' => (int) config('taiko_green.region'),
+            'setMydonName' => '',
+            'setAccesstoken' => '',
+            'setContentInfo' => '',
+            'setPersonid' => '',
+        ]);
+    }
+
+    private function mydonEntryFailureResponse(TaikoGameVersion $version, string $accessCode): Message
+    {
+        return $this->writer->fill($this->messages->make($version, 'MydonEntryResponse'), [
+            'setResult' => 0,
+            'setComSvrResult' => 0,
+            'setBaid' => 0,
+            'setAccessCode' => $accessCode,
+            'setIsPublish' => false,
+            'setCardOwnNum' => 0,
+            'setRegCountryId' => (string) config('taiko_green.country'),
+            'setMydonName' => '',
+            'setAccesstoken' => '',
+            'setContentInfo' => '',
+            'setPersonid' => '',
+        ]);
+    }
+
+    private function baidResponse(TaikoGameVersion $version, Player $player, string $accessCode, bool $needsRegistration): Message
     {
         $cosmetic = PlayerCosmetic::resolve((int) $player->baid, $version);
 
         return $this->writer->fill($this->messages->make($version, 'BAIDResponse'), [
             'setResult' => 1,
-            'setPlayerType' => $isNew ? 1 : 0,
+            'setPlayerType' => $needsRegistration ? 1 : 0,
             'setComSvrResult' => 1,
             'setBaid' => $player->baid,
             'setAccessCode' => $accessCode,

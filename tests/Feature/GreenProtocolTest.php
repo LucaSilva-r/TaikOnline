@@ -461,7 +461,13 @@ it('keys stored ghost battle sections to the green catalog version', function ()
     expect($green->getAryBestSectionData()[0]->getGoodCnt())->toBe(34);
 });
 
-it('creates and reloads cards through baidcheck', function (): void {
+it('loads server-issued cards through baidcheck and rejects unknown cards', function (): void {
+    $player = Player::query()->create();
+    GameCard::query()->create([
+        'access_code' => '12345678901234567890',
+        'baid' => $player->baid,
+    ]);
+
     $request = (new BAIDRequest)
         ->setDeviceType(1)
         ->setAccessCode('12345678901234567890')
@@ -470,15 +476,24 @@ it('creates and reloads cards through baidcheck', function (): void {
         ->setShopId('shop')
         ->setCountryId('JPN');
 
-    $first = post_protobuf('/v08r00/chassis/baidcheck.php', $request, BAIDResponse::class);
-    $second = post_protobuf('/v08r00/chassis/baidcheck.php', $request, BAIDResponse::class);
+    $issued = post_protobuf('/v08r00/chassis/baidcheck.php', $request, BAIDResponse::class);
 
-    expect($first->getResult())->toBe(1)
-        ->and($first->getPlayerType())->toBe(1)
-        ->and($second->getPlayerType())->toBe(0)
-        ->and($second->getBaid())->toBe($first->getBaid());
+    $player->update(['mydon_name' => 'DON']);
+
+    $registered = post_protobuf('/v08r00/chassis/baidcheck.php', $request, BAIDResponse::class);
+
+    $unknown = post_protobuf('/v08r00/chassis/baidcheck.php', (clone $request)->setAccessCode('99999999999999999999'), BAIDResponse::class);
+
+    expect($issued->getResult())->toBe(1)
+        ->and($issued->getPlayerType())->toBe(1)
+        ->and($issued->getBaid())->toBe($player->baid)
+        ->and($registered->getPlayerType())->toBe(0)
+        ->and($registered->getBaid())->toBe($player->baid)
+        ->and($unknown->getResult())->toBe(0)
+        ->and($unknown->getComSvrResult())->toBe(0);
 
     expect(GameCard::query()->where('access_code', '12345678901234567890')->exists())->toBeTrue();
+    expect(GameCard::query()->where('access_code', '99999999999999999999')->exists())->toBeFalse();
 });
 
 it('loads user data for a player', function (): void {
@@ -1011,8 +1026,14 @@ it('handles momoiro bookkeeping with the renamed app_play_cnt field', function (
         ->and(CabinetBookkeepingLog::query()->first()->all_play_count)->toBe(7);
 });
 
-it('creates a card through baidcheck for versions without nested CostumeData', function (TaikoGameVersion $version): void {
+it('loads issued cards through baidcheck for versions without nested CostumeData', function (TaikoGameVersion $version): void {
     $resolver = app(ProtocolMessageResolver::class);
+    $player = Player::query()->create();
+
+    GameCard::query()->create([
+        'access_code' => '12345678901234567890',
+        'baid' => $player->baid,
+    ]);
 
     $reqClass = $resolver->class($version, 'BAIDRequest');
     $request = (new $reqClass)
@@ -1027,7 +1048,7 @@ it('creates a card through baidcheck for versions without nested CostumeData', f
 
     expect($response->getResult())->toBe(1)
         ->and($response->getPlayerType())->toBe(1)
-        ->and(GameCard::query()->where('access_code', '12345678901234567890')->exists())->toBeTrue();
+        ->and($response->getBaid())->toBe($player->baid);
 })->with([
     'sorairo' => [TaikoGameVersion::Sorairo],
     'momoiro' => [TaikoGameVersion::Momoiro],

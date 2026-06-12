@@ -209,6 +209,29 @@ test('admins can unlink a user access code', function () {
     expect($player->refresh()->user_id)->toBeNull();
 });
 
+test('admins can rotate a linked access code without changing player ownership', function () {
+    configure_nbgic_test_profiles();
+
+    $admin = User::factory()->admin()->create();
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    GameCard::query()->create([
+        'access_code' => 'AC-OLD',
+        'baid' => $player->baid,
+    ]);
+
+    $this->actingAs($admin)
+        ->patch("/green/admin/users/{$user->id}/access-code")
+        ->assertSessionHasNoErrors();
+
+    $card = GameCard::query()->where('baid', $player->baid)->firstOrFail();
+
+    expect($card->access_code)->not->toBe('AC-OLD')
+        ->and($card->access_code)->toMatch('/^[0-9]{20}$/')
+        ->and($player->refresh()->user_id)->toBe($user->id)
+        ->and(GameCard::query()->whereKey('AC-OLD')->exists())->toBeFalse();
+});
+
 test('edit page exposes linked access code', function () {
     $admin = User::factory()->admin()->create();
     $user = User::factory()->create();

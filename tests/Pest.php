@@ -50,7 +50,27 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * @return array<int, string>
+ */
+function nbgic_test_profile_records(): array
 {
-    // ..
+    return collect(['300', '302', '303', '304', '305', '306', '307', '308'])
+        ->map(function (string $prefix, int $index): string {
+            $record = pack('N', $index)
+                .$prefix
+                ."\0"
+                .pack('C*', ...range(0, 55))
+                .pack('N2', 0, 0);
+
+            expect(strlen($record))->toBe(0x48);
+
+            return bin2hex($record);
+        })
+        ->all();
+}
+
+function configure_nbgic_test_profiles(): void
+{
+    config()->set('taiko_green.nbgic_profile_records', nbgic_test_profile_records());
 }

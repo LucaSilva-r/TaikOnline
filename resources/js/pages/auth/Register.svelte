@@ -76,6 +76,23 @@
             </div>
 
             <div class="grid gap-2">
+                <Label for="access_code">Access code</Label>
+                <Input
+                    id="access_code"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    name="access_code"
+                    placeholder="Optional card access code"
+                />
+                <p class="text-sm text-muted-foreground">
+                    Link an existing Zucchini-issued card while creating your
+                    account.
+                </p>
+                <InputError message={errors.access_code} />
+            </div>
+
+            <div class="grid gap-2">
                 <Label for="password">Password</Label>
                 <PasswordInput
                     id="password"
