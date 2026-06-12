@@ -62,14 +62,35 @@ before dispatching.
   }
   ```
 
+## Play result: two request shapes, one handler
+
+`GameHandler::playResult` accepts both the Green gzip-blob shape and the inline
+blue/red shape without a subclass. It branches on whether the parsed message
+exposes the blob accessor:
+
+```php
+$data = method_exists($message, 'getPlayresultData')
+    ? $this->payloads->parse(
+        $this->payloads->inflatePlayResultData($message->getPlayresultData()),
+        $this->messages->class($game, 'PlayResultDataRequest'),
+    )
+    : $message; // blue/red inline the play data directly on PlayResultRequest
+```
+
+Blue's `PlayResultRequest` *is* the data message, so it is passed straight to
+`PlayResultService::save()`. That service also reads stage fields that exist only on
+some dialects (`getStarLevel`, `getSupportLevel`, `getGhostStagedata` are absent on
+Blue's `StageData`), so those reads are `method_exists`-guarded rather than assumed.
+
 ## Adding a version-specific behaviour
 
-When a version needs a different response for one endpoint:
+When a version needs a different *response* for one endpoint:
 
 1. Create `XxxGameHandler extends GameHandler`.
 2. Override only the divergent method(s).
 3. Add the `match` arm in `GameHandlerRegistry`.
 
-The eight versions that share the default behaviour stay untouched. This is the
-intended place for the per-version play-result shape forks (e.g. a `RedGameHandler`
-that reads an inline play result instead of the gzip blob).
+The other versions that share the default behaviour stay untouched. Prefer a
+`method_exists` branch (as `playResult` does) when the divergence is a missing
+field or accessor; reserve a subclass for a genuinely different response shape
+(as `BlueGameHandler::initialDataCheck` does).

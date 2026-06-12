@@ -59,7 +59,6 @@ use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Testing\TestResponse;
 
 uses(RefreshDatabase::class);
 
@@ -1076,33 +1075,6 @@ it('answers heartbeat in every version dialect from its own route', function (Ta
  * @param  class-string<TMessage>  $responseClass
  * @return TMessage
  */
-function post_protobuf(string $uri, Message $request, string $responseClass): Message
-{
-    $response = post_protobuf_raw($uri, $request);
-
-    $message = new $responseClass;
-    $message->mergeFromString($response->getContent());
-
-    return $message;
-}
-
-function post_protobuf_raw(string $uri, Message $request): TestResponse
-{
-    $response = test()->call(
-        'POST',
-        $uri,
-        [],
-        [],
-        [],
-        ['CONTENT_TYPE' => 'application/protobuf', 'HTTP_ACCEPT' => 'application/protobuf'],
-        $request->serializeToString(),
-    );
-
-    $response->assertOk();
-
-    return $response;
-}
-
 function play_result_request(Player $player, int $songNo, int $score, ?GhostStageData $ghostStageData = null): PlayResultRequest
 {
     $stage = (new StageData)

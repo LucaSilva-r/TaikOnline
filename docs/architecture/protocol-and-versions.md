@@ -55,5 +55,10 @@ Tolerant setters handle *renames*. They do **not** handle *structural* differenc
 which are handled in the [handler layer](request-handling.md):
 
 - Green's `PlayResultRequest` is a thin wrapper carrying a gzip-compressed
-  `PlayResultDataRequest` blob; blue/red send the play result inline.
+  `PlayResultDataRequest` blob; blue/red send the play result inline (the inline
+  `PlayResultRequest` *is* the data message). `GameHandler::playResult` handles both
+  with a `method_exists($message, 'getPlayresultData')` branch — see
+  [request handling](request-handling.md). Blue's stage type is also slimmer
+  (`StageData` without `getStarLevel`/`getSupportLevel`/`getGhostStagedata`), so
+  `PlayResultService` guards those reads.
 - Blue's `InitialdatacheckResponse` has a different shape and is hand-serialised.

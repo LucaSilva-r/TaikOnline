@@ -61,8 +61,8 @@ class PlayResultService
                 'music_category' => $stage->getMusicCateg(),
                 'selected_folder_id' => $stage->getSelectedFolderId(),
                 'raw_stage' => [
-                    'star_level' => $stage->getStarLevel(),
-                    'support_level' => $stage->getSupportLevel(),
+                    'star_level' => method_exists($stage, 'getStarLevel') ? $stage->getStarLevel() : null,
+                    'support_level' => method_exists($stage, 'getSupportLevel') ? $stage->getSupportLevel() : null,
                     'is_favorite' => $stage->getIsFavorite(),
                     'is_recent' => $stage->getIsRecent(),
                 ],
@@ -340,7 +340,7 @@ class PlayResultService
 
     private function extractGhostSections(Message $stage): ?array
     {
-        if (! $stage->hasGhostStagedata() || ! $stage->getGhostStagedata() instanceof Message) {
+        if (! method_exists($stage, 'getGhostStagedata') || ! $stage->hasGhostStagedata() || ! $stage->getGhostStagedata() instanceof Message) {
             return null;
         }
 

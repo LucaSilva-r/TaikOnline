@@ -137,10 +137,15 @@ class GameHandler
     public function playResult(Request $request, TaikoGameVersion $game): Response
     {
         $message = $this->parse($request, $game, 'PlayResultRequest');
-        $data = $this->payloads->parse(
-            $this->payloads->inflatePlayResultData($message->getPlayresultData()),
-            $this->messages->class($game, 'PlayResultDataRequest'),
-        );
+
+        // Green wraps the play data in a compressed `playresultData` blob, while
+        // Blue/Red inline every field directly on the PlayResultRequest message.
+        $data = method_exists($message, 'getPlayresultData')
+            ? $this->payloads->parse(
+                $this->payloads->inflatePlayResultData($message->getPlayresultData()),
+                $this->messages->class($game, 'PlayResultDataRequest'),
+            )
+            : $message;
 
         return $this->payloads->response(
             $this->writer->set(
