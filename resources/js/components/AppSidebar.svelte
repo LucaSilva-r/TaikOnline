@@ -27,9 +27,9 @@
     import { taikoRouteParam } from '@/lib/taiko-version';
     import adminRoute from '@/routes/admin';
     import adminDanDojo from '@/routes/admin/dan-dojo';
+    import adminBaids from '@/routes/admin/baids';
     import adminPlayers from '@/routes/admin/players';
     import adminSongs from '@/routes/admin/songs';
-    import adminUsers from '@/routes/admin/users';
     const { dashboard, recentPlays, status } = adminRoute;
     import { home } from '@/routes';
     import type { NavItem } from '@/types';
@@ -44,12 +44,12 @@
 
     const mainNavItems: NavItem[] = [
         { title: 'Dashboard', href: dashboard(taikoParam), icon: LayoutGrid },
-        { title: 'Players', href: adminPlayers.index(taikoParam), icon: Users },
+        { title: 'BAIDs', href: adminBaids.index(taikoParam), icon: Users },
         { title: 'Recent Plays', href: recentPlays(taikoParam), icon: Activity },
         { title: 'Songs', href: adminSongs.index(taikoParam), icon: Disc },
         { title: 'Dan Dojo', href: adminDanDojo.index(taikoParam), icon: BookOpen },
         { title: 'Server Status', href: status(taikoParam), icon: Server },
-        { title: 'Users', href: adminUsers.index(taikoParam), icon: ShieldCheck },
+        { title: 'Players', href: adminPlayers.index(taikoParam), icon: ShieldCheck },
     ];
 
     const footerNavItems: NavItem[] = [

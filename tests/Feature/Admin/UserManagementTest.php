@@ -10,7 +10,7 @@ test('admins can access user management', function () {
     $admin = User::factory()->admin()->create();
 
     $this->actingAs($admin)
-        ->get('/green/admin/users')
+        ->get('/green/admin/players')
         ->assertOk();
 });
 
@@ -18,12 +18,12 @@ test('non-admins receive 403 when accessing user management', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
-        ->get('/green/admin/users')
+        ->get('/green/admin/players')
         ->assertForbidden();
 });
 
 test('guests are redirected to login', function () {
-    $this->get('/green/admin/users')->assertRedirect('/login');
+    $this->get('/green/admin/players')->assertRedirect('/login');
 });
 
 test('admins can promote and demote other users', function () {
@@ -31,13 +31,13 @@ test('admins can promote and demote other users', function () {
     $user = User::factory()->create();
 
     $this->actingAs($admin)
-        ->patch("/green/admin/users/{$user->id}/role", ['role' => UserRole::Admin->value])
+        ->patch("/green/admin/players/{$user->id}/role", ['role' => UserRole::Admin->value])
         ->assertRedirect();
 
     expect($user->refresh()->role)->toBe(UserRole::Admin);
 
     $this->actingAs($admin)
-        ->patch("/green/admin/users/{$user->id}/role", ['role' => UserRole::User->value])
+        ->patch("/green/admin/players/{$user->id}/role", ['role' => UserRole::User->value])
         ->assertRedirect();
 
     expect($user->refresh()->role)->toBe(UserRole::User);
@@ -47,8 +47,8 @@ test('admins cannot demote themselves', function () {
     $admin = User::factory()->admin()->create();
 
     $this->actingAs($admin)
-        ->from('/green/admin/users')
-        ->patch("/green/admin/users/{$admin->id}/role", ['role' => UserRole::User->value])
+        ->from('/green/admin/players')
+        ->patch("/green/admin/players/{$admin->id}/role", ['role' => UserRole::User->value])
         ->assertSessionHasErrors('role');
 
     expect($admin->refresh()->role)->toBe(UserRole::Admin);
@@ -59,7 +59,7 @@ test('admins can delete other users', function () {
     $user = User::factory()->create();
 
     $this->actingAs($admin)
-        ->delete("/green/admin/users/{$user->id}")
+        ->delete("/green/admin/players/{$user->id}")
         ->assertRedirect();
 
     expect(User::find($user->id))->toBeNull();
@@ -70,7 +70,7 @@ test('admins can view the edit user page', function () {
     $user = User::factory()->create();
 
     $this->actingAs($admin)
-        ->get("/green/admin/users/{$user->id}/edit")
+        ->get("/green/admin/players/{$user->id}/edit")
         ->assertOk();
 });
 
@@ -79,7 +79,7 @@ test('non-admins cannot view the edit user page', function () {
     $user = User::factory()->create();
 
     $this->actingAs($admin)
-        ->get("/green/admin/users/{$user->id}/edit")
+        ->get("/green/admin/players/{$user->id}/edit")
         ->assertForbidden();
 });
 
@@ -88,12 +88,12 @@ test('admins can update name email and role for another user', function () {
     $user = User::factory()->create(['email_verified_at' => now()]);
 
     $this->actingAs($admin)
-        ->put("/green/admin/users/{$user->id}", [
+        ->put("/green/admin/players/{$user->id}", [
             'name' => 'Renamed User',
             'email' => 'renamed@example.com',
             'role' => UserRole::Admin->value,
         ])
-        ->assertRedirect('/green/admin/users');
+        ->assertRedirect('/green/admin/players');
 
     $user->refresh();
     expect($user->name)->toBe('Renamed User');
@@ -108,8 +108,8 @@ test('admin update validates email uniqueness', function () {
     $user = User::factory()->create();
 
     $this->actingAs($admin)
-        ->from("/green/admin/users/{$user->id}/edit")
-        ->put("/green/admin/users/{$user->id}", [
+        ->from("/green/admin/players/{$user->id}/edit")
+        ->put("/green/admin/players/{$user->id}", [
             'name' => $user->name,
             'email' => $other->email,
             'role' => $user->role->value,
@@ -121,8 +121,8 @@ test('admins cannot demote themselves via update', function () {
     $admin = User::factory()->admin()->create();
 
     $this->actingAs($admin)
-        ->from("/green/admin/users/{$admin->id}/edit")
-        ->put("/green/admin/users/{$admin->id}", [
+        ->from("/green/admin/players/{$admin->id}/edit")
+        ->put("/green/admin/players/{$admin->id}", [
             'name' => $admin->name,
             'email' => $admin->email,
             'role' => UserRole::User->value,
@@ -137,7 +137,7 @@ test('admins can update another user password', function () {
     $user = User::factory()->create();
 
     $this->actingAs($admin)
-        ->put("/green/admin/users/{$user->id}/password", [
+        ->put("/green/admin/players/{$user->id}/password", [
             'password' => 'new-secret-pass',
             'password_confirmation' => 'new-secret-pass',
         ])
@@ -151,8 +151,8 @@ test('admin password update requires confirmation', function () {
     $user = User::factory()->create();
 
     $this->actingAs($admin)
-        ->from("/green/admin/users/{$user->id}/edit")
-        ->put("/green/admin/users/{$user->id}/password", [
+        ->from("/green/admin/players/{$user->id}/edit")
+        ->put("/green/admin/players/{$user->id}/password", [
             'password' => 'new-secret-pass',
             'password_confirmation' => 'different',
         ])
@@ -169,7 +169,7 @@ test('admins can link an access code to a user', function () {
     ]);
 
     $this->actingAs($admin)
-        ->post("/green/admin/users/{$user->id}/access-code", ['access_code' => 'AC-LINK'])
+        ->post("/green/admin/players/{$user->id}/access-code", ['access_code' => 'AC-LINK'])
         ->assertSessionHasNoErrors();
 
     expect($player->refresh()->user_id)->toBe($user->id);
@@ -186,8 +186,8 @@ test('admins cannot link an access code already bound to another user', function
     ]);
 
     $this->actingAs($admin)
-        ->from("/green/admin/users/{$target->id}/edit")
-        ->post("/green/admin/users/{$target->id}/access-code", ['access_code' => 'AC-OWNED'])
+        ->from("/green/admin/players/{$target->id}/edit")
+        ->post("/green/admin/players/{$target->id}/access-code", ['access_code' => 'AC-OWNED'])
         ->assertSessionHasErrors('access_code');
 
     expect($player->refresh()->user_id)->toBe($owner->id);
@@ -203,7 +203,7 @@ test('admins can unlink a user access code', function () {
     ]);
 
     $this->actingAs($admin)
-        ->delete("/green/admin/users/{$user->id}/access-code")
+        ->delete("/green/admin/players/{$user->id}/access-code")
         ->assertSessionHasNoErrors();
 
     expect($player->refresh()->user_id)->toBeNull();
@@ -221,7 +221,7 @@ test('admins can rotate a linked access code without changing player ownership',
     ]);
 
     $this->actingAs($admin)
-        ->patch("/green/admin/users/{$user->id}/access-code")
+        ->patch("/green/admin/players/{$user->id}/access-code")
         ->assertSessionHasNoErrors();
 
     $card = GameCard::query()->where('baid', $player->baid)->firstOrFail();
@@ -242,7 +242,7 @@ test('edit page exposes linked access code', function () {
     ]);
 
     $this->actingAs($admin)
-        ->get("/green/admin/users/{$user->id}/edit")
+        ->get("/green/admin/players/{$user->id}/edit")
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('accessCode', 'AC-EDIT'));
 });
@@ -251,8 +251,8 @@ test('admins cannot delete themselves', function () {
     $admin = User::factory()->admin()->create();
 
     $this->actingAs($admin)
-        ->from('/green/admin/users')
-        ->delete("/green/admin/users/{$admin->id}")
+        ->from('/green/admin/players')
+        ->delete("/green/admin/players/{$admin->id}")
         ->assertSessionHasErrors('user');
 
     expect(User::find($admin->id))->not->toBeNull();

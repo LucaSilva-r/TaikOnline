@@ -9,7 +9,7 @@ use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class UserAccessCodeBindRequest extends FormRequest
+class PlayerAccessCodeBindRequest extends FormRequest
 {
     /**
      * @return array<string, ValidationRule|array<mixed>|string>

@@ -5,19 +5,23 @@ namespace App\Http\Controllers\Green;
 use App\GameProtocol\Support\GameDataCatalog;
 use App\Http\Controllers\Controller;
 use App\Models\Player;
+use App\Models\PlayerRankSnapshot;
+use App\Models\SongBest;
 use App\Models\SongPlayResult;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class OperatorController extends Controller
 {
-    public function players(Request $request): Response
+    public function baids(Request $request): Response
     {
         $isAll = (bool) $request->attributes->get('taikoVersionIsAll', false);
         $scope = (string) $request->attributes->get('taikoVersionScope');
 
-        return Inertia::render('admin/Players', [
+        return Inertia::render('admin/Baids', [
             'players' => Player::query()
                 ->with('card')
                 ->withCount([
@@ -51,7 +55,7 @@ class OperatorController extends Controller
         ]);
     }
 
-    public function player(Request $request, Player $player): Response
+    public function baid(Request $request, Player $player): Response
     {
         $isAll = (bool) $request->attributes->get('taikoVersionIsAll', false);
         $scope = (string) $request->attributes->get('taikoVersionScope');
@@ -64,7 +68,7 @@ class OperatorController extends Controller
                 ->limit(20),
         ]);
 
-        return Inertia::render('admin/PlayerDetail', [
+        return Inertia::render('admin/BaidDetail', [
             'player' => [
                 'baid' => $player->baid,
                 'mydon_name' => $player->mydon_name,
@@ -79,6 +83,7 @@ class OperatorController extends Controller
                 ->limit(25)
                 ->get()
                 ->map(fn (SongPlayResult $result): array => [
+                    'id' => $result->id,
                     'game_version' => $result->game_version,
                     'song_no' => $result->song_no,
                     'level' => $result->level,
@@ -86,7 +91,8 @@ class OperatorController extends Controller
                     'score_rank' => $result->score_rank,
                     'played_at' => optional($result->played_at)->toDateTimeString(),
                 ]),
-            'bests' => $player->songBests->map(fn ($best): array => [
+            'bests' => $player->songBests->map(fn (SongBest $best): array => [
+                'id' => $best->id,
                 'game_version' => $best->game_version,
                 'song_no' => $best->song_no,
                 'level' => $best->level,
@@ -94,6 +100,54 @@ class OperatorController extends Controller
                 'best_score_rank' => $best->best_score_rank,
             ]),
         ]);
+    }
+
+    /**
+     * Permanently delete a player and every piece of data tied to it: access
+     * code, scores, best scores, tokens, cosmetics (all cascade via the baid
+     * foreign keys) plus the user-scoped ranking snapshots derived from them.
+     */
+    public function destroyBaid(Player $player): RedirectResponse
+    {
+        DB::transaction(function () use ($player): void {
+            if ($player->user_id !== null) {
+                PlayerRankSnapshot::query()->where('user_id', $player->user_id)->delete();
+            }
+
+            $player->delete();
+        });
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('BAID and all associated data deleted.')]);
+
+        return to_route('admin.baids.index');
+    }
+
+    /**
+     * Delete a single play result belonging to the given BAID.
+     */
+    public function destroyPlay(Player $player, SongPlayResult $result): RedirectResponse
+    {
+        abort_unless((int) $result->baid === (int) $player->baid, 404);
+
+        $result->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Play deleted.')]);
+
+        return back();
+    }
+
+    /**
+     * Delete a single best-score record belonging to the given BAID.
+     */
+    public function destroyBest(Player $player, SongBest $best): RedirectResponse
+    {
+        abort_unless((int) $best->baid === (int) $player->baid, 404);
+
+        $best->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Best score deleted.')]);
+
+        return back();
     }
 
     public function recentPlays(Request $request): Response

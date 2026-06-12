@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\UserAccessCodeBindRequest;
-use App\Http\Requests\Admin\UserPasswordUpdateRequest;
-use App\Http\Requests\Admin\UserUpdateRequest;
+use App\Http\Requests\Admin\PlayerAccessCodeBindRequest;
+use App\Http\Requests\Admin\PlayerPasswordUpdateRequest;
+use App\Http\Requests\Admin\PlayerUpdateRequest;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\User;
@@ -20,11 +20,11 @@ use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
 
-class UserController extends Controller
+class PlayerController extends Controller
 {
     public function index(): Response
     {
-        return Inertia::render('admin/Users', [
+        return Inertia::render('admin/Players', [
             'users' => User::query()
                 ->latest('id')
                 ->paginate(25)
@@ -49,7 +49,7 @@ class UserController extends Controller
             ->whereHas('player', fn ($query) => $query->where('user_id', $user->id))
             ->value('access_code');
 
-        return Inertia::render('admin/UserEdit', [
+        return Inertia::render('admin/PlayerEdit', [
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -65,7 +65,7 @@ class UserController extends Controller
         ]);
     }
 
-    public function updatePassword(UserPasswordUpdateRequest $request, User $user): RedirectResponse
+    public function updatePassword(PlayerPasswordUpdateRequest $request, User $user): RedirectResponse
     {
         $user->update(['password' => $request->validated('password')]);
 
@@ -74,7 +74,7 @@ class UserController extends Controller
         return back();
     }
 
-    public function bindAccessCode(UserAccessCodeBindRequest $request, User $user, AccessCodeOwnershipService $accessCodes): RedirectResponse
+    public function bindAccessCode(PlayerAccessCodeBindRequest $request, User $user, AccessCodeOwnershipService $accessCodes): RedirectResponse
     {
         $accessCodes->claim($user, $request->validated('access_code'));
 
@@ -115,7 +115,7 @@ class UserController extends Controller
         return back();
     }
 
-    public function update(UserUpdateRequest $request, User $user): RedirectResponse
+    public function update(PlayerUpdateRequest $request, User $user): RedirectResponse
     {
         $data = $request->validated();
 
@@ -129,7 +129,7 @@ class UserController extends Controller
 
         $user->fill($data)->save();
 
-        return to_route('admin.users.index');
+        return to_route('admin.players.index');
     }
 
     public function updateRole(Request $request, User $user): RedirectResponse

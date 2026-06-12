@@ -1,10 +1,10 @@
 <script module lang="ts">
-    import usersRoutesForLayout from '@/routes/admin/users';
+    import playersRoutesForLayout from '@/routes/admin/players';
     import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
 
     export const layout = {
         breadcrumbs: [
-            { title: 'Users', href: usersRoutesForLayout.index(taikoRouteParamForLayout()) },
+            { title: 'Players', href: playersRoutesForLayout.index(taikoRouteParamForLayout()) },
             { title: 'Edit', href: '' },
         ],
     };
@@ -12,7 +12,7 @@
 
 <script lang="ts">
     import { Form, Link, page } from '@inertiajs/svelte';
-    import UserController from '@/actions/App/Http/Controllers/Admin/UserController';
+    import PlayerController from '@/actions/App/Http/Controllers/Admin/PlayerController';
     import AppHead from '@/components/AppHead.svelte';
     import Heading from '@/components/Heading.svelte';
     import InputError from '@/components/InputError.svelte';
@@ -20,7 +20,7 @@
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
     import { taikoRouteParam } from '@/lib/taiko-version';
-    import usersRoutes from '@/routes/admin/users';
+    import playersRoutes from '@/routes/admin/players';
 
     type AdminUser = {
         id: number;
@@ -56,7 +56,7 @@
     />
 
     <Form
-        {...UserController.update.form({ ...taikoRouteParam(), user: user.id })}
+        {...PlayerController.update.form({ ...taikoRouteParam(), user: user.id })}
         class="max-w-xl space-y-6"
         options={{ preserveScroll: true }}
     >
@@ -129,7 +129,7 @@
                 <Button type="submit" disabled={processing}>Save</Button>
                 <Button asChild variant="ghost">
                     {#snippet children(props)}
-                        <Link href={usersRoutes.index(taikoRouteParam())} {...props}>Cancel</Link>
+                        <Link href={playersRoutes.index(taikoRouteParam())} {...props}>Cancel</Link>
                     {/snippet}
                 </Button>
             </div>
@@ -143,7 +143,7 @@
     />
 
     <Form
-        {...UserController.updatePassword.form({ ...taikoRouteParam(), user: user.id })}
+        {...PlayerController.updatePassword.form({ ...taikoRouteParam(), user: user.id })}
         class="max-w-xl space-y-6"
         options={{ preserveScroll: true }}
         resetOnSuccess
@@ -192,7 +192,7 @@
             </div>
             <div class="flex flex-wrap gap-3">
                 <Form
-                    {...UserController.rotateAccessCode.form({ ...taikoRouteParam(), user: user.id })}
+                    {...PlayerController.rotateAccessCode.form({ ...taikoRouteParam(), user: user.id })}
                     options={{ preserveScroll: true }}
                 >
                     {#snippet children({ errors, processing })}
@@ -213,7 +213,7 @@
                 </Form>
 
                 <Form
-                    {...UserController.unbindAccessCode.form({ ...taikoRouteParam(), user: user.id })}
+                    {...PlayerController.unbindAccessCode.form({ ...taikoRouteParam(), user: user.id })}
                     options={{ preserveScroll: true }}
                 >
                     {#snippet children({ processing })}
@@ -235,7 +235,7 @@
         </div>
     {:else}
         <Form
-            {...UserController.bindAccessCode.form({ ...taikoRouteParam(), user: user.id })}
+            {...PlayerController.bindAccessCode.form({ ...taikoRouteParam(), user: user.id })}
             class="max-w-xl space-y-6"
             options={{ preserveScroll: true }}
             resetOnSuccess
