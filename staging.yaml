@@ -46,6 +46,7 @@ services:
                     - laravel-app
         depends_on:
             - pgsql
+        restart: unless-stopped
 
     pgsql:
         image: 'postgres:18-alpine'
@@ -72,7 +73,7 @@ services:
                 - '${DB_USERNAME}'
             retries: 3
             timeout: 5s
-
+        restart: unless-stopped
 
 networks:
     main:
