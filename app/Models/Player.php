@@ -94,6 +94,16 @@ class Player extends Model
         return $this->hasMany(PlayerGreenGhostToken::class, 'baid', 'baid');
     }
 
+    public function tokkunStates(): HasMany
+    {
+        return $this->hasMany(PlayerTokkunState::class, 'baid', 'baid');
+    }
+
+    public function tokkunStageResults(): HasMany
+    {
+        return $this->hasMany(PlayerTokkunStageResult::class, 'baid', 'baid');
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

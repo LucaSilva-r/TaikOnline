@@ -17,6 +17,10 @@
     import { Spinner } from '@/components/ui/spinner';
     import { login } from '@/routes';
     import { store } from '@/routes/register';
+
+    // Prefilled when arriving from the dongle "Sign up" deep-link so a freshly
+    // created card is linked as the account is created.
+    let { accessCode = null }: { accessCode?: string | null } = $props();
 </script>
 
 <AppHead title="Register" />
@@ -83,6 +87,7 @@
                     inputmode="numeric"
                     autocomplete="off"
                     name="access_code"
+                    value={accessCode ?? ''}
                     placeholder="Optional card access code"
                 />
                 <p class="text-sm text-muted-foreground">

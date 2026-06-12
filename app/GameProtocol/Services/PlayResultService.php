@@ -14,6 +14,8 @@ use App\Models\PlayerCosmetic;
 use App\Models\PlayerGreenGhostState;
 use App\Models\PlayerGreenGhostToken;
 use App\Models\PlayerGreenGhostWinnings;
+use App\Models\PlayerTokkunStageResult;
+use App\Models\PlayerTokkunState;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use Carbon\CarbonImmutable;
@@ -45,6 +47,24 @@ class PlayResultService
     {
         $gameVersion = $version->value;
         $playedAt = $this->parsePlayedAt($data->getPlayDatetime());
+
+        $isTokkun = false;
+        if (method_exists($data, 'hasAryTokkunstageInfo') && $data->hasAryTokkunstageInfo() && $data->getAryTokkunstageInfo() !== null) {
+            $isTokkun = true;
+        }
+
+        if (method_exists($data, 'hasTokkunTutorialFlg') && $data->hasTokkunTutorialFlg()) {
+            $tutorialFlg = $data->getTokkunTutorialFlg();
+            PlayerTokkunState::query()->updateOrCreate(
+                ['baid' => $player->baid, 'game_version' => $version->value],
+                ['tokkun_tutorial_flg' => $tutorialFlg]
+            );
+        }
+
+        if ($isTokkun) {
+            $this->saveTokkunData($player, $data, $version);
+            return 1;
+        }
 
         foreach ($data->getAryStageInfo() as $stage) {
             if (! $stage instanceof Message) {
@@ -613,5 +633,29 @@ class PlayResultService
                 'total_winnings' => $ghostState->total_winnings + $totalWinnings,
             ]);
         }
+    }
+
+    private function saveTokkunData(Player $player, Message $data, TaikoGameVersion $version): void
+    {
+        $playedAt = $this->parsePlayedAt($data->getPlayDatetime());
+        $tokkunStage = $data->getAryTokkunstageInfo();
+
+        $songNumbers = [];
+        foreach ($tokkunStage->getTookunSongno() as $songNo) {
+            $songNumbers[] = (int) $songNo;
+        }
+
+        PlayerTokkunStageResult::query()->create([
+            'baid' => $player->baid,
+            'game_version' => $version->value,
+            'played_at' => $playedAt,
+            'play_mode' => method_exists($data, 'getPlayMode') ? $data->getPlayMode() : 3,
+            'banacoin_datetime' => method_exists($tokkunStage, 'getBanacoinDatetime') ? $tokkunStage->getBanacoinDatetime() : null,
+            'tokkun_song_count' => (int) $tokkunStage->getTokkunSongCnt(),
+            'tokkun_song_numbers' => $songNumbers,
+            'tokkun_speedchange_count' => (int) $tokkunStage->getTokkunSpeedchangeCnt(),
+            'tokkun_autoplay_count' => (int) $tokkunStage->getTokkunAutoplayCnt(),
+            'tokkun_jump_count' => (int) $tokkunStage->getTokkunJumpCnt(),
+        ]);
     }
 }

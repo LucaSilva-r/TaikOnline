@@ -24,11 +24,25 @@
         status = '',
         canResetPassword,
         canRegister,
+        signupAccessCode = null,
+        signupVersion = null,
     }: {
         status?: string;
         canResetPassword: boolean;
         canRegister: boolean;
+        signupAccessCode?: string | null;
+        signupVersion?: string | null;
     } = $props();
+
+    // Forward a pending card access code (user was bounced here from the
+    // dongle deep-link) to the Sign up link so registration can carry it on.
+    const registerHref = $derived(
+        signupAccessCode
+            ? register({
+                  query: { access_code: signupAccessCode, v: signupVersion ?? 'green' },
+              })
+            : register(),
+    );
 </script>
 
 <AppHead title="Log in" />
@@ -99,7 +113,7 @@
         {#if canRegister}
             <div class="text-center text-sm text-muted-foreground">
                 Don't have an account?
-                <TextLink href={register()}>Sign up</TextLink>
+                <TextLink href={registerHref}>Sign up</TextLink>
             </div>
         {/if}
     {/snippet}
