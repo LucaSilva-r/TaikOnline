@@ -83,6 +83,31 @@
         placement: number;
     };
 
+    type NpcData = {
+        npc_id: number;
+        total_exp: number;
+        max_dpn: number;
+        npc_costume_id: number;
+        selected_special_id_1: number;
+        selected_special_id_2: number;
+        selected_special_id_3: number;
+        bonds_level: number;
+    };
+
+    type TokenData = {
+        token_id: number;
+        token_value: number;
+    };
+
+    type BlueBattleData = {
+        last_battle_stage_id: number;
+        last_boss_life: number;
+        last_npc_id: number;
+        assign_stage_id: number;
+        npcs: NpcData[];
+        tokens: TokenData[];
+    };
+
     let {
         profile,
         hasPlayer,
@@ -90,6 +115,7 @@
         rankHistory,
         recentPlays,
         bestPerformances,
+        blueBattleData = null,
     }: {
         profile: Profile;
         hasPlayer: boolean;
@@ -97,6 +123,7 @@
         rankHistory: RankHistoryPoint[];
         recentPlays: RecentPlay[];
         bestPerformances: BestPerformance[];
+        blueBattleData?: BlueBattleData | null;
     } = $props();
 
     const numberFormatter = new Intl.NumberFormat();
@@ -363,6 +390,125 @@
             </div>
         </section>
     </div>
+
+    {#if blueBattleData}
+        <section class="rounded-lg border bg-card">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+                <div>
+                    <h2 class="font-semibold text-lg flex items-center gap-2">
+                        <Trophy class="size-5 text-primary" />
+                        Ensou Battle (演奏バトル) Progress
+                    </h2>
+                    <p class="text-sm text-muted-foreground">
+                        Your campaign progress, NPC partners, and battle stats
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid gap-6 p-5 md:grid-cols-3">
+                <!-- Main Battle Stats -->
+                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-medium text-sm text-muted-foreground mb-3">Campaign Progress</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Assigned Stage</span>
+                                <span class="font-semibold text-lg text-primary">Stage {blueBattleData.assign_stage_id}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Last Played Stage</span>
+                                <span class="font-medium">Stage {blueBattleData.last_battle_stage_id}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Last Boss Life</span>
+                                <span class="font-medium tabular-nums">{blueBattleData.last_boss_life} HP</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Battle Tokens -->
+                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between md:col-span-2">
+                    <div>
+                        <h3 class="font-medium text-sm text-muted-foreground mb-3">Battle Tokens</h3>
+                        <div class="flex flex-wrap gap-3">
+                            {#each blueBattleData.tokens as token}
+                                <div class="flex items-center gap-2 rounded-md bg-background px-3 py-2 border">
+                                    <Medal class="size-4 text-amber-500" />
+                                    <div class="text-xs">
+                                        <div class="text-muted-foreground">Token {token.token_id}</div>
+                                        <div class="font-semibold tabular-nums">{token.token_value}</div>
+                                    </div>
+                                </div>
+                            {/each}
+                            {#if blueBattleData.tokens.length === 0}
+                                <div class="text-sm text-muted-foreground py-2">No battle tokens collected yet.</div>
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NPC Partners -->
+            <div class="px-5 pb-5">
+                <h3 class="font-semibold text-sm text-muted-foreground mb-4">NPC Partners</h3>
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {#each blueBattleData.npcs as npc}
+                        <div class="rounded-lg border bg-background p-4 shadow-xs flex flex-col justify-between gap-3">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="font-semibold text-base flex items-center gap-2">
+                                        Partner ID: {npc.npc_id}
+                                        {#if npc.npc_id === blueBattleData.last_npc_id}
+                                            <span class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-2xs font-medium text-primary border border-primary/20">
+                                                Active
+                                            </span>
+                                        {/if}
+                                    </div>
+                                    <div class="text-xs text-muted-foreground mt-0.5">
+                                        Bonds Level {npc.bonds_level}
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-muted-foreground">Max Damage</div>
+                                    <div class="font-bold text-sm tabular-nums text-primary">
+                                        {npc.max_dpn} DPN
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center text-xs text-muted-foreground border-b pb-1.5">
+                                    <span>Total Experience</span>
+                                    <span class="font-medium text-foreground tabular-nums">{npc.total_exp} EXP</span>
+                                </div>
+                                <div>
+                                    <div class="text-2xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">
+                                        Equipped Special Moves
+                                    </div>
+                                    <div class="flex gap-1.5">
+                                        <span class="inline-flex items-center rounded-md bg-accent px-2 py-1 text-2xs font-medium text-primary">
+                                            Move 1: {npc.selected_special_id_1}
+                                        </span>
+                                        {#if npc.selected_special_id_2 > 0}
+                                            <span class="inline-flex items-center rounded-md bg-accent px-2 py-1 text-2xs font-medium text-primary">
+                                                Move 2: {npc.selected_special_id_2}
+                                            </span>
+                                        {/if}
+                                        {#if npc.selected_special_id_3 > 0}
+                                            <span class="inline-flex items-center rounded-md bg-accent px-2 py-1 text-2xs font-medium text-primary">
+                                                Move 3: {npc.selected_special_id_3}
+                                            </span>
+                                        {/if}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+            </div>
+        </section>
+    {/if}
 
     <div class="grid gap-6 xl:grid-cols-2">
         <section class="rounded-lg border bg-card">

@@ -64,6 +64,21 @@ class Player extends Model
         return $this->hasMany(PlayerCosmetic::class, 'baid', 'baid');
     }
 
+    public function blueBattleState(): HasOne
+    {
+        return $this->hasOne(PlayerBlueBattleState::class, 'baid', 'baid');
+    }
+
+    public function blueBattleNpcStates(): HasMany
+    {
+        return $this->hasMany(PlayerBlueBattleNpcState::class, 'baid', 'baid');
+    }
+
+    public function blueBattleTokenStates(): HasMany
+    {
+        return $this->hasMany(PlayerBlueBattleTokenState::class, 'baid', 'baid');
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
