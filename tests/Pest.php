@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\TaikoGameVersion;
+use Google\Protobuf\Internal\Message;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /*
@@ -23,6 +25,33 @@ pest()->extend(TestCase::class)
 beforeEach(function (): void {
     URL::defaults(['taikoVersion' => TaikoGameVersion::default()->value]);
 });
+
+function post_protobuf(string $uri, Message $request, string $responseClass): Message
+{
+    $response = post_protobuf_raw($uri, $request);
+
+    $message = new $responseClass;
+    $message->mergeFromString($response->getContent());
+
+    return $message;
+}
+
+function post_protobuf_raw(string $uri, Message $request): TestResponse
+{
+    $response = test()->call(
+        'POST',
+        $uri,
+        [],
+        [],
+        [],
+        ['CONTENT_TYPE' => 'application/protobuf', 'HTTP_ACCEPT' => 'application/protobuf'],
+        $request->serializeToString(),
+    );
+
+    $response->assertOk();
+
+    return $response;
+}
 
 /*
 |--------------------------------------------------------------------------
