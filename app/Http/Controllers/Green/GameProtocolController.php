@@ -89,6 +89,16 @@ class GameProtocolController extends Controller
         return $this->dispatch($version, 'defaultSong', $request);
     }
 
+    public function balanceCheck(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'balanceCheck', $request);
+    }
+
+    public function battleUserData(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'battleUserData', $request);
+    }
+
     public function folderCheck(Request $request, string $version): Response
     {
         return $this->dispatch($version, 'folderCheck', $request);

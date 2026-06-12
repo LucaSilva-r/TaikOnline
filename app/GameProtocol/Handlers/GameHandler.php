@@ -255,6 +255,25 @@ class GameHandler
         );
     }
 
+    public function balanceCheck(Request $request, TaikoGameVersion $game): Response
+    {
+        $message = $this->parse($request, $game, 'BalancecheckRequest');
+
+        return $this->payloads->response(
+            $this->writer->fill($this->messages->make($game, 'BalancecheckResponse'), [
+                'setResult' => 1,
+                'setPersonid' => $message->getPersonid(),
+                'setBnidResult' => 'Ok',
+                'setCoinCoupon' => 9999,
+            ])
+        );
+    }
+
+    public function battleUserData(Request $request, TaikoGameVersion $game): Response
+    {
+        throw new \RuntimeException("Battle user data endpoint is not implemented for version {$game->value}");
+    }
+
     public function folderCheck(Request $request, TaikoGameVersion $game): Response
     {
         $this->parse($request, $game, 'FoldercheckRequest');
