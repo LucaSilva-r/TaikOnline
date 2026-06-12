@@ -128,10 +128,14 @@ class PlayResultService
 
         if (method_exists($data, 'getGetToneNo')) {
             $cosmetic->unlocked_tones = $this->mergeIds($cosmetic->unlocked_tones ?? [], $data->getGetToneNo());
+        } elseif (method_exists($data, 'getToneFlg')) {
+            $cosmetic->unlocked_tones = $this->mergeIds($cosmetic->unlocked_tones ?? [], $this->scoreMapper->flagBytesToIds($data->getToneFlg()));
         }
 
         if (method_exists($data, 'getGetTitleNo')) {
             $cosmetic->unlocked_titles = $this->mergeIds($cosmetic->unlocked_titles ?? [], $data->getGetTitleNo());
+        } elseif (method_exists($data, 'getTitleFlg')) {
+            $cosmetic->unlocked_titles = $this->mergeIds($cosmetic->unlocked_titles ?? [], $this->scoreMapper->flagBytesToIds($data->getTitleFlg()));
         }
 
         $costumes = $cosmetic->unlocked_costumes ?? [];
@@ -139,9 +143,20 @@ class PlayResultService
             $getter = "getGetCostumeNo{$slot}";
             if (method_exists($data, $getter)) {
                 $costumes[(string) $slot] = $this->mergeIds($costumes[(string) $slot] ?? [], $data->{$getter}());
+            } else {
+                $flgGetter = "getCostumeFlg{$slot}";
+                if (method_exists($data, $flgGetter)) {
+                    $costumes[(string) $slot] = $this->mergeIds($costumes[(string) $slot] ?? [], $this->scoreMapper->flagBytesToIds($data->{$flgGetter}()));
+                } elseif ($slot === 1 && method_exists($data, 'getCostumeFlg')) {
+                    $costumes[(string) 1] = $this->mergeIds($costumes[(string) 1] ?? [], $this->scoreMapper->flagBytesToIds($data->getCostumeFlg()));
+                }
             }
         }
         $cosmetic->unlocked_costumes = $costumes;
+
+        if (method_exists($data, 'getCurrentTitle')) {
+            $cosmetic->title = (string) $data->getCurrentTitle();
+        }
 
         $this->applyEquippedCostume($cosmetic, $data);
         $this->applyDefaultSettings($cosmetic, $data);
@@ -213,23 +228,17 @@ class PlayResultService
         return unpack('V', $padded)[1];
     }
 
-    /**
-     * Mirror the cabinet's currently-worn costume into the cosmetic row so it
-     * persists across sessions for this version.
-     */
     private function applyEquippedCostume(PlayerCosmetic $cosmetic, Message $data): void
     {
-        if (! method_exists($data, 'getAryCurrentCostume') || ! $data->hasAryCurrentCostume()) {
-            return;
-        }
-
-        $costume = $data->getAryCurrentCostume();
-        if (! $costume instanceof Message) {
-            return;
-        }
-
-        for ($slot = 1; $slot <= 5; $slot++) {
-            $cosmetic->{"costume_{$slot}"} = (int) $costume->{"getCostume{$slot}"}();
+        if (method_exists($data, 'getAryCurrentCostume') && $data->hasAryCurrentCostume()) {
+            $costume = $data->getAryCurrentCostume();
+            if ($costume instanceof Message) {
+                for ($slot = 1; $slot <= 5; $slot++) {
+                    $cosmetic->{"costume_{$slot}"} = (int) $costume->{"getCostume{$slot}"}();
+                }
+            }
+        } elseif (method_exists($data, 'getCurrentCostume')) {
+            $cosmetic->costume_1 = (int) $data->getCurrentCostume();
         }
     }
 

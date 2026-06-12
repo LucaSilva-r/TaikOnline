@@ -3,6 +3,7 @@
 namespace App\GameProtocol\Support;
 
 use App\Enums\TaikoGameVersion;
+use App\Models\Song;
 use App\Models\SongBest;
 
 class ScoreMapper
@@ -74,8 +75,68 @@ class ScoreMapper
      *
      * @param  iterable<array{song_no: int, level: int, best_crown: int}|SongBest>  $bests
      */
-    public function crownFlagBytes(iterable $bests): string
+    public function crownFlagBytes(iterable $bests, ?string $gameVersion = null): string
     {
+        if ($gameVersion !== null && $this->isLegacySongList($gameVersion)) {
+            $songNumbers = Song::query()
+                ->where('version', $gameVersion)
+                ->pluck('song_no')
+                ->map(fn (mixed $songNo): int => (int) $songNo);
+
+            $orderedSongs = $this->legacySongOrder($songNumbers);
+            $count = count($orderedSongs);
+
+            if ($count === 0) {
+                return '';
+            }
+
+            $songIndexMap = array_flip($orderedSongs);
+            $values = array_fill(0, $count, 0);
+
+            foreach ($bests as $best) {
+                $songNo = (int) $best->song_no;
+                if (! isset($songIndexMap[$songNo])) {
+                    continue;
+                }
+
+                $level = (int) $best->level;
+                $slot = $level - 1;
+
+                if ($slot < 0 || $slot > 4) {
+                    continue;
+                }
+
+                $state = $this->crownWireState((int) $best->best_crown);
+                if ($state === 0) {
+                    continue;
+                }
+
+                $songIndex = $songIndexMap[$songNo];
+                $values[$songIndex] |= ($state & 0x03) << ($slot * 2);
+            }
+
+            $buffer = array_fill(0, intdiv($count * 10 + 7, 8), 0);
+
+            foreach ($values as $songIndex => $value) {
+                $value &= 0x03FF;
+                if ($value === 0) {
+                    continue;
+                }
+
+                $bitOffset = $songIndex * 10;
+                for ($bit = 0; $bit < 10; $bit++) {
+                    if (($value & (1 << $bit)) === 0) {
+                        continue;
+                    }
+
+                    $absoluteBit = $bitOffset + $bit;
+                    $buffer[$absoluteBit >> 3] |= 1 << ($absoluteBit & 7);
+                }
+            }
+
+            return implode('', array_map('chr', $buffer));
+        }
+
         $values = array_fill(0, 1024, 0);
 
         foreach ($bests as $best) {
@@ -140,6 +201,32 @@ class ScoreMapper
         }
 
         return implode('', array_map(static fn (int $flag): string => chr($flag), $flags));
+    }
+
+    /**
+     * Decode a fixed-size bitset back into a list of unlocked ids.
+     *
+     * @return array<int, int>
+     */
+    public function flagBytesToIds(string $bytes): array
+    {
+        $ids = [];
+        $length = strlen($bytes);
+
+        for ($i = 0; $i < $length; $i++) {
+            $byte = ord($bytes[$i]);
+            if ($byte === 0) {
+                continue;
+            }
+
+            for ($bit = 0; $bit < 8; $bit++) {
+                if (($byte & (1 << $bit)) !== 0) {
+                    $ids[] = $i * 8 + $bit;
+                }
+            }
+        }
+
+        return $ids;
     }
 
     /**

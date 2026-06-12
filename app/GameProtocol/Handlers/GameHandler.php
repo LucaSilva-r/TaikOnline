@@ -186,7 +186,7 @@ class GameHandler
             $this->writer->fill($this->messages->make($game, 'CrownsDataResponse'), [
                 'setResult' => 1,
                 'setSongHashVer' => 99,
-                'setHashCrownFlg' => $this->scoreMapper->crownFlagBytes($bests),
+                'setHashCrownFlg' => $this->scoreMapper->crownFlagBytes($bests, $game->value),
             ])
         );
     }

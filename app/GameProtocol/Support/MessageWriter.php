@@ -34,7 +34,15 @@ class MessageWriter
             $message->{$setter}($value);
         } catch (\TypeError) {
             // Field type drifts between versions (e.g. `title` is a string in
-            // green but a uint32 id in sorairo); skip rather than fail.
+            // green but a uint32 id in sorairo); try to coerce or skip rather than fail.
+            try {
+                if (is_numeric($value)) {
+                    $message->{$setter}((int) $value);
+                } else {
+                    $message->{$setter}((string) $value);
+                }
+            } catch (\TypeError) {
+            }
         }
 
         return $message;
