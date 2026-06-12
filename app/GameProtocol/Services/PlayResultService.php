@@ -7,6 +7,9 @@ use App\GameProtocol\Support\MessageWriter;
 use App\GameProtocol\Support\ProtocolMessageResolver;
 use App\GameProtocol\Support\ScoreMapper;
 use App\Models\Player;
+use App\Models\PlayerBlueBattleNpcState;
+use App\Models\PlayerBlueBattleState;
+use App\Models\PlayerBlueBattleTokenState;
 use App\Models\PlayerCosmetic;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
@@ -106,6 +109,10 @@ class PlayResultService
         }
 
         $this->persistCosmetics($player, $data, $version);
+
+        if ($version === TaikoGameVersion::Blue) {
+            $this->saveBlueBattleData($player, $data);
+        }
 
         return 1;
     }
@@ -388,5 +395,147 @@ class PlayResultService
         }
 
         return $sections ?: null;
+    }
+
+    private function saveBlueBattleData(Player $player, Message $data): void
+    {
+        foreach ($data->getAryStageInfo() as $stage) {
+            if ($stage instanceof Message && method_exists($stage, 'hasAryBattlestagedata') && $stage->hasAryBattlestagedata()) {
+                $battleStage = $stage->getAryBattlestagedata();
+                $userState = PlayerBlueBattleState::query()->firstOrCreate(['baid' => $player->baid]);
+                $userState->update([
+                    'last_battle_stage_id' => $battleStage->getBattleStageId(),
+                    'last_boss_life' => $battleStage->getBossLife(),
+                ]);
+
+                if ($battleStage->hasNpcData()) {
+                    $npc = $battleStage->getNpcData();
+                    $userState->update(['last_npc_id' => $npc->getNpcId()]);
+
+                    $npcState = PlayerBlueBattleNpcState::query()->firstOrCreate([
+                        'baid' => $player->baid,
+                        'npc_id' => $npc->getNpcId(),
+                    ]);
+
+                    $totalExp = (int) $npc->getTotalExp();
+                    $maxDpn = max((int) $npcState->max_dpn, (int) $npc->getDpn());
+
+                    $npcState->update([
+                        'total_exp' => $totalExp,
+                        'max_dpn' => $maxDpn,
+                        'npc_costume_id' => $npc->getNpcCostumeId(),
+                        'selected_special_id_1' => $npc->getSpecialId1(),
+                        'selected_special_id_2' => $npc->getSpecialId2(),
+                        'selected_special_id_3' => $npc->getSpecialId3(),
+                        'bonds_level' => $npc->getBondsLv(),
+                    ]);
+
+                    $npcState->release_special_flg = $this->setBattleBits(
+                        $npcState->release_special_flg,
+                        array_filter([$npc->getSpecialId1(), $npc->getSpecialId2(), $npc->getSpecialId3()]),
+                        16
+                    );
+                    $npcState->save();
+                }
+            }
+        }
+
+        if (method_exists($data, 'hasAryReleaseBattledata') && $data->hasAryReleaseBattledata()) {
+            $releaseData = $data->getAryReleaseBattledata();
+            $userState = PlayerBlueBattleState::query()->firstOrCreate(['baid' => $player->baid]);
+
+            $infoIds = [];
+            foreach ($releaseData->getReleaseInfoId() as $id) {
+                $infoIds[] = (int) $id;
+            }
+            $userState->release_info_flg = $this->setBattleBits(
+                $userState->release_info_flg,
+                $infoIds,
+                16
+            );
+
+            $stageIds = [];
+            foreach ($releaseData->getReleaseBattleStageId() as $id) {
+                $stageIds[] = (int) $id;
+            }
+            $userState->release_battle_stage_flg = $this->setBattleBits(
+                $userState->release_battle_stage_flg,
+                $stageIds,
+                8
+            );
+
+            if ($releaseData->hasAssignNextStageId()) {
+                $userState->assign_stage_id = $releaseData->getAssignNextStageId();
+            }
+
+            $userState->save();
+
+            $lastNpcId = $userState->last_npc_id;
+            if ($lastNpcId > 0) {
+                $npcState = PlayerBlueBattleNpcState::query()->where('baid', $player->baid)->where('npc_id', $lastNpcId)->first();
+                if ($npcState !== null) {
+                    $costumeIds = [];
+                    foreach ($releaseData->getReleaseNpcCostumeId() as $id) {
+                        if ($id > 0) {
+                            $costumeIds[] = (int) $id;
+                        }
+                    }
+                    $npcState->npc_costume_flg = $this->setBattleBits(
+                        $npcState->npc_costume_flg,
+                        $costumeIds,
+                        4
+                    );
+
+                    $specialIds = [];
+                    foreach ($releaseData->getReleaseNpcSpecialId() as $id) {
+                        if ($id > 0) {
+                            $specialIds[] = (int) $id;
+                        }
+                    }
+                    $npcState->release_special_flg = $this->setBattleBits(
+                        $npcState->release_special_flg,
+                        $specialIds,
+                        16
+                    );
+
+                    $npcState->save();
+                }
+            }
+
+            foreach ($releaseData->getAryBattletokendata() as $token) {
+                $tokenState = PlayerBlueBattleTokenState::query()->firstOrCreate([
+                    'baid' => $player->baid,
+                    'token_id' => $token->getTokenId(),
+                ]);
+                $tokenState->update([
+                    'token_value' => $token->getTokenValue(),
+                ]);
+            }
+        }
+    }
+
+    private function setBattleBits(?string $source, array $ids, int $byteCount): string
+    {
+        $result = $source ?? str_repeat("\x00", $byteCount);
+        if (strlen($result) < $byteCount) {
+            $result = str_pad($result, $byteCount, "\x00");
+        } elseif (strlen($result) > $byteCount) {
+            $result = substr($result, 0, $byteCount);
+        }
+
+        foreach ($ids as $id) {
+            $id = (int) $id;
+            if ($id < 0 || $id >= $byteCount * 8) {
+                continue;
+            }
+
+            $byteIndex = $id >> 3;
+            $bitIndex = $id & 7;
+            $byteVal = ord($result[$byteIndex]);
+            $byteVal |= (1 << $bitIndex);
+            $result[$byteIndex] = chr($byteVal);
+        }
+
+        return $result;
     }
 }

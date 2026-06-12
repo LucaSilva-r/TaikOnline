@@ -49,6 +49,8 @@ Route::middleware(LogGreenCabinetTraffic::class)->group(function () use ($protoc
     Route::post('{version}/chassis/telopcheck.php', [GameProtocolController::class, 'telopCheck'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/taikojuku.php', [GameProtocolController::class, 'taikojuku'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/songhash.php', [GameProtocolController::class, 'songHash'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/balancecheck.php', [GameProtocolController::class, 'balanceCheck'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/battleuserdata.php', [GameProtocolController::class, 'battleUserData'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/getghostdata.php', [GameProtocolController::class, 'getGhostData'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/getghostscore.php', [GameProtocolController::class, 'getGhostScore'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/recommend.php', [GameProtocolController::class, 'recommend'])->where('version', $protocolVersionPattern);
