@@ -35,6 +35,7 @@ class BoardController extends Controller
                 'rankHistory' => [],
                 'recentPlays' => [],
                 'bestPerformances' => [],
+                'blueBattleData' => null,
             ]);
         }
 
@@ -48,6 +49,7 @@ class BoardController extends Controller
             'rankHistory' => $this->rankHistory($user, $version),
             'recentPlays' => $this->recentPlays($player, $version),
             'bestPerformances' => $this->bestPerformances($player, $version),
+            'blueBattleData' => $this->blueBattleData($player, $version),
         ]);
     }
 
@@ -197,5 +199,41 @@ class BoardController extends Controller
                 'placement' => (int) $best->placement,
             ])
             ->all();
+    }
+
+    private function blueBattleData(?Player $player, TaikoGameVersion $version): ?array
+    {
+        if ($player === null || $version !== TaikoGameVersion::Blue) {
+            return null;
+        }
+
+        $userState = $player->blueBattleState;
+        $npcStates = $player->blueBattleNpcStates()->orderBy('npc_id')->get();
+        $tokenStates = $player->blueBattleTokenStates()->orderBy('token_id')->get();
+
+        if ($userState === null && $npcStates->isEmpty() && $tokenStates->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'last_battle_stage_id' => (int) ($userState?->last_battle_stage_id ?? 0),
+            'last_boss_life' => (int) ($userState?->last_boss_life ?? 0),
+            'last_npc_id' => (int) ($userState?->last_npc_id ?? 0),
+            'assign_stage_id' => (int) ($userState?->assign_stage_id ?? 1),
+            'npcs' => $npcStates->map(fn ($npc) => [
+                'npc_id' => (int) $npc->npc_id,
+                'total_exp' => (int) $npc->total_exp,
+                'max_dpn' => (int) $npc->max_dpn,
+                'npc_costume_id' => (int) $npc->npc_costume_id,
+                'selected_special_id_1' => (int) $npc->selected_special_id_1,
+                'selected_special_id_2' => (int) $npc->selected_special_id_2,
+                'selected_special_id_3' => (int) $npc->selected_special_id_3,
+                'bonds_level' => (int) $npc->bonds_level,
+            ])->toArray(),
+            'tokens' => $tokenStates->map(fn ($token) => [
+                'token_id' => (int) $token->token_id,
+                'token_value' => (int) $token->token_value,
+            ])->toArray(),
+        ];
     }
 }

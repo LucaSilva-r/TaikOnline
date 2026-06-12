@@ -4,6 +4,9 @@ use App\Enums\SongGenre;
 use App\Enums\SongPartsSet;
 use App\Enums\SongWai2PartsSet;
 use App\Models\Player;
+use App\Models\PlayerBlueBattleNpcState;
+use App\Models\PlayerBlueBattleState;
+use App\Models\PlayerBlueBattleTokenState;
 use App\Models\PlayerRankSnapshot;
 use App\Models\Song;
 use App\Models\SongBest;
@@ -172,6 +175,67 @@ it('does not expose all-version boards publicly', function (): void {
     $user = User::factory()->create();
 
     $this->get("/all/users/{$user->id}/board")->assertNotFound();
+});
+
+it('shows blue battle data on the blue version board', function (): void {
+    $user = User::factory()->create(['name' => 'BlueFighter']);
+    $player = Player::query()->create([
+        'mydon_name' => 'BATTLE',
+        'user_id' => $user->id,
+    ]);
+
+    // Create blue battle state
+    $userState = PlayerBlueBattleState::query()->create([
+        'baid' => $player->baid,
+        'assign_stage_id' => 5,
+        'last_battle_stage_id' => 4,
+        'last_boss_life' => 12,
+        'last_npc_id' => 3,
+    ]);
+
+    $npcState = PlayerBlueBattleNpcState::query()->create([
+        'baid' => $player->baid,
+        'npc_id' => 3,
+        'total_exp' => 250,
+        'max_dpn' => 15,
+        'npc_costume_id' => 1,
+        'selected_special_id_1' => 1,
+        'selected_special_id_2' => 2,
+        'selected_special_id_3' => 0,
+        'bonds_level' => 3,
+    ]);
+
+    $tokenState = PlayerBlueBattleTokenState::query()->create([
+        'baid' => $player->baid,
+        'token_id' => 1,
+        'token_value' => 50,
+    ]);
+
+    // Query green board - blueBattleData should be null
+    $this->get("/green/users/{$user->id}/board")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Board')
+            ->where('blueBattleData', null)
+        );
+
+    // Query blue board - blueBattleData should contain the populated data
+    $this->get("/blue/users/{$user->id}/board")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Board')
+            ->where('blueBattleData.assign_stage_id', 5)
+            ->where('blueBattleData.last_battle_stage_id', 4)
+            ->where('blueBattleData.last_boss_life', 12)
+            ->where('blueBattleData.last_npc_id', 3)
+            ->where('blueBattleData.npcs.0.npc_id', 3)
+            ->where('blueBattleData.npcs.0.total_exp', 250)
+            ->where('blueBattleData.npcs.0.max_dpn', 15)
+            ->where('blueBattleData.npcs.0.selected_special_id_2', 2)
+            ->where('blueBattleData.npcs.0.bonds_level', 3)
+            ->where('blueBattleData.tokens.0.token_id', 1)
+            ->where('blueBattleData.tokens.0.token_value', 50)
+        );
 });
 
 function createBoardSong(string $version, int $songNo, string $title): void
