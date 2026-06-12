@@ -1,5 +1,6 @@
 <?php
 
+use App\GameProtocol\Handlers\BlueGameHandler;
 use App\GameProtocol\Proto\Blue\Taiko\BalancecheckRequest;
 use App\GameProtocol\Proto\Blue\Taiko\BalancecheckResponse;
 use App\GameProtocol\Proto\Blue\Taiko\BattleUserDataRequest;
@@ -11,6 +12,7 @@ use App\GameProtocol\Proto\Blue\Taiko\PlayResultRequest\StageData;
 use App\GameProtocol\Proto\Blue\Taiko\PlayResultRequest\StageData\BattleStageData;
 use App\GameProtocol\Proto\Blue\Taiko\PlayResultRequest\StageData\BattleStageData\BattleNpcData;
 use App\GameProtocol\Proto\Blue\Taiko\PlayResultResponse;
+use App\GameProtocol\Services\PlayResultService;
 use App\Models\Player;
 use App\Models\PlayerBlueBattleNpcState;
 use App\Models\PlayerBlueBattleState;
@@ -106,7 +108,7 @@ it('saves battle stage and release data for Blue', function (): void {
         ->setTotalExp('150')
         ->setDpn(5)
         ->setNpcCostumeId(2)
-        ->setSpecialId1(1)
+        ->setSpecialId1(0) // 0 represents no attack equipped
         ->setSpecialId2(2)
         ->setSpecialId3(0)
         ->setBondsLv(4);
@@ -164,13 +166,83 @@ it('saves battle stage and release data for Blue', function (): void {
     expect($npcState->total_exp)->toBe(150)
         ->and($npcState->max_dpn)->toBe(5)
         ->and($npcState->npc_costume_id)->toBe(2)
-        ->and($npcState->selected_special_id_1)->toBe(1)
+        ->and($npcState->selected_special_id_1)->toBe(0) // Database correctly stores 0
         ->and($npcState->selected_special_id_2)->toBe(2)
         ->and($npcState->selected_special_id_3)->toBe(0)
         ->and($npcState->bonds_level)->toBe(4)
         ->and(ord($npcState->npc_costume_flg[0]))->toBe(4)
-        ->and(ord($npcState->release_special_flg[0]))->toBe(14);
+        ->and(ord($npcState->release_special_flg[0]))->toBe(12); // Bits 2 and 3 enabled (4 + 8 = 12)
 
     $tokenState = PlayerBlueBattleTokenState::query()->where('baid', $player->baid)->where('token_id', 4)->firstOrFail();
     expect($tokenState->token_value)->toBe(10);
+
+    // Now query the battleuserdata endpoint and verify it defaults the attack to 1
+    $userDataRequest = (new BattleUserDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop');
+
+    $userDataResponse = post_protobuf('/v10r00/chassis/battleuserdata.php', $userDataRequest, BattleUserDataResponse::class);
+
+    $returnedNpc = $userDataResponse->getNpcData()[0];
+    expect($returnedNpc->getLastSelectSpecial1())->toBe(1); // Enforced default to prevent softlocks!
+});
+
+it('handles stream resources correctly in helper methods', function (): void {
+    $handler = app(BlueGameHandler::class);
+    $reflection = new ReflectionClass($handler);
+
+    // 1. Test fixedOrZero
+    $fixedOrZero = $reflection->getMethod('fixedOrZero');
+    $fixedOrZero->setAccessible(true);
+
+    $stream = fopen('php://memory', 'r+');
+    fwrite($stream, 'hello');
+    rewind($stream);
+
+    $res = $fixedOrZero->invokeArgs($handler, [$stream, 8]);
+    expect($res)->toBe("hello\x00\x00\x00");
+    fclose($stream);
+
+    // 2. Test buildNpcCostumeFlg
+    $buildNpcCostumeFlg = $reflection->getMethod('buildNpcCostumeFlg');
+    $buildNpcCostumeFlg->setAccessible(true);
+
+    $stream = fopen('php://memory', 'r+');
+    fwrite($stream, "\x00\x00\x00\x00");
+    rewind($stream);
+
+    $res = $buildNpcCostumeFlg->invokeArgs($handler, [$stream, 2]);
+    expect(ord($res[0]))->toBe(4); // 1 << 2
+    fclose($stream);
+
+    // 3. Test buildReleaseSpecialFlg
+    $buildReleaseSpecialFlg = $reflection->getMethod('buildReleaseSpecialFlg');
+    $buildReleaseSpecialFlg->setAccessible(true);
+
+    $stream = fopen('php://memory', 'r+');
+    fwrite($stream, "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00");
+    rewind($stream);
+
+    $res = $buildReleaseSpecialFlg->invokeArgs($handler, [$stream, [3]]);
+    // 1 is enabled (bit 1 of byte 0 => 2)
+    // 3 is enabled (bit 3 of byte 0 => 8)
+    // 120 is enabled (bit 0 of byte 15 => 1)
+    expect(ord($res[0]))->toBe(10) // 2 + 8
+        ->and(ord($res[15]))->toBe(1);
+    fclose($stream);
+
+    // 4. Test PlayResultService's setBattleBits
+    $service = app(PlayResultService::class);
+    $refService = new ReflectionClass($service);
+    $setBattleBits = $refService->getMethod('setBattleBits');
+    $setBattleBits->setAccessible(true);
+
+    $stream = fopen('php://memory', 'r+');
+    fwrite($stream, "\x00\x00\x00\x00");
+    rewind($stream);
+
+    $res = $setBattleBits->invokeArgs($service, [$stream, [2], 4]);
+    expect(ord($res[0]))->toBe(4);
+    fclose($stream);
 });
