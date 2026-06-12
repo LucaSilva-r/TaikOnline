@@ -160,7 +160,7 @@ class PlayerProfileService
             ->pluck('song_no')
             ->map(fn (mixed $songNo): int => (int) $songNo);
 
-        return $this->scoreMapper->songFlagBytes($songNumbers);
+        return $this->scoreMapper->releaseSongFlagBytes($gameVersion, $songNumbers);
     }
 
     private function baidFailureResponse(TaikoGameVersion $version, string $accessCode): Message

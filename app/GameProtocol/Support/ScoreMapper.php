@@ -2,10 +2,26 @@
 
 namespace App\GameProtocol\Support;
 
+use App\Enums\TaikoGameVersion;
 use App\Models\SongBest;
 
 class ScoreMapper
 {
+    /**
+     * Pre-RED Taiko dialects (sorairo..murasaki) build their entire in-game
+     * song list from the songhash.php `song_hash_tbl` and gate availability with
+     * a packed unlock flag, instead of the song_no-indexed bitfield newer
+     * versions use. See {@see self::legacySongHashTable()}.
+     *
+     * @var list<value-of<TaikoGameVersion>>
+     */
+    private const LEGACY_VERSIONS = [
+        TaikoGameVersion::Sorairo->value,
+        TaikoGameVersion::Momoiro->value,
+        TaikoGameVersion::Kimidori->value,
+        TaikoGameVersion::Murasaki->value,
+    ];
+
     public function rankForScore(int $score): int
     {
         return match (true) {
@@ -124,6 +140,76 @@ class ScoreMapper
         }
 
         return implode('', array_map(static fn (int $flag): string => chr($flag), $flags));
+    }
+
+    /**
+     * Whether this dialect drives its song list through the legacy songhash
+     * table + packed unlock flag rather than the song_no-indexed bitfield.
+     */
+    public function isLegacySongList(string $gameVersion): bool
+    {
+        return in_array($gameVersion, self::LEGACY_VERSIONS, true);
+    }
+
+    /**
+     * Distinct song numbers for a legacy dialect, ascending. The songhash table
+     * and the packed unlock flag must share this ordering, since the cabinet
+     * keys the unlock flag by each song's position in the songhash table.
+     *
+     * @param  iterable<int>  $songNumbers
+     * @return list<int>
+     */
+    private function legacySongOrder(iterable $songNumbers): array
+    {
+        $numbers = [];
+
+        foreach ($songNumbers as $songNo) {
+            $songNo = (int) $songNo;
+
+            if ($songNo >= 0 && $songNo <= 0xFFFF) {
+                $numbers[$songNo] = $songNo;
+            }
+        }
+
+        ksort($numbers);
+
+        return array_values($numbers);
+    }
+
+    /**
+     * Build the legacy `song_hash_tbl`: a big-endian uint16 per song, in
+     * ascending song_no order. The cabinet derives its song count from the
+     * length of this blob (bytes / 2) and uses each value as the song's slot in
+     * the unlock bitfield, so an empty table means "no songs at all".
+     *
+     * @param  iterable<int>  $songNumbers
+     */
+    public function legacySongHashTable(iterable $songNumbers): string
+    {
+        $bytes = '';
+
+        foreach ($this->legacySongOrder($songNumbers) as $songNo) {
+            $bytes .= pack('n', $songNo);
+        }
+
+        return $bytes;
+    }
+
+    /**
+     * @param  iterable<int>  $songNumbers
+     */
+    public function releaseSongFlagBytes(string $gameVersion, iterable $songNumbers): string
+    {
+        if ($this->isLegacySongList($gameVersion)) {
+            // One bit per song, packed in songhash-table order; every song
+            // unlocked by default. Length tracks the song count so it lines up
+            // with the cabinet's song table.
+            $count = count($this->legacySongOrder($songNumbers));
+
+            return str_repeat("\xFF", intdiv($count + 7, 8));
+        }
+
+        return $this->songFlagBytes($songNumbers);
     }
 
     /**

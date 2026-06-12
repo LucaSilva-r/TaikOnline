@@ -57,7 +57,7 @@ class PlayResultService
                 'is_two_players' => $data->getIsTwoPlayers(),
                 'song_no' => $stage->getSongNo(),
                 'level' => $stage->getLevel(),
-                'stage_mode' => $stage->getStageMode(),
+                'stage_mode' => $this->optionalInt($stage, 'getStageMode'),
                 'play_result' => $stage->getPlayResult(),
                 'score' => $stage->getPlayScore(),
                 'score_rank' => $rank,
@@ -68,7 +68,7 @@ class PlayResultService
                 'combo_count' => $stage->getComboCnt(),
                 'hit_count' => $stage->getHitCnt(),
                 'music_category' => $stage->getMusicCateg(),
-                'selected_folder_id' => $stage->getSelectedFolderId(),
+                'selected_folder_id' => $this->optionalInt($stage, 'getSelectedFolderId'),
                 'raw_stage' => [
                     'star_level' => method_exists($stage, 'getStarLevel') ? $stage->getStarLevel() : null,
                     'support_level' => method_exists($stage, 'getSupportLevel') ? $stage->getSupportLevel() : null,
@@ -108,6 +108,11 @@ class PlayResultService
         $this->persistCosmetics($player, $data, $version);
 
         return 1;
+    }
+
+    private function optionalInt(Message $message, string $getter): int
+    {
+        return method_exists($message, $getter) ? (int) $message->{$getter}() : 0;
     }
 
     /**

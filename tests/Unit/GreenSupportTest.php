@@ -35,3 +35,25 @@ it('maps song numbers to flag bytes', function (): void {
     expect(ord($flags[0]))->toBe(129)
         ->and(ord($flags[1]))->toBe(1);
 });
+
+it('unlocks every song for legacy release flags', function (string $version): void {
+    // 3 distinct songs => 1 byte, all bits set (everything unlocked).
+    $flags = (new ScoreMapper)->releaseSongFlagBytes($version, [1, 8, 20015]);
+
+    expect($flags)->toBe("\xFF");
+})->with(['sorairo', 'momoiro', 'kimidori', 'murasaki']);
+
+it('keeps the song_no-indexed flag for newer release flags', function (): void {
+    // Non-legacy versions still use the raw 512-byte song_no bitfield.
+    $flags = (new ScoreMapper)->releaseSongFlagBytes('green', [1, 8, 9]);
+
+    expect(strlen($flags))->toBe(512)
+        ->and(ord($flags[0]))->toBe(129)
+        ->and(ord($flags[1]))->toBe(1);
+});
+
+it('builds the legacy songhash table as ascending big-endian uint16s', function (): void {
+    $table = (new ScoreMapper)->legacySongHashTable([20015, 1, 8]);
+
+    expect(bin2hex($table))->toBe('000100084e2f');
+});

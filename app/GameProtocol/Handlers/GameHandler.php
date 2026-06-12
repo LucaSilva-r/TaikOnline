@@ -237,7 +237,7 @@ class GameHandler
             $this->writer->fill($this->messages->make($game, 'SonghashResponse'), [
                 'setResult' => 1,
                 'setSongHashVer' => 99,
-                'setSongHashTbl' => '',
+                'setSongHashTbl' => $this->songHashTable($game->value),
             ])
         );
     }
@@ -516,6 +516,24 @@ class GameHandler
             ->pluck('song_no')
             ->map(fn (mixed $songNo): int => (int) $songNo);
 
-        return $this->scoreMapper->songFlagBytes($songNumbers);
+        return $this->scoreMapper->releaseSongFlagBytes($gameVersion, $songNumbers);
+    }
+
+    /**
+     * Legacy dialects expect their full song list here; newer versions ignore
+     * the table and resolve songs through the song_no-indexed flags instead.
+     */
+    protected function songHashTable(string $gameVersion): string
+    {
+        if (! $this->scoreMapper->isLegacySongList($gameVersion)) {
+            return '';
+        }
+
+        $songNumbers = Song::query()
+            ->where('version', $gameVersion)
+            ->pluck('song_no')
+            ->map(fn (mixed $songNo): int => (int) $songNo);
+
+        return $this->scoreMapper->legacySongHashTable($songNumbers);
     }
 }
