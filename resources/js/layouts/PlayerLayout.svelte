@@ -94,6 +94,10 @@
         </SheetContent>
     </Sheet>
 
+    <div class="flex w-full items-center justify-center bg-red-600 px-4 py-2 text-center text-sm font-semibold text-white">
+        ⚠️ ALPHA — This platform is in early alpha. Your data can and WILL be deleted without warning.
+    </div>
+
     <header class="border-b border-border/60 bg-background/80 backdrop-blur">
         <div class="mx-auto flex h-14 w-full max-w-7xl items-center gap-2 px-4 sm:gap-4 lg:gap-6">
             <div class="lg:hidden">
