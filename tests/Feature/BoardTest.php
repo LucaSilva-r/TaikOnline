@@ -7,6 +7,9 @@ use App\Models\Player;
 use App\Models\PlayerBlueBattleNpcState;
 use App\Models\PlayerBlueBattleState;
 use App\Models\PlayerBlueBattleTokenState;
+use App\Models\PlayerGreenGhostState;
+use App\Models\PlayerGreenGhostToken;
+use App\Models\PlayerGreenGhostWinnings;
 use App\Models\PlayerRankSnapshot;
 use App\Models\Song;
 use App\Models\SongBest;
@@ -235,6 +238,63 @@ it('shows blue battle data on the blue version board', function (): void {
             ->where('blueBattleData.npcs.0.bonds_level', 3)
             ->where('blueBattleData.tokens.0.token_id', 1)
             ->where('blueBattleData.tokens.0.token_value', 50)
+        );
+});
+
+it('shows green ghost data on the green version board', function (): void {
+    $user = User::factory()->create(['name' => 'GreenGhost']);
+    $player = Player::query()->create([
+        'mydon_name' => 'GHOST',
+        'user_id' => $user->id,
+    ]);
+
+    // Create green ghost state
+    PlayerGreenGhostState::query()->create([
+        'baid' => $player->baid,
+        'total_winnings' => 1500,
+        'input_median' => 12,
+        'input_variance' => 34,
+        'rank_id' => 3,
+        'win_point' => 500,
+        'certified_level_id' => 2,
+        'release_info_flag' => 'dummy',
+    ]);
+
+    PlayerGreenGhostToken::query()->create([
+        'baid' => $player->baid,
+        'token_id' => 1,
+        'token_value' => 10,
+    ]);
+
+    PlayerGreenGhostWinnings::query()->create([
+        'baid' => $player->baid,
+        'level_id' => 2,
+        'winnings' => 5,
+    ]);
+
+    // Query blue board - greenGhostData should be null
+    $this->get("/blue/users/{$user->id}/board")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Board')
+            ->where('greenGhostData', null)
+        );
+
+    // Query green board - greenGhostData should contain the populated data
+    $this->get("/green/users/{$user->id}/board")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Board')
+            ->where('greenGhostData.total_winnings', 1500)
+            ->where('greenGhostData.input_median', 12)
+            ->where('greenGhostData.input_variance', 34)
+            ->where('greenGhostData.rank_id', 3)
+            ->where('greenGhostData.win_point', 500)
+            ->where('greenGhostData.certified_level_id', 2)
+            ->where('greenGhostData.tokens.0.token_id', 1)
+            ->where('greenGhostData.tokens.0.token_value', 10)
+            ->where('greenGhostData.winnings.0.level_id', 2)
+            ->where('greenGhostData.winnings.0.winnings', 5)
         );
 });
 

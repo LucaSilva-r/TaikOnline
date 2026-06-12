@@ -27,6 +27,11 @@ use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest\CostumeData as Play
 use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest\StageData;
 use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest\StageData\GhostStageData;
 use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest\StageData\GhostStageData\GhostStageSectionData;
+use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest\UpdateGhostInfoData;
+use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest\UpdateGhostInfoData\GhostTokenData;
+use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest\UpdateGhostPerfData;
+use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest\UpdateGhostRankData;
+use App\GameProtocol\Proto\Green\Taiko\PlayResultDataRequest\UpdateGhostRankData\UpdateGhostWinningsData;
 use App\GameProtocol\Proto\Green\Taiko\PlayResultRequest;
 use App\GameProtocol\Proto\Green\Taiko\PlayResultResponse;
 use App\GameProtocol\Proto\Green\Taiko\RecommendRequest;
@@ -1275,3 +1280,84 @@ function ghost_stage_data(int $goodCount): GhostStageData
         ],
     ]);
 }
+
+it('saves and returns Green ghost/AI battle data', function (): void {
+    $player = Player::query()->create();
+
+    // 1. Submit play result with AI Battle updates
+    $token = new GhostTokenData([
+        'token_id' => 2,
+        'token_value' => 75,
+    ]);
+
+    $releaseData = new UpdateGhostInfoData([
+        'release_info_id' => [1, 2],
+        'ary_tokendata' => [$token],
+    ]);
+
+    $perfData = new UpdateGhostPerfData([
+        'input_median' => -5,
+        'input_variance' => 12,
+    ]);
+
+    $winning = new UpdateGhostWinningsData([
+        'level_id' => 3,
+        'winnings' => 120,
+    ]);
+
+    $rankData = new UpdateGhostRankData([
+        'rank_id' => 4,
+        'win_point' => 200,
+        'certified_level_id' => 2,
+        'ary_winnings_data' => [$winning],
+    ]);
+
+    $stage = (new StageData)
+        ->setSongNo(100)->setLevel(3)->setPlayResult(2)->setPlayScore(876543)
+        ->setGoodCnt(500)->setOkCnt(20)->setNgCnt(3)->setPoundCnt(11)
+        ->setComboCnt(450)->setHitCnt(523)->setMusicCateg(1)
+        ->setSelectedFolderId(7)->setStarLevel(8)->setSupportLevel(0);
+
+    $playResultData = (new PlayResultDataRequest)
+        ->setBaid($player->baid)->setChassisId('chassis')->setShopId('shop')
+        ->setPlayDatetime('2026-05-05 20:00:00')->setIsRight(true)->setCardType(1)
+        ->setIsTwoPlayers(false)->setAryStageInfo([$stage])
+        ->setBonusDailyFlg(false)->setBonusWeeklyFlg(false)->setBonusMonthlyFlg(false)
+        ->setGetDonmedal(0)->setGetKatsumedal(0)->setGenderType(0)
+        ->setPlayerAge(0)->setPlayMode(0)->setAreaCode(0)->setReserved('')
+        ->setDifficultyPlayedCourse(3)->setDifficultyPlayedStar(8)
+        ->setGhostReleaseData($releaseData)
+        ->setGhostUpdatePerfdata($perfData)
+        ->setGhostUpdateRank($rankData);
+
+    $request = (new PlayResultRequest)
+        ->setBaidConf($player->baid)->setChassisIdConf('chassis')->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-05 20:00:00')
+        ->setPlayresultData(gzencode($playResultData->serializeToString()));
+
+    $response = post_protobuf('/v11r01/chassis/playresult.php', $request, PlayResultResponse::class);
+    expect($response->getResult())->toBe(1);
+
+    // 2. Query getghostdata.php
+    $ghostRequest = (new GetghostdataRequest)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setBaid($player->baid);
+
+    $ghostResponse = post_protobuf('/v11r01/chassis/getghostdata.php', $ghostRequest, GetghostdataResponse::class);
+
+    expect($ghostResponse->getResult())->toBe(1)
+        ->and(ord($ghostResponse->getReleaseInfoFlag()[0]))->toBe(6) // bits 1 and 2 (2 + 4 = 6)
+        ->and($ghostResponse->getTotalWinnings())->toBe(120)
+        ->and($ghostResponse->getGhostPerfData()->getInputMedian())->toBe(-5)
+        ->and($ghostResponse->getGhostPerfData()->getInputVariance())->toBe(12)
+        ->and($ghostResponse->getGhostRecordData()->getRankId())->toBe(4)
+        ->and($ghostResponse->getGhostRecordData()->getWinPoint())->toBe(200)
+        ->and($ghostResponse->getGhostRecordData()->getCertifiedLevelId())->toBe(2)
+        ->and(count(iterator_to_array($ghostResponse->getGhostRecordData()->getAryWinningsData())))->toBe(1)
+        ->and($ghostResponse->getGhostRecordData()->getAryWinningsData()[0]->getLevelId())->toBe(3)
+        ->and($ghostResponse->getGhostRecordData()->getAryWinningsData()[0]->getWinnings())->toBe(120)
+        ->and(count(iterator_to_array($ghostResponse->getAryTokenData())))->toBe(1)
+        ->and($ghostResponse->getAryTokenData()[0]->getTokenId())->toBe(2)
+        ->and($ghostResponse->getAryTokenData()[0]->getTokenValue())->toBe(75);
+});

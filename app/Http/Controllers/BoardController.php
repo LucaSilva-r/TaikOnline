@@ -36,6 +36,7 @@ class BoardController extends Controller
                 'recentPlays' => [],
                 'bestPerformances' => [],
                 'blueBattleData' => null,
+                'greenGhostData' => null,
             ]);
         }
 
@@ -50,6 +51,7 @@ class BoardController extends Controller
             'recentPlays' => $this->recentPlays($player, $version),
             'bestPerformances' => $this->bestPerformances($player, $version),
             'blueBattleData' => $this->blueBattleData($player, $version),
+            'greenGhostData' => $this->greenGhostData($player, $version),
         ]);
     }
 
@@ -233,6 +235,38 @@ class BoardController extends Controller
             'tokens' => $tokenStates->map(fn ($token) => [
                 'token_id' => (int) $token->token_id,
                 'token_value' => (int) $token->token_value,
+            ])->toArray(),
+        ];
+    }
+
+    private function greenGhostData(?Player $player, TaikoGameVersion $version): ?array
+    {
+        if ($player === null || $version !== TaikoGameVersion::Green) {
+            return null;
+        }
+
+        $ghostState = $player->greenGhostState;
+        $tokenStates = $player->greenGhostTokens()->orderBy('token_id')->get();
+        $winningsStates = $player->greenGhostWinnings()->orderBy('level_id')->get();
+
+        if ($ghostState === null && $tokenStates->isEmpty() && $winningsStates->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'total_winnings' => (int) ($ghostState?->total_winnings ?? 0),
+            'input_median' => (int) ($ghostState?->input_median ?? 0),
+            'input_variance' => (int) ($ghostState?->input_variance ?? 0),
+            'rank_id' => (int) ($ghostState?->rank_id ?? 1),
+            'win_point' => (int) ($ghostState?->win_point ?? 0),
+            'certified_level_id' => (int) ($ghostState?->certified_level_id ?? 0),
+            'tokens' => $tokenStates->map(fn ($token) => [
+                'token_id' => (int) $token->token_id,
+                'token_value' => (int) $token->token_value,
+            ])->toArray(),
+            'winnings' => $winningsStates->map(fn ($win) => [
+                'level_id' => (int) $win->level_id,
+                'winnings' => (int) $win->winnings,
             ])->toArray(),
         ];
     }
