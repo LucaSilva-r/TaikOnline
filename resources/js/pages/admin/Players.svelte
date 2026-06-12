@@ -1,31 +1,40 @@
 <script module lang="ts">
-    import playersRoutes from '@/routes/admin/players';
+    import playersRoutesForLayout from '@/routes/admin/players';
     import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
+
     export const layout = {
-        breadcrumbs: [{ title: 'Players', href: playersRoutes.index(taikoRouteParamForLayout()) }],
+        breadcrumbs: [{ title: 'Players', href: playersRoutesForLayout.index(taikoRouteParamForLayout()) }],
     };
 </script>
 
 <script lang="ts">
-    import { Link } from '@inertiajs/svelte';
+    import { Form, page, router } from '@inertiajs/svelte';
+    import PlayerController from '@/actions/App/Http/Controllers/Admin/PlayerController';
     import AppHead from '@/components/AppHead.svelte';
+    import { Button } from '@/components/ui/button';
     import { taikoRouteParam } from '@/lib/taiko-version';
-    import { toUrl } from '@/lib/utils';
+    import playersRoutes from '@/routes/admin/players';
 
-    type Player = {
-        baid: number;
-        mydon_name: string;
-        access_code: string | null;
-        last_played_at: string | null;
-        play_results_count: number;
-        song_bests_count: number;
+    function goToEdit(id: number) {
+        router.visit(playersRoutes.edit({ ...taikoRouteParam(), user: id }));
+    }
+
+    type AdminUser = {
+        id: number;
+        name: string;
+        username: string;
+        email: string;
+        role: string;
+        created_at: string | null;
     };
 
     let {
-        players,
+        users,
     }: {
-        players: { data: Player[] };
+        users: { data: AdminUser[] };
     } = $props();
+
+    const currentUserId = $derived(page.props.auth.user.id);
 </script>
 
 <AppHead title="Players" />
@@ -33,34 +42,65 @@
 <div class="flex flex-1 flex-col gap-4 p-4">
     <div>
         <h1 class="text-xl font-semibold">Players</h1>
-        <p class="text-sm text-muted-foreground">Cards and profiles created by Green cabinet requests.</p>
+        <p class="text-sm text-muted-foreground">Registered player accounts. Edit or remove accounts.</p>
     </div>
 
     <div class="overflow-hidden rounded-md border">
         <table class="w-full text-sm">
             <thead class="bg-muted/50 text-left">
                 <tr>
-                    <th class="px-3 py-2 font-medium">BAID</th>
+                    <th class="px-3 py-2 font-medium">ID</th>
                     <th class="px-3 py-2 font-medium">Name</th>
-                    <th class="px-3 py-2 font-medium">Access Code</th>
-                    <th class="px-3 py-2 font-medium">Plays</th>
-                    <th class="px-3 py-2 font-medium">Bests</th>
-                    <th class="px-3 py-2 font-medium">Last Play</th>
+                    <th class="px-3 py-2 font-medium">Username</th>
+                    <th class="px-3 py-2 font-medium">Email</th>
+                    <th class="px-3 py-2 font-medium">Role</th>
+                    <th class="px-3 py-2 font-medium">Created</th>
+                    <th class="px-3 py-2 font-medium text-right">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                {#each players.data as player (player.baid)}
+                {#each users.data as user (user.id)}
                     <tr class="border-t">
-                        <td class="px-3 py-2">
-                            <Link class="font-medium underline-offset-4 hover:underline" href={toUrl(playersRoutes.show({ ...taikoRouteParam(), player: player.baid }))}>
-                                {player.baid}
-                            </Link>
+                        <td class="px-3 py-2">{user.id}</td>
+                        <td class="px-3 py-2 font-medium">{user.name}</td>
+                        <td class="px-3 py-2">{user.username}</td>
+                        <td class="px-3 py-2">{user.email}</td>
+                        <td class="px-3 py-2">{user.role}</td>
+                        <td class="px-3 py-2">{user.created_at ?? '-'}</td>
+                        <td class="px-3 py-2 text-right">
+                            <div class="flex justify-end gap-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onclick={() => goToEdit(user.id)}
+                                >
+                                    Edit
+                                </Button>
+                                {#if user.id !== currentUserId}
+                                    <Form
+                                        {...PlayerController.destroy.form({ ...taikoRouteParam(), user: user.id })}
+                                        options={{ preserveScroll: true }}
+                                    >
+                                        {#snippet children({ processing })}
+                                            <Button
+                                                type="submit"
+                                                size="sm"
+                                                variant="destructive"
+                                                disabled={processing}
+                                                onclick={(event: Event) => {
+                                                    if (!confirm(`Delete ${user.email}?`)) {
+                                                        event.preventDefault();
+                                                    }
+                                                }}
+                                            >
+                                                Delete
+                                            </Button>
+                                        {/snippet}
+                                    </Form>
+                                {/if}
+                            </div>
                         </td>
-                        <td class="px-3 py-2">{player.mydon_name || 'Unregistered'}</td>
-                        <td class="px-3 py-2 font-mono text-xs">{player.access_code || '-'}</td>
-                        <td class="px-3 py-2">{player.play_results_count}</td>
-                        <td class="px-3 py-2">{player.song_bests_count}</td>
-                        <td class="px-3 py-2">{player.last_played_at || '-'}</td>
                     </tr>
                 {/each}
             </tbody>

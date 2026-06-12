@@ -12,6 +12,7 @@ use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use Carbon\CarbonImmutable;
 use Google\Protobuf\Internal\Message;
+use Illuminate\Support\Facades\DB;
 
 class PlayResultService
 {
@@ -28,6 +29,14 @@ class PlayResultService
             return 1;
         }
 
+        // Wrap the whole persist in a transaction: the cabinet retries the save
+        // when the HTTP response is not a valid protobuf, so a partial failure
+        // mid-write must roll back rather than leave duplicate result rows.
+        return DB::transaction(fn (): int => $this->persist($player, $data, $version));
+    }
+
+    private function persist(Player $player, Message $data, TaikoGameVersion $version): int
+    {
         $gameVersion = $version->value;
         $playedAt = $this->parsePlayedAt($data->getPlayDatetime());
 
@@ -72,13 +81,23 @@ class PlayResultService
             $this->updateBest($player, $stage, $rank, $gameVersion);
         }
 
-        $player->update([
+        $attributes = [
             'last_played_at' => $playedAt,
-            'difficulty_played_course' => $data->getDifficultyPlayedCourse(),
-            'difficulty_played_star' => $data->getDifficultyPlayedStar(),
             'recent_song_numbers' => $this->recentSongs($player, $data),
             'total_credit_count' => (int) $player->total_credit_count + 1,
-        ]);
+        ];
+
+        // Some dialects (e.g. White) omit the difficulty-played fields from the
+        // PlayResultRequest entirely, so only persist them when present.
+        if (method_exists($data, 'getDifficultyPlayedCourse')) {
+            $attributes['difficulty_played_course'] = $data->getDifficultyPlayedCourse();
+        }
+
+        if (method_exists($data, 'getDifficultyPlayedStar')) {
+            $attributes['difficulty_played_star'] = $data->getDifficultyPlayedStar();
+        }
+
+        $player->update($attributes);
 
         if (method_exists($data, 'getReleaseSongNo')) {
             $player->update([

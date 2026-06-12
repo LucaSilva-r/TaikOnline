@@ -6,7 +6,7 @@ use App\Concerns\PasswordValidationRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class UserPasswordUpdateRequest extends FormRequest
+class PlayerPasswordUpdateRequest extends FormRequest
 {
     use PasswordValidationRules;
 

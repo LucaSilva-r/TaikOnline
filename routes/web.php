@@ -2,8 +2,8 @@
 
 use App\Enums\TaikoGameVersion;
 use App\Http\Controllers\Admin\DanDojoController;
+use App\Http\Controllers\Admin\PlayerController;
 use App\Http\Controllers\Admin\SongController;
-use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\Green\OperatorController;
 use App\Http\Controllers\RankingController;
@@ -36,23 +36,26 @@ Route::prefix('{taikoVersion}')
             Route::middleware('admin')->prefix('admin')->name('admin.')->group(function (): void {
                 Route::inertia('/', 'admin/Dashboard')->name('dashboard');
 
-                Route::get('players', [OperatorController::class, 'players'])->name('players.index');
-                Route::get('players/{player}', [OperatorController::class, 'player'])->name('players.show');
+                Route::get('baids', [OperatorController::class, 'baids'])->name('baids.index');
+                Route::get('baids/{player}', [OperatorController::class, 'baid'])->name('baids.show');
+                Route::delete('baids/{player}', [OperatorController::class, 'destroyBaid'])->name('baids.destroy');
+                Route::delete('baids/{player}/plays/{result}', [OperatorController::class, 'destroyPlay'])->name('baids.plays.destroy');
+                Route::delete('baids/{player}/bests/{best}', [OperatorController::class, 'destroyBest'])->name('baids.bests.destroy');
                 Route::get('recent-plays', [OperatorController::class, 'recentPlays'])->name('recent-plays');
                 Route::get('songs', [SongController::class, 'index'])->name('songs.index');
                 Route::get('dan-dojo', [DanDojoController::class, 'index'])->name('dan-dojo.index');
                 Route::post('dan-dojo/{version}/randomize', [DanDojoController::class, 'randomize'])->name('dan-dojo.randomize');
                 Route::get('status', [OperatorController::class, 'status'])->name('status');
 
-                Route::get('users', [UserController::class, 'index'])->name('users.index');
-                Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
-                Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
-                Route::put('users/{user}/password', [UserController::class, 'updatePassword'])->name('users.password');
-                Route::post('users/{user}/access-code', [UserController::class, 'bindAccessCode'])->name('users.access-code.bind');
-                Route::patch('users/{user}/access-code', [UserController::class, 'rotateAccessCode'])->name('users.access-code.rotate');
-                Route::delete('users/{user}/access-code', [UserController::class, 'unbindAccessCode'])->name('users.access-code.unbind');
-                Route::patch('users/{user}/role', [UserController::class, 'updateRole'])->name('users.role');
-                Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+                Route::get('players', [PlayerController::class, 'index'])->name('players.index');
+                Route::get('players/{user}/edit', [PlayerController::class, 'edit'])->name('players.edit');
+                Route::put('players/{user}', [PlayerController::class, 'update'])->name('players.update');
+                Route::put('players/{user}/password', [PlayerController::class, 'updatePassword'])->name('players.password');
+                Route::post('players/{user}/access-code', [PlayerController::class, 'bindAccessCode'])->name('players.access-code.bind');
+                Route::patch('players/{user}/access-code', [PlayerController::class, 'rotateAccessCode'])->name('players.access-code.rotate');
+                Route::delete('players/{user}/access-code', [PlayerController::class, 'unbindAccessCode'])->name('players.access-code.unbind');
+                Route::patch('players/{user}/role', [PlayerController::class, 'updateRole'])->name('players.role');
+                Route::delete('players/{user}', [PlayerController::class, 'destroy'])->name('players.destroy');
             });
         });
 
