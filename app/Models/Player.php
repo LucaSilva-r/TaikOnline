@@ -79,6 +79,21 @@ class Player extends Model
         return $this->hasMany(PlayerBlueBattleTokenState::class, 'baid', 'baid');
     }
 
+    public function greenGhostState(): HasOne
+    {
+        return $this->hasOne(PlayerGreenGhostState::class, 'baid', 'baid');
+    }
+
+    public function greenGhostWinnings(): HasMany
+    {
+        return $this->hasMany(PlayerGreenGhostWinnings::class, 'baid', 'baid');
+    }
+
+    public function greenGhostTokens(): HasMany
+    {
+        return $this->hasMany(PlayerGreenGhostToken::class, 'baid', 'baid');
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

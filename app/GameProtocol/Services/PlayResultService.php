@@ -11,6 +11,9 @@ use App\Models\PlayerBlueBattleNpcState;
 use App\Models\PlayerBlueBattleState;
 use App\Models\PlayerBlueBattleTokenState;
 use App\Models\PlayerCosmetic;
+use App\Models\PlayerGreenGhostState;
+use App\Models\PlayerGreenGhostToken;
+use App\Models\PlayerGreenGhostWinnings;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use Carbon\CarbonImmutable;
@@ -112,6 +115,10 @@ class PlayResultService
 
         if ($version === TaikoGameVersion::Blue) {
             $this->saveBlueBattleData($player, $data);
+        }
+
+        if ($version === TaikoGameVersion::Green) {
+            $this->saveGreenGhostData($player, $data);
         }
 
         return 1;
@@ -540,5 +547,71 @@ class PlayResultService
         }
 
         return $result;
+    }
+
+    private function saveGreenGhostData(Player $player, Message $data): void
+    {
+        // 1. Handle ghost_release_data
+        if (method_exists($data, 'hasGhostReleaseData') && $data->hasGhostReleaseData() && $data->getGhostReleaseData() !== null) {
+            $releaseData = $data->getGhostReleaseData();
+            $ghostState = PlayerGreenGhostState::query()->firstOrCreate(['baid' => $player->baid]);
+
+            $infoIds = [];
+            foreach ($releaseData->getReleaseInfoId() as $id) {
+                $infoIds[] = (int) $id;
+            }
+            $ghostState->release_info_flag = $this->setBattleBits(
+                $ghostState->release_info_flag,
+                $infoIds,
+                16
+            );
+            $ghostState->save();
+
+            foreach ($releaseData->getAryTokendata() as $token) {
+                $tokenState = PlayerGreenGhostToken::query()->firstOrCreate([
+                    'baid' => $player->baid,
+                    'token_id' => $token->getTokenId(),
+                ]);
+                $tokenState->update([
+                    'token_value' => $token->getTokenValue(),
+                ]);
+            }
+        }
+
+        // 2. Handle ghost_update_perfdata
+        if (method_exists($data, 'hasGhostUpdatePerfdata') && $data->hasGhostUpdatePerfdata() && $data->getGhostUpdatePerfdata() !== null) {
+            $perfData = $data->getGhostUpdatePerfdata();
+            $ghostState = PlayerGreenGhostState::query()->firstOrCreate(['baid' => $player->baid]);
+            $ghostState->update([
+                'input_median' => $perfData->getInputMedian(),
+                'input_variance' => $perfData->getInputVariance(),
+            ]);
+        }
+
+        // 3. Handle ghost_update_rank
+        if (method_exists($data, 'hasGhostUpdateRank') && $data->hasGhostUpdateRank() && $data->getGhostUpdateRank() !== null) {
+            $rankData = $data->getGhostUpdateRank();
+            $ghostState = PlayerGreenGhostState::query()->firstOrCreate(['baid' => $player->baid]);
+
+            $totalWinnings = 0;
+            foreach ($rankData->getAryWinningsData() as $winning) {
+                $totalWinnings += (int) $winning->getWinnings();
+
+                $winningState = PlayerGreenGhostWinnings::query()->firstOrCreate([
+                    'baid' => $player->baid,
+                    'level_id' => $winning->getLevelId(),
+                ]);
+                $winningState->update([
+                    'winnings' => $winning->getWinnings(),
+                ]);
+            }
+
+            $ghostState->update([
+                'rank_id' => $rankData->getRankId(),
+                'win_point' => $rankData->getWinPoint(),
+                'certified_level_id' => $rankData->getCertifiedLevelId(),
+                'total_winnings' => $ghostState->total_winnings + $totalWinnings,
+            ]);
+        }
     }
 }

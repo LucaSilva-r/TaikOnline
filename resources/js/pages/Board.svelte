@@ -108,6 +108,22 @@
         tokens: TokenData[];
     };
 
+    type GreenGhostWinnings = {
+        level_id: number;
+        winnings: number;
+    };
+
+    type GreenGhostData = {
+        total_winnings: number;
+        input_median: number;
+        input_variance: number;
+        rank_id: number;
+        win_point: number;
+        certified_level_id: number;
+        tokens: TokenData[];
+        winnings: GreenGhostWinnings[];
+    };
+
     let {
         profile,
         hasPlayer,
@@ -116,6 +132,7 @@
         recentPlays,
         bestPerformances,
         blueBattleData = null,
+        greenGhostData = null,
     }: {
         profile: Profile;
         hasPlayer: boolean;
@@ -124,6 +141,7 @@
         recentPlays: RecentPlay[];
         bestPerformances: BestPerformance[];
         blueBattleData?: BlueBattleData | null;
+        greenGhostData?: GreenGhostData | null;
     } = $props();
 
     const numberFormatter = new Intl.NumberFormat();
@@ -507,6 +525,108 @@
                     {/each}
                 </div>
             </div>
+        </section>
+    {/if}
+
+    {#if greenGhostData}
+        <section class="rounded-lg border bg-card">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+                <div>
+                    <h2 class="font-semibold text-lg flex items-center gap-2">
+                        <Trophy class="size-5 text-primary" />
+                        AI Battle (AIバトル) Progress
+                    </h2>
+                    <p class="text-sm text-muted-foreground">
+                        Your AI Battle performance, rank, and token stats
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid gap-6 p-5 md:grid-cols-3">
+                <!-- Main Battle Stats -->
+                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-medium text-sm text-muted-foreground mb-3">AI Battle Rank</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Rank ID</span>
+                                <span class="font-semibold text-lg text-primary">Rank {greenGhostData.rank_id}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Win Points</span>
+                                <span class="font-medium">{greenGhostData.win_point} pts</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Certified Level</span>
+                                <span class="font-medium">Level {greenGhostData.certified_level_id}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Stats -->
+                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-medium text-sm text-muted-foreground mb-3">Performance Data</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Input Median</span>
+                                <span class="font-medium tabular-nums">{greenGhostData.input_median}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Input Variance</span>
+                                <span class="font-medium tabular-nums">{greenGhostData.input_variance}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Total Winnings</span>
+                                <span class="font-semibold text-primary tabular-nums">{numberFormatter.format(greenGhostData.total_winnings)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Battle Tokens -->
+                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-medium text-sm text-muted-foreground mb-3">Battle Tokens</h3>
+                        <div class="flex flex-wrap gap-2.5">
+                            {#each greenGhostData.tokens as token}
+                                <div class="flex items-center gap-2 rounded-md bg-background px-3 py-1.5 border">
+                                    <Medal class="size-4 text-amber-500" />
+                                    <div class="text-2xs">
+                                        <div class="text-muted-foreground font-medium">Token {token.token_id}</div>
+                                        <div class="font-bold tabular-nums">{token.token_value}</div>
+                                    </div>
+                                </div>
+                            {/each}
+                            {#if greenGhostData.tokens.length === 0}
+                                <div class="text-sm text-muted-foreground py-2">No battle tokens collected yet.</div>
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Winnings Level Data -->
+            {#if greenGhostData.winnings.length > 0}
+                <div class="px-5 pb-5">
+                    <h3 class="font-semibold text-sm text-muted-foreground mb-4">Level Winnings</h3>
+                    <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                        {#each greenGhostData.winnings as win}
+                            <div class="rounded-lg border bg-background p-3.5 shadow-2xs flex items-center justify-between">
+                                <div>
+                                    <div class="text-3xs text-muted-foreground uppercase font-semibold">Level ID</div>
+                                    <div class="font-bold text-sm text-foreground">Level {win.level_id}</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-3xs text-muted-foreground uppercase font-semibold">Winnings</div>
+                                    <div class="font-extrabold text-sm text-primary tabular-nums">{win.winnings}</div>
+                                </div>
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
         </section>
     {/if}
 

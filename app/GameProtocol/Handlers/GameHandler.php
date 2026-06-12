@@ -14,6 +14,9 @@ use App\Models\DanCourse;
 use App\Models\DanCourseSong;
 use App\Models\HeadClerkLog;
 use App\Models\Player;
+use App\Models\PlayerGreenGhostState;
+use App\Models\PlayerGreenGhostToken;
+use App\Models\PlayerGreenGhostWinnings;
 use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
@@ -345,29 +348,56 @@ class GameHandler
 
     public function getGhostData(Request $request, TaikoGameVersion $game): Response
     {
-        $this->parse($request, $game, 'GetghostdataRequest');
+        $message = $this->parse($request, $game, 'GetghostdataRequest');
+        $baid = $message->getBaid();
+
+        $ghostState = PlayerGreenGhostState::query()->where('baid', $baid)->first();
+        $tokenStates = PlayerGreenGhostToken::query()->where('baid', $baid)->orderBy('token_id')->get();
+        $winningsStates = PlayerGreenGhostWinnings::query()->where('baid', $baid)->orderBy('level_id')->get();
+
+        $releaseInfoFlag = $ghostState?->release_info_flag;
+        if (is_resource($releaseInfoFlag)) {
+            $releaseInfoFlag = stream_get_contents($releaseInfoFlag);
+        }
+        $releaseInfoFlag = $releaseInfoFlag !== null ? str_pad($releaseInfoFlag, 16, "\x00") : $this->scoreMapper->emptyFlagBytes();
+
+        $tokens = [];
+        foreach ($tokenStates as $token) {
+            $tokens[] = $this->writer->fill($this->messages->make($game, 'GetghostdataResponse\\GhostTokenData'), [
+                'setTokenId' => (int) $token->token_id,
+                'setTokenValue' => (int) $token->token_value,
+            ]);
+        }
+
+        $winnings = [];
+        foreach ($winningsStates as $win) {
+            $winnings[] = $this->writer->fill($this->messages->make($game, 'GetghostdataResponse\\GhostRankData\\GhostWinningsData'), [
+                'setLevelId' => (int) $win->level_id,
+                'setWinnings' => (int) $win->winnings,
+            ]);
+        }
 
         $perfData = $this->writer->fill($this->messages->make($game, 'GetghostdataResponse\\GhostPerfData'), [
-            'setInputMedian' => 0,
-            'setInputVariance' => 0,
+            'setInputMedian' => (int) ($ghostState?->input_median ?? 0),
+            'setInputVariance' => (int) ($ghostState?->input_variance ?? 0),
         ]);
 
         $recordData = $this->writer->fill($this->messages->make($game, 'GetghostdataResponse\\GhostRankData'), [
-            'setRankId' => 1,
-            'setWinPoint' => 0,
-            'setCertifiedLevelId' => 0,
-            'setAryWinningsData' => [],
+            'setRankId' => (int) ($ghostState?->rank_id ?? 1),
+            'setWinPoint' => (int) ($ghostState?->win_point ?? 0),
+            'setCertifiedLevelId' => (int) ($ghostState?->certified_level_id ?? 0),
+            'setAryWinningsData' => $winnings,
         ]);
 
         return $this->payloads->response(
             $this->writer->fill($this->messages->make($game, 'GetghostdataResponse'), [
                 'setResult' => 1,
-                'setReleaseInfoFlag' => $this->scoreMapper->emptyFlagBytes(),
+                'setReleaseInfoFlag' => $releaseInfoFlag,
                 'setPlayedSongFlag' => $this->ghostPlayedSongFlag($game->value),
-                'setTotalWinnings' => 0,
+                'setTotalWinnings' => (int) ($ghostState?->total_winnings ?? 0),
                 'setGhostPerfData' => $perfData,
                 'setGhostRecordData' => $recordData,
-                'setAryTokenData' => [],
+                'setAryTokenData' => $tokens,
             ])
         );
     }
