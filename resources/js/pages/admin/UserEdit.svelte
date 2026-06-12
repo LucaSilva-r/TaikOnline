@@ -190,25 +190,48 @@
                 <Label>Linked access code</Label>
                 <Input value={accessCode} readonly class="mt-1 block w-full" />
             </div>
-            <Form
-                {...UserController.unbindAccessCode.form({ ...taikoRouteParam(), user: user.id })}
-                options={{ preserveScroll: true }}
-            >
-                {#snippet children({ processing })}
-                    <Button
-                        type="submit"
-                        variant="destructive"
-                        disabled={processing}
-                        onclick={(event: Event) => {
-                            if (!confirm('Unlink this access code?')) {
-                                event.preventDefault();
-                            }
-                        }}
-                    >
-                        Unlink
-                    </Button>
-                {/snippet}
-            </Form>
+            <div class="flex flex-wrap gap-3">
+                <Form
+                    {...UserController.rotateAccessCode.form({ ...taikoRouteParam(), user: user.id })}
+                    options={{ preserveScroll: true }}
+                >
+                    {#snippet children({ errors, processing })}
+                        <Button
+                            type="submit"
+                            variant="outline"
+                            disabled={processing}
+                            onclick={(event: Event) => {
+                                if (!confirm('Rotate this access code?')) {
+                                    event.preventDefault();
+                                }
+                            }}
+                        >
+                            Rotate
+                        </Button>
+                        <InputError class="mt-2" message={errors.access_code} />
+                    {/snippet}
+                </Form>
+
+                <Form
+                    {...UserController.unbindAccessCode.form({ ...taikoRouteParam(), user: user.id })}
+                    options={{ preserveScroll: true }}
+                >
+                    {#snippet children({ processing })}
+                        <Button
+                            type="submit"
+                            variant="destructive"
+                            disabled={processing}
+                            onclick={(event: Event) => {
+                                if (!confirm('Unlink this access code?')) {
+                                    event.preventDefault();
+                                }
+                            }}
+                        >
+                            Unlink
+                        </Button>
+                    {/snippet}
+                </Form>
+            </div>
         </div>
     {:else}
         <Form

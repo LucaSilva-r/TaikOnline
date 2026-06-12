@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\EnsureZucchiniApiToken;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveTaikoVersion;
@@ -41,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => EnsureUserIsAdmin::class,
             'taiko.version' => ResolveTaikoVersion::class,
+            'zucchini.token' => EnsureZucchiniApiToken::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

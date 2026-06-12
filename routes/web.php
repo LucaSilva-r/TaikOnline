@@ -49,6 +49,7 @@ Route::prefix('{taikoVersion}')
                 Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
                 Route::put('users/{user}/password', [UserController::class, 'updatePassword'])->name('users.password');
                 Route::post('users/{user}/access-code', [UserController::class, 'bindAccessCode'])->name('users.access-code.bind');
+                Route::patch('users/{user}/access-code', [UserController::class, 'rotateAccessCode'])->name('users.access-code.rotate');
                 Route::delete('users/{user}/access-code', [UserController::class, 'unbindAccessCode'])->name('users.access-code.unbind');
                 Route::patch('users/{user}/role', [UserController::class, 'updateRole'])->name('users.role');
                 Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');

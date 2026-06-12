@@ -4,8 +4,11 @@ namespace App\Providers;
 
 use App\Enums\TaikoGameVersion;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -35,6 +38,8 @@ class AppServiceProvider extends ServiceProvider
     {
         Date::use(CarbonImmutable::class);
         URL::defaults(['taikoVersion' => TaikoGameVersion::default()->value]);
+
+        RateLimiter::for('zucchini-cards', fn (Request $request): Limit => Limit::perMinute(10)->by($request->ip()));
 
         DB::prohibitDestructiveCommands(
             app()->isProduction(),

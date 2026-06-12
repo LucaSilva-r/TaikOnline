@@ -10,11 +10,15 @@ use App\Http\Requests\Admin\UserUpdateRequest;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\User;
+use App\Services\AccessCodeOwnershipService;
+use App\Services\CardIssueService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class UserController extends Controller
 {
@@ -70,26 +74,43 @@ class UserController extends Controller
         return back();
     }
 
-    public function bindAccessCode(UserAccessCodeBindRequest $request, User $user): RedirectResponse
+    public function bindAccessCode(UserAccessCodeBindRequest $request, User $user, AccessCodeOwnershipService $accessCodes): RedirectResponse
     {
-        $card = GameCard::query()->findOrFail($request->validated('access_code'));
-
-        Player::query()->whereKey($card->baid)->update([
-            'user_id' => $user->id,
-        ]);
+        $accessCodes->claim($user, $request->validated('access_code'));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Access code linked.')]);
 
         return back();
     }
 
-    public function unbindAccessCode(User $user): RedirectResponse
+    public function unbindAccessCode(User $user, AccessCodeOwnershipService $accessCodes): RedirectResponse
     {
-        Player::query()
-            ->where('user_id', $user->id)
-            ->update(['user_id' => null]);
+        $accessCodes->unclaim($user);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Access code unlinked.')]);
+
+        return back();
+    }
+
+    public function rotateAccessCode(User $user, CardIssueService $cards): RedirectResponse
+    {
+        $player = Player::query()->where('user_id', $user->id)->first();
+
+        if (! $player instanceof Player) {
+            throw ValidationException::withMessages([
+                'access_code' => __('This user does not have a linked access code.'),
+            ]);
+        }
+
+        try {
+            $cards->rotate($player);
+        } catch (RuntimeException $exception) {
+            throw ValidationException::withMessages([
+                'access_code' => $exception->getMessage(),
+            ]);
+        }
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Access code rotated.')]);
 
         return back();
     }
