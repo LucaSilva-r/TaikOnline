@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
 use App\Models\GameCard;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,7 +41,26 @@ class ProfileController extends Controller
             'status' => $request->session()->get('status'),
             'accessCode' => $accessCode,
             'prefillAccessCode' => $prefillAccessCode,
+            // QR encodes the bare 20-digit code (the exact payload Zucchini's
+            // camera reader accepts) so it can be scanned in lieu of a card.
+            'accessCodeQr' => $accessCode !== null ? $this->accessCodeQrSvg($accessCode) : null,
         ]);
+    }
+
+    /**
+     * Render the access code as an inline SVG QR (no imagick dependency).
+     */
+    private function accessCodeQrSvg(string $code): string
+    {
+        $renderer = new ImageRenderer(
+            new RendererStyle(220, 1),
+            new SvgImageBackEnd()
+        );
+
+        $svg = (new Writer($renderer))->writeString($code);
+
+        // Drop the XML prolog so the markup drops cleanly inline via {@html}.
+        return preg_replace('/^<\?xml.*?\?>\s*/s', '', $svg) ?? $svg;
     }
 
     /**

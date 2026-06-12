@@ -32,11 +32,13 @@
         status = '',
         accessCode = null,
         prefillAccessCode = null,
+        accessCodeQr = null,
     }: {
         mustVerifyEmail: boolean;
         status?: string;
         accessCode?: string | null;
         prefillAccessCode?: string | null;
+        accessCodeQr?: string | null;
     } = $props();
 
     const user = $derived(page.props.auth.user);
@@ -151,6 +153,21 @@
                 <Label>Linked access code</Label>
                 <Input value={accessCode} readonly class="mt-1 block w-full" />
             </div>
+
+            {#if accessCodeQr}
+                <div class="flex flex-col items-center gap-2">
+                    <div class="rounded-md bg-white p-3">
+                        <div class="h-[220px] w-[220px]">
+                            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                            {@html accessCodeQr}
+                        </div>
+                    </div>
+                    <p class="text-sm text-muted-foreground">
+                        Scan with Zucchini's QR card reader to use this code in
+                        place of a physical card.
+                    </p>
+                </div>
+            {/if}
             <Form
                 {...AccessCodeController.destroy.form(taikoRouteParam())}
                 options={{ preserveScroll: true }}
