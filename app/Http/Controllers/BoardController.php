@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Enums\TaikoGameVersion;
 use App\Models\Player;
 use App\Models\PlayerRankSnapshot;
+use App\Models\PlayerTokkunStageResult;
+use App\Models\PlayerTokkunState;
 use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
@@ -37,6 +39,7 @@ class BoardController extends Controller
                 'bestPerformances' => [],
                 'blueBattleData' => null,
                 'greenGhostData' => null,
+                'tokkunData' => null,
             ]);
         }
 
@@ -52,6 +55,7 @@ class BoardController extends Controller
             'bestPerformances' => $this->bestPerformances($player, $version),
             'blueBattleData' => $this->blueBattleData($player, $version),
             'greenGhostData' => $this->greenGhostData($player, $version),
+            'tokkunData' => $this->tokkunData($player, $version),
         ]);
     }
 
@@ -267,6 +271,68 @@ class BoardController extends Controller
             'winnings' => $winningsStates->map(fn ($win) => [
                 'level_id' => (int) $win->level_id,
                 'winnings' => (int) $win->winnings,
+            ])->toArray(),
+        ];
+    }
+
+    private function tokkunData(?Player $player, TaikoGameVersion $version): ?array
+    {
+        if ($player === null || ! in_array($version, [TaikoGameVersion::Blue, TaikoGameVersion::Yellow], true)) {
+            return null;
+        }
+
+        $state = $player->tokkunStates()->where('game_version', $version->value)->first();
+        $runs = $player->tokkunStageResults()
+            ->where('game_version', $version->value)
+            ->latest('played_at')
+            ->limit(10)
+            ->get();
+
+        if ($state === null && $runs->isEmpty()) {
+            return null;
+        }
+
+        // Aggregate stats
+        $stats = $player->tokkunStageResults()
+            ->where('game_version', $version->value)
+            ->selectRaw('
+                COUNT(*) as total_runs,
+                SUM(tokkun_song_count) as total_songs,
+                SUM(tokkun_speedchange_count) as total_speedchanges,
+                SUM(tokkun_autoplay_count) as total_autoplays,
+                SUM(tokkun_jump_count) as total_jumps
+            ')
+            ->first();
+
+        // Resolve song titles
+        $songNumbers = $runs->pluck('tokkun_song_numbers')->flatten()->unique()->all();
+        $songs = Song::query()
+            ->where('version', $version->value)
+            ->whereIn('song_no', $songNumbers)
+            ->pluck('title', 'song_no')
+            ->all();
+
+        return [
+            'tokkun_tutorial_flg' => (int) ($state?->tokkun_tutorial_flg ?? 0),
+            'summary' => [
+                'total_runs' => (int) ($stats->total_runs ?? 0),
+                'total_songs' => (int) ($stats->total_songs ?? 0),
+                'total_speedchanges' => (int) ($stats->total_speedchanges ?? 0),
+                'total_autoplays' => (int) ($stats->total_autoplays ?? 0),
+                'total_jumps' => (int) ($stats->total_jumps ?? 0),
+            ],
+            'recent_runs' => $runs->map(fn ($run) => [
+                'played_at' => $run->played_at->toDateTimeString(),
+                'play_mode' => (int) $run->play_mode,
+                'banacoin_datetime' => $run->banacoin_datetime,
+                'tokkun_song_count' => (int) $run->tokkun_song_count,
+                'tokkun_speedchange_count' => (int) $run->tokkun_speedchange_count,
+                'tokkun_autoplay_count' => (int) $run->tokkun_autoplay_count,
+                'tokkun_jump_count' => (int) $run->tokkun_jump_count,
+                'songs' => collect($run->tokkun_song_numbers)->map(fn ($songNo) => [
+                    'song_no' => (int) $songNo,
+                    'title' => $songs[$songNo] ?? "#{$songNo}",
+                ])->toArray(),
             ])->toArray(),
         ];
     }

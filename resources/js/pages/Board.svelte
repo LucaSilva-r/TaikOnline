@@ -124,6 +124,34 @@
         winnings: GreenGhostWinnings[];
     };
 
+    type TokkunSong = {
+        song_no: number;
+        title: string;
+    };
+
+    type TokkunRun = {
+        played_at: string;
+        play_mode: number;
+        banacoin_datetime: string | null;
+        tokkun_song_count: number;
+        tokkun_speedchange_count: number;
+        tokkun_autoplay_count: number;
+        tokkun_jump_count: number;
+        songs: TokkunSong[];
+    };
+
+    type TokkunData = {
+        tokkun_tutorial_flg: number;
+        summary: {
+            total_runs: number;
+            total_songs: number;
+            total_speedchanges: number;
+            total_autoplays: number;
+            total_jumps: number;
+        };
+        recent_runs: TokkunRun[];
+    };
+
     let {
         profile,
         hasPlayer,
@@ -133,6 +161,7 @@
         bestPerformances,
         blueBattleData = null,
         greenGhostData = null,
+        tokkunData = null,
     }: {
         profile: Profile;
         hasPlayer: boolean;
@@ -142,6 +171,7 @@
         bestPerformances: BestPerformance[];
         blueBattleData?: BlueBattleData | null;
         greenGhostData?: GreenGhostData | null;
+        tokkunData?: TokkunData | null;
     } = $props();
 
     const numberFormatter = new Intl.NumberFormat();
@@ -621,6 +651,118 @@
                                 <div class="text-right">
                                     <div class="text-3xs text-muted-foreground uppercase font-semibold">Winnings</div>
                                     <div class="font-extrabold text-sm text-primary tabular-nums">{win.winnings}</div>
+                                </div>
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+        </section>
+    {/if}
+
+    {#if tokkunData}
+        <section class="rounded-lg border bg-card">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+                <div>
+                    <h2 class="font-semibold text-lg flex items-center gap-2">
+                        <Trophy class="size-5 text-primary" />
+                        Tokkun Mode (特訓モード) Progress
+                    </h2>
+                    <p class="text-sm text-muted-foreground">
+                        Your practice session details, metrics, and training history
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid gap-6 p-5 md:grid-cols-3">
+                <!-- Main Training Stats -->
+                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-medium text-sm text-muted-foreground mb-3">Overall Training</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Total Sessions</span>
+                                <span class="font-semibold text-lg text-primary">{tokkunData.summary.total_runs} runs</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Total Songs Practiced</span>
+                                <span class="font-medium">{tokkunData.summary.total_songs} songs</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Tutorial Completed</span>
+                                <span class="font-medium">{tokkunData.tokkun_tutorial_flg ? 'Yes' : 'No'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Training Actions -->
+                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between md:col-span-2">
+                    <div>
+                        <h3 class="font-medium text-sm text-muted-foreground mb-3">Practice Metrics</h3>
+                        <div class="grid gap-4 grid-cols-3">
+                            <div class="flex flex-col items-center justify-center p-3 rounded-md bg-background border">
+                                <span class="text-2xs text-muted-foreground uppercase font-semibold">Speed Changes</span>
+                                <span class="font-bold text-lg text-primary tabular-nums mt-1">{tokkunData.summary.total_speedchanges}</span>
+                            </div>
+                            <div class="flex flex-col items-center justify-center p-3 rounded-md bg-background border">
+                                <span class="text-2xs text-muted-foreground uppercase font-semibold">Autoplay Runs</span>
+                                <span class="font-bold text-lg text-primary tabular-nums mt-1">{tokkunData.summary.total_autoplays}</span>
+                            </div>
+                            <div class="flex flex-col items-center justify-center p-3 rounded-md bg-background border">
+                                <span class="text-2xs text-muted-foreground uppercase font-semibold">Position Jumps</span>
+                                <span class="font-bold text-lg text-primary tabular-nums mt-1">{tokkunData.summary.total_jumps}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Sessions -->
+            {#if tokkunData.recent_runs.length > 0}
+                <div class="px-5 pb-5">
+                    <h3 class="font-semibold text-sm text-muted-foreground mb-4">Recent Training Sessions</h3>
+                    <div class="divide-y border rounded-lg bg-background overflow-hidden">
+                        {#each tokkunData.recent_runs as run}
+                            <div class="grid gap-4 p-4 sm:grid-cols-[1fr_auto]">
+                                <div class="space-y-2">
+                                    <div class="flex flex-wrap items-center gap-2 text-sm">
+                                        <span class="font-semibold text-primary">
+                                            {formatFullDate(run.played_at)} at {new Date(run.played_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                        {#if run.banacoin_datetime}
+                                            <span class="inline-flex items-center rounded-full bg-accent px-2 py-0.5 text-2xs font-medium text-primary border">
+                                                Paid Session
+                                            </span>
+                                        {/if}
+                                    </div>
+                                    
+                                    {#if run.songs.length > 0}
+                                        <div class="flex flex-wrap gap-1.5">
+                                            {#each run.songs as song}
+                                                <span class="inline-flex items-center rounded-md bg-muted px-2 py-1 text-2xs font-medium text-muted-foreground">
+                                                    {song.title}
+                                                </span>
+                                            {/each}
+                                        </div>
+                                    {:else}
+                                        <div class="text-xs text-muted-foreground">No songs logged.</div>
+                                    {/if}
+                                </div>
+
+                                <div class="flex flex-wrap items-center gap-4 text-xs text-muted-foreground sm:text-right">
+                                    <div class="text-center sm:text-right">
+                                        <div>Speed Changes</div>
+                                        <div class="font-bold text-foreground tabular-nums">{run.tokkun_speedchange_count}</div>
+                                    </div>
+                                    <div class="text-center sm:text-right">
+                                        <div>Autoplays</div>
+                                        <div class="font-bold text-foreground tabular-nums">{run.tokkun_autoplay_count}</div>
+                                    </div>
+                                    <div class="text-center sm:text-right">
+                                        <div>Jumps</div>
+                                        <div class="font-bold text-foreground tabular-nums">{run.tokkun_jump_count}</div>
+                                    </div>
                                 </div>
                             </div>
                         {/each}

@@ -31,10 +31,12 @@
         mustVerifyEmail,
         status = '',
         accessCode = null,
+        prefillAccessCode = null,
     }: {
         mustVerifyEmail: boolean;
         status?: string;
         accessCode?: string | null;
+        prefillAccessCode?: string | null;
     } = $props();
 
     const user = $derived(page.props.auth.user);
@@ -164,6 +166,16 @@
             </Form>
         </div>
     {:else}
+        {#if prefillAccessCode}
+            <div
+                class="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300"
+            >
+                You're about to link the access code from your newly created
+                card. Confirm below to claim it for this account — once linked,
+                nobody else can claim it.
+            </div>
+        {/if}
+
         <Form
             {...AccessCodeController.update.form(taikoRouteParam())}
             class="space-y-6"
@@ -178,6 +190,7 @@
                         name="access_code"
                         class="mt-1 block w-full"
                         required
+                        value={prefillAccessCode ?? ''}
                         placeholder="Enter the access code from your arcade card"
                     />
                     <InputError class="mt-2" message={errors.access_code} />
@@ -187,7 +200,8 @@
                     <Button
                         type="submit"
                         disabled={processing}
-                        data-test="bind-access-code-button">Link</Button
+                        data-test="bind-access-code-button"
+                        >{prefillAccessCode ? 'Confirm and link' : 'Link'}</Button
                     >
                 </div>
             {/snippet}

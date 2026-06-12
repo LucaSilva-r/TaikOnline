@@ -9,6 +9,7 @@ use App\GameProtocol\Support\ScoreMapper;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
+use App\Models\PlayerTokkunState;
 use App\Models\Song;
 use Google\Protobuf\Internal\Message;
 
@@ -120,6 +121,10 @@ class PlayerProfileService
     public function userData(Player $player, TaikoGameVersion $version): Message
     {
         $cosmetic = PlayerCosmetic::resolve((int) $player->baid, $version);
+        $tokkunState = PlayerTokkunState::query()
+            ->where('baid', $player->baid)
+            ->where('game_version', $version->value)
+            ->first();
 
         return $this->writer->fill($this->messages->make($version, 'UserDataResponse'), [
             'setResult' => 1,
@@ -150,6 +155,7 @@ class PlayerProfileService
             'setDifficultyPlayedStar' => (int) $player->difficulty_played_star,
             'setIsChallengecompe' => false,
             'setIsTojiru' => false,
+            'setTokkunTutorialFlg' => (int) ($tokkunState?->tokkun_tutorial_flg ?? 0),
         ]);
     }
 
