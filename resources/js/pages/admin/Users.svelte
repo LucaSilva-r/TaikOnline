@@ -22,6 +22,7 @@
     type AdminUser = {
         id: number;
         name: string;
+        username: string;
         email: string;
         role: string;
         created_at: string | null;
@@ -50,6 +51,7 @@
                 <tr>
                     <th class="px-3 py-2 font-medium">ID</th>
                     <th class="px-3 py-2 font-medium">Name</th>
+                    <th class="px-3 py-2 font-medium">Username</th>
                     <th class="px-3 py-2 font-medium">Email</th>
                     <th class="px-3 py-2 font-medium">Role</th>
                     <th class="px-3 py-2 font-medium">Created</th>
@@ -61,6 +63,7 @@
                     <tr class="border-t">
                         <td class="px-3 py-2">{user.id}</td>
                         <td class="px-3 py-2 font-medium">{user.name}</td>
+                        <td class="px-3 py-2">{user.username}</td>
                         <td class="px-3 py-2">{user.email}</td>
                         <td class="px-3 py-2">{user.role}</td>
                         <td class="px-3 py-2">{user.created_at ?? '-'}</td>
