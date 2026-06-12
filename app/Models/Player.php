@@ -34,6 +34,17 @@ class Player extends Model
 {
     protected $primaryKey = 'baid';
 
+    /**
+     * Default Don-chan colours for a freshly generated BAID. Without these the
+     * face/body/limb all fall back to colour 0 (red), so the default Don is
+     * solid red instead of the stock red-face / blue-body / cream-limb look.
+     */
+    protected $attributes = [
+        'color_face' => 0,
+        'color_body' => 1,
+        'color_limb' => 3,
+    ];
+
     protected function casts(): array
     {
         return [
