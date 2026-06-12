@@ -33,6 +33,21 @@ test('profile information can be updated', function () {
     expect($user->email_verified_at)->toBeNull();
 });
 
+test('username cannot be changed via profile update', function () {
+    $user = User::factory()->create(['username' => 'original']);
+
+    $this
+        ->actingAs($user)
+        ->patch(route('profile.update'), [
+            'name' => 'Test User',
+            'username' => 'hacker',
+            'email' => $user->email,
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($user->refresh()->username)->toBe('original');
+});
+
 test('email verification status is unchanged when the email address is unchanged', function () {
     $user = User::factory()->create();
 

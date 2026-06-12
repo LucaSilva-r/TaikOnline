@@ -36,9 +36,30 @@
                     required
                     autocomplete="name"
                     name="name"
-                    placeholder="Full name"
+                    placeholder="Display name"
                 />
+                <p class="text-sm text-muted-foreground">
+                    This is your public display name. You can change it at any
+                    time.
+                </p>
                 <InputError message={errors.name} />
+            </div>
+
+            <div class="grid gap-2">
+                <Label for="username">Username</Label>
+                <Input
+                    id="username"
+                    type="text"
+                    required
+                    autocomplete="username"
+                    name="username"
+                    placeholder="username"
+                />
+                <p class="text-sm text-muted-foreground">
+                    Used to log in. Choose carefully — your username cannot be
+                    changed later.
+                </p>
+                <InputError message={errors.username} />
             </div>
 
             <div class="grid gap-2">

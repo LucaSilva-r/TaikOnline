@@ -25,6 +25,7 @@
     type AdminUser = {
         id: number;
         name: string;
+        username: string;
         email: string;
         role: string;
         created_at: string | null;
@@ -71,6 +72,22 @@
                     autocomplete="name"
                 />
                 <InputError class="mt-2" message={errors.name} />
+            </div>
+
+            <div class="grid gap-2">
+                <Label for="username">Username</Label>
+                <Input
+                    id="username"
+                    class="mt-1 block w-full"
+                    value={user.username}
+                    disabled
+                    readonly
+                    tabindex={-1}
+                    aria-readonly="true"
+                />
+                <p class="mt-2 text-sm text-muted-foreground">
+                    Usernames are permanent and cannot be changed.
+                </p>
             </div>
 
             <div class="grid gap-2">

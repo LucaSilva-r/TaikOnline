@@ -48,7 +48,7 @@
     <Heading
         variant="small"
         title="Profile information"
-        description="Update your name and email address"
+        description="Update your name, username, and email address"
     />
 
     <Form
@@ -66,9 +66,30 @@
                     value={user.name}
                     required
                     autocomplete="name"
-                    placeholder="Full name"
+                    placeholder="Display name"
                 />
+                <p class="text-sm text-muted-foreground">
+                    This is your public display name and can be changed at any
+                    time.
+                </p>
                 <InputError class="mt-2" message={errors.name} />
+            </div>
+
+            <div class="grid gap-2">
+                <Label for="username">Username</Label>
+                <Input
+                    id="username"
+                    class="mt-1 block w-full"
+                    value={user.username}
+                    disabled
+                    readonly
+                    tabindex={-1}
+                    aria-readonly="true"
+                />
+                <p class="text-sm text-muted-foreground">
+                    Used to log in. Your username is permanent and cannot be
+                    changed.
+                </p>
             </div>
 
             <div class="grid gap-2">

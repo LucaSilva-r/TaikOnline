@@ -1,7 +1,7 @@
 <script module lang="ts">
     export const layout = {
         title: 'Log in to your account',
-        description: 'Enter your email and password below to log in',
+        description: 'Enter your username or email and password below to log in',
     };
 </script>
 
@@ -47,14 +47,14 @@
     {#snippet children({ errors, processing })}
         <div class="grid gap-6">
             <div class="grid gap-2">
-                <Label for="email">Email address</Label>
+                <Label for="email">Username or email</Label>
                 <Input
                     id="email"
-                    type="email"
+                    type="text"
                     name="email"
                     required
-                    autocomplete="email"
-                    placeholder="email@example.com"
+                    autocomplete="username"
+                    placeholder="username or email@example.com"
                 />
                 <InputError message={errors.email} />
             </div>

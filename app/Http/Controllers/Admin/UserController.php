@@ -27,6 +27,7 @@ class UserController extends Controller
                 ->through(fn (User $user): array => [
                     'id' => $user->id,
                     'name' => $user->name,
+                    'username' => $user->username,
                     'email' => $user->email,
                     'role' => $user->role->value,
                     'created_at' => optional($user->created_at)->toDateTimeString(),

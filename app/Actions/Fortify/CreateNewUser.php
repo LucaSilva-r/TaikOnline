@@ -7,6 +7,7 @@ use App\Concerns\ProfileValidationRules;
 use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
 
 class CreateNewUser implements CreatesNewUsers
@@ -20,13 +21,17 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
+        $input['username'] = Str::lower($input['username'] ?? '');
+
         Validator::make($input, [
             ...$this->profileRules(),
+            'username' => $this->usernameRules(),
             'password' => $this->passwordRules(),
         ])->validate();
 
         return User::create([
             'name' => $input['name'],
+            'username' => $input['username'],
             'email' => $input['email'],
             'password' => $input['password'],
             'role' => User::count() === 0 ? UserRole::Admin : UserRole::User,
