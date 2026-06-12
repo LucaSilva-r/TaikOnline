@@ -948,6 +948,52 @@ it('acknowledges anonymous play results without retrying', function (): void {
         ->and(SongPlayResult::query()->count())->toBe(0);
 });
 
+it('persists older play results that omit newer stage fields', function (TaikoGameVersion $version): void {
+    $player = Player::query()->create();
+    $resolver = app(ProtocolMessageResolver::class);
+
+    $requestClass = $resolver->class($version, 'PlayResultRequest');
+    $stageClass = $resolver->class($version, 'PlayResultRequest\\StageData');
+
+    $stage = (new $stageClass)
+        ->setSongNo(100)
+        ->setLevel(3)
+        ->setPlayResult(1)
+        ->setPlayScore(765432);
+
+    if (method_exists($stage, 'setStageMode')) {
+        $stage->setStageMode(6);
+    }
+
+    $request = (new $requestClass)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('2026-05-05 20:00:00')
+        ->setIsRight(true)
+        ->setCardType(1)
+        ->setIsTwoPlayers(false)
+        ->setAryStageInfo([$stage])
+        ->setReserved('');
+
+    $response = post_protobuf(
+        "/{$version->routeMajor()}r00/chassis/playresult.php",
+        $request,
+        $resolver->class($version, 'PlayResultResponse')
+    );
+
+    $stored = SongPlayResult::query()->firstOrFail();
+
+    expect($response->getResult())->toBe(1)
+        ->and($stored->game_version)->toBe($version->value)
+        ->and($stored->stage_mode)->toBe(method_exists($stage, 'getStageMode') ? 6 : 0)
+        ->and($stored->selected_folder_id)->toBe(0);
+})->with([
+    'sorairo' => [TaikoGameVersion::Sorairo],
+    'momoiro' => [TaikoGameVersion::Momoiro],
+    'kimidori' => [TaikoGameVersion::Kimidori],
+]);
+
 it('answers the older-version check endpoints (murasaki)', function (): void {
     $resolver = app(ProtocolMessageResolver::class);
     $version = TaikoGameVersion::Murasaki;
@@ -976,9 +1022,65 @@ it('answers the older-version check endpoints (murasaki)', function (): void {
         ->and(iterator_to_array($jukuResponse->getAryJukupackData()))->toBe([]);
 });
 
+it('unlocks every legacy song in the default song response', function (TaikoGameVersion $version): void {
+    create_song($version->value, 1);
+    create_song($version->value, 20015);
+
+    $resolver = app(ProtocolMessageResolver::class);
+    $requestClass = $resolver->class($version, 'DefaultsongRequest');
+    $responseClass = $resolver->class($version, 'DefaultsongResponse');
+    $request = (new $requestClass)->setChassisId('chassis');
+
+    if (method_exists($request, 'setShopId')) {
+        $request->setShopId('shop');
+    }
+
+    $response = post_protobuf("/{$version->routeMajor()}r00/chassis/defaultsong.php", $request, $responseClass);
+
+    // Two songs => one byte, every bit set so both are unlocked by default.
+    expect($response->getResult())->toBe(1)
+        ->and($response->getHashDefaultSongFlg())->toBe("\xFF");
+})->with([
+    'sorairo' => [TaikoGameVersion::Sorairo],
+    'momoiro' => [TaikoGameVersion::Momoiro],
+    'kimidori' => [TaikoGameVersion::Kimidori],
+    'murasaki' => [TaikoGameVersion::Murasaki],
+]);
+
+it('unlocks every legacy song in a carded player release flag', function (TaikoGameVersion $version): void {
+    create_song($version->value, 1);
+    create_song($version->value, 20015);
+
+    $player = Player::query()->create();
+    $resolver = app(ProtocolMessageResolver::class);
+    $requestClass = $resolver->class($version, 'UserDataRequest');
+    $responseClass = $resolver->class($version, 'UserDataResponse');
+
+    $request = (new $requestClass)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis');
+
+    if (method_exists($request, 'setShopId')) {
+        $request->setShopId('shop');
+    }
+
+    $response = post_protobuf("/{$version->routeMajor()}r00/chassis/userdata.php", $request, $responseClass);
+
+    expect($response->getResult())->toBe(1)
+        ->and($response->getHashReleaseSongFlg())->toBe("\xFF");
+})->with([
+    'sorairo' => [TaikoGameVersion::Sorairo],
+    'momoiro' => [TaikoGameVersion::Momoiro],
+    'kimidori' => [TaikoGameVersion::Kimidori],
+    'murasaki' => [TaikoGameVersion::Murasaki],
+]);
+
 it('answers the songhash endpoint (momoiro)', function (): void {
     $resolver = app(ProtocolMessageResolver::class);
     $version = TaikoGameVersion::Momoiro;
+
+    create_song($version->value, 1);
+    create_song($version->value, 20015);
 
     $reqClass = $resolver->class($version, 'SonghashRequest');
     $request = (new $reqClass)->setChassisId('268410000000');
@@ -989,8 +1091,11 @@ it('answers the songhash endpoint (momoiro)', function (): void {
         $resolver->class($version, 'SonghashResponse'),
     );
 
+    // The cabinet builds its whole song list from this table: one big-endian
+    // uint16 per song, ascending, so it must not be empty.
     expect($response->getResult())->toBe(1)
-        ->and($response->getSongHashVer())->toBe(99);
+        ->and($response->getSongHashVer())->toBe(99)
+        ->and(bin2hex($response->getSongHashTbl()))->toBe('00014e2f');
 });
 
 it('resolves momoiro message names despite casing drift (TelopCheck)', function (): void {
