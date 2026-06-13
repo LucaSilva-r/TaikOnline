@@ -3,6 +3,7 @@
 namespace App\GameProtocol\Services;
 
 use App\Enums\TaikoGameVersion;
+use App\GameProtocol\Support\ItemShopCatalog;
 use App\GameProtocol\Support\MessageWriter;
 use App\GameProtocol\Support\ProtocolMessageResolver;
 use App\GameProtocol\Support\ScoreMapper;
@@ -14,6 +15,7 @@ use App\Models\PlayerCosmetic;
 use App\Models\PlayerGreenGhostState;
 use App\Models\PlayerGreenGhostToken;
 use App\Models\PlayerGreenGhostWinnings;
+use App\Models\PlayerShopSeasonState;
 use App\Models\PlayerTokkunStageResult;
 use App\Models\PlayerTokkunState;
 use App\Models\SongBest;
@@ -63,6 +65,7 @@ class PlayResultService
 
         if ($isTokkun) {
             $this->saveTokkunData($player, $data, $version);
+
             return 1;
         }
 
@@ -107,10 +110,31 @@ class PlayResultService
             $this->updateBest($player, $stage, $rank, $gameVersion);
         }
 
+        $getDonmedal = method_exists($data, 'getGetDonmedal') ? (int) $data->getGetDonmedal() : 0;
+        $getKatsumedal = method_exists($data, 'getGetKatsumedal') ? (int) $data->getGetKatsumedal() : 0;
+
+        $catalog = new ItemShopCatalog($version);
+        $activeSeason = $catalog->getActiveSeason();
+        $totalGetDonmedal = (int) $player->total_get_donmedal;
+
+        if ($catalog->isEnabled && $activeSeason) {
+            $seasonState = PlayerShopSeasonState::query()->firstOrCreate([
+                'baid' => $player->baid,
+                'game_version' => $version->value,
+                'season_id' => $activeSeason['season_id'],
+            ]);
+            $seasonState->total_get_donmedal += $getDonmedal;
+            $seasonState->save();
+        } else {
+            $totalGetDonmedal += $getDonmedal;
+        }
+
         $attributes = [
             'last_played_at' => $playedAt,
             'recent_song_numbers' => $this->recentSongs($player, $data),
             'total_credit_count' => (int) $player->total_credit_count + 1,
+            'total_get_donmedal' => $totalGetDonmedal,
+            'total_get_katsumedal' => (int) $player->total_get_katsumedal + $getKatsumedal,
         ];
 
         // Some dialects (e.g. White) omit the difficulty-played fields from the

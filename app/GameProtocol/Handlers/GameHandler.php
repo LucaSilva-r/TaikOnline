@@ -5,6 +5,7 @@ namespace App\GameProtocol\Handlers;
 use App\Enums\TaikoGameVersion;
 use App\GameProtocol\Services\PlayerProfileService;
 use App\GameProtocol\Services\PlayResultService;
+use App\GameProtocol\Support\ItemShopCatalog;
 use App\GameProtocol\Support\MessageWriter;
 use App\GameProtocol\Support\ProtocolMessageResolver;
 use App\GameProtocol\Support\ProtocolPayloads;
@@ -14,9 +15,12 @@ use App\Models\DanCourse;
 use App\Models\DanCourseSong;
 use App\Models\HeadClerkLog;
 use App\Models\Player;
+use App\Models\PlayerCosmetic;
 use App\Models\PlayerGreenGhostState;
 use App\Models\PlayerGreenGhostToken;
 use App\Models\PlayerGreenGhostWinnings;
+use App\Models\PlayerShopItem;
+use App\Models\PlayerShopSeasonState;
 use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
@@ -24,6 +28,7 @@ use App\Services\CabinetService;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Default per-version request handler. Holds the response-building logic shared
@@ -65,12 +70,25 @@ class GameHandler
     public function initialDataCheck(Request $request, TaikoGameVersion $game): Response
     {
         $this->parse($request, $game, 'InitialdatacheckRequest');
-        $releaseSongFlag = $this->releaseSongFlag($game->value);
+
+        $catalog = new ItemShopCatalog($game);
+        $activeSeason = $catalog->getActiveSeason();
+        $isItemShop = ($catalog->isEnabled && $activeSeason) ? true : false;
+
+        $releaseSongFlag = $this->releaseSongFlag($game->value, $activeSeason);
 
         $information = $this->writer->fill($this->messages->make($game, 'InitialdatacheckResponse\\InformationData'), [
             'setInfoId' => 1,
             'setVerupNo' => 2,
         ]);
+
+        $itemShopData = [];
+        if ($isItemShop) {
+            $itemShopData[] = $this->writer->fill($this->messages->make($game, 'InitialdatacheckResponse\\InformationData'), [
+                'setInfoId' => $activeSeason['season_id'],
+                'setVerupNo' => $activeSeason['verup_no'],
+            ]);
+        }
 
         return $this->payloads->response(
             $this->writer->fill($this->messages->make($game, 'InitialdatacheckResponse'), [
@@ -80,10 +98,10 @@ class GameHandler
                 'setAryTelopData' => [$information],
                 'setAryEventfolderData' => [],
                 'setAryTaikojukuData' => [],
-                'setAryItemshopData' => [],
+                'setAryItemshopData' => $itemShopData,
                 'setIsDanplay' => true,
                 'setIsClose' => false,
-                'setIsItemshop' => false,
+                'setIsItemshop' => $isItemShop,
                 'setIsGhostbattleplay' => true,
             ])
         );
@@ -558,12 +576,30 @@ class GameHandler
         return $this->scoreMapper->songFlagBytes($songNumbers);
     }
 
-    protected function releaseSongFlag(string $gameVersion): string
+    protected function releaseSongFlag(string $gameVersion, ?array $activeSeason = null): string
     {
         $songNumbers = Song::query()
             ->where('version', $gameVersion)
             ->pluck('song_no')
-            ->map(fn (mixed $songNo): int => (int) $songNo);
+            ->map(fn (mixed $songNo): int => (int) $songNo)
+            ->filter(function (int $songNo) use ($activeSeason): bool {
+                if ($activeSeason) {
+                    $isShopSong = false;
+                    foreach ($activeSeason['items'] as $item) {
+                        if ($item['item_type'] === 1 && $item['item_id'] === $songNo) {
+                            $isShopSong = true;
+                            break;
+                        }
+                    }
+                    if ($isShopSong) {
+                        return false;
+                    }
+                }
+
+                return true;
+            })
+            ->values()
+            ->all();
 
         return $this->scoreMapper->releaseSongFlagBytes($gameVersion, $songNumbers);
     }
@@ -584,5 +620,246 @@ class GameHandler
             ->map(fn (mixed $songNo): int => (int) $songNo);
 
         return $this->scoreMapper->legacySongHashTable($songNumbers);
+    }
+
+    public function getItemShopInfo(Request $request, TaikoGameVersion $game): Response
+    {
+        $this->parse($request, $game, 'GetitemshopinfoRequest');
+        $catalog = new ItemShopCatalog($game);
+        $activeSeason = $catalog->getActiveSeason();
+
+        if (! $catalog->isEnabled || ! $activeSeason) {
+            return $this->payloads->response(
+                $this->writer->set($this->messages->make($game, 'GetitemshopinfoResponse'), 'setResult', 1)
+            );
+        }
+
+        $items = [];
+        foreach ($activeSeason['items'] as $item) {
+            $items[] = $this->writer->fill($this->messages->make($game, 'GetitemshopinfoResponse\\ItemshopData'), [
+                'setItemNo' => $item['item_no'],
+                'setItemType' => $item['item_type'],
+                'setItemId' => $item['item_id'],
+                'setItemPrice' => $item['item_price'],
+            ]);
+        }
+
+        return $this->payloads->response(
+            $this->writer->fill($this->messages->make($game, 'GetitemshopinfoResponse'), [
+                'setResult' => 1,
+                'setVerupNo' => (int) $activeSeason['verup_no'],
+                'setSeasonId' => (int) $activeSeason['season_id'],
+                'setTelop' => $activeSeason['telop'],
+                'setStartDatetime' => $activeSeason['start_datetime'],
+                'setEndDatetime' => $activeSeason['end_datetime'],
+                'setAfterstartDays' => (int) $activeSeason['afterstart_days'],
+                'setBeforecloseDays' => (int) $activeSeason['beforeclose_days'],
+                'setAryItemshopData' => $items,
+            ])
+        );
+    }
+
+    public function itemPurchase(Request $request, TaikoGameVersion $game): Response
+    {
+        $message = $this->parse($request, $game, 'ItempurchaseRequest');
+        $player = Player::query()->find($message->getBaid());
+        if (! $player instanceof Player) {
+            return $this->payloads->response(
+                $this->writer->set($this->messages->make($game, 'ItempurchaseResponse'), 'setResult', 0)
+            );
+        }
+
+        $catalog = new ItemShopCatalog($game);
+        $activeSeason = $catalog->getActiveSeason();
+
+        $itemNo = $message->getItemNo();
+
+        // 1. Preflight check: item_no == 0
+        if ($itemNo === 0) {
+            $totalGet = 0;
+            $totalUse = 0;
+            if ($catalog->isEnabled && $activeSeason) {
+                $seasonState = PlayerShopSeasonState::query()->firstOrCreate([
+                    'baid' => $player->baid,
+                    'game_version' => $game->value,
+                    'season_id' => $activeSeason['season_id'],
+                ]);
+                $totalGet = $seasonState->total_get_donmedal;
+                $totalUse = $seasonState->total_use_donmedal;
+            }
+
+            return $this->payloads->response(
+                $this->writer->fill($this->messages->make($game, 'ItempurchaseResponse'), [
+                    'setResult' => 1,
+                    'setTotalGetDonmedal' => $totalGet,
+                    'setTotalUseDonmedal' => $totalUse,
+                ])
+            );
+        }
+
+        // 2. Normal purchase
+        if (! $catalog->isEnabled || ! $activeSeason) {
+            return $this->payloads->response(
+                $this->writer->set($this->messages->make($game, 'ItempurchaseResponse'), 'setResult', 0)
+            );
+        }
+
+        // Validate that requested item matches catalog
+        $itemType = method_exists($message, 'hasItemType') && ! $message->hasItemType() ? null : $message->getItemType();
+        $itemId = method_exists($message, 'hasItemId') && ! $message->hasItemId() ? null : $message->getItemId();
+        $itemPrice = method_exists($message, 'hasItemPrice') && ! $message->hasItemPrice() ? null : $message->getItemPrice();
+
+        $catalogItem = null;
+        foreach ($activeSeason['items'] as $item) {
+            if ($item['item_no'] === $itemNo) {
+                $catalogItem = $item;
+                break;
+            }
+        }
+
+        if ($catalogItem === null) {
+            return $this->payloads->response(
+                $this->writer->set($this->messages->make($game, 'ItempurchaseResponse'), 'setResult', 0)
+            );
+        }
+
+        // Rejects forged catalog tuple
+        if (($itemType !== null && $catalogItem['item_type'] !== $itemType) ||
+            ($itemId !== null && $catalogItem['item_id'] !== $itemId) ||
+            ($itemPrice !== null && $catalogItem['item_price'] !== $itemPrice)) {
+            return $this->payloads->response(
+                $this->writer->set($this->messages->make($game, 'ItempurchaseResponse'), 'setResult', 0)
+            );
+        }
+
+        // Rejects zero price rows
+        if ($catalogItem['item_price'] === 0) {
+            return $this->payloads->response(
+                $this->writer->set($this->messages->make($game, 'ItempurchaseResponse'), 'setResult', 0)
+            );
+        }
+
+        return DB::transaction(function () use ($player, $game, $activeSeason, $catalogItem): Response {
+            $seasonState = PlayerShopSeasonState::query()->lockForUpdate()->firstOrCreate([
+                'baid' => $player->baid,
+                'game_version' => $game->value,
+                'season_id' => $activeSeason['season_id'],
+            ]);
+
+            $available = $seasonState->total_get_donmedal - $seasonState->total_use_donmedal;
+            if ($available < $catalogItem['item_price']) {
+                return $this->payloads->response(
+                    $this->writer->set($this->messages->make($game, 'ItempurchaseResponse'), 'setResult', 0)
+                );
+            }
+
+            // Rejects duplicate unlocked
+            $exists = PlayerShopItem::query()
+                ->where('baid', $player->baid)
+                ->where('game_version', $game->value)
+                ->where('season_id', $activeSeason['season_id'])
+                ->where('item_type', $catalogItem['item_type'])
+                ->where('item_id', $catalogItem['item_id'])
+                ->exists();
+
+            if ($exists) {
+                return $this->payloads->response(
+                    $this->writer->set($this->messages->make($game, 'ItempurchaseResponse'), 'setResult', 0)
+                );
+            }
+
+            // Spend medals
+            $seasonState->total_use_donmedal += $catalogItem['item_price'];
+            $seasonState->save();
+
+            // Persist item purchase
+            PlayerShopItem::query()->create([
+                'baid' => $player->baid,
+                'game_version' => $game->value,
+                'season_id' => $activeSeason['season_id'],
+                'item_type' => $catalogItem['item_type'],
+                'item_id' => $catalogItem['item_id'],
+                'item_no' => $catalogItem['item_no'],
+                'item_price' => $catalogItem['item_price'],
+            ]);
+
+            // Unlock item immediately
+            if ($catalogItem['item_type'] === 1) {
+                // Song
+                $player->unlocked_song_numbers = array_merge(
+                    $player->unlocked_song_numbers ?? [],
+                    [$catalogItem['item_id']]
+                );
+                $player->save();
+            } else {
+                $cosmetic = PlayerCosmetic::resolve($player->baid, $game);
+                if ($catalogItem['item_type'] === 2) {
+                    // Tone
+                    $cosmetic->unlocked_tones = array_merge(
+                        $cosmetic->unlocked_tones ?? [],
+                        [$catalogItem['item_id']]
+                    );
+                } else {
+                    // Costume slots: 3 (kigurumi) -> 1, 5 (head) -> 2, 4 (body) -> 3, 6 (face) -> 4, 7 (puchi) -> 5
+                    $slot = match ($catalogItem['item_type']) {
+                        3 => 1,
+                        5 => 2,
+                        4 => 3,
+                        6 => 4,
+                        7 => 5,
+                        default => null,
+                    };
+                    if ($slot !== null) {
+                        $costumes = $cosmetic->unlocked_costumes ?? [];
+                        $costumes[(string) $slot] = array_merge(
+                            $costumes[(string) $slot] ?? [],
+                            [$catalogItem['item_id']]
+                        );
+                        $cosmetic->unlocked_costumes = $costumes;
+                    }
+                }
+                $cosmetic->save();
+            }
+
+            return $this->payloads->response(
+                $this->writer->fill($this->messages->make($game, 'ItempurchaseResponse'), [
+                    'setResult' => 1,
+                    'setTotalGetDonmedal' => $seasonState->total_get_donmedal,
+                    'setTotalUseDonmedal' => $seasonState->total_use_donmedal,
+                ])
+            );
+        });
+    }
+
+    public function getBanacoinInfo(Request $request, TaikoGameVersion $game): Response
+    {
+        $this->parse($request, $game, 'GetbanacoininfoRequest');
+
+        return $this->payloads->response(
+            $this->writer->set($this->messages->make($game, 'GetbanacoininfoResponse'), 'setResult', 1)
+        );
+    }
+
+    public function banacoinPayment(Request $request, TaikoGameVersion $game): Response
+    {
+        $message = $this->parse($request, $game, 'BanacoinpaymentRequest');
+
+        return $this->payloads->response(
+            $this->writer->fill($this->messages->make($game, 'BanacoinpaymentResponse'), [
+                'setResult' => 1,
+                'setPersonid' => $message->getPersonid(),
+                'setBnidResult' => 'Ok',
+                'setChid' => '1',
+            ])
+        );
+    }
+
+    public function banacoinErrorLog(Request $request, TaikoGameVersion $game): Response
+    {
+        $this->parse($request, $game, 'BanacoinerrorlogRequest');
+
+        return $this->payloads->response(
+            $this->writer->set($this->messages->make($game, 'BanacoinerrorlogResponse'), 'setResult', 1)
+        );
     }
 }

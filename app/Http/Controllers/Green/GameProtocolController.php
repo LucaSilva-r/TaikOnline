@@ -154,6 +154,31 @@ class GameProtocolController extends Controller
         return $this->dispatch($version, 'headClerk2', $request);
     }
 
+    public function getItemShopInfo(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'getItemShopInfo', $request);
+    }
+
+    public function itemPurchase(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'itemPurchase', $request);
+    }
+
+    public function getBanacoinInfo(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'getBanacoinInfo', $request);
+    }
+
+    public function banacoinPayment(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'banacoinPayment', $request);
+    }
+
+    public function banacoinErrorLog(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'banacoinErrorLog', $request);
+    }
+
     public function rootSetup(Request $request): Response
     {
         $payload = $request->getContent();
