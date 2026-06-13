@@ -3,6 +3,7 @@
 namespace App\GameProtocol\Handlers;
 
 use App\Enums\TaikoGameVersion;
+use App\GameProtocol\Support\ItemShopCatalog;
 use App\Models\PlayerBlueBattleNpcState;
 use App\Models\PlayerBlueBattleState;
 use App\Models\PlayerBlueBattleTokenState;
@@ -20,7 +21,10 @@ class BlueGameHandler extends GameHandler
     {
         $this->parse($request, $game, 'InitialdatacheckRequest');
 
-        return $this->blueInitialDataCheckResponse($this->releaseSongFlag($game->value));
+        $catalog = new ItemShopCatalog($game);
+        $activeSeason = $catalog->getActiveSeason();
+
+        return $this->blueInitialDataCheckResponse($this->releaseSongFlag($game->value, $activeSeason), $catalog);
     }
 
     public function battleUserData(Request $request, TaikoGameVersion $game): Response
@@ -173,8 +177,19 @@ class BlueGameHandler extends GameHandler
         return $this->scoreMapper->idFlagBytes(array_unique($enabledIds), 16);
     }
 
-    private function blueInitialDataCheckResponse(string $releaseSongFlag): Response
+    private function blueInitialDataCheckResponse(string $releaseSongFlag, ItemShopCatalog $catalog): Response
     {
+        $activeSeason = $catalog->getActiveSeason();
+        $isItemShop = ($catalog->isEnabled && $activeSeason) ? 1 : 0;
+
+        $itemShopField = '';
+        if ($isItemShop) {
+            $itemShopField = $this->protobufBytesField(9, $this->protobufMessage([
+                $this->protobufVarintField(1, $activeSeason['season_id']),
+                $this->protobufVarintField(2, $activeSeason['verup_no']),
+            ]));
+        }
+
         $body = $this->protobufVarintField(1, 1)
             .$this->protobufVarintField(2, 1)
             .$this->protobufBytesField(3, $releaseSongFlag)
@@ -184,9 +199,10 @@ class BlueGameHandler extends GameHandler
                 $this->protobufVarintField(1, 1),
                 $this->protobufVarintField(2, 2),
             ]))
+            .$itemShopField
             .$this->protobufVarintField(10, 1)
             .$this->protobufVarintField(11, 0)
-            .$this->protobufVarintField(12, 0)
+            .$this->protobufVarintField(12, $isItemShop)
             .$this->protobufVarintField(14, 1)
             .$this->protobufBytesField(15, "\x02".str_repeat("\x00", 7))
             .$this->protobufBytesField(16, "\x02".str_repeat("\x00", 14)."\x01")

@@ -59,6 +59,11 @@ Route::middleware(LogGreenCabinetTraffic::class)->group(function () use ($protoc
     Route::post('{version}/chassis/rewardcardcheck.php', [GameProtocolController::class, 'rewardCardCheck'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/rewardexecution.php', [GameProtocolController::class, 'rewardExecution'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/headclerk2.php', [GameProtocolController::class, 'headClerk2'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/getitemshopinfo.php', [GameProtocolController::class, 'getItemShopInfo'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/itempurchase.php', [GameProtocolController::class, 'itemPurchase'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/getbanacoininfo.php', [GameProtocolController::class, 'getBanacoinInfo'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/banacoinpayment.php', [GameProtocolController::class, 'banacoinPayment'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/banacoinerrorlog.php', [GameProtocolController::class, 'banacoinErrorLog'])->where('version', $protocolVersionPattern);
 });
 
 // Catch-all so we observe whatever the cabinet hits but we don't yet route.
@@ -77,5 +82,5 @@ Route::any('{any?}', function (Request $request) {
         'headers' => collect($request->headers->all())->only(['host', 'user-agent', 'content-type', 'content-length'])->all(),
     ]);
 
-    return response('RESULTS=001&STATUS=1', 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+    return response()->json(['message' => 'Not Found'], 404);
 })->where('any', '.*')->fallback();

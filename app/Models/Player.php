@@ -115,6 +115,16 @@ class Player extends Model
         return $this->hasMany(PlayerTokkunStageResult::class, 'baid', 'baid');
     }
 
+    public function shopSeasonStates(): HasMany
+    {
+        return $this->hasMany(PlayerShopSeasonState::class, 'baid', 'baid');
+    }
+
+    public function shopItems(): HasMany
+    {
+        return $this->hasMany(PlayerShopItem::class, 'baid', 'baid');
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

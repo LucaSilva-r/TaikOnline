@@ -3,12 +3,15 @@
 namespace App\GameProtocol\Services;
 
 use App\Enums\TaikoGameVersion;
+use App\GameProtocol\Support\ItemShopCatalog;
 use App\GameProtocol\Support\MessageWriter;
 use App\GameProtocol\Support\ProtocolMessageResolver;
 use App\GameProtocol\Support\ScoreMapper;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
+use App\Models\PlayerShopItem;
+use App\Models\PlayerShopSeasonState;
 use App\Models\PlayerTokkunState;
 use App\Models\Song;
 use Google\Protobuf\Internal\Message;
@@ -30,13 +33,98 @@ class PlayerProfileService
         private readonly MessageWriter $writer,
     ) {}
 
+    private function getShopDetails(Player $player, TaikoGameVersion $version): array
+    {
+        $catalog = new ItemShopCatalog($version);
+        $activeSeason = $catalog->getActiveSeason();
+
+        $totalGet = 0;
+        $totalUse = 0;
+        $unlockedSongIds = [];
+        $unlockedToneIds = [];
+        $unlockedCostumeIdsBySlot = [1 => [], 2 => [], 3 => [], 4 => [], 5 => []];
+
+        if ($catalog->isEnabled && $activeSeason) {
+            $seasonState = PlayerShopSeasonState::query()->firstOrCreate([
+                'baid' => $player->baid,
+                'game_version' => $version->value,
+                'season_id' => $activeSeason['season_id'],
+            ]);
+            $totalGet = $seasonState->total_get_donmedal;
+            $totalUse = $seasonState->total_use_donmedal;
+
+            $items = PlayerShopItem::query()
+                ->where('baid', $player->baid)
+                ->where('game_version', $version->value)
+                ->where('season_id', $activeSeason['season_id'])
+                ->get();
+
+            foreach ($items as $item) {
+                if ($item->item_type === 1) {
+                    $unlockedSongIds[] = $item->item_id;
+                } elseif ($item->item_type === 2) {
+                    $unlockedToneIds[] = $item->item_id;
+                } elseif ($item->item_type === 3) {
+                    $unlockedCostumeIdsBySlot[1][] = $item->item_id; // kigurumi -> slot 1
+                } elseif ($item->item_type === 5) {
+                    $unlockedCostumeIdsBySlot[2][] = $item->item_id; // head -> slot 2
+                } elseif ($item->item_type === 4) {
+                    $unlockedCostumeIdsBySlot[3][] = $item->item_id; // body -> slot 3
+                } elseif ($item->item_type === 6) {
+                    $unlockedCostumeIdsBySlot[4][] = $item->item_id; // face -> slot 4
+                } elseif ($item->item_type === 7) {
+                    $unlockedCostumeIdsBySlot[5][] = $item->item_id; // puchi -> slot 5
+                }
+            }
+        }
+
+        return [
+            'activeSeason' => $activeSeason,
+            'totalGet' => $totalGet,
+            'totalUse' => $totalUse,
+            'unlockedSongIds' => $unlockedSongIds,
+            'unlockedToneIds' => $unlockedToneIds,
+            'unlockedCostumeIdsBySlot' => $unlockedCostumeIdsBySlot,
+        ];
+    }
+
     /**
      * Render one costume slot's unlocked ids into its flag bitset. Costumes are
      * stored as a {slot => [ids]} map in the version-scoped cosmetic row.
      */
-    private function costumeFlag(PlayerCosmetic $cosmetic, int $slot): string
+    private function costumeFlag(PlayerCosmetic $cosmetic, int $slot, ?array $activeSeason = null, array $unlockedCostumeIdsBySlot = []): string
     {
         $ids = ($cosmetic->unlocked_costumes ?? [])[(string) $slot] ?? [];
+
+        if ($activeSeason) {
+            $itemType = match ($slot) {
+                1 => 3, // kigurumi
+                2 => 5, // head
+                3 => 4, // body
+                4 => 6, // face
+                5 => 7, // puchi
+                default => null,
+            };
+
+            if ($itemType !== null) {
+                $ids = array_filter($ids, function (int $itemId) use ($activeSeason, $itemType, $unlockedCostumeIdsBySlot, $slot): bool {
+                    $isShopItem = false;
+                    foreach ($activeSeason['items'] as $item) {
+                        if ($item['item_type'] === $itemType && $item['item_id'] === $itemId) {
+                            $isShopItem = true;
+                            break;
+                        }
+                    }
+                    if ($isShopItem) {
+                        $allowedIds = $unlockedCostumeIdsBySlot[$slot] ?? [];
+
+                        return in_array($itemId, $allowedIds, true);
+                    }
+
+                    return true;
+                });
+            }
+        }
 
         return $this->scoreMapper->idFlagBytes($ids, self::COSTUME_FLAG_BYTES);
     }
@@ -126,20 +214,43 @@ class PlayerProfileService
             ->where('game_version', $version->value)
             ->first();
 
+        $shop = $this->getShopDetails($player, $version);
+        $activeSeason = $shop['activeSeason'];
+        $unlockedSongIds = $shop['unlockedSongIds'];
+        $unlockedToneIds = $shop['unlockedToneIds'];
+
+        $tones = $cosmetic->unlocked_tones ?? [];
+        if ($activeSeason) {
+            $tones = array_filter($tones, function (int $toneId) use ($activeSeason, $unlockedToneIds): bool {
+                $isShopTone = false;
+                foreach ($activeSeason['items'] as $item) {
+                    if ($item['item_type'] === 2 && $item['item_id'] === $toneId) {
+                        $isShopTone = true;
+                        break;
+                    }
+                }
+                if ($isShopTone) {
+                    return in_array($toneId, $unlockedToneIds, true);
+                }
+
+                return true;
+            });
+        }
+
         return $this->writer->fill($this->messages->make($version, 'UserDataResponse'), [
             'setResult' => 1,
             'setIsExplain' => false,
             'setAryFavoriteSongNo' => $player->favorite_song_numbers ?? [],
             'setAryRecentSongNo' => $player->recent_song_numbers ?? [],
             'setSongHashVer' => 99,
-            'setHashReleaseSongFlg' => $this->releaseSongFlag($version->value),
+            'setHashReleaseSongFlg' => $this->releaseSongFlag($version->value, $activeSeason, $unlockedSongIds),
             'setIsDevil' => false,
             'setDispScoreType' => 0,
             'setAryFriendInfo' => [],
             'setDispLevelTotal' => 0,
             'setDispLevelChassis' => 0,
             'setOptionFlg' => pack('V', (int) $cosmetic->default_option_setting),
-            'setToneFlg' => $this->scoreMapper->idFlagBytes($cosmetic->unlocked_tones ?? [], self::TONE_FLAG_BYTES),
+            'setToneFlg' => $this->scoreMapper->idFlagBytes($tones, self::TONE_FLAG_BYTES),
             'setTitleFlg' => $this->scoreMapper->idFlagBytes($cosmetic->unlocked_titles ?? [], self::TITLE_FLAG_BYTES),
             'setSongPushedCnt' => 0,
             'setSongFavoriteCnt' => count($player->favorite_song_numbers ?? []),
@@ -159,12 +270,30 @@ class PlayerProfileService
         ]);
     }
 
-    private function releaseSongFlag(string $gameVersion): string
+    private function releaseSongFlag(string $gameVersion, ?array $activeSeason = null, array $unlockedSongIds = []): string
     {
         $songNumbers = Song::query()
             ->where('version', $gameVersion)
             ->pluck('song_no')
-            ->map(fn (mixed $songNo): int => (int) $songNo);
+            ->map(fn (mixed $songNo): int => (int) $songNo)
+            ->filter(function (int $songNo) use ($activeSeason, $unlockedSongIds): bool {
+                if ($activeSeason) {
+                    $isShopSong = false;
+                    foreach ($activeSeason['items'] as $item) {
+                        if ($item['item_type'] === 1 && $item['item_id'] === $songNo) {
+                            $isShopSong = true;
+                            break;
+                        }
+                    }
+                    if ($isShopSong) {
+                        return in_array($songNo, $unlockedSongIds, true);
+                    }
+                }
+
+                return true;
+            })
+            ->values()
+            ->all();
 
         return $this->scoreMapper->releaseSongFlagBytes($gameVersion, $songNumbers);
     }
@@ -208,6 +337,9 @@ class PlayerProfileService
     private function baidResponse(TaikoGameVersion $version, Player $player, string $accessCode, bool $needsRegistration): Message
     {
         $cosmetic = PlayerCosmetic::resolve((int) $player->baid, $version);
+        $shop = $this->getShopDetails($player, $version);
+        $activeSeason = $shop['activeSeason'];
+        $unlockedCostumeIdsBySlot = $shop['unlockedCostumeIdsBySlot'];
 
         return $this->writer->fill($this->messages->make($version, 'BAIDResponse'), [
             'setResult' => 1,
@@ -228,14 +360,14 @@ class PlayerProfileService
             'setColorLimb' => (int) $player->color_limb,
             'setAryCostumedata' => $this->equippedCostumeData($version, $cosmetic),
             'setAryFavoriteCostumedata' => [],
-            'setCostumeFlg' => $this->costumeFlag($cosmetic, 1),
-            'setCostumeFlg1' => $this->costumeFlag($cosmetic, 1),
-            'setCostumeFlg2' => $this->costumeFlag($cosmetic, 2),
-            'setCostumeFlg3' => $this->costumeFlag($cosmetic, 3),
-            'setCostumeFlg4' => $this->costumeFlag($cosmetic, 4),
-            'setCostumeFlg5' => $this->costumeFlag($cosmetic, 5),
-            'setTotalGetDonmedal' => (int) $player->total_get_donmedal,
-            'setTotalUseDonmedal' => (int) $player->total_use_donmedal,
+            'setCostumeFlg' => $this->costumeFlag($cosmetic, 1, $activeSeason, $unlockedCostumeIdsBySlot),
+            'setCostumeFlg1' => $this->costumeFlag($cosmetic, 1, $activeSeason, $unlockedCostumeIdsBySlot),
+            'setCostumeFlg2' => $this->costumeFlag($cosmetic, 2, $activeSeason, $unlockedCostumeIdsBySlot),
+            'setCostumeFlg3' => $this->costumeFlag($cosmetic, 3, $activeSeason, $unlockedCostumeIdsBySlot),
+            'setCostumeFlg4' => $this->costumeFlag($cosmetic, 4, $activeSeason, $unlockedCostumeIdsBySlot),
+            'setCostumeFlg5' => $this->costumeFlag($cosmetic, 5, $activeSeason, $unlockedCostumeIdsBySlot),
+            'setTotalGetDonmedal' => (int) $shop['totalGet'],
+            'setTotalUseDonmedal' => (int) $shop['totalUse'],
             'setTotalGetKatsumedal' => (int) $player->total_get_katsumedal,
             'setTotalUseKatsumedal' => (int) $player->total_use_katsumedal,
             'setItemshopTutorialFlg' => 0,

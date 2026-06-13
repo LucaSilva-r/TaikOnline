@@ -34,6 +34,9 @@ return [
         )),
     ),
 
+    'enable_shop' => env('TAIKO_GREEN_ENABLE_SHOP', true),
+    'active_shop_season_id' => (int) env('TAIKO_GREEN_ACTIVE_SHOP_SEASON_ID', 4),
+
     'mucha_force_update' => (bool) env('TAIKO_GREEN_MUCHA_FORCE_UPDATE', false),
     'mucha_forced_target_ver' => env('TAIKO_GREEN_MUCHA_TARGET_VER', 'S1110JPN99.99'),
     'mucha_chunk_path' => env('TAIKO_GREEN_MUCHA_CHUNK_PATH', storage_path('app/mucha/chunk.img')),
