@@ -66,18 +66,18 @@ for version in "${VERSIONS[@]}"; do
     work="$TMP/src/$version"
     mkdir -p "$work"
 
-    annotate_proto "$srcdir/taiko.proto" "$work/taiko.proto" \
+    annotate_proto "$srcdir/taiko.proto" "$work/taiko_$version.proto" \
         "taiko.$version" \
         "App\\GameProtocol\\Proto\\$studly\\Taiko" \
         "App\\GameProtocol\\Proto\\$studly\\Metadata"
 
-    annotate_proto "$srcdir/vsinterface.proto" "$work/vsinterface.proto" \
+    annotate_proto "$srcdir/vsinterface.proto" "$work/vsinterface_$version.proto" \
         "vsinterface.$version" \
         "App\\GameProtocol\\Proto\\$studly\\VsInterface" \
         "App\\GameProtocol\\Proto\\$studly\\Metadata"
 
     "$PROTOC" --proto_path="$work" --php_out="$TMP/out" \
-        "$work/taiko.proto" "$work/vsinterface.proto"
+        "$work/taiko_$version.proto" "$work/vsinterface_$version.proto"
 
     echo "generated $version -> App\\GameProtocol\\Proto\\$studly"
 done
@@ -85,6 +85,7 @@ done
 mkdir -p "$ROOT/app/GameProtocol"
 mv "$TMP/out/App/GameProtocol/Proto" "$ROOT/app/GameProtocol/"
 rm -rf "$TMP"
+
 
 if [[ -x "$ROOT/vendor/bin/pint" ]]; then
     "$ROOT/vendor/bin/pint" "$ROOT/app/GameProtocol/Proto" --format agent >/dev/null
