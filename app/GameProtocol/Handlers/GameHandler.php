@@ -131,6 +131,20 @@ class GameHandler
         );
     }
 
+    public function coinSetting(Request $request, TaikoGameVersion $game): Response
+    {
+        $message = $this->parse($request, $game, 'CoinsettingRequest');
+
+        $serial = $message->getChassisId();
+        if ($serial !== '') {
+            $this->cabinets->recordHeartbeat($serial, $request->ip());
+        }
+
+        return $this->payloads->response(
+            $this->writer->set($this->messages->make($game, 'CoinsettingResponse'), 'setResult', 1)
+        );
+    }
+
     public function baid(Request $request, TaikoGameVersion $game): Response
     {
         $message = $this->parse($request, $game, 'BAIDRequest');

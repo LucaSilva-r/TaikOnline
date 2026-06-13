@@ -1162,6 +1162,23 @@ it('handles momoiro bookkeeping with the renamed app_play_cnt field', function (
         ->and(CabinetBookkeepingLog::query()->first()->all_play_count)->toBe(7);
 });
 
+it('handles yellow coinsetting', function (): void {
+    $resolver = app(ProtocolMessageResolver::class);
+    $version = TaikoGameVersion::Yellow;
+
+    $reqClass = $resolver->class($version, 'CoinsettingRequest');
+    $request = (new $reqClass)
+        ->setChassisId('268410000000')
+        ->setShopId('shop')
+        ->setSettingDatetime('20260613')
+        ->setPlayRates(1);
+
+    $response = post_protobuf('/v09r00/chassis/coinsetting.php', $request, $resolver->class($version, 'CoinsettingResponse'));
+
+    expect($response->getResult())->toBe(1);
+    expect(Cabinet::query()->find('268410000000')->last_heartbeat_at)->not->toBeNull();
+});
+
 it('loads issued cards through baidcheck for versions without nested CostumeData', function (TaikoGameVersion $version): void {
     $resolver = app(ProtocolMessageResolver::class);
     $player = Player::query()->create();

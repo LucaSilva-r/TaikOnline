@@ -39,6 +39,11 @@ class GameProtocolController extends Controller
         return $this->dispatch($version, 'bookKeeping', $request);
     }
 
+    public function coinSetting(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'coinSetting', $request);
+    }
+
     public function baid(Request $request, string $version): Response
     {
         return $this->dispatch($version, 'baid', $request);
