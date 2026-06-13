@@ -118,6 +118,27 @@ class AllNetController extends Controller
         ]);
     }
 
+    public function tokenState(Request $request): Response
+    {
+        Log::channel('mucha')->info('tokenstate', [
+            'game_cd' => $request->input('gameCd'),
+            'serial_num' => $request->input('serialNum'),
+            'country_cd' => $request->input('countryCd'),
+            'place_id' => $request->input('placeId'),
+            'use_token' => $request->input('useToken'),
+            'all_token' => $request->input('allToken'),
+        ]);
+
+        $allToken = (string) ($request->input('allToken') ?? '0');
+        $tokenKey = $this->muchaCrypto->tokenKey($request->input('sendDate'));
+
+        return $this->formResponse([
+            'RESULTS' => '001',
+            'ALL_TOKEN' => $this->muchaCrypto->encryptToken($allToken, $tokenKey),
+            'ADD_TOKEN' => $this->muchaCrypto->encryptToken(0, $tokenKey),
+        ]);
+    }
+
     public function updateCheck(Request $request): Response
     {
         $gameVersion = (string) ($request->input('gameVer') ?? $request->input('game_ver') ?? $request->input('gameVersion') ?? 'S1110JPN13.02');
