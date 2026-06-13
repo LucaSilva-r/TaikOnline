@@ -17,10 +17,12 @@ services:
         environment:
             WWWUSER: '${WWWUSER}'
             LARAVEL_SAIL: 1
-            SUPERVISOR_PHP_COMMAND: '/usr/bin/php -d variables_order=EGPCS /var/www/html/artisan serve --host=0.0.0.0 --port=8080'
+            SUPERVISOR_PHP_COMMAND: "/usr/bin/php -d variables_order=EGPCS /var/www/html/artisan octane:start --server=frankenphp --host=0.0.0.0 --admin-port=2019 --port='${APP_PORT:-80}'"
             XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
             XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
             IGNITION_LOCAL_SITES_PATH: '${PWD}'
+            XDG_CONFIG_HOME:  /var/www/html/config
+            XDG_DATA_HOME:  /var/www/html/data
         volumes:
             - '.:/var/www/html'
         labels:
@@ -31,7 +33,7 @@ services:
             - 'traefik.http.routers.taikonline.tls=true'
             - 'traefik.http.routers.taikonline.tls.certresolver=lets-encrypt'
             - 'traefik.http.routers.taikonline.service=taikonline'
-            - 'traefik.http.services.taikonline.loadbalancer.server.port=8080'
+            - 'traefik.http.services.taikonline.loadbalancer.server.port=80'
             # - 'traefik.http.routers.taikonline.middlewares=strip-cabinet-headers'
 
             # - 'traefik.http.middlewares.strip-cabinet-headers.headers.customresponseheaders.Host='

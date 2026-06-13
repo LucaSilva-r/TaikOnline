@@ -113,6 +113,7 @@ class BoardController extends Controller
                 'rank' => (int) $snapshot->rank,
                 'total_score' => (int) $snapshot->total_score,
             ])
+            ->values()
             ->all();
     }
 
