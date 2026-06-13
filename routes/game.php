@@ -18,6 +18,7 @@ Route::middleware(LogGreenCabinetTraffic::class)->group(function () use ($protoc
     Route::post('sys/servlet/PowerOn', [AllNetController::class, 'powerOn']);
     Route::post('mucha_front/boardauth.do', [AllNetController::class, 'boardAuth']);
     Route::post('mucha_front/regiauth.do', [AllNetController::class, 'regiAuth']);
+    Route::post('mucha_front/tokenstate.do', [AllNetController::class, 'tokenState']);
     Route::post('mucha_front/updatacheck.do', [AllNetController::class, 'updateCheck']);
     Route::post('mucha_front/downloadstate.do', [AllNetController::class, 'muchaDownloadState']);
     Route::post('mucha_front/downloaderror.do', [AllNetController::class, 'muchaDownloadError']);

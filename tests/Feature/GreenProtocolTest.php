@@ -133,6 +133,33 @@ it('responds to mucha registration auth for taiko red cabinets', function (): vo
         ->and($muchaCrypto->decryptToken($payload['ADD_TOKEN'], '72026052'))->toBe('0');
 });
 
+it('responds to mucha token state for taiko red cabinets', function (): void {
+    $response = $this->post('/mucha_front/tokenstate.do', [
+        'gameCd' => 'ST87',
+        'serialNum' => '268410000000',
+        'countryCd' => 'JPN',
+        'sendDate' => '20260527',
+        'useToken' => '0',
+        'allToken' => '5',
+        'placeId' => 'AAA00000',
+        'storeRouterIp' => '127.0.0.1',
+    ]);
+
+    $response
+        ->assertOk()
+        ->assertSee('RESULTS=001', false)
+        ->assertSee('ALL_TOKEN=6499cd86289c1307', false)
+        ->assertSee('ADD_TOKEN=a3755fbb352db6a3', false);
+
+    parse_str($response->getContent(), $payload);
+
+    $muchaCrypto = app(MuchaCrypto::class);
+
+    expect($muchaCrypto->tokenKey('20260527'))->toBe('72026052')
+        ->and($muchaCrypto->decryptToken($payload['ALL_TOKEN'], '72026052'))->toBe('5')
+        ->and($muchaCrypto->decryptToken($payload['ADD_TOKEN'], '72026052'))->toBe('0');
+});
+
 it('responds to mucha update check like the green reference server', function (): void {
     config()->set('taiko_green.mucha_force_update', false);
 
