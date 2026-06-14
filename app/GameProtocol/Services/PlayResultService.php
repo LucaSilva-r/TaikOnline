@@ -63,6 +63,21 @@ class PlayResultService
             );
         }
 
+        // The cabinet reports when it has shown the shop / wai-wai tutorials so the
+        // server can stop replaying them on the next boot. The cabinet only sends a
+        // set flag once the tutorial has played, so persist it on the player.
+        if (method_exists($data, 'hasItemshopTutorialFlg') && $data->hasItemshopTutorialFlg()) {
+            $player->item_shop_tutorial_flg = (int) $data->getItemshopTutorialFlg();
+        }
+
+        if (method_exists($data, 'hasWaiwaiTutorialFlg') && $data->hasWaiwaiTutorialFlg()) {
+            $player->waiwai_tutorial_flg = (int) $data->getWaiwaiTutorialFlg();
+        }
+
+        if ($player->isDirty(['item_shop_tutorial_flg', 'waiwai_tutorial_flg'])) {
+            $player->save();
+        }
+
         if ($isTokkun) {
             $this->saveTokkunData($player, $data, $version);
 
@@ -217,7 +232,7 @@ class PlayResultService
         }
 
         $this->applyEquippedCostume($cosmetic, $data);
-        $this->applyDefaultSettings($cosmetic, $data);
+        $this->applyDefaultSettings($cosmetic, $data, $version);
 
         $cosmetic->save();
     }
@@ -228,7 +243,7 @@ class PlayResultService
      * reports the tone as a bitfield (one bit = the equipped tone id) and the
      * options as a little-endian flag value.
      */
-    private function applyDefaultSettings(PlayerCosmetic $cosmetic, Message $data): void
+    private function applyDefaultSettings(PlayerCosmetic $cosmetic, Message $data, TaikoGameVersion $version): void
     {
         if (! method_exists($data, 'getAryStageInfo')) {
             return;
@@ -250,7 +265,7 @@ class PlayResultService
         }
 
         if (method_exists($stage, 'getOptionFlg')) {
-            $cosmetic->default_option_setting = $this->leInt($stage->getOptionFlg());
+            $cosmetic->default_option_setting = $this->decodeOptionFlg($stage->getOptionFlg(), $version);
         }
     }
 
@@ -277,10 +292,22 @@ class PlayResultService
     }
 
     /**
-     * Decode up to four little-endian bytes into an unsigned integer.
+     * Decode the option flag bytes into an integer based on the game version's endianness.
      */
-    private function leInt(string $bytes): int
+    private function decodeOptionFlg(string $bytes, TaikoGameVersion $version): int
     {
+        $isLegacy = in_array($version, [
+            TaikoGameVersion::Sorairo,
+            TaikoGameVersion::Momoiro,
+            TaikoGameVersion::Kimidori,
+        ], true);
+
+        if ($isLegacy) {
+            $padded = str_pad(substr($bytes, 0, 2), 2, "\0", STR_PAD_LEFT);
+
+            return unpack('n', $padded)[1];
+        }
+
         $padded = str_pad(substr($bytes, 0, 4), 4, "\0");
 
         return unpack('V', $padded)[1];

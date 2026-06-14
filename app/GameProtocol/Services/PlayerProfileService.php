@@ -27,6 +27,16 @@ class PlayerProfileService
 
     private const COSTUME_FLAG_BYTES = 32;
 
+    /**
+     * "No dan data" sentinel for disp_taikojuku_dan_. The Green client reads this
+     * field at a fixed offset without a proto2 presence check, and any value
+     * outside the valid 1..25 dan range (including 0 / wire-absent) underflows
+     * Taikojuku_GetDanSlotSongRange and crashes the client. 1 is the value the
+     * client itself initialises as its safe "absent" slot. Until real Taiko Juku
+     * dan progress is tracked, always send this instead of 0.
+     */
+    private const SAFE_DISP_TAIKOJUKU_DAN = 1;
+
     public function __construct(
         private readonly ScoreMapper $scoreMapper,
         private readonly ProtocolMessageResolver $messages,
@@ -187,7 +197,7 @@ class PlayerProfileService
             'setComSvrResult' => 1,
             'setBaid' => $card->player->baid,
             'setAccessCode' => $card->access_code,
-            'setIsPublish' => true,
+            'setIsPublish' => (bool) $card->player->is_publish,
             'setCardOwnNum' => 1,
             'setRegCountryId' => $request->getCountryId() ?: (string) config('taiko_green.country'),
             'setMydonName' => $card->player->mydon_name,
@@ -237,6 +247,16 @@ class PlayerProfileService
             });
         }
 
+        $isLegacy = in_array($version, [
+            TaikoGameVersion::Sorairo,
+            TaikoGameVersion::Momoiro,
+            TaikoGameVersion::Kimidori,
+        ], true);
+
+        $optionFlg = $isLegacy
+            ? pack('n', (int) $cosmetic->default_option_setting)
+            : pack('V', (int) $cosmetic->default_option_setting);
+
         return $this->writer->fill($this->messages->make($version, 'UserDataResponse'), [
             'setResult' => 1,
             'setIsExplain' => false,
@@ -245,11 +265,11 @@ class PlayerProfileService
             'setSongHashVer' => 99,
             'setHashReleaseSongFlg' => $this->releaseSongFlag($version->value, $activeSeason, $unlockedSongIds),
             'setIsDevil' => false,
-            'setDispScoreType' => 0,
+            'setDispScoreType' => (int) $player->disp_score_type,
             'setAryFriendInfo' => [],
             'setDispLevelTotal' => 0,
             'setDispLevelChassis' => 0,
-            'setOptionFlg' => pack('V', (int) $cosmetic->default_option_setting),
+            'setOptionFlg' => $optionFlg,
             'setToneFlg' => $this->scoreMapper->idFlagBytes($tones, self::TONE_FLAG_BYTES),
             'setTitleFlg' => $this->scoreMapper->idFlagBytes($cosmetic->unlocked_titles ?? [], self::TITLE_FLAG_BYTES),
             'setSongPushedCnt' => 0,
@@ -259,9 +279,8 @@ class PlayerProfileService
             'setRecommendSong' => 0,
             'setRecommendBestSong' => [],
             'setDispLevelSelf' => 0,
-            'setDefaultOptionSetting' => pack('V', (int) $cosmetic->default_option_setting),
-            'setDefaultShinSetting' => false,
-            'setDispTaikojukuDan' => 0,
+            'setDefaultOptionSetting' => $optionFlg,
+            'setDispTaikojukuDan' => self::SAFE_DISP_TAIKOJUKU_DAN,
             'setDifficultyPlayedCourse' => (int) $player->difficulty_played_course,
             'setDifficultyPlayedStar' => (int) $player->difficulty_played_star,
             'setIsChallengecompe' => false,
@@ -347,11 +366,11 @@ class PlayerProfileService
             'setComSvrResult' => 1,
             'setBaid' => $player->baid,
             'setAccessCode' => $accessCode,
-            'setIsPublish' => true,
+            'setIsPublish' => (bool) $player->is_publish,
             'setCardOwnNum' => 1,
             'setRegCountryId' => (string) config('taiko_green.country'),
             'setPurposeId' => 0,
-            'setRegionId' => (int) config('taiko_green.region'),
+            'setRegionId' => $player->prefecture_id > 0 ? (int) $player->prefecture_id : (int) config('taiko_green.region'),
             'setMydonName' => $player->mydon_name ?? '',
             'setTitle' => $cosmetic->title ?? '',
             'setTitleplateId' => (int) $cosmetic->titleplate_id,
@@ -370,11 +389,11 @@ class PlayerProfileService
             'setTotalUseDonmedal' => (int) $shop['totalUse'],
             'setTotalGetKatsumedal' => (int) $player->total_get_katsumedal,
             'setTotalUseKatsumedal' => (int) $player->total_use_katsumedal,
-            'setItemshopTutorialFlg' => 0,
+            'setItemshopTutorialFlg' => (int) $player->item_shop_tutorial_flg,
             'setIsAutoCostumeOn' => false,
             'setLastPlayDatetime' => optional($player->last_played_at)->format('YmdHis') ?? now()->startOfDay()->format('YmdHis'),
             'setUpdateDatetime' => now()->format('YmdHis'),
-            'setDispDanType' => 0,
+            'setDispDanType' => (int) $player->disp_dan_type,
             'setGotDanMax' => 0,
             'setGotDanFlg' => $this->scoreMapper->emptyFlagBytes(64),
             'setGotDanextraFlg' => $this->scoreMapper->emptyFlagBytes(64),
@@ -382,7 +401,7 @@ class PlayerProfileService
             'setContentInfo' => '',
             'setDefaultToneSetting' => (int) $cosmetic->default_tone_setting,
             'setPersonid' => $player->person_id ?? '',
-            'setWaiwaiTutorialFlg' => 0,
+            'setWaiwaiTutorialFlg' => (int) $player->waiwai_tutorial_flg,
         ]);
     }
 }

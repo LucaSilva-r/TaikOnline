@@ -166,3 +166,62 @@ it('returns correctly-indexed uncompressed crown flags for a legacy crownsdata r
     // Verify correct bits: byte 2 has bits 16 and 17 set (value 3)
     expect($crownFlg)->toBe(chr(0).chr(0).chr(3));
 });
+
+it('packs and unpacks option flags as big-endian for legacy versions (kimidori)', function (): void {
+    $player = Player::query()->create();
+    GameCard::query()->create([
+        'access_code' => '12345678901234567890',
+        'baid' => $player->baid,
+    ]);
+
+    $version = TaikoGameVersion::Kimidori;
+    $major = $version->routeMajor(); // v05
+
+    // 1. Test profile options loading (UserDataResponse)
+    $cosmetic = PlayerCosmetic::resolve($player->baid, $version);
+    $cosmetic->default_option_setting = 7; // Speed = 7
+    $cosmetic->save();
+
+    $resolver = app(ProtocolMessageResolver::class);
+    $userReqClass = $resolver->class($version, 'UserDataRequest');
+    $userRequest = (new $userReqClass)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis');
+
+    $userRespClass = $resolver->class($version, 'UserDataResponse');
+    $userResponse = post_protobuf("/{$major}r00/chassis/userdata.php", $userRequest, $userRespClass);
+
+    expect($userResponse->getResult())->toBe(1);
+    // option_flg and default_option_setting should be big-endian 2 bytes: \x00\x07
+    expect($userResponse->getOptionFlg())->toBe("\x00\x07")
+        ->and($userResponse->getDefaultOptionSetting())->toBe("\x00\x07");
+
+    // 2. Test play result option saving (decodeOptionFlg)
+    $stageClass = $resolver->class($version, 'PlayResultRequest\\StageData');
+    $stage = (new $stageClass)
+        ->setSongNo(100)
+        ->setLevel(3)
+        ->setPlayResult(2)
+        ->setPlayScore(800000)
+        ->setOptionFlg("\x00\x05"); // Speed = 5 (in big endian)
+
+    $requestClass = $resolver->class($version, 'PlayResultRequest');
+    $request = (new $requestClass)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('2026-06-12 20:00:00')
+        ->setIsRight(true)
+        ->setCardType(1)
+        ->setIsTwoPlayers(false)
+        ->setAryStageInfo([$stage]);
+
+    $responseClass = $resolver->class($version, 'PlayResultResponse');
+    $response = post_protobuf("/{$major}r00/chassis/playresult.php", $request, $responseClass);
+
+    expect($response->getResult())->toBe(1);
+
+    // Database should be updated with decoded option value (5)
+    $cosmetic->refresh();
+    expect($cosmetic->default_option_setting)->toBe(5);
+});

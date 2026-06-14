@@ -10,6 +10,7 @@
     import { edit as editAppearance } from '@/routes/appearance';
     import { index as indexCabinets } from '@/routes/cabinets';
     import { edit as editCustomize } from '@/routes/customize';
+    import { edit as editGameSettings } from '@/routes/game-settings';
     import { edit as editProfile } from '@/routes/profile';
     import { edit as editSecurity } from '@/routes/security';
     import type { NavItem } from '@/types';
@@ -32,6 +33,10 @@
         {
             title: 'Customization',
             href: editCustomize(taikoRouteParam()),
+        },
+        {
+            title: 'Game Settings',
+            href: editGameSettings(taikoRouteParam()),
         },
         {
             title: 'Cabinets',

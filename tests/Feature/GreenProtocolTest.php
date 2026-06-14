@@ -325,6 +325,19 @@ it('returns carded player released songs from the route catalog version', functi
         ->and(ord($blueResponse->getHashReleaseSongFlg()[1]))->toBe(1);
 });
 
+it('sends the safe disp_taikojuku_dan sentinel to avoid a client crash', function (): void {
+    create_song('green', 1);
+    $player = Player::query()->create();
+
+    $response = post_protobuf('/v11r01/chassis/userdata.php', (new UserDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop'), UserDataResponse::class);
+
+    // 0 / wire-absent underflows Taikojuku_GetDanSlotSongRange and crashes the client.
+    expect($response->getDispTaikojukuDan())->toBe(1);
+});
+
 it('supports the reference green optional game endpoints', function (): void {
     $endpoints = [
         ['/v11r01/chassis/recommend.php', (new RecommendRequest)->setChassisId('chassis')->setShopId('shop'), RecommendResponse::class],
@@ -632,6 +645,64 @@ it('keys stored self bests to the green catalog version', function (): void {
     $greenBest = post_protobuf('/v11r01/chassis/selfbest.php', $selfBestRequest, SelfBestResponse::class);
 
     expect($greenBest->getArySelfbestScore()[0]->getSelfBestScore())->toBe(700000);
+});
+
+it('persists the shop tutorial flag from play results and echoes it on baidcheck', function (): void {
+    $player = Player::query()->create();
+    GameCard::query()->create([
+        'access_code' => '12345678901234567890',
+        'baid' => $player->baid,
+    ]);
+
+    // Tutorial not seen yet: baidcheck reports 0 so the cabinet plays the video.
+    $baidRequest = (new BAIDRequest)
+        ->setDeviceType(1)
+        ->setAccessCode('12345678901234567890')
+        ->setChipId('chip')
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setCountryId('JPN');
+
+    $before = post_protobuf('/v11r01/chassis/baidcheck.php', $baidRequest, BAIDResponse::class);
+    expect($before->getItemshopTutorialFlg())->toBe(0);
+
+    // The cabinet reports the tutorial as seen on the next play result.
+    $stage = (new StageData)
+        ->setSongNo(100)
+        ->setLevel(3)
+        ->setPlayResult(2)
+        ->setPlayScore(800000);
+
+    $data = (new PlayResultDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('2026-05-05 20:00:00')
+        ->setIsRight(true)
+        ->setCardType(1)
+        ->setIsTwoPlayers(false)
+        ->setAryStageInfo([$stage])
+        ->setItemshopTutorialFlg(1)
+        ->setWaiwaiTutorialFlg(1)
+        ->setReserved('');
+
+    $request = (new PlayResultRequest)
+        ->setBaidConf($player->baid)
+        ->setChassisIdConf('chassis')
+        ->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-05 20:00:00')
+        ->setPlayresultData(gzencode($data->serializeToString()));
+
+    post_protobuf('/v11r01/chassis/playresult.php', $request, PlayResultResponse::class);
+
+    $player->refresh();
+    expect($player->item_shop_tutorial_flg)->toBe(1)
+        ->and($player->waiwai_tutorial_flg)->toBe(1);
+
+    // Tutorial now suppressed on subsequent boots.
+    $after = post_protobuf('/v11r01/chassis/baidcheck.php', $baidRequest, BAIDResponse::class);
+    expect($after->getItemshopTutorialFlg())->toBe(1)
+        ->and($after->getWaiwaiTutorialFlg())->toBe(1);
 });
 
 it('records crowns from play results and serves them as a gzip bitfield', function (): void {

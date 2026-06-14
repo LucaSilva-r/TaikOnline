@@ -11,6 +11,12 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[Fillable([
     'mydon_name',
     'mydon_name_language',
+    'prefecture_id',
+    'is_publish',
+    'disp_score_type',
+    'disp_dan_type',
+    'item_shop_tutorial_flg',
+    'waiwai_tutorial_flg',
     'color_face',
     'color_body',
     'color_limb',
@@ -43,11 +49,18 @@ class Player extends Model
         'color_face' => 0,
         'color_body' => 1,
         'color_limb' => 3,
+        'is_publish' => true,
+        'prefecture_id' => 0,
+        'disp_score_type' => 0,
+        'disp_dan_type' => 0,
+        'item_shop_tutorial_flg' => 0,
+        'waiwai_tutorial_flg' => 0,
     ];
 
     protected function casts(): array
     {
         return [
+            'is_publish' => 'boolean',
             'favorite_song_numbers' => 'array',
             'recent_song_numbers' => 'array',
             'unlocked_song_numbers' => 'array',
