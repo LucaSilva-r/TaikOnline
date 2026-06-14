@@ -155,14 +155,32 @@ it('saves battle stage and release data for Blue', function (): void {
     expect($response->getResult())->toBe(1);
 
     $userState = PlayerBlueBattleState::query()->where('baid', $player->baid)->firstOrFail();
+    $releaseInfoFlg = $userState->release_info_flg;
+    if (is_resource($releaseInfoFlg)) {
+        $releaseInfoFlg = stream_get_contents($releaseInfoFlg);
+    }
+    $releaseBattleStageFlg = $userState->release_battle_stage_flg;
+    if (is_resource($releaseBattleStageFlg)) {
+        $releaseBattleStageFlg = stream_get_contents($releaseBattleStageFlg);
+    }
+
     expect($userState->last_battle_stage_id)->toBe(5)
         ->and($userState->last_boss_life)->toBe(20)
         ->and($userState->last_npc_id)->toBe(3)
         ->and($userState->assign_stage_id)->toBe(6)
-        ->and(ord($userState->release_info_flg[0]))->toBe(12)
-        ->and(ord($userState->release_battle_stage_flg[0]))->toBe(4);
+        ->and(ord($releaseInfoFlg[0]))->toBe(12)
+        ->and(ord($releaseBattleStageFlg[0]))->toBe(4);
 
     $npcState = PlayerBlueBattleNpcState::query()->where('baid', $player->baid)->where('npc_id', 3)->firstOrFail();
+    $npcCostumeFlg = $npcState->npc_costume_flg;
+    if (is_resource($npcCostumeFlg)) {
+        $npcCostumeFlg = stream_get_contents($npcCostumeFlg);
+    }
+    $releaseSpecialFlg = $npcState->release_special_flg;
+    if (is_resource($releaseSpecialFlg)) {
+        $releaseSpecialFlg = stream_get_contents($releaseSpecialFlg);
+    }
+
     expect($npcState->total_exp)->toBe(150)
         ->and($npcState->max_dpn)->toBe(5)
         ->and($npcState->npc_costume_id)->toBe(2)
@@ -170,8 +188,8 @@ it('saves battle stage and release data for Blue', function (): void {
         ->and($npcState->selected_special_id_2)->toBe(2)
         ->and($npcState->selected_special_id_3)->toBe(0)
         ->and($npcState->bonds_level)->toBe(4)
-        ->and(ord($npcState->npc_costume_flg[0]))->toBe(4)
-        ->and(ord($npcState->release_special_flg[0]))->toBe(12); // Bits 2 and 3 enabled (4 + 8 = 12)
+        ->and(ord($npcCostumeFlg[0]))->toBe(4)
+        ->and(ord($releaseSpecialFlg[0]))->toBe(12); // Bits 2 and 3 enabled (4 + 8 = 12)
 
     $tokenState = PlayerBlueBattleTokenState::query()->where('baid', $player->baid)->where('token_id', 4)->firstOrFail();
     expect($tokenState->token_value)->toBe(10);
