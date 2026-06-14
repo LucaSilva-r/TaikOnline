@@ -19,6 +19,23 @@ enum TaikoGameVersion: string
         return self::Green;
     }
 
+    /**
+     * Chronological generation index, derived from enum declaration order
+     * (Sorairo is oldest, Green is newest).
+     */
+    public function generation(): int
+    {
+        return array_search($this, self::cases(), true);
+    }
+
+    /**
+     * Whether this version is the same as or newer than the given version.
+     */
+    public function isAtLeast(self $other): bool
+    {
+        return $this->generation() >= $other->generation();
+    }
+
     public function updateIdentifier(): string
     {
         return match ($this) {
