@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Settings\AccessCodeController;
 use App\Http\Controllers\Settings\CabinetController;
+use App\Http\Controllers\Settings\CostumeController;
 use App\Http\Controllers\Settings\CustomizeController;
 use App\Http\Controllers\Settings\GameSettingsController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -19,6 +20,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('settings/customize', [CustomizeController::class, 'edit'])->name('customize.edit');
     Route::patch('settings/customize', [CustomizeController::class, 'update'])->name('customize.update');
+
+    Route::get('settings/costumes', [CostumeController::class, 'edit'])->name('costumes.edit');
+    Route::patch('settings/costumes', [CostumeController::class, 'update'])->name('costumes.update');
 
     Route::get('settings/game', [GameSettingsController::class, 'edit'])->name('game-settings.edit');
     Route::patch('settings/game', [GameSettingsController::class, 'update'])->name('game-settings.update');
