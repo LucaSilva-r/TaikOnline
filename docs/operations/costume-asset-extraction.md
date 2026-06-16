@@ -238,25 +238,118 @@ single-version helper, superseded by `build_all_costumes.py`.)
 
 ---
 
-## 7. The 3D model format (NUD / `NDP3`) — partial
+## 7. The 3D model format (NUD / `NDP3`)
 
-`don3d/**/*.nud` are **`NDP3`** models — the Namco/Smash-style NUD format
-(the same family parsed by SmashForge). They were investigated for puchi-chara
-rendering but **not fully reverse-engineered**, because puchi-chara turned out to
-be 2D billboard textures (§3), so no model rendering was needed.
+`don3d/**/*.nud` are **NUD** models — the Namco "NU3G" format, the same one
+SmashForge reads (`Smash Forge/Filetypes/Models/Nuds/NUD.cs`). The picker did not
+need this (puchi-chara are 2D billboards, §3), but the format is fully documented
+below for any future 3D work (e.g. compositing head+body the way the game does).
 
-What is known:
+All multi-byte fields are **big-endian** for `NDP3` (a little-endian `NDWD`
+variant exists; `version` is always read big-endian regardless).
 
-- Header is big-endian, 0x30 bytes: `"NDP3"`, `u32 fileSize @0x04`,
-  `u16 version (0x0200) @0x08`, mesh/bone counts and clump offsets follow, then a
-  bounding box and per-mesh objects with materials and polygon lists.
-- `acc` models are ~490-byte single-quad billboards; `head`/`body`/`cos` models
-  are full meshes (tens–hundreds of KB).
-- Skin textures are the sibling `.nut`; some use `tex_type 17` (undecoded).
+### 7.1 Header (0x30 bytes)
 
-If full 3D is ever needed (e.g. rendering head+body combos the game composites at
-runtime), the geometry/material parse still has to be written — start from the
-SmashForge NUD reader and the header notes above.
+```
+0x00  char[4]  "NDP3"            (big-endian) | "NDWD" (little-endian)
+0x04  u32      fileSize
+0x08  u16      version           (0x0200; always read BE)
+0x0A  u16      polysetCount      (number of mesh objects)
+0x0C  s16      boneIndexStart
+0x0E  s16      boneIndexEnd
+0x10  u32      polyClumpStart    (add 0x30 → absolute)
+0x14  u32      polyClumpSize
+0x18  u32      vertClumpSize     (vertClumpStart  = polyClumpStart  + polyClumpSize)
+0x1C  u32      vertAddClumpSize  (vertAddClumpStart= vertClumpStart + vertClumpSize)
+0x20  f32[4]   bounding sphere   (nameStart = vertAddClumpStart + vertAddClumpSize)
+```
+
+Derived bases: `vertClumpStart`, `vertAddClumpStart`, `nameStart` as above.
+
+### 7.2 Object (mesh) descriptors — `polysetCount` of them, right after header
+
+```
+f32[4]  bounding sphere
+f32[3]  bounding sphere XYZ repeated (ignored)
+f32     sortBias
+u32     nameOffset     (relative to nameStart; null-terminated ASCII name)
+u16     0              (always 0)
+u16     boneFlag       (single-bound / weighted / unbound)
+s16     singleBind     (bone index if single-bound, else -1)
+u16     polyCount      (polygons in this mesh)
+u32     positionb
+```
+
+### 7.3 Polygon descriptors — `polyCount` per mesh, read sequentially
+
+```
+u32  polyStart     (+ polyClumpStart    → face-index buffer)
+u32  vertStart     (+ vertClumpStart    → vertex buffer)
+u32  vertAddStart  (+ vertAddClumpStart → extra vertex buffer)
+u16  vertCount
+u8   vertSize      (nibble-packed, see 7.4)
+u8   uvSize        (nibble-packed, see 7.4)
+u32  texProp1      (offset to material chain; see 7.6)
+u32  texProp2..4
+u16  faceCount
+u16  polyFlag      (high byte = primitive type, low byte = flags)
+…    skip 0xC
+```
+
+### 7.4 Vertex/UV format nibbles
+
+`vertSize`: high nibble = **bone type**, low nibble = **normal type**.
+
+| bone type | meaning | | normal type | meaning |
+|---|---|---|---|---|
+| 0x00 | no bones | | 0x0 | no normals |
+| 0x10 | float (4×id int + 4×weight f32) | | 0x1 | normals f32 |
+| 0x20 | half-float (4×id u16 + 4×weight half) | | 0x3 | normals + tan + bitan f32 |
+| 0x40 | byte (4×id u8 + 4×weight u8/255) | | 0x6 | normals half |
+| | | | 0x7 | normals + tan + bitan half |
+
+`uvSize`: high nibble = **uv channel count**; low nibble = **colour type**
+(`0` none, `2` byte RGBA, `4` half-float RGBA) OR'd with **uv type**
+(`0` half-float, `1` float).
+
+### 7.5 Vertex buffers
+
+Two layouts depending on bone type:
+
+- **Weighted (`boneType > 0`)**: `vertStart` buffer holds colour+UV per vertex;
+  `vertAddStart` buffer holds position, normal (+tan/bitan), and bone ids/weights.
+- **Single-bound (`boneType == 0`)**: everything interleaved in `vertStart` —
+  position+normal then colour+UV per vertex; every vertex is bound to the mesh's
+  `singleBind` with weight 1.
+
+Per-vertex read order: position `f32[3]`; then the normal block per the normal
+type (note the float normal variants store a leading `f32` ≈100.0 before XYZ);
+then bones per the bone type; colour/UV per the uv nibble.
+
+### 7.6 Faces
+
+At `polyStart`, `faceCount` × `u16` indices. The primitive type is
+`polyFlag >> 8`: `0x40` = triangle list (use as-is); `0x00` = triangle **strip**
+with `0xFFFF` as the restart marker and alternating winding (see
+`Polygon.GetTriangles`).
+
+### 7.7 Materials & textures
+
+`texProp1` points to a material; materials form a linked chain (each ends with
+the offset of the next, `0` = end). A material has flags, blend src/dst factors,
+alpha func, cull mode, then `texCount` textures. Each texture entry carries a
+**`hash` (int)** plus wrap/filter modes; the hash links to a texture in the
+sibling `.nut` (NUT entries are keyed by the same hash / GIDX). So to texture a
+model you pair its material texture hashes with the model's `.nut`.
+
+### 7.8 Practical notes for Taiko
+
+- `acc` models are ~490-byte single-quad billboards (the puchi-chara art is in
+  the `.nut`, not the mesh).
+- `head`/`body`/`cos` are full meshes (tens–hundreds of KB).
+- Some skin textures use NUT `tex_type 17` (undecoded by our extractor — only
+  DXT1/3/5 and RGBA8 are handled; add a decoder if rendering these).
+- Reference reader: `Smash Forge/Filetypes/Models/Nuds/{NUD,Polygon}.cs`.
 
 ---
 
