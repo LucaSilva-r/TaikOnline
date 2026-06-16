@@ -17,10 +17,11 @@ use Illuminate\Support\Facades\Config;
 class GameProtocolController extends Controller
 {
     /**
-     * Route version used when a request arrives without a version segment
-     * (e.g. the bare "/" setup probe). Resolves to the green dialect.
+     * Route version Taiko Red posts to the bare "/" setup endpoint. Red sends
+     * initial-data-check, get-telop and book-keeping to the empty path instead
+     * of versioned chassis routes, so all three must resolve to the red dialect.
      */
-    private const DEFAULT_ROUTE_VERSION = 'v11r00';
+    private const RED_ROOT_ROUTE_VERSION = 'v01r00_tw';
 
     public function __construct(private readonly GameHandlerRegistry $handlers) {}
 
@@ -189,16 +190,16 @@ class GameProtocolController extends Controller
         $payload = $request->getContent();
 
         if ($this->hasProtobufField($payload, 3, 2)) {
-            return $this->dispatch(self::DEFAULT_ROUTE_VERSION, 'bookKeeping', $request);
+            return $this->dispatch(self::RED_ROOT_ROUTE_VERSION, 'bookKeeping', $request);
         }
 
         if ($this->hasProtobufField($payload, 3, 0)) {
-            return $this->dispatch(self::DEFAULT_ROUTE_VERSION, 'getTelop', $request);
+            return $this->dispatch(self::RED_ROOT_ROUTE_VERSION, 'getTelop', $request);
         }
 
         $request->attributes->set('songHashVersion', 99);
 
-        return $this->dispatch('v01r00_tw', 'initialDataCheck', $request);
+        return $this->dispatch(self::RED_ROOT_ROUTE_VERSION, 'initialDataCheck', $request);
     }
 
     /**

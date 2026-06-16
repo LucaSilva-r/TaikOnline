@@ -12,6 +12,13 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AllNetController extends Controller
 {
+    /**
+     * Token wallet handed to international Mucha cabinets. The value itself is
+     * not metered locally; it only needs to be non-zero so the cabinet's token
+     * state machine reaches its operational state. Mirrors TaikoLocalServer.
+     */
+    private const MUCHA_TOKEN_GRANT = '999';
+
     public function __construct(
         private readonly FormPayloads $forms,
         private readonly MuchaCrypto $muchaCrypto,
@@ -53,7 +60,13 @@ class AllNetController extends Controller
     {
         $placeId = (string) ($request->input('place_id') ?? $request->input('placeId') ?? '');
         $countryCode = (string) ($request->input('countryCd') ?: config('taiko_green.country'));
-        $muchaGameUrl = (string) config('taiko_green.mucha_game_url');
+
+        // International Taiko Red parses the board-auth service URLs as bare
+        // "host:port" and routes its game requests to them. A scheme or path
+        // (e.g. "https://host:port/charge/") breaks that parser, leaving the
+        // cabinet unable to reach the game server (GAME SERVER NG). Emit the
+        // reachable endpoint as host:port only, matching the live Mucha front.
+        $muchaHostPort = $this->hostPort((string) config('taiko_green.mucha_game_url'));
         $serverTime = now()->format('YmdHi');
 
         return $this->formResponse([
@@ -75,11 +88,11 @@ class AllNetController extends Controller
             'AREA_FULL_3' => '',
             'AREA_FULL_3_EN' => '',
             'AUTH_INTERVAL' => '86400',
-            'CHARGE_URL' => $muchaGameUrl.'/charge/',
+            'CHARGE_URL' => $muchaHostPort,
             'COUNTRY_CD' => $countryCode,
             'DONGLE_FLG' => '1',
             'EXPIRATION_DATE' => 'null',
-            'FILE_URL' => $muchaGameUrl.'/file/',
+            'FILE_URL' => $muchaHostPort,
             'FORCE_BOOT' => '0',
             'PLACE_ID' => $placeId,
             'PREFECTURE_ID' => '14',
@@ -89,11 +102,11 @@ class AllNetController extends Controller
             'SHOP_NAME_EN' => (string) config('taiko_green.shop_name'),
             'SHOP_NICKNAME' => 'W',
             'SHOP_NICKNAME_EN' => 'W',
-            'URL_1' => $muchaGameUrl.'/url1/',
-            'URL_2' => $muchaGameUrl.'/url2/',
-            'URL_3' => $muchaGameUrl.'/url3/',
-            'USE_TOKEN' => '0',
-            'CONSUME_TOKEN' => '0',
+            'URL_1' => $muchaHostPort,
+            'URL_2' => $muchaHostPort,
+            'URL_3' => $muchaHostPort,
+            'USE_TOKEN' => '1',
+            'CONSUME_TOKEN' => '1',
         ]);
     }
 
@@ -108,13 +121,16 @@ class AllNetController extends Controller
             'all_token' => $request->input('allToken'),
         ]);
 
-        $allToken = (string) ($request->input('allToken') ?? '0');
         $tokenKey = $this->muchaCrypto->tokenKey($request->input('sendDate'));
 
+        // International Red gates its operational state (network-icon green,
+        // card reader enabled) on a valid Mucha token, not on the count the
+        // cabinet reports. Hand back a full wallet so the token state machine
+        // validates, matching TaikoLocalServer's fixed "999" grant.
         return $this->formResponse([
             'RESULTS' => '001',
-            'ALL_TOKEN' => $this->muchaCrypto->encryptToken($allToken, $tokenKey),
-            'ADD_TOKEN' => $this->muchaCrypto->encryptToken(0, $tokenKey),
+            'ALL_TOKEN' => $this->muchaCrypto->encryptToken(self::MUCHA_TOKEN_GRANT, $tokenKey),
+            'ADD_TOKEN' => $this->muchaCrypto->encryptToken(self::MUCHA_TOKEN_GRANT, $tokenKey),
         ]);
     }
 
@@ -129,13 +145,12 @@ class AllNetController extends Controller
             'all_token' => $request->input('allToken'),
         ]);
 
-        $allToken = (string) ($request->input('allToken') ?? '0');
         $tokenKey = $this->muchaCrypto->tokenKey($request->input('sendDate'));
 
         return $this->formResponse([
             'RESULTS' => '001',
-            'ALL_TOKEN' => $this->muchaCrypto->encryptToken($allToken, $tokenKey),
-            'ADD_TOKEN' => $this->muchaCrypto->encryptToken(0, $tokenKey),
+            'ALL_TOKEN' => $this->muchaCrypto->encryptToken(self::MUCHA_TOKEN_GRANT, $tokenKey),
+            'ADD_TOKEN' => $this->muchaCrypto->encryptToken(self::MUCHA_TOKEN_GRANT, $tokenKey),
         ]);
     }
 
@@ -262,5 +277,20 @@ class AllNetController extends Controller
             'Content-Length' => (string) strlen($body),
             'Content-Type' => 'text/plain; charset=utf-8',
         ]);
+    }
+
+    /**
+     * Reduce a configured URL to bare "host:port" (dropping scheme and path),
+     * the form international Taiko Red's board-auth parser expects.
+     */
+    private function hostPort(string $url): string
+    {
+        $parts = parse_url($url);
+
+        if (! is_array($parts) || ! isset($parts['host'])) {
+            return rtrim(preg_replace('#^[a-z]+://#i', '', $url) ?? $url, '/');
+        }
+
+        return isset($parts['port']) ? "{$parts['host']}:{$parts['port']}" : $parts['host'];
     }
 }
