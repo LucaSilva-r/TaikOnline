@@ -173,6 +173,11 @@
                 description="Change the Face, Body, and Limb colors saved to your Banapassport."
             />
 
+            <p class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Color settings are currently shared across all game versions. Changing them here will
+                update DonChan colors everywhere, not only {versionLabel}.
+            </p>
+
             <Form
                 {...CustomizeController.update.form(taikoRouteParam())}
                 class="space-y-6"
