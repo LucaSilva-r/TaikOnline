@@ -45,12 +45,15 @@ class CostumeController extends Controller
             $activePreset = min((int) $cosmetic->active_costume_preset, PlayerCosmetic::PRESET_COUNT - 1);
         }
 
-        return Inertia::render('settings/Costumes', [
+        return Inertia::render('settings/DonChan', [
             'hasAccessCode' => $card !== null,
             'versionLabel' => $version?->label() ?? '',
             'sheet' => $this->spritesheet($version),
             'presets' => $presets,
             'activePreset' => $activePreset,
+            'colorFace' => $card?->player->color_face ?? 0,
+            'colorBody' => $card?->player->color_body ?? 0,
+            'colorLimb' => $card?->player->color_limb ?? 0,
             'status' => $request->session()->get('status'),
         ]);
     }

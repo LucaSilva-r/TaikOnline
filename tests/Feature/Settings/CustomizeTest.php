@@ -7,19 +7,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-it('shows customization page without access code', function (): void {
+it('redirects customization page to DonChan page', function (): void {
     $user = User::factory()->create();
-    $response = $this->actingAs($user)->get('/green/settings/customize');
 
-    $response
-        ->assertOk()
-        ->assertInertia(fn ($assert) => $assert
-            ->component('settings/Customize')
-            ->has('errors')
-            ->where('hasAccessCode', false));
+    $this->actingAs($user)->get('/green/settings/customize')
+        ->assertRedirect('/green/settings/costumes');
 });
 
-it('shows customization page with access code and saved colors', function (): void {
+it('shows DonChan page with access code and saved colors', function (): void {
     $user = User::factory()->create();
     $player = Player::query()->create([
         'user_id' => $user->id,
@@ -32,12 +27,12 @@ it('shows customization page with access code and saved colors', function (): vo
         'baid' => $player->baid,
     ]);
 
-    $response = $this->actingAs($user)->get('/green/settings/customize');
+    $response = $this->actingAs($user)->get('/green/settings/costumes');
 
     $response
         ->assertOk()
         ->assertInertia(fn ($assert) => $assert
-            ->component('settings/Customize')
+            ->component('settings/DonChan')
             ->where('hasAccessCode', true)
             ->where('colorFace', 10)
             ->where('colorBody', 30)
@@ -63,7 +58,7 @@ it('saves customization colors for player with access code', function (): void {
             'color_body' => 25,
             'color_limb' => 45,
         ])
-        ->assertRedirect();
+        ->assertRedirect('/green/settings/costumes');
 
     $updated = Player::query()->find($player->baid)->refresh();
     expect($updated->color_face)->toBe(5)
@@ -86,7 +81,7 @@ it('does not save customization when no access code linked', function (): void {
             'color_body' => 20,
             'color_limb' => 30,
         ])
-        ->assertRedirect();
+        ->assertRedirect('/green/settings/costumes');
 
     $player = Player::query()->where('user_id', $user->id)->firstOrFail();
     expect($player->color_face)->toBe(0)

@@ -34,6 +34,10 @@ and the code disagree, the code wins and the document should be fixed.
 ### Operations
 - [Game data import](operations/game-data-import.md) — importing songs and dan
   courses from arcade dumps, including the Sail filesystem caveat.
+- [Costume asset extraction](operations/costume-asset-extraction.md) — the offline
+  pipeline that turns arcade dumps into the costume picker's per-version
+  spritesheets: nutdata formats (NUT/NDP/DDP), the NUD 3D format, where each
+  costume part lives, and the extract → pack scripts.
 
 ## Conventions
 

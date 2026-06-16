@@ -15,10 +15,13 @@ it('shows costume page without access code', function (): void {
     $this->actingAs($user)->get('/green/settings/costumes')
         ->assertOk()
         ->assertInertia(fn ($assert) => $assert
-            ->component('settings/Costumes')
+            ->component('settings/DonChan')
             ->where('hasAccessCode', false)
             ->where('versionLabel', 'GREEN')
             ->where('activePreset', 0)
+            ->where('colorFace', 0)
+            ->where('colorBody', 0)
+            ->where('colorLimb', 0)
             ->has('presets', 3)
             ->has('sheet.slots.kigurumi')
             ->has('sheet.slots.puchi'));
@@ -42,7 +45,7 @@ it('shows saved presets for player with access code', function (): void {
     $this->actingAs($user)->get('/green/settings/costumes')
         ->assertOk()
         ->assertInertia(fn ($assert) => $assert
-            ->component('settings/Costumes')
+            ->component('settings/DonChan')
             ->where('hasAccessCode', true)
             ->where('activePreset', 1)
             ->where('presets.0.costume_1', 5)

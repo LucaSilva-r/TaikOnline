@@ -6,26 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\CustomizeRequest;
 use App\Models\GameCard;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Inertia\Response;
 
 class CustomizeController extends Controller
 {
-    public function edit(Request $request): Response
+    public function edit(): RedirectResponse
     {
-        $card = GameCard::query()
-            ->whereHas('player', fn ($query) => $query->where('user_id', $request->user()->id))
-            ->with('player')
-            ->first();
-
-        return Inertia::render('settings/Customize', [
-            'hasAccessCode' => $card !== null,
-            'colorFace' => $card?->player->color_face ?? 0,
-            'colorBody' => $card?->player->color_body ?? 0,
-            'colorLimb' => $card?->player->color_limb ?? 0,
-            'status' => $request->session()->get('status'),
-        ]);
+        return to_route('costumes.edit');
     }
 
     public function update(CustomizeRequest $request): RedirectResponse
@@ -45,6 +32,6 @@ class CustomizeController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Customization updated.')]);
 
-        return to_route('customize.edit');
+        return to_route('costumes.edit');
     }
 }

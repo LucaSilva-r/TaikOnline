@@ -10,7 +10,6 @@
     import { edit as editAppearance } from '@/routes/appearance';
     import { index as indexCabinets } from '@/routes/cabinets';
     import { edit as editCostumes } from '@/routes/costumes';
-    import { edit as editCustomize } from '@/routes/customize';
     import { edit as editGameSettings } from '@/routes/game-settings';
     import { edit as editProfile } from '@/routes/profile';
     import { edit as editSecurity } from '@/routes/security';
@@ -32,11 +31,7 @@
             href: editSecurity(taikoRouteParam()),
         },
         {
-            title: 'Customization',
-            href: editCustomize(taikoRouteParam()),
-        },
-        {
-            title: 'Costumes',
+            title: 'DonChan',
             href: editCostumes(taikoRouteParam()),
         },
         {
