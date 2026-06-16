@@ -37,6 +37,39 @@ The cabinet sends the currently-worn costume as `ary_current_costume` in the pla
 result. It is mirrored into `costume_1..5` and returned on BAID as `ary_costumedata`,
 so the look persists across sessions for that version.
 
+## Costume picker (web) and presets
+
+The web costume picker (`settings/Costumes.svelte`, `CostumeController`,
+route `costumes.edit/update`) lets a player set up their costume online. It is
+version-scoped via the same `{taikoVersion}` route prefix as the other settings
+pages.
+
+**Slots.** Four pickable slots — Full body (`costume_1`), Body (`costume_3`),
+Head (`costume_2`), Puchi-chara (`costume_5`). Face (slot 4) and colour (Iro) are
+not pickable here (no face items in the dumps; colour is its own page).
+
+**Full body overrides.** A non-zero `costume_1` (kigurumi) hides head/body/puchi
+in game; `costume_1 = 0` is the neutral default Donchan body that reveals them.
+The picker warns when a preset has a full-body costume set.
+
+**Presets (きせかえセット).** The cabinet exposes **three** preset sets per card,
+sent on BAID as `ary_favorite_costumedata` (repeated `CostumeData`, field 19) and
+built by `PlayerProfileService::favoriteCostumeData`. They are stored on
+`player_cosmetics`:
+
+- `costume_presets` (json) — three `{costume_1,2,3,5}` part sets.
+- `active_costume_preset` (tinyint) — which preset is worn.
+
+On save, the active preset is mirrored into `costume_1..5` (the equipped columns
+sent as `ary_costumedata`). Presets are **online-owned**: the play result only
+uploads the equipped/played costume, never preset edits, so the server is the
+source of truth for the three sets.
+
+**Icons** come from the prebuilt per-version spritesheet served by
+`CostumeController::spritesheet()`; see
+[costume asset extraction](../operations/costume-asset-extraction.md) for how the
+sheets are produced. The picker hides slots a version has no icons for.
+
 ## Last-used tone and options
 
 The play result's final stage carries the tone and play options the player used:
