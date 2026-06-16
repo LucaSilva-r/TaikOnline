@@ -790,7 +790,7 @@
                 </div>
             {:else}
                 <div class="divide-y">
-                    {#each recentPlays as play (`${play.song_no}-${play.level}-${play.played_at}`)}
+                    {#each recentPlays as play, i (`${i}-${play.song_no}-${play.level}-${play.played_at}`)}
                         <div class="grid gap-3 px-5 py-4 sm:grid-cols-[1fr_auto]">
                             <div class="min-w-0">
                                 <div class="truncate font-medium">
