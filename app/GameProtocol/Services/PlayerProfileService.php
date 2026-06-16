@@ -160,6 +160,32 @@ class PlayerProfileService
         ]);
     }
 
+    /**
+     * Build the きせかえセット presets sent as ary_favorite_costumedata. Returns an
+     * empty list for dialects without the nested CostumeData type.
+     *
+     * @return array<int, Message>
+     */
+    private function favoriteCostumeData(TaikoGameVersion $version, PlayerCosmetic $cosmetic): array
+    {
+        $favorites = [];
+        foreach ($cosmetic->normalizedPresets() as $preset) {
+            $costume = $this->messages->tryMake($version, 'BAIDResponse\\CostumeData');
+            if (! $costume instanceof Message) {
+                return [];
+            }
+
+            $favorites[] = $this->writer->fill($costume, [
+                'setCostume1' => $preset['costume_1'],
+                'setCostume2' => $preset['costume_2'],
+                'setCostume3' => $preset['costume_3'],
+                'setCostume5' => $preset['costume_5'],
+            ]);
+        }
+
+        return $favorites;
+    }
+
     public function baid(Message $request, TaikoGameVersion $version): Message
     {
         $card = GameCard::query()->with('player')->find($request->getAccessCode());
@@ -378,7 +404,7 @@ class PlayerProfileService
             'setColorBody' => (int) $player->color_body,
             'setColorLimb' => (int) $player->color_limb,
             'setAryCostumedata' => $this->equippedCostumeData($version, $cosmetic),
-            'setAryFavoriteCostumedata' => [],
+            'setAryFavoriteCostumedata' => $this->favoriteCostumeData($version, $cosmetic),
             'setCostumeFlg' => $this->costumeFlag($cosmetic, 1, $activeSeason, $unlockedCostumeIdsBySlot),
             'setCostumeFlg1' => $this->costumeFlag($cosmetic, 1, $activeSeason, $unlockedCostumeIdsBySlot),
             'setCostumeFlg2' => $this->costumeFlag($cosmetic, 2, $activeSeason, $unlockedCostumeIdsBySlot),
