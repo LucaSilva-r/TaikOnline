@@ -79,11 +79,14 @@
     }
 
     // CSS background shorthand placing one sprite cell from the sheet.
-    function sprite(item: SpriteItem): string {
+    function sprite(item: SpriteItem, key: string): string {
         if (!sheet) {
             return '';
         }
-        return `width:${sheet.cell}px;height:${sheet.cell}px;background-image:url(${sheet.url});background-position:-${item.x}px -${item.y}px;background-repeat:no-repeat;image-rendering:pixelated;`;
+        // Puchi-chara art already fills its cell; full-body/body/head art is
+        // drawn smaller within the cell, so render those at 56px to center.
+        const size = key === 'puchi' ? sheet.cell : 56;
+        return `width:${size}px;height:${size}px;background-image:url(${sheet.url});background-position:-${item.x}px -${item.y}px;background-repeat:no-repeat;image-rendering:pixelated;`;
     }
 </script>
 
@@ -189,14 +192,16 @@
                                         <button
                                             type="button"
                                             onclick={() => (current[slot.field] = item.id)}
-                                            class="rounded-md border-2 transition-[border-color] hover:scale-105 {item.id ===
+                                            class="flex items-center justify-center overflow-hidden rounded-md border-2 transition-[border-color] hover:scale-105 {item.id ===
                                             current[slot.field]
                                                 ? 'border-primary'
                                                 : 'border-transparent'}"
-                                            style={sprite(item)}
+                                            style="width:{sheet?.cell ?? 72}px;height:{sheet?.cell ?? 72}px;"
                                             title="ID: {item.id}"
                                             aria-label="{slot.label} {item.id}"
-                                        ></button>
+                                        >
+                                            <span style={sprite(item, slot.key)}></span>
+                                        </button>
                                     {/each}
                                 </div>
                             {/if}
