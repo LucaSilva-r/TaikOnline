@@ -50,6 +50,17 @@ class PlayResultService
         $gameVersion = $version->value;
         $playedAt = $this->parsePlayedAt($data->getPlayDatetime());
 
+        // The cabinet retries when it doesn't receive a clean response. If we
+        // already have results for this exact session, acknowledge success and
+        // drop the duplicate request so nothing gets written twice.
+        if (SongPlayResult::query()
+            ->where('baid', $player->baid)
+            ->where('game_version', $gameVersion)
+            ->where('played_at', $playedAt)
+            ->exists()) {
+            return 1;
+        }
+
         $isTokkun = false;
         if (method_exists($data, 'hasAryTokkunstageInfo') && $data->hasAryTokkunstageInfo() && $data->getAryTokkunstageInfo() !== null) {
             $isTokkun = true;
