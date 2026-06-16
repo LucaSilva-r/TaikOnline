@@ -14,6 +14,7 @@ return [
     'data_path' => env('TAIKO_GREEN_DATA_PATH', storage_path('app/game-data')),
     'catalog_version' => env('TAIKO_GREEN_CATALOG_VERSION', TaikoGameVersion::Green->value),
     'route_catalog_versions' => [
+        'v01r00_tw' => TaikoGameVersion::Red->value,
         'v10' => TaikoGameVersion::Blue->value,
         'v11' => TaikoGameVersion::Green->value,
     ],

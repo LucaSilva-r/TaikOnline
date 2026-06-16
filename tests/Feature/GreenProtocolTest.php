@@ -51,6 +51,7 @@ use App\GameProtocol\Proto\Green\Taiko\UserDataResponse;
 use App\GameProtocol\Proto\Green\VsInterface\StartupAuthRequest;
 use App\GameProtocol\Proto\Green\VsInterface\StartupAuthRequest\OperationData as StartupOperationData;
 use App\GameProtocol\Proto\Green\VsInterface\StartupAuthResponse;
+use App\GameProtocol\Proto\Red\Taiko\InitialdatacheckResponse as RedInitialdatacheckResponse;
 use App\GameProtocol\Support\MuchaCrypto;
 use App\GameProtocol\Support\ProtocolMessageResolver;
 use App\Models\Cabinet;
@@ -78,15 +79,20 @@ it('responds to allnet power on with form data', function (): void {
         ->assertSee('token=123', false);
 });
 
-it('responds to mucha board auth with green service urls', function (): void {
+it('responds to mucha board auth with bare host:port service urls', function (): void {
+    // International Taiko Red parses these as host:port for game routing, so a
+    // scheme or path would break it (GAME SERVER NG).
     $this->post('/mucha_front/boardauth.do', ['placeId' => 'JPN9999'])
         ->assertOk()
         ->assertSee('RESULTS=001', false)
-        ->assertSee('CHARGE_URL=https://127.0.0.1:54430/charge/', false)
-        ->assertSee('FILE_URL=https://127.0.0.1:54430/file/', false)
+        ->assertSee('CHARGE_URL=127.0.0.1:54430', false)
+        ->assertSee('FILE_URL=127.0.0.1:54430', false)
+        ->assertSee('URL_1=127.0.0.1:54430', false)
+        ->assertDontSee('CHARGE_URL=https://', false)
         ->assertSee('FORCE_BOOT=0', false)
         ->assertSee('PLACE_ID=JPN9999', false)
-        ->assertSee('CONSUME_TOKEN=0', false);
+        ->assertSee('USE_TOKEN=1', false)
+        ->assertSee('CONSUME_TOKEN=1', false);
 });
 
 it('echoes mucha board auth country codes for regional taiko red cabinets', function (): void {
@@ -120,17 +126,17 @@ it('responds to mucha registration auth for taiko red cabinets', function (): vo
 
     $response
         ->assertOk()
-        ->assertSee('RESULTS=001', false)
-        ->assertSee('ALL_TOKEN=6499cd86289c1307', false)
-        ->assertSee('ADD_TOKEN=a3755fbb352db6a3', false);
+        ->assertSee('RESULTS=001', false);
 
     parse_str($response->getContent(), $payload);
 
     $muchaCrypto = app(MuchaCrypto::class);
 
+    // Tokens are a fixed full wallet ("999") regardless of the count the
+    // cabinet reports, so its token state machine reaches operational.
     expect($muchaCrypto->tokenKey('20260527'))->toBe('72026052')
-        ->and($muchaCrypto->decryptToken($payload['ALL_TOKEN'], '72026052'))->toBe('5')
-        ->and($muchaCrypto->decryptToken($payload['ADD_TOKEN'], '72026052'))->toBe('0');
+        ->and($muchaCrypto->decryptToken($payload['ALL_TOKEN'], '72026052'))->toBe('999')
+        ->and($muchaCrypto->decryptToken($payload['ADD_TOKEN'], '72026052'))->toBe('999');
 });
 
 it('responds to mucha token state for taiko red cabinets', function (): void {
@@ -147,17 +153,17 @@ it('responds to mucha token state for taiko red cabinets', function (): void {
 
     $response
         ->assertOk()
-        ->assertSee('RESULTS=001', false)
-        ->assertSee('ALL_TOKEN=6499cd86289c1307', false)
-        ->assertSee('ADD_TOKEN=a3755fbb352db6a3', false);
+        ->assertSee('RESULTS=001', false);
 
     parse_str($response->getContent(), $payload);
 
     $muchaCrypto = app(MuchaCrypto::class);
 
+    // Tokens are a fixed full wallet ("999") regardless of the count the
+    // cabinet reports, so its token state machine reaches operational.
     expect($muchaCrypto->tokenKey('20260527'))->toBe('72026052')
-        ->and($muchaCrypto->decryptToken($payload['ALL_TOKEN'], '72026052'))->toBe('5')
-        ->and($muchaCrypto->decryptToken($payload['ADD_TOKEN'], '72026052'))->toBe('0');
+        ->and($muchaCrypto->decryptToken($payload['ALL_TOKEN'], '72026052'))->toBe('999')
+        ->and($muchaCrypto->decryptToken($payload['ADD_TOKEN'], '72026052'))->toBe('999');
 });
 
 it('responds to mucha update check like the green reference server', function (): void {
@@ -218,10 +224,19 @@ it('dispatches taiko red root setup protobuf requests', function (): void {
         ->setChassisId('268410000000')
         ->setShopId('AAA00000');
 
-    $initialResponse = post_protobuf('/', $initialRequest, InitialdatacheckResponse::class);
+    $initialRaw = post_protobuf_raw('/', $initialRequest);
 
-    expect($initialResponse->getResult())->toBe(1)
-        ->and($initialResponse->getSongHashVer())->toBe(99);
+    // Decode with the red dialect: red renumbers is_danplay=9 and is_close=10,
+    // so a green-shaped payload would surface here as is_close=true (store
+    // closed). Asserting against the red message proves the root setup serves
+    // the red dialect, not the green fallback.
+    $redInitial = new RedInitialdatacheckResponse;
+    $redInitial->mergeFromString($initialRaw->getContent());
+
+    expect($redInitial->getResult())->toBe(1)
+        ->and($redInitial->getSongHashVer())->toBe(99)
+        ->and($redInitial->getIsDanplay())->toBeTrue()
+        ->and($redInitial->getIsClose())->toBeFalse();
 
     $telopRequest = (new GettelopRequest)
         ->setChassisId('268410000000')

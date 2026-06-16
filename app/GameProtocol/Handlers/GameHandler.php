@@ -95,6 +95,10 @@ class GameHandler
                 'setResult' => 1,
                 'setSongHashVer' => (int) $request->attributes->get('songHashVersion', 1),
                 'setHashDefaultSongFlg' => $releaseSongFlag,
+                // AC15 dialects (red/blue/green) carry zeroed mainichi-dojo
+                // bitsets here; older protos lack the fields and no-op.
+                'setHashMainichidojoAll' => $this->scoreMapper->emptyFlagBytes(128),
+                'setHashMainichidojoRare' => $this->scoreMapper->emptyFlagBytes(128),
                 'setAryTelopData' => [$information],
                 'setAryEventfolderData' => [],
                 'setAryTaikojukuData' => [],
