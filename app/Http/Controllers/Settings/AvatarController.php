@@ -30,26 +30,31 @@ class AvatarController extends Controller
         $user = $request->user();
         $faces = $this->faces();
 
-        // Prefer the settings a saved avatar was generated from; otherwise seed from the
-        // equipped costume and the player's stock Don colours (face 0 / body 1 / limb 3).
-        $costume = $user->avatar_costume;
-        if ($costume === null && $card !== null && $version instanceof TaikoGameVersion) {
-            $costume = (int) PlayerCosmetic::resolve($card->player->baid, $version)->costume_1;
-        }
+        $cosmetic = ($card !== null && $version instanceof TaikoGameVersion)
+            ? PlayerCosmetic::resolve($card->player->baid, $version)
+            : null;
 
+        // Prefer the settings a saved avatar was generated from; otherwise seed from the
+        // equipped costume parts and the player's stock Don colours (face 0 / body 1 / limb 3).
         return Inertia::render('settings/DonChanAvatar', [
             'hasAvatar' => $user->avatar !== null,
             'avatar' => $user->avatar,
             'versionLabel' => $version?->label() ?? '',
-            'kigurumiSheet' => $this->kigurumiSheet($version),
+            'sheet' => $this->sheet($version),
             'faces' => $faces,
             'defaults' => [
-                'costume' => $costume ?? 0,
+                'costume' => $user->avatar_costume ?? (int) ($cosmetic?->costume_1 ?? 0),
+                'head' => $user->avatar_head ?? (int) ($cosmetic?->costume_2 ?? 0),
+                'body' => $user->avatar_body ?? (int) ($cosmetic?->costume_3 ?? 0),
                 'colorFace' => $user->avatar_color_face ?? $card?->player->color_face ?? 0,
                 'colorBody' => $user->avatar_color_body ?? $card?->player->color_body ?? 1,
                 'colorLimb' => $user->avatar_color_limb ?? $card?->player->color_limb ?? 3,
                 'face' => $user->avatar_face ?? ($faces[0] ?? null),
                 'faceFrame' => $user->avatar_face_frame ?? 0,
+                'animation' => $user->avatar_animation,
+                'animationFrame' => $user->avatar_animation_frame ?? 0.0,
+                'cameraYaw' => $user->avatar_camera_yaw ?? 0.0,
+                'cameraPitch' => $user->avatar_camera_pitch ?? 0.0,
             ],
         ]);
     }
@@ -95,8 +100,14 @@ class AvatarController extends Controller
             'avatar_color_face' => (int) $request->validated('color_face'),
             'avatar_color_body' => (int) $request->validated('color_body'),
             'avatar_color_limb' => (int) $request->validated('color_limb'),
+            'avatar_head' => (int) $request->validated('head'),
+            'avatar_body' => (int) $request->validated('body'),
             'avatar_face' => $request->validated('face'),
             'avatar_face_frame' => (int) $request->validated('face_frame'),
+            'avatar_animation' => $request->validated('animation'),
+            'avatar_animation_frame' => (float) $request->validated('animation_frame'),
+            'avatar_camera_yaw' => (float) $request->validated('camera_yaw'),
+            'avatar_camera_pitch' => (float) $request->validated('camera_pitch'),
         ])->save();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Profile picture updated.')]);
@@ -105,12 +116,12 @@ class AvatarController extends Controller
     }
 
     /**
-     * Kigurumi picker spritesheet for the current version. The slot ids double as the
-     * cos/{id}.glb filenames the viewer loads (see scripts/donchan/export_web_assets.py).
+     * Costume picker spritesheet for the current version. The slot ids double as the
+     * cos|head|body/{id}.glb filenames the viewer loads (see export_web_assets.py).
      *
-     * @return array{url: string, cell: int, width: int, height: int, items: array<int, array{id: int, x: int, y: int}>}|null
+     * @return array{url: string, cell: int, width: int, height: int, slots: array<string, array<int, array{id: int, x: int, y: int}>>}|null
      */
-    private function kigurumiSheet(?TaikoGameVersion $version): ?array
+    private function sheet(?TaikoGameVersion $version): ?array
     {
         if (! $version instanceof TaikoGameVersion) {
             return null;
@@ -129,7 +140,7 @@ class AvatarController extends Controller
             'cell' => $data['cell'],
             'width' => $data['sheet'][0],
             'height' => $data['sheet'][1],
-            'items' => $data['slots']['kigurumi'] ?? [],
+            'slots' => $data['slots'],
         ];
     }
 

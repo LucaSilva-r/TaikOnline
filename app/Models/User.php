@@ -42,6 +42,9 @@ class User extends Authenticatable
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
             'avatar_updated_at' => 'datetime',
+            'avatar_animation_frame' => 'float',
+            'avatar_camera_yaw' => 'float',
+            'avatar_camera_pitch' => 'float',
             'role' => UserRole::class,
         ];
     }

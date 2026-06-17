@@ -55,6 +55,8 @@ def main() -> int:
         return 1
 
     cos = copy_tree(models_root / "cos", PUBLIC_ROOT / "models" / "cos", "*.glb", args.force)
+    head = copy_tree(models_root / "head", PUBLIC_ROOT / "models" / "head", "*.glb", args.force)
+    body = copy_tree(models_root / "body", PUBLIC_ROOT / "models" / "body", "*.glb", args.force)
     face = copy_tree(models_root / "face", PUBLIC_ROOT / "face", "*.png", args.force)
 
     anim_src = models_root / "animations.glb"
@@ -65,7 +67,8 @@ def main() -> int:
         shutil.copy2(anim_src, anim_dst)
         anim = 1
 
-    print(f"exported: {cos} kigurumi glb, {face} face sheets, {anim} animations.glb")
+    print(f"exported: {cos} kigurumi, {head} head, {body} body glb, "
+          f"{face} face sheets, {anim} animations.glb")
     print(f"  -> {PUBLIC_ROOT}")
     return 0
 
