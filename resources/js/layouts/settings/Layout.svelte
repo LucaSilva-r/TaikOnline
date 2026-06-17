@@ -18,8 +18,10 @@
 
     let {
         children,
+        wide = false,
     }: {
         children?: Snippet;
+        wide?: boolean;
     } = $props();
 
     const sidebarNavItems: NavItem[] = [
@@ -91,8 +93,8 @@
 
         <Separator class="my-6 lg:hidden" />
 
-        <div class="flex-1 md:max-w-2xl">
-            <section class="max-w-xl space-y-12">
+        <div class={wide ? 'min-w-0 flex-1' : 'flex-1 md:max-w-2xl'}>
+            <section class={wide ? 'w-full max-w-none space-y-12' : 'max-w-xl space-y-12'}>
                 {@render children?.()}
             </section>
         </div>

@@ -1,8 +1,9 @@
 <script module lang="ts">
-    import { edit } from '@/routes/avatar';
     import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
+    import { edit } from '@/routes/avatar';
 
     export const layout = {
+        wide: true,
         breadcrumbs: [
             {
                 title: 'Profile Picture',
@@ -28,9 +29,16 @@
         cell: number;
         width: number;
         height: number;
-        items: SpriteItem[];
+        slots: Record<string, SpriteItem[]>;
     } | null;
     type ColorTab = 'face' | 'body' | 'limb';
+    type PartTab = 'kigurumi' | 'head' | 'body';
+
+    const PART_TABS: { key: PartTab; label: string }[] = [
+        { key: 'kigurumi', label: 'Kigurumi' },
+        { key: 'head', label: 'Head' },
+        { key: 'body', label: 'Body' },
+    ];
 
     const COLORS: string[] = [
         '#f94729', '#68c0c1', '#dd1400', '#f8f1df', '#019587', '#00bf86',
@@ -56,22 +64,28 @@
         hasAvatar = false,
         avatar = null,
         versionLabel = '',
-        kigurumiSheet = null,
+        sheet = null,
         faces = [],
         defaults,
     }: {
         hasAvatar?: boolean;
         avatar?: string | null;
         versionLabel?: string;
-        kigurumiSheet?: Sheet;
+        sheet?: Sheet;
         faces?: string[];
         defaults: {
             costume: number;
+            head: number;
+            body: number;
             colorFace: number;
             colorBody: number;
             colorLimb: number;
             face: string | null;
             faceFrame: number;
+            animation: string | null;
+            animationFrame: number;
+            cameraYaw: number;
+            cameraPitch: number;
         };
     } = $props();
 
@@ -79,6 +93,9 @@
     let renderer: DonchanRenderer | null = null;
 
     let costume = $state(defaults.costume);
+    let head = $state(defaults.head);
+    let body = $state(defaults.body);
+    let activePartTab = $state<PartTab>(defaults.costume > 0 ? 'kigurumi' : 'head');
     let colorFace = $state(defaults.colorFace);
     let colorBody = $state(defaults.colorBody);
     let colorLimb = $state(defaults.colorLimb);
@@ -90,13 +107,25 @@
     let saving = $state(false);
 
     let animations = $state<string[]>([]);
-    let selectedAnimation = $state('');
-    let playing = $state(true);
-    let scrub = $state(0);
+    let selectedAnimation = $state(defaults.animation ?? '');
+    let animationFrame = $state(defaults.animationFrame ?? 0);
+    let playing = $state(false);
+    let scrub = $state(Math.round(animationFrame * 100));
+    let cameraYaw = $state(defaults.cameraYaw ?? 0);
+    let cameraPitch = $state(defaults.cameraPitch ?? 0);
 
-    const MODEL_BASE = '/donchan/models/cos';
+    const MODEL_BASE = '/donchan/models';
     const FACE_BASE = '/donchan/face';
     const ANIMATIONS = '/donchan/animations.glb';
+
+    // A worn kigurumi (id > 0) overrides the parts; otherwise composite the head + body.
+    function modelUrls(): string[] {
+        if (costume > 0) {
+            return [`${MODEL_BASE}/cos/${costume}.glb`];
+        }
+
+        return [`${MODEL_BASE}/body/${body}.glb`, `${MODEL_BASE}/head/${head}.glb`];
+    }
 
     function prettyAnimation(name: string): string {
         return name.replace(/_/g, ' ').replace(/\bdon\b/i, 'Don');
@@ -115,23 +144,41 @@
         renderer?.render();
     }
 
-    async function loadCostume(id: number): Promise<void> {
+    async function reloadModels(): Promise<void> {
         if (!renderer) {
             return;
         }
 
+        const targetAnimation = selectedAnimation;
+        const targetFrame = animationFrame;
+        const targetYaw = cameraYaw;
+        const targetPitch = cameraPitch;
+
         loading = true;
-        await renderer.loadCostume(`${MODEL_BASE}/${id}.glb`, ANIMATIONS);
+        await renderer.loadModels(modelUrls(), ANIMATIONS);
         renderer.setColors(
             hexToRgb(COLORS[colorBody]),
             hexToRgb(COLORS[colorFace]),
             hexToRgb(COLORS[colorLimb]),
         );
+
         if (face) {
             await renderer.setFace(`${FACE_BASE}/${face}`, faceFrame);
         }
+
         animations = renderer.animationNames;
-        selectedAnimation = renderer.currentAnimation ?? animations[0] ?? '';
+        selectedAnimation = animations.includes(targetAnimation)
+            ? targetAnimation
+            : renderer.currentAnimation ?? animations[0] ?? '';
+
+        if (selectedAnimation) {
+            renderer.playClip(selectedAnimation);
+        }
+
+        animationFrame = targetFrame;
+        scrub = Math.round(targetFrame * 100);
+        renderer.seek(targetFrame);
+        renderer.setRotation(targetYaw, targetPitch);
         renderer.setPlaying(playing);
         renderer.render();
         loading = false;
@@ -139,7 +186,10 @@
 
     function selectAnimation(name: string): void {
         selectedAnimation = name;
+        animationFrame = 0;
+        scrub = 0;
         renderer?.playClip(name);
+        renderer?.seek(0);
         renderer?.setPlaying(playing);
     }
 
@@ -159,7 +209,14 @@
         if (!dragging) {
             return;
         }
+
         renderer?.rotateBy(event.movementX * 0.01, event.movementY * 0.01);
+        const rotation = renderer?.cameraRotation;
+
+        if (rotation) {
+            cameraYaw = rotation.yaw;
+            cameraPitch = rotation.pitch;
+        }
     }
 
     function onPointerUp(event: PointerEvent): void {
@@ -169,17 +226,37 @@
 
     function resetRotation(): void {
         renderer?.resetRotation();
+        cameraYaw = 0;
+        cameraPitch = 0;
     }
 
     function onScrub(value: number): void {
         playing = false;
         scrub = value;
-        renderer?.seek(value / 100);
+        animationFrame = value / 100;
+        renderer?.seek(animationFrame);
     }
 
-    function selectCostume(id: number): void {
-        costume = id;
-        void loadCostume(id);
+    function selectPart(tab: PartTab, id: number): void {
+        if (tab === 'kigurumi') {
+            costume = id;
+        } else if (tab === 'head') {
+            head = id;
+            costume = 0; // picking a part takes the kigurumi off so the parts show
+        } else {
+            body = id;
+            costume = 0;
+        }
+
+        void reloadModels();
+    }
+
+    function selectedPart(tab: PartTab): number {
+        return tab === 'kigurumi' ? costume : tab === 'head' ? head : body;
+    }
+
+    function slotItems(tab: PartTab): SpriteItem[] {
+        return sheet?.slots[tab] ?? [];
     }
 
     function selectColor(key: ColorTab, id: number): void {
@@ -190,6 +267,7 @@
         } else {
             colorFace = id;
         }
+
         pushColors();
     }
 
@@ -211,16 +289,23 @@
 
         saving = true;
         const image = renderer.screenshot();
+        const rotation = renderer.cameraRotation;
         router.post(
             AvatarController.update(taikoRouteParam()).url,
             {
                 image,
                 costume,
+                head,
+                body,
                 color_face: colorFace,
                 color_body: colorBody,
                 color_limb: colorLimb,
                 face,
                 face_frame: faceFrame,
+                animation: selectedAnimation || renderer.currentAnimation,
+                animation_frame: renderer.animationFrame,
+                camera_yaw: rotation.yaw,
+                camera_pitch: rotation.pitch,
             },
             {
                 preserveScroll: true,
@@ -231,12 +316,16 @@
         );
     }
 
+    function partCellSize(): number {
+        return sheet?.cell ?? 72;
+    }
+
     function sprite(item: SpriteItem): string {
-        if (!kigurumiSheet) {
+        if (!sheet) {
             return '';
         }
 
-        return `width:56px;height:56px;background-image:url(${kigurumiSheet.url});background-position:-${item.x}px -${item.y}px;background-repeat:no-repeat;image-rendering:pixelated;`;
+        return `width:56px;height:56px;background-image:url(${sheet.url});background-position:-${item.x}px -${item.y}px;background-repeat:no-repeat;image-rendering:pixelated;`;
     }
 
     onMount(() => {
@@ -246,9 +335,10 @@
 
         renderer = new DonchanRenderer(canvas, 512);
         renderer.onFrame = (normalized: number) => {
+            animationFrame = normalized;
             scrub = Math.round(normalized * 100);
         };
-        void loadCostume(costume);
+        void reloadModels();
 
         return () => {
             renderer?.dispose();
@@ -268,9 +358,9 @@
         description="Customize your Don and set it as your profile picture for {versionLabel}."
     />
 
-    <div class="flex flex-col gap-8 lg:flex-row">
-        <div class="flex flex-col items-center gap-4">
-            <div class="relative h-[320px] w-[320px] overflow-hidden rounded-lg border bg-[linear-gradient(45deg,#f3f4f6_25%,transparent_25%,transparent_75%,#f3f4f6_75%),linear-gradient(45deg,#f3f4f6_25%,#fff_25%,#fff_75%,#f3f4f6_75%)] [background-position:0_0,10px_10px] [background-size:20px_20px]">
+    <div class="grid gap-8 xl:grid-cols-[minmax(0,36rem)_minmax(320px,380px)] xl:items-start xl:gap-12">
+        <aside class="flex w-full max-w-[380px] flex-col items-center gap-4 justify-self-center xl:sticky xl:top-24 xl:order-2 xl:justify-self-end">
+            <div class="relative aspect-square w-full overflow-hidden rounded-lg border bg-[linear-gradient(45deg,#f3f4f6_25%,transparent_25%,transparent_75%,#f3f4f6_75%),linear-gradient(45deg,#f3f4f6_25%,#fff_25%,#fff_75%,#f3f4f6_75%)] [background-position:0_0,10px_10px] [background-size:20px_20px]">
                 <canvas
                     bind:this={canvas}
                     class="h-full w-full cursor-grab touch-none active:cursor-grabbing"
@@ -286,7 +376,7 @@
             </div>
 
             {#if animations.length > 0}
-                <div class="flex w-[320px] flex-col gap-2">
+                <div class="flex w-full flex-col gap-2">
                     <div class="flex items-center gap-2">
                         <button
                             type="button"
@@ -297,7 +387,7 @@
                             {playing ? '⏸' : '▶'}
                         </button>
                         <select
-                            value={selectedAnimation}
+                            bind:value={selectedAnimation}
                             onchange={(event) => selectAnimation(event.currentTarget.value)}
                             class="flex-1 rounded-md border bg-background px-2 py-1.5 text-sm"
                         >
@@ -310,7 +400,7 @@
                         type="range"
                         min="0"
                         max="100"
-                        value={scrub}
+                        bind:value={scrub}
                         oninput={(event) => onScrub(Number(event.currentTarget.value))}
                         class="w-full"
                         aria-label="Animation frame"
@@ -324,13 +414,11 @@
             <button
                 type="button"
                 onclick={resetRotation}
-                class="w-[320px] rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+                class="w-full rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
             >
                 Reset view
             </button>
-            <p class="w-[320px] text-center text-xs text-muted-foreground">
-                Drag the Don to rotate.
-            </p>
+            <p class="w-full text-center text-xs text-muted-foreground">Drag the Don to rotate.</p>
 
             <Button onclick={save} disabled={saving || loading} data-test="save-avatar-button">
                 {saving ? 'Saving…' : 'Set as profile picture'}
@@ -342,9 +430,9 @@
                     <img src={avatar} alt="Current profile picture" class="h-10 w-10 rounded-full border object-cover" />
                 </div>
             {/if}
-        </div>
+        </aside>
 
-        <div class="flex-1 space-y-8">
+        <div class="min-w-0 space-y-8 xl:order-1">
             <section class="space-y-3">
                 <Heading variant="small" title="Colors" />
                 <div class="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
@@ -383,7 +471,7 @@
                             <button
                                 type="button"
                                 onclick={() => selectFace(file)}
-                                class="overflow-hidden rounded-md border-2 transition-[border-color] hover:scale-105 {file ===
+                                class="overflow-hidden rounded-md border-2 bg-white transition-[border-color] hover:scale-105 {file ===
                                 face
                                     ? 'border-primary'
                                     : 'border-transparent'}"
@@ -409,7 +497,7 @@
                                 ◀
                             </button>
                             <span
-                                class="rounded-md border"
+                                class="rounded-md border bg-white"
                                 style="display:block;width:48px;height:48px;background-image:url({FACE_BASE}/{face});background-size:48px auto;background-position:0 -{faceFrame * 48}px;background-repeat:no-repeat;image-rendering:pixelated;"
                             ></span>
                             <button
@@ -426,29 +514,58 @@
                 </section>
             {/if}
 
-            {#if kigurumiSheet && kigurumiSheet.items.length > 0}
+            {#if sheet}
                 <section class="space-y-3">
-                    <Heading variant="small" title="Kigurumi" />
-                    <div
-                        class="overflow-y-auto rounded-md border p-2"
-                        style="display:grid;grid-template-columns:repeat(auto-fill,56px);gap:0.5rem;max-height:20rem;justify-content:center;"
-                    >
-                        {#each kigurumiSheet.items as item (item.id)}
+                    <Heading variant="small" title="Costume" />
+                    <div class="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
+                        {#each PART_TABS as tab (tab.key)}
                             <button
                                 type="button"
-                                onclick={() => selectCostume(item.id)}
-                                class="flex items-center justify-center overflow-hidden rounded-md border-2 transition-[border-color] hover:scale-105 {item.id ===
-                                costume
-                                    ? 'border-primary'
-                                    : 'border-transparent'}"
-                                style="width:56px;height:56px;"
-                                title="ID: {item.id}"
-                                aria-label="Kigurumi {item.id}"
+                                onclick={() => (activePartTab = tab.key)}
+                                class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {activePartTab ===
+                                tab.key
+                                    ? 'bg-background text-foreground shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground'}"
                             >
-                                <span style={sprite(item)}></span>
+                                {tab.label}
                             </button>
                         {/each}
                     </div>
+
+                    {#if activePartTab === 'kigurumi' && costume === 0}
+                        <p class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                            No kigurumi worn — showing the Head and Body parts below.
+                        </p>
+                    {:else if activePartTab !== 'kigurumi' && costume > 0}
+                        <p class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                            A kigurumi (ID {costume}) is worn and hides the parts. Pick a part to take it off.
+                        </p>
+                    {/if}
+
+                    {#each PART_TABS as tab (tab.key)}
+                        {#if activePartTab === tab.key}
+                            <div
+                                class="overflow-y-auto rounded-md border p-2"
+                                style="display:grid;grid-template-columns:repeat(auto-fill,{partCellSize()}px);gap:0.5rem;max-height:24rem;justify-content:center;"
+                            >
+                                {#each slotItems(tab.key) as item (item.id)}
+                                    <button
+                                        type="button"
+                                        onclick={() => selectPart(tab.key, item.id)}
+                                        class="flex items-center justify-center overflow-hidden rounded-md border-2 transition-[border-color] hover:scale-105 {item.id ===
+                                        selectedPart(tab.key)
+                                            ? 'border-primary'
+                                            : 'border-transparent'}"
+                                        style="width:{partCellSize()}px;height:{partCellSize()}px;"
+                                        title="ID: {item.id}"
+                                        aria-label="{tab.label} {item.id}"
+                                    >
+                                        <span style={sprite(item)}></span>
+                                    </button>
+                                {/each}
+                            </div>
+                        {/if}
+                    {/each}
                 </section>
             {/if}
         </div>

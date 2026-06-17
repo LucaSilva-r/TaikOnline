@@ -30,11 +30,17 @@ function avatarPayload(array $overrides = []): array
     return array_merge([
         'image' => pngDataUrl(),
         'costume' => 5,
+        'head' => 0,
+        'body' => 0,
         'color_face' => 0,
         'color_body' => 1,
         'color_limb' => 3,
         'face' => 'face_000000.png',
         'face_frame' => 0,
+        'animation' => 'don_normal',
+        'animation_frame' => 0,
+        'camera_yaw' => 0,
+        'camera_pitch' => 0,
     ], $overrides);
 }
 
@@ -55,12 +61,18 @@ it('stores a generated avatar and the settings it was made from', function (): v
 
     $this->actingAs($user)
         ->post('/green/settings/avatar', avatarPayload([
-            'costume' => 12,
+            'costume' => 0,
+            'head' => 3,
+            'body' => 9,
             'color_face' => 4,
             'color_body' => 8,
             'color_limb' => 15,
             'face' => 'face_009000.png',
             'face_frame' => 7,
+            'animation' => 'don_kime',
+            'animation_frame' => 0.42,
+            'camera_yaw' => 1.25,
+            'camera_pitch' => -0.25,
         ]))
         ->assertRedirect(route('avatar.edit', ['taikoVersion' => 'green']));
 
@@ -69,12 +81,18 @@ it('stores a generated avatar and the settings it was made from', function (): v
     $fresh = $user->fresh();
     expect($fresh->avatar_updated_at)->not->toBeNull()
         ->and($fresh->avatar)->toBe("/storage/avatars/{$user->id}.png?v={$fresh->avatar_updated_at->timestamp}")
-        ->and($fresh->avatar_costume)->toBe(12)
+        ->and($fresh->avatar_costume)->toBe(0)
+        ->and($fresh->avatar_head)->toBe(3)
+        ->and($fresh->avatar_body)->toBe(9)
         ->and($fresh->avatar_color_face)->toBe(4)
         ->and($fresh->avatar_color_body)->toBe(8)
         ->and($fresh->avatar_color_limb)->toBe(15)
         ->and($fresh->avatar_face)->toBe('face_009000.png')
-        ->and($fresh->avatar_face_frame)->toBe(7);
+        ->and($fresh->avatar_face_frame)->toBe(7)
+        ->and($fresh->avatar_animation)->toBe('don_kime')
+        ->and($fresh->avatar_animation_frame)->toBe(0.42)
+        ->and($fresh->avatar_camera_yaw)->toBe(1.25)
+        ->and($fresh->avatar_camera_pitch)->toBe(-0.25);
 });
 
 it('seeds the customizer from the saved avatar settings', function (): void {
@@ -83,6 +101,7 @@ it('seeds the customizer from the saved avatar settings', function (): void {
 
     $this->actingAs($user)->post('/green/settings/avatar', avatarPayload([
         'costume' => 12, 'color_face' => 4, 'color_body' => 8, 'color_limb' => 15, 'face' => 'face_009000.png', 'face_frame' => 7,
+        'animation' => 'don_kime', 'animation_frame' => 0.42, 'camera_yaw' => 1.25, 'camera_pitch' => -0.25,
     ]));
 
     $this->actingAs($user)->get('/green/settings/avatar')
@@ -92,7 +111,11 @@ it('seeds the customizer from the saved avatar settings', function (): void {
             ->where('defaults.colorBody', 8)
             ->where('defaults.colorLimb', 15)
             ->where('defaults.face', 'face_009000.png')
-            ->where('defaults.faceFrame', 7));
+            ->where('defaults.faceFrame', 7)
+            ->where('defaults.animation', 'don_kime')
+            ->where('defaults.animationFrame', 0.42)
+            ->where('defaults.cameraYaw', 1.25)
+            ->where('defaults.cameraPitch', -0.25));
 });
 
 it('clamps oversized avatars to the max dimension', function (): void {
