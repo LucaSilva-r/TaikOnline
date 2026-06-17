@@ -59,7 +59,7 @@
         { key: 'body', label: 'Body' },
         { key: 'limb', label: 'Limb' },
     ];
-    const PICKER_ICON_SIZE = 48;
+    const PICKER_ICON_SIZE = 64;
     const PICKER_BUTTON_SIZE = 56;
 
     let {
@@ -329,7 +329,7 @@
         const x = Math.round(item.x * scale);
         const y = Math.round(item.y * scale);
 
-        return `display:block;width:${PICKER_ICON_SIZE}px;height:${PICKER_ICON_SIZE}px;background-image:url(${sheet.url});background-size:${backgroundWidth}px ${backgroundHeight}px;background-position:-${x}px -${y}px;background-repeat:no-repeat;image-rendering:pixelated;`;
+        return `display:block;width:${PICKER_BUTTON_SIZE}px;height:${PICKER_BUTTON_SIZE}px;background-image:url(${sheet.url});background-size:${backgroundWidth}px ${backgroundHeight}px;background-position:-${x}px -${y}px;background-repeat:no-repeat;image-rendering:pixelated;`;
     }
 
     onMount(() => {
