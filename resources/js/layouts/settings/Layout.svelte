@@ -8,6 +8,7 @@
     import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
     import { edit as editAppearance } from '@/routes/appearance';
+    import { edit as editAvatar } from '@/routes/avatar';
     import { index as indexCabinets } from '@/routes/cabinets';
     import { edit as editCostumes } from '@/routes/costumes';
     import { edit as editGameSettings } from '@/routes/game-settings';
@@ -33,6 +34,10 @@
         {
             title: 'DonChan',
             href: editCostumes(taikoRouteParam()),
+        },
+        {
+            title: 'Profile Picture',
+            href: editAvatar(taikoRouteParam()),
         },
         {
             title: 'Game Settings',

@@ -274,11 +274,12 @@
             <div class="flex flex-col gap-5 sm:flex-row sm:items-end">
                 <Avatar class="size-24 border-4 border-background shadow-sm">
                     {#if profile.avatar}
-                        <AvatarImage src={profile.avatar} alt={profile.name} />
+                        <AvatarImage src={profile.avatar} alt={profile.name} class="bg-muted object-cover" />
+                    {:else}
+                        <AvatarFallback class="text-2xl font-semibold">
+                            {getInitials(profile.name)}
+                        </AvatarFallback>
                     {/if}
-                    <AvatarFallback class="text-2xl font-semibold">
-                        {getInitials(profile.name)}
-                    </AvatarFallback>
                 </Avatar>
 
                 <div class="min-w-0 flex-1">
