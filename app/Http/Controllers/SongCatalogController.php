@@ -8,6 +8,7 @@ use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use App\Models\User;
+use App\Services\PlayerRankAggregateService;
 use App\Support\SongSearch;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -174,6 +175,7 @@ class SongCatalogController extends Controller
             ->join($playersTable, "{$playersTable}.baid", '=', "{$bestsTable}.baid")
             ->whereNotNull("{$playersTable}.user_id")
             ->select([
+                "{$bestsTable}.baid",
                 "{$bestsTable}.level",
                 "{$bestsTable}.best_score",
                 "{$bestsTable}.best_score_rank",
@@ -183,6 +185,8 @@ class SongCatalogController extends Controller
             ->orderBy("{$bestsTable}.level")
             ->orderByDesc("{$bestsTable}.best_score")
             ->get();
+
+        $precisionByBest = $this->precisionByBestPlay($version, $song);
 
         $playCountsByLevel = DB::table($resultsTable)
             ->where('game_version', $version->value)
@@ -196,7 +200,7 @@ class SongCatalogController extends Controller
 
         return $rows
             ->groupBy('level')
-            ->map(function (Collection $levelRows, int|string $level) use ($playCountsByLevel, $users): array {
+            ->map(function (Collection $levelRows, int|string $level) use ($playCountsByLevel, $users, $precisionByBest): array {
                 $crownCounts = [
                     'clear' => 0,
                     'gold' => 0,
@@ -228,6 +232,7 @@ class SongCatalogController extends Controller
                             'score' => (int) $row->best_score,
                             'score_rank' => (int) $row->best_score_rank,
                             'crown' => (int) $row->best_crown,
+                            'precision' => $precisionByBest["{$row->baid}:{$row->level}"] ?? null,
                         ])
                         ->all(),
                 ];
@@ -256,6 +261,9 @@ class SongCatalogController extends Controller
                 "{$resultsTable}.play_result",
                 "{$resultsTable}.score",
                 "{$resultsTable}.score_rank",
+                "{$resultsTable}.good_count",
+                "{$resultsTable}.ok_count",
+                "{$resultsTable}.miss_count",
                 "{$playersTable}.user_id",
             ])
             ->latest("{$resultsTable}.played_at")
@@ -274,8 +282,47 @@ class SongCatalogController extends Controller
                 'play_result' => (int) $row->play_result,
                 'score' => (int) $row->score,
                 'score_rank' => (int) $row->score_rank,
+                'precision' => PlayerRankAggregateService::precision(
+                    (int) $row->good_count,
+                    (int) $row->ok_count,
+                    (int) $row->miss_count,
+                ),
             ])
             ->all();
+    }
+
+    /**
+     * Precision of each player's best-scoring play, keyed by "baid:level". Best
+     * scores carry no judgement counts, so we read them from the play that set
+     * the score.
+     *
+     * @return array<string, float>
+     */
+    private function precisionByBestPlay(TaikoGameVersion $version, Song $song): array
+    {
+        $resultsTable = (new SongPlayResult)->getTable();
+
+        $map = [];
+
+        SongPlayResult::query()
+            ->where("{$resultsTable}.game_version", $version->value)
+            ->where("{$resultsTable}.song_no", $song->song_no)
+            ->select(['baid', 'level', 'score', 'good_count', 'ok_count', 'miss_count'])
+            ->orderByDesc('score')
+            ->get()
+            ->each(function ($row) use (&$map): void {
+                // First row per key is the highest score (results are score-sorted).
+                $key = "{$row->baid}:{$row->level}";
+                if (! array_key_exists($key, $map)) {
+                    $map[$key] = PlayerRankAggregateService::precision(
+                        (int) $row->good_count,
+                        (int) $row->ok_count,
+                        (int) $row->miss_count,
+                    );
+                }
+            });
+
+        return $map;
     }
 
     /**

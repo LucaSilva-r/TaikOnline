@@ -95,7 +95,7 @@ class PlayResultService
             return 1;
         }
 
-        foreach ($data->getAryStageInfo() as $stage) {
+        foreach ($data->getAryStageInfo() as $stageIndex => $stage) {
             if (! $stage instanceof Message) {
                 continue;
             }
@@ -108,6 +108,9 @@ class PlayResultService
                 'chassis_id' => $data->getChassisId(),
                 'shop_id' => $data->getShopId(),
                 'played_at' => $playedAt,
+                // Position within the session (a cabinet can play up to 4 songs,
+                // even the same song twice) — part of the row's natural key.
+                'stage_index' => (int) $stageIndex,
                 'is_right' => $data->getIsRight(),
                 'is_two_players' => $data->getIsTwoPlayers(),
                 'song_no' => $stage->getSongNo(),

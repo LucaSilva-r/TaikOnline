@@ -31,6 +31,7 @@
         score: number;
         score_rank: number;
         crown: number;
+        precision: number | null;
     };
 
     type Difficulty = {
@@ -50,6 +51,7 @@
         play_result: number;
         score: number;
         score_rank: number;
+        precision: number;
     };
 
     let {
@@ -90,6 +92,10 @@
 
     function formatDate(value: string | null): string {
         return value ? dateFormatter.format(new Date(value)) : 'Never';
+    }
+
+    function formatPrecision(value: number | null): string {
+        return value === null ? '—' : `${value.toFixed(2)}%`;
     }
 
     function difficultyLabel(level: number): string {
@@ -320,6 +326,12 @@
                                         </span>
                                     </Link>
                                     <div class="flex items-center gap-3">
+                                        <span
+                                            class="hidden w-16 text-right text-sm tabular-nums text-muted-foreground sm:block"
+                                            title="Precision"
+                                        >
+                                            {formatPrecision(entry.precision)}
+                                        </span>
                                         <Crown
                                             class="size-4 {crownClass(
                                                 entry.crown,
@@ -382,9 +394,9 @@
                                     <div
                                         class="text-xs text-muted-foreground"
                                     >
-                                        {difficultyLabel(play.level)} · {formatDate(
-                                            play.played_at,
-                                        )}
+                                        {difficultyLabel(play.level)} · {formatPrecision(
+                                            play.precision,
+                                        )} · {formatDate(play.played_at)}
                                     </div>
                                 </div>
                             </Link>

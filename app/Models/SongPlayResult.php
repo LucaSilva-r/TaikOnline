@@ -2,16 +2,20 @@
 
 namespace App\Models;
 
+use App\Observers\PlayerVersionStatsObserver;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+#[ObservedBy(PlayerVersionStatsObserver::class)]
 #[Fillable([
     'baid',
     'game_version',
     'chassis_id',
     'shop_id',
     'played_at',
+    'stage_index',
     'is_right',
     'is_two_players',
     'song_no',
