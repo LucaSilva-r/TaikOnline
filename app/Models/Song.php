@@ -16,6 +16,7 @@ class Song extends Model
         'unique_id',
         'title',
         'title_en',
+        'search_index',
         'genre',
         'partsset',
         'wai2_partsset',
