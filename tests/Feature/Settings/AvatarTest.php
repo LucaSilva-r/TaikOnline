@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
@@ -53,6 +54,40 @@ it('shows the avatar customizer page', function (): void {
             ->component('settings/DonChanAvatar')
             ->where('hasAvatar', false)
             ->has('defaults'));
+});
+
+it('uses the Don-chan 3D asset picker sheet', function (): void {
+    $user = User::factory()->create();
+    $path = public_path('donchan/sheet.json');
+    $original = File::exists($path) ? File::get($path) : null;
+
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, json_encode([
+        'cell' => 96,
+        'sheet' => [1536, 2880],
+        'slots' => [
+            'kigurumi' => [['id' => 1, 'x' => 0, 'y' => 0]],
+            'head' => [['id' => 2, 'x' => 96, 'y' => 0]],
+            'body' => [['id' => 3, 'x' => 192, 'y' => 0]],
+        ],
+    ]));
+
+    try {
+        $this->actingAs($user)->get('/green/settings/avatar')
+            ->assertOk()
+            ->assertInertia(fn ($assert) => $assert
+                ->where('sheet.url', '/donchan/sheet.png')
+                ->where('sheet.cell', 96)
+                ->where('sheet.slots.kigurumi.0.id', 1)
+                ->where('sheet.slots.head.0.id', 2)
+                ->where('sheet.slots.body.0.id', 3));
+    } finally {
+        if ($original === null) {
+            File::delete($path);
+        } else {
+            File::put($path, $original);
+        }
+    }
 });
 
 it('stores a generated avatar and the settings it was made from', function (): void {
