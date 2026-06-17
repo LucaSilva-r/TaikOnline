@@ -254,13 +254,15 @@
                                         <AvatarImage
                                             src={auth.user.avatar}
                                             alt={auth.user?.name}
+                                            class="bg-muted object-cover"
                                         />
+                                    {:else}
+                                        <AvatarFallback
+                                            class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white"
+                                        >
+                                            {getInitials(auth.user?.name ?? '')}
+                                        </AvatarFallback>
                                     {/if}
-                                    <AvatarFallback
-                                        class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white"
-                                    >
-                                        {getInitials(auth.user?.name ?? '')}
-                                    </AvatarFallback>
                                 </Avatar>
                             </Button>
                         {/snippet}

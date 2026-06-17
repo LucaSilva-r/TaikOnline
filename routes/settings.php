@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Settings\AccessCodeController;
+use App\Http\Controllers\Settings\AvatarController;
 use App\Http\Controllers\Settings\CabinetController;
 use App\Http\Controllers\Settings\CostumeController;
 use App\Http\Controllers\Settings\CustomizeController;
@@ -23,6 +24,11 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('settings/costumes', [CostumeController::class, 'edit'])->name('costumes.edit');
     Route::patch('settings/costumes', [CostumeController::class, 'update'])->name('costumes.update');
+
+    Route::get('settings/avatar', [AvatarController::class, 'edit'])->name('avatar.edit');
+    Route::post('settings/avatar', [AvatarController::class, 'update'])
+        ->middleware('throttle:6,1')
+        ->name('avatar.update');
 
     Route::get('settings/game', [GameSettingsController::class, 'edit'])->name('game-settings.edit');
     Route::patch('settings/game', [GameSettingsController::class, 'update'])->name('game-settings.update');
