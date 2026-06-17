@@ -7,6 +7,10 @@
     } from '@/components/ui/avatar';
     import * as Chart from '@/components/ui/chart';
     import { getInitials } from '@/lib/initials';
+    import { taikoRouteParam } from '@/lib/taiko-version';
+    import { toUrl } from '@/lib/utils';
+    import { show as songsShow } from '@/routes/songs';
+    import { Link } from '@inertiajs/svelte';
     import { LineChart } from 'layerchart';
     import Activity from 'lucide-svelte/icons/activity';
     import CalendarDays from 'lucide-svelte/icons/calendar-days';
@@ -61,6 +65,7 @@
 
     type RecentPlay = {
         song_title: string;
+        song_id: number | null;
         song_no: number;
         level: number;
         played_at: string | null;
@@ -75,6 +80,7 @@
 
     type BestPerformance = {
         song_title: string;
+        song_id: number | null;
         song_no: number;
         level: number;
         score: number;
@@ -173,6 +179,8 @@
         greenGhostData?: GreenGhostData | null;
         tokkunData?: TokkunData | null;
     } = $props();
+
+    const taikoParam = taikoRouteParam();
 
     const numberFormatter = new Intl.NumberFormat();
     const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -792,7 +800,10 @@
             {:else}
                 <div class="divide-y">
                     {#each recentPlays as play, i (`${i}-${play.song_no}-${play.level}-${play.played_at}`)}
-                        <div class="grid gap-3 px-5 py-4 sm:grid-cols-[1fr_auto]">
+                        <Link
+                            href={toUrl(songsShow({ ...taikoParam, song: play.song_id ?? play.song_no }))}
+                            class="grid gap-3 px-5 py-4 transition-colors hover:bg-muted/50 sm:grid-cols-[1fr_auto]"
+                        >
                             <div class="min-w-0">
                                 <div class="truncate font-medium">
                                     {play.song_title}
@@ -821,7 +832,7 @@
                                     Rank {play.score_rank}
                                 </div>
                             </div>
-                        </div>
+                        </Link>
                     {/each}
                 </div>
             {/if}
@@ -845,7 +856,10 @@
             {:else}
                 <div class="divide-y">
                     {#each bestPerformances as best (`${best.song_no}-${best.level}`)}
-                        <div class="grid gap-3 px-5 py-4 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+                        <Link
+                            href={toUrl(songsShow({ ...taikoParam, song: best.song_id ?? best.song_no }))}
+                            class="grid gap-3 px-5 py-4 transition-colors hover:bg-muted/50 sm:grid-cols-[auto_1fr_auto] sm:items-center"
+                        >
                             <div
                                 class="flex size-10 items-center justify-center rounded-md bg-accent text-sm font-semibold text-primary"
                             >
@@ -874,7 +888,7 @@
                                     Best
                                 </div>
                             </div>
-                        </div>
+                        </Link>
                     {/each}
                 </div>
             {/if}
