@@ -8,7 +8,7 @@ guaranteed correct (ids are not stable across the oldest versions). For every
 in a dump are simply absent (the picker hides empty tabs).
 
 Source : <RPCS3>/costumes_out/manifest.json  (see extract_costumes.py)
-Output : public/costumes/<version>/{<slot>/<id>.png, sheet.png, sheet.json}
+Output : public/costumes/<version>/{sheet.png, sheet.json}
 """
 import json
 import shutil
@@ -36,8 +36,10 @@ VERSION_DUMP = {
 # picker slot -> manifest kind.
 SLOT_KIND = {"kigurumi": "full", "head": "head", "body": "body", "puchi": "puchi"}
 
-CELL = 72
+CELL = 96
+PUCHI_CELL = 64
 COLS = 16
+RESAMPLE_NEAREST = Image.Resampling.NEAREST if hasattr(Image, "Resampling") else Image.NEAREST
 
 
 def best_pack(rows, kind):
@@ -65,24 +67,35 @@ def slot_icons(version_rows, slot):
         yield cid, SRC / r["png"]
 
 
+def fit_icon(icon, slot, path):
+    if icon.width <= CELL and icon.height <= CELL:
+        return icon
+
+    if (
+        slot == "puchi"
+        and icon.width == icon.height
+        and icon.width % PUCHI_CELL == 0
+    ):
+        return icon.resize((PUCHI_CELL, PUCHI_CELL), RESAMPLE_NEAREST)
+
+    raise ValueError(f"{path} is {icon.width}x{icon.height}, larger than {CELL}px cell")
+
+
 def build(version, dump):
     rows = [r for r in MANIFEST if r["color"] == dump]
     base = TAIKONLINE / "public" / "costumes" / version
     if base.exists():
         shutil.rmtree(base)
 
-    items = []  # (slot, id, Path) in sheet order
+    items = []  # (slot, id, Image) in sheet order
     report = {}
     for slot in SLOT_KIND:
-        d = base / slot
         n = 0
         for cid, src in slot_icons(rows, slot):
             im = Image.open(src).convert("RGBA")
             if slot == "puchi" and im.width == 2 * im.height:  # two anim frames
                 im = im.crop((0, 0, im.width // 2, im.height))
-            d.mkdir(parents=True, exist_ok=True)
-            im.save(d / f"{cid}.png")
-            items.append((slot, cid, d / f"{cid}.png"))
+            items.append((slot, cid, im))
             n += 1
         if n:
             report[slot] = n
@@ -94,10 +107,10 @@ def build(version, dump):
     rows_n = (len(items) + COLS - 1) // COLS
     sheet = Image.new("RGBA", (COLS * CELL, rows_n * CELL), (0, 0, 0, 0))
     slots = defaultdict(list)
-    for i, (slot, cid, path) in enumerate(items):
+    base.mkdir(parents=True, exist_ok=True)
+    for i, (slot, cid, icon) in enumerate(items):
         x, y = (i % COLS) * CELL, (i // COLS) * CELL
-        icon = Image.open(path).convert("RGBA")
-        icon.thumbnail((CELL, CELL), Image.NEAREST)
+        icon = fit_icon(icon, slot, f"{version}:{slot}:{cid}")
         off = ((CELL - icon.width) // 2, (CELL - icon.height) // 2)
         sheet.paste(icon, (x + off[0], y + off[1]), icon)
         slots[slot].append({"id": cid, "x": x, "y": y})

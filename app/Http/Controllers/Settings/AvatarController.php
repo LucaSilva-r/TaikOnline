@@ -40,7 +40,7 @@ class AvatarController extends Controller
             'hasAvatar' => $user->avatar !== null,
             'avatar' => $user->avatar,
             'versionLabel' => $version?->label() ?? '',
-            'sheet' => $this->sheet($version),
+            'sheet' => $this->sheet(),
             'faces' => $faces,
             'defaults' => [
                 'costume' => $user->avatar_costume ?? (int) ($cosmetic?->costume_1 ?? 0),
@@ -116,18 +116,14 @@ class AvatarController extends Controller
     }
 
     /**
-     * Costume picker spritesheet for the current version. The slot ids double as the
-     * cos|head|body/{id}.glb filenames the viewer loads (see export_web_assets.py).
+     * Costume picker spritesheet for the exported Don-chan 3D assets. The slot ids
+     * double as the cos|head|body/{id}.glb filenames the viewer loads.
      *
      * @return array{url: string, cell: int, width: int, height: int, slots: array<string, array<int, array{id: int, x: int, y: int}>>}|null
      */
-    private function sheet(?TaikoGameVersion $version): ?array
+    private function sheet(): ?array
     {
-        if (! $version instanceof TaikoGameVersion) {
-            return null;
-        }
-
-        $path = public_path("costumes/{$version->value}/sheet.json");
+        $path = public_path('donchan/sheet.json');
         if (! File::exists($path)) {
             return null;
         }
@@ -136,7 +132,7 @@ class AvatarController extends Controller
         $data = json_decode(File::get($path), true);
 
         return [
-            'url' => "/costumes/{$version->value}/sheet.png",
+            'url' => '/donchan/sheet.png',
             'cell' => $data['cell'],
             'width' => $data['sheet'][0],
             'height' => $data['sheet'][1],

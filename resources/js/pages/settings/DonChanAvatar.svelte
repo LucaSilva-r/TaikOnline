@@ -59,6 +59,8 @@
         { key: 'body', label: 'Body' },
         { key: 'limb', label: 'Limb' },
     ];
+    const PICKER_ICON_SIZE = 48;
+    const PICKER_BUTTON_SIZE = 56;
 
     let {
         hasAvatar = false,
@@ -316,16 +318,18 @@
         );
     }
 
-    function partCellSize(): number {
-        return sheet?.cell ?? 72;
-    }
-
     function sprite(item: SpriteItem): string {
         if (!sheet) {
             return '';
         }
 
-        return `width:56px;height:56px;background-image:url(${sheet.url});background-position:-${item.x}px -${item.y}px;background-repeat:no-repeat;image-rendering:pixelated;`;
+        const scale = PICKER_ICON_SIZE / sheet.cell;
+        const backgroundWidth = Math.round(sheet.width * scale);
+        const backgroundHeight = Math.round(sheet.height * scale);
+        const x = Math.round(item.x * scale);
+        const y = Math.round(item.y * scale);
+
+        return `display:block;width:${PICKER_ICON_SIZE}px;height:${PICKER_ICON_SIZE}px;background-image:url(${sheet.url});background-size:${backgroundWidth}px ${backgroundHeight}px;background-position:-${x}px -${y}px;background-repeat:no-repeat;image-rendering:pixelated;`;
     }
 
     onMount(() => {
@@ -546,17 +550,17 @@
                         {#if activePartTab === tab.key}
                             <div
                                 class="overflow-y-auto rounded-md border p-2"
-                                style="display:grid;grid-template-columns:repeat(auto-fill,{partCellSize()}px);gap:0.5rem;max-height:24rem;justify-content:center;"
+                                style="display:grid;grid-template-columns:repeat(auto-fill,{PICKER_BUTTON_SIZE}px);gap:0.5rem;max-height:24rem;justify-content:center;"
                             >
                                 {#each slotItems(tab.key) as item (item.id)}
                                     <button
                                         type="button"
                                         onclick={() => selectPart(tab.key, item.id)}
-                                        class="flex items-center justify-center overflow-hidden rounded-md border-2 transition-[border-color] hover:scale-105 {item.id ===
+                                        class="flex items-center justify-center overflow-hidden rounded-md border-2 bg-white transition-[border-color] hover:scale-105 {item.id ===
                                         selectedPart(tab.key)
                                             ? 'border-primary'
                                             : 'border-transparent'}"
-                                        style="width:{partCellSize()}px;height:{partCellSize()}px;"
+                                        style="width:{PICKER_BUTTON_SIZE}px;height:{PICKER_BUTTON_SIZE}px;"
                                         title="ID: {item.id}"
                                         aria-label="{tab.label} {item.id}"
                                     >

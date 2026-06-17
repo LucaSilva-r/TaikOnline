@@ -1,8 +1,9 @@
 <script module lang="ts">
-    import { edit } from '@/routes/costumes';
     import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
+    import { edit } from '@/routes/costumes';
 
     export const layout = {
+        wide: true,
         breadcrumbs: [
             {
                 title: 'DonChan',
@@ -65,6 +66,8 @@
         { key: 'head', label: 'Head', field: 'costume_2' },
         { key: 'puchi', label: 'Puchi-chara', field: 'costume_5' },
     ];
+    const PICKER_ICON_SIZE = 48;
+    const PICKER_BUTTON_SIZE = 56;
 
     let {
         hasAccessCode,
@@ -137,14 +140,18 @@
         return sheet?.slots[key] ?? [];
     }
 
-    function sprite(item: SpriteItem, key: string): string {
+    function sprite(item: SpriteItem): string {
         if (!sheet) {
             return '';
         }
 
-        const size = key === 'puchi' ? sheet.cell : 56;
+        const scale = PICKER_ICON_SIZE / sheet.cell;
+        const backgroundWidth = Math.round(sheet.width * scale);
+        const backgroundHeight = Math.round(sheet.height * scale);
+        const x = Math.round(item.x * scale);
+        const y = Math.round(item.y * scale);
 
-        return `width:${size}px;height:${size}px;background-image:url(${sheet.url});background-position:-${item.x}px -${item.y}px;background-repeat:no-repeat;image-rendering:pixelated;`;
+        return `display:block;width:${PICKER_ICON_SIZE}px;height:${PICKER_ICON_SIZE}px;background-image:url(${sheet.url});background-size:${backgroundWidth}px ${backgroundHeight}px;background-position:-${x}px -${y}px;background-repeat:no-repeat;image-rendering:pixelated;`;
     }
 </script>
 
@@ -152,7 +159,7 @@
 
 <h1 class="sr-only">DonChan</h1>
 
-<div class="flex flex-col space-y-10">
+<div class="flex w-full max-w-5xl flex-col space-y-10">
     <Heading
         variant="small"
         title="DonChan"
@@ -166,7 +173,7 @@
             </p>
         </div>
     {:else}
-        <section class="space-y-4">
+        <section class="w-full space-y-4">
             <Heading
                 variant="small"
                 title="Colors"
@@ -244,7 +251,7 @@
             </Form>
         </section>
 
-        <section class="space-y-4">
+        <section class="w-full space-y-4">
             <Heading
                 variant="small"
                 title="Costumes"
@@ -326,22 +333,21 @@
                                 {:else}
                                     <div
                                         class="overflow-y-auto rounded-md border p-2"
-                                        style="display:grid;grid-template-columns:repeat(auto-fill,{sheet?.cell ??
-                                            72}px);gap:0.5rem;max-height:24rem;justify-content:center;"
+                                        style="display:grid;grid-template-columns:repeat(auto-fill,{PICKER_BUTTON_SIZE}px);gap:0.5rem;max-height:24rem;justify-content:center;"
                                     >
                                         {#each slotItems(slot.key) as item (item.id)}
                                             <button
                                                 type="button"
                                                 onclick={() => (current[slot.field] = item.id)}
-                                                class="flex items-center justify-center overflow-hidden rounded-md border-2 transition-[border-color] hover:scale-105 {item.id ===
+                                                class="flex items-center justify-center overflow-hidden rounded-md border-2 bg-white transition-[border-color] hover:scale-105 {item.id ===
                                                 current[slot.field]
                                                     ? 'border-primary'
                                                     : 'border-transparent'}"
-                                                style="width:{sheet?.cell ?? 72}px;height:{sheet?.cell ?? 72}px;"
+                                                style="width:{PICKER_BUTTON_SIZE}px;height:{PICKER_BUTTON_SIZE}px;"
                                                 title="ID: {item.id}"
                                                 aria-label="{slot.label} {item.id}"
                                             >
-                                                <span style={sprite(item, slot.key)}></span>
+                                                <span style={sprite(item)}></span>
                                             </button>
                                         {/each}
                                     </div>
