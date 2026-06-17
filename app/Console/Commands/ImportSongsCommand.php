@@ -7,6 +7,7 @@ use App\Enums\SongPartsSet;
 use App\Enums\SongWai2PartsSet;
 use App\Enums\TaikoGameVersion;
 use App\Models\Song;
+use App\Support\SongSearch;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
 
@@ -211,6 +212,7 @@ class ImportSongsCommand extends Command
                 'unique_id' => $uniqueId,
                 'title' => (string) $songData->musicname,
                 'title_en' => null,
+                'search_index' => SongSearch::indexFor((string) $songData->musicname),
                 'genre' => $genre->value,
                 'partsset' => $partsSet->value,
                 'wai2_partsset' => $wai2,

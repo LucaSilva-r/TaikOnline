@@ -342,7 +342,7 @@
     </div>
 
     <div class="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-        <section class="rounded-lg border bg-card">
+        <section class="min-w-0 rounded-lg border bg-card">
             <div class="flex items-center justify-between gap-3 border-b px-5 py-4">
                 <div>
                     <h2 class="font-semibold">Rank History</h2>
