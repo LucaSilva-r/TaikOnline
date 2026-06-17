@@ -23,6 +23,7 @@
         SheetHeader,
         SheetTitle,
     } from '@/components/ui/sheet';
+    import SiteDisclaimer from '@/components/SiteDisclaimer.svelte';
     import { Toaster } from '@/components/ui/sonner';
     import UserMenuContent from '@/components/UserMenuContent.svelte';
     import { currentUrlState } from '@/lib/currentUrl.svelte';
@@ -32,6 +33,7 @@
     import { show as boardShow } from '@/routes/board';
     import { community, home, login, rankings, register } from '@/routes';
     import { dashboard } from '@/routes/admin';
+    import songsRoutes from '@/routes/songs';
 
     let {
         children,
@@ -58,6 +60,7 @@
               ]
             : []),
         { title: 'Rankings', href: toUrl(rankings(taikoParam)) },
+        { title: 'Songs', href: toUrl(songsRoutes.index(taikoParam)) },
         { title: 'Community', href: toUrl(community(taikoParam)) },
     ]);
 
@@ -98,7 +101,7 @@
         ⚠️ ALPHA — This platform is in early alpha. Your data can and WILL be deleted without warning.
     </div>
 
-    <header class="border-b border-border/60 bg-background/80 backdrop-blur">
+    <header class="relative z-50 border-b border-border/60 bg-background/80 backdrop-blur">
         <div class="mx-auto flex h-14 w-full max-w-7xl items-center gap-2 px-4 sm:gap-4 lg:gap-6">
             <div class="lg:hidden">
                 <Button
@@ -211,6 +214,8 @@
     <main class="flex-1">
         {@render children?.()}
     </main>
+
+    <SiteDisclaimer />
 
     <Toaster />
 </div>

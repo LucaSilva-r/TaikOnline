@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\SongController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\Green\OperatorController;
 use App\Http\Controllers\RankingController;
+use App\Http\Controllers\SongCatalogController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -29,6 +30,8 @@ Route::prefix('{taikoVersion}')
         ])->name('home');
 
         Route::get('rankings', [RankingController::class, 'index'])->name('rankings');
+        Route::get('songs', [SongCatalogController::class, 'index'])->name('songs.index');
+        Route::get('songs/{song}', [SongCatalogController::class, 'show'])->name('songs.show');
         Route::inertia('community', 'Community')->name('community');
         Route::get('users/{user}/board', [BoardController::class, 'show'])->name('board.show');
 
