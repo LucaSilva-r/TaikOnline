@@ -75,7 +75,7 @@
         ></div>
         <div class="relative flex items-center gap-4">
             <div
-                class="flex size-12 items-center justify-center rounded-xl bg-[var(--taiko-accent)] text-white shadow-md shadow-[var(--taiko-accent)]/30"
+                class="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md"
             >
                 <Trophy class="size-6" />
             </div>
