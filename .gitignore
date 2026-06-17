@@ -36,3 +36,4 @@ frankenphp-worker.php
 
 # Don-chan 3D assets exported by scripts/donchan/export_web_assets.py
 /public/donchan/
+/public/costumes/
