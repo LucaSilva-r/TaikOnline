@@ -3,81 +3,91 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TaikoGameVersion;
-use App\Models\SongBest;
-use Illuminate\Database\Query\JoinClause;
+use App\Models\PlayerRankSnapshot;
+use App\Models\User;
+use App\Services\PlayerRankAggregateService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class RankingController extends Controller
 {
-    public function index(Request $request): Response
+    /**
+     * Number of players shown on the global leaderboard.
+     */
+    private const LIMIT = 100;
+
+    public function index(Request $request, PlayerRankAggregateService $rankAggregates): Response
     {
         $version = $request->attributes->get('taikoGameVersion');
-        if (! $version instanceof TaikoGameVersion) {
+        if (! $version instanceof TaikoGameVersion || (bool) $request->attributes->get('taikoVersionIsAll', false)) {
             abort(404);
         }
 
-        $rows = SongBest::query()
-            ->where('song_bests.game_version', $version->value)
-            ->join('players', 'players.baid', '=', 'song_bests.baid')
-            ->join('users', 'users.id', '=', 'players.user_id')
-            ->leftJoin('songs', function (JoinClause $join): void {
-                $join->on('songs.version', '=', 'song_bests.game_version')
-                    ->on('songs.song_no', '=', 'song_bests.song_no');
-            })
-            ->select([
-                'song_bests.baid',
-                'song_bests.game_version',
-                'song_bests.song_no',
-                'song_bests.level',
-                'song_bests.best_score',
-                'song_bests.best_score_rank',
-                'users.name as player_name',
-                'songs.title as song_title',
-            ])
-            ->orderByDesc('song_bests.best_score')
-            ->limit(500)
-            ->get();
+        $aggregates = $rankAggregates->forVersion($version)
+            ->filter(fn (array $aggregate): bool => $aggregate['ranked_song_count'] > 0)
+            ->take(self::LIMIT)
+            ->values();
 
-        $songGroups = $rows
-            ->groupBy(fn (SongBest $best): string => (string) ($best->song_title ?: "#{$best->song_no}"))
-            ->map(fn ($songRows, string $title): array => [
-                'title' => $title,
-                'versions' => $songRows
-                    ->groupBy(fn (SongBest $best): string => "{$best->game_version}:{$best->song_no}:{$best->level}")
-                    ->map(fn ($versionRows): array => [
-                        'game_version' => (string) $versionRows->first()->game_version,
-                        'song_no' => (int) $versionRows->first()->song_no,
-                        'level' => (int) $versionRows->first()->level,
-                        'entries' => $versionRows
-                            ->sortByDesc('best_score')
-                            ->take(10)
-                            ->values()
-                            ->map(fn (SongBest $best, int $index): array => [
-                                'rank' => $index + 1,
-                                'baid' => (int) $best->baid,
-                                'player_name' => $best->player_name,
-                                'score' => (int) $best->best_score,
-                                'score_rank' => (int) $best->best_score_rank,
-                            ])
-                            ->all(),
-                    ])
-                    ->sortBy([
-                        ['game_version', 'asc'],
-                        ['song_no', 'asc'],
-                        ['level', 'asc'],
-                    ])
-                    ->values()
-                    ->all(),
-            ])
-            ->sortBy('title')
-            ->values()
-            ->take(50)
-            ->all();
+        $userIds = $aggregates->pluck('user_id')->all();
+
+        $users = User::query()
+            ->whereIn('id', $userIds)
+            ->get()
+            ->keyBy('id');
+
+        $previousRanks = $this->previousRanks($version, $userIds);
+
+        $entries = $aggregates->map(function (array $aggregate) use ($users, $previousRanks): array {
+            $user = $users->get($aggregate['user_id']);
+            $previousRank = $previousRanks->get($aggregate['user_id']);
+
+            return [
+                'rank' => $aggregate['rank'],
+                'rank_change' => $previousRank !== null ? $previousRank - $aggregate['rank'] : null,
+                'user_id' => $aggregate['user_id'],
+                'player_name' => $user?->name ?? 'Unknown',
+                'avatar' => $user?->avatar,
+                'total_score' => $aggregate['total_score'],
+                'ranked_song_count' => $aggregate['ranked_song_count'],
+                'crown_counts' => $aggregate['crown_counts'],
+            ];
+        })->all();
 
         return Inertia::render('Rankings', [
-            'songGroups' => $songGroups,
+            'gameVersion' => [
+                'value' => $version->value,
+                'label' => $version->label(),
+            ],
+            'entries' => $entries,
         ]);
+    }
+
+    /**
+     * Rank each user held at the most recent snapshot taken before today, used
+     * to compute the up/down movement against the current live standings.
+     *
+     * @param  array<int, int>  $userIds
+     * @return Collection<int, int>
+     */
+    private function previousRanks(TaikoGameVersion $version, array $userIds): Collection
+    {
+        $previousDate = PlayerRankSnapshot::query()
+            ->where('game_version', $version->value)
+            ->whereDate('snapshot_date', '<', today())
+            ->max('snapshot_date');
+
+        if ($previousDate === null) {
+            return collect();
+        }
+
+        return PlayerRankSnapshot::query()
+            ->where('game_version', $version->value)
+            ->whereDate('snapshot_date', Carbon::parse($previousDate)->toDateString())
+            ->whereIn('user_id', $userIds)
+            ->pluck('rank', 'user_id')
+            ->map(fn (mixed $rank): int => (int) $rank);
     }
 }
