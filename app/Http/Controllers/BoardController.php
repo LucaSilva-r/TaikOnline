@@ -139,6 +139,7 @@ class BoardController extends Controller
                 "{$resultsTable}.ok_count",
                 "{$resultsTable}.miss_count",
                 "{$resultsTable}.combo_count",
+                "{$songsTable}.id as song_id",
                 "{$songsTable}.title as song_title",
             ])
             ->latest("{$resultsTable}.played_at")
@@ -146,6 +147,7 @@ class BoardController extends Controller
             ->get()
             ->map(fn (SongPlayResult $result): array => [
                 'song_title' => $result->song_title ?: "#{$result->song_no}",
+                'song_id' => $result->song_id ? (int) $result->song_id : null,
                 'song_no' => (int) $result->song_no,
                 'level' => (int) $result->level,
                 'played_at' => $result->played_at?->toDateTimeString(),
@@ -180,6 +182,7 @@ class BoardController extends Controller
                 "{$bestsTable}.best_score",
                 "{$bestsTable}.best_score_rank",
                 "{$bestsTable}.best_crown",
+                "{$songsTable}.id as song_id",
                 "{$songsTable}.title as song_title",
             ])
             ->selectSub(function ($query) use ($bestsTable, $playersTable): void {
@@ -197,6 +200,7 @@ class BoardController extends Controller
             ->get()
             ->map(fn (SongBest $best): array => [
                 'song_title' => $best->song_title ?: "#{$best->song_no}",
+                'song_id' => $best->song_id ? (int) $best->song_id : null,
                 'song_no' => (int) $best->song_no,
                 'level' => (int) $best->level,
                 'score' => (int) $best->best_score,
