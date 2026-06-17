@@ -20,6 +20,66 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeAll(function (): void {
+        $dbHost = 'pgsql';
+        $dbUser = 'sail';
+        $dbPassword = 'password';
+        $dbName = 'laravel';
+
+        $envPath = dirname(__DIR__).'/.env';
+        if (file_exists($envPath)) {
+            $env = file_get_contents($envPath);
+            if (preg_match('/^DB_HOST=(.*)$/m', $env, $matches)) {
+                $dbHost = trim($matches[1], "\"' ");
+            }
+            if (preg_match('/^DB_USERNAME=(.*)$/m', $env, $matches)) {
+                $dbUser = trim($matches[1], "\"' ");
+            }
+            if (preg_match('/^DB_PASSWORD=(.*)$/m', $env, $matches)) {
+                $dbPassword = trim($matches[1], "\"' ");
+            }
+            if (preg_match('/^DB_DATABASE=(.*)$/m', $env, $matches)) {
+                $dbName = trim($matches[1], "\"' ");
+            }
+        }
+
+        $backupDir = dirname(__DIR__).'/backups';
+        if (! is_dir($backupDir)) {
+            mkdir($backupDir, 0755, true);
+        }
+
+        $timestamp = date('Ymd_His');
+        $outputPath = $backupDir."/dump_pre_test_{$timestamp}.sql";
+
+        $command = sprintf(
+            'PGPASSWORD=%s pg_dump -h %s -U %s -d %s > %s 2>/dev/null',
+            escapeshellarg($dbPassword),
+            escapeshellarg($dbHost),
+            escapeshellarg($dbUser),
+            escapeshellarg($dbName),
+            escapeshellarg($outputPath)
+        );
+
+        exec($command, $output, $returnVar);
+
+        if ($returnVar !== 0) {
+            if (file_exists($outputPath)) {
+                unlink($outputPath);
+            }
+        } else {
+            // Clean up old pre-test dumps, keeping only the 5 most recent ones
+            $files = glob($backupDir.'/dump_pre_test_*.sql');
+            if (is_array($files) && count($files) > 5) {
+                usort($files, fn ($a, $b) => filemtime($a) - filemtime($b));
+                $toDelete = count($files) - 5;
+                for ($i = 0; $i < $toDelete; $i++) {
+                    if (file_exists($files[$i])) {
+                        unlink($files[$i]);
+                    }
+                }
+            }
+        }
+    })
     ->in('Feature');
 
 beforeEach(function (): void {

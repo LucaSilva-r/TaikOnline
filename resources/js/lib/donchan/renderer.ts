@@ -106,7 +106,7 @@ export class DonchanRenderer {
     private action: THREE.AnimationAction | null = null;
     private currentClip: string | null = null;
     private currentFrame = 0;
-    private readonly clock = new THREE.Clock();
+    private readonly timer = new THREE.Timer();
     private playing = false;
     private rafId = 0;
     private readonly tmpMatrix = new THREE.Matrix4();
@@ -152,13 +152,18 @@ export class DonchanRenderer {
      * cos kigurumi, or a body + head pair to composite. Materials are classified for recolor
      * and face across every model.
      */
-    public async loadModels(glbUrls: string[], animationsUrl?: string): Promise<void> {
+    public async loadModels(
+        glbUrls: string[],
+        animationsUrl?: string,
+    ): Promise<void> {
         if (animationsUrl && !this.clipsLoaded) {
             await this.loadAnimations(animationsUrl);
         }
 
         const isCompositeModel = glbUrls.length > 1;
-        const loaded = await Promise.all(glbUrls.map((url) => this.loader.loadAsync(url)));
+        const loaded = await Promise.all(
+            glbUrls.map((url) => this.loader.loadAsync(url)),
+        );
 
         this.disposeModels();
         this.recolorTargets = [];
@@ -175,7 +180,8 @@ export class DonchanRenderer {
 
                 const mesh = object as THREE.Mesh;
                 const original = mesh.material as THREE.MeshStandardMaterial;
-                const shaderType = (original.userData?.shaderType as string | undefined) ?? '';
+                const shaderType =
+                    (original.userData?.shaderType as string | undefined) ?? '';
 
                 if (isCompositeModel && shaderType === SHADER_FACE) {
                     this.normalizeCompositeFaceOverlay(mesh);
@@ -195,14 +201,20 @@ export class DonchanRenderer {
                         };
                         this.attachRecolorShader(flat, uniforms);
                         this.recolorTargets.push({ material: flat, uniforms });
-                    } else if (shaderType === SHADER_FACE && !this.faceMaterial) {
+                    } else if (
+                        shaderType === SHADER_FACE &&
+                        !this.faceMaterial
+                    ) {
                         this.faceMaterial = flat;
                     }
                 }
 
                 mesh.material = flat;
 
-                if ((mesh as THREE.SkinnedMesh).isSkinnedMesh && this.shouldOutline(flat, shaderType)) {
+                if (
+                    (mesh as THREE.SkinnedMesh).isSkinnedMesh &&
+                    this.shouldOutline(flat, shaderType)
+                ) {
                     outlineSources.push(mesh as THREE.SkinnedMesh);
                 }
             });
@@ -220,13 +232,21 @@ export class DonchanRenderer {
     /** Spin/tilt the Don by the given deltas (radians). Pitch is clamped. */
     public rotateBy(deltaYaw: number, deltaPitch: number): void {
         this.userYaw = this.normalizeYaw(this.userYaw + deltaYaw);
-        this.userPitch = THREE.MathUtils.clamp(this.userPitch + deltaPitch, -Math.PI / 3, Math.PI / 3);
+        this.userPitch = THREE.MathUtils.clamp(
+            this.userPitch + deltaPitch,
+            -Math.PI / 3,
+            Math.PI / 3,
+        );
         this.applyRotation();
     }
 
     public setRotation(yaw: number, pitch: number): void {
         this.userYaw = this.normalizeYaw(yaw);
-        this.userPitch = THREE.MathUtils.clamp(pitch, -Math.PI / 3, Math.PI / 3);
+        this.userPitch = THREE.MathUtils.clamp(
+            pitch,
+            -Math.PI / 3,
+            Math.PI / 3,
+        );
         this.applyRotation();
     }
 
@@ -308,7 +328,7 @@ export class DonchanRenderer {
         this.playing = playing;
 
         if (playing) {
-            this.clock.getDelta(); // discard idle gap
+            this.timer.update(performance.now()); // initialize/reset the timer so the next frame is calculated relative to now
             this.tick();
         } else if (this.rafId) {
             cancelAnimationFrame(this.rafId);
@@ -316,17 +336,19 @@ export class DonchanRenderer {
         }
     }
 
-    private tick = (): void => {
+    private tick = (timestamp?: number): void => {
         if (!this.playing || !this.mixer) {
             return;
         }
 
-        this.mixer.update(this.clock.getDelta());
+        this.timer.update(timestamp ?? performance.now());
+        this.mixer.update(this.timer.getDelta());
         this.retarget();
         this.render();
 
         if (this.action && this.duration > 0) {
-            this.currentFrame = (this.action.time % this.duration) / this.duration;
+            this.currentFrame =
+                (this.action.time % this.duration) / this.duration;
             this.onFrame?.(this.currentFrame);
         }
 
@@ -352,7 +374,11 @@ export class DonchanRenderer {
 
             this.tmpParent.copy(parent.matrixWorld).invert();
             this.tmpMatrix.multiplyMatrices(this.tmpParent, source.matrixWorld);
-            this.tmpMatrix.decompose(bone.position, bone.quaternion, bone.scale);
+            this.tmpMatrix.decompose(
+                bone.position,
+                bone.quaternion,
+                bone.scale,
+            );
             bone.updateMatrixWorld(false);
         }
 
@@ -379,7 +405,10 @@ export class DonchanRenderer {
         if (this.rig && this.clips.length > 0) {
             this.mixer = new THREE.AnimationMixer(this.rig);
             this.action = null;
-            const fallback = THREE.AnimationClip.findByName(this.clips, 'don_normal')
+            const fallback = THREE.AnimationClip.findByName(
+                this.clips,
+                'don_normal',
+            )
                 ? 'don_normal'
                 : this.clips[0].name;
             this.playClip(this.currentClip ?? fallback);
@@ -421,7 +450,8 @@ export class DonchanRenderer {
 
     /** Switch to a different expression frame from the already-loaded sheet. */
     public setFaceFrame(frame: number): void {
-        this.faceFrame = ((frame % FACE_FRAME_COUNT) + FACE_FRAME_COUNT) % FACE_FRAME_COUNT;
+        this.faceFrame =
+            ((frame % FACE_FRAME_COUNT) + FACE_FRAME_COUNT) % FACE_FRAME_COUNT;
         this.stampFace();
         this.render();
     }
@@ -474,8 +504,14 @@ export class DonchanRenderer {
         const ctx = canvas.getContext('2d')!;
         ctx.drawImage(
             this.faceImage,
-            0, this.faceFrame * FACE_FRAME, FACE_FRAME, FACE_FRAME,
-            0, 0, FACE_FRAME, FACE_FRAME,
+            0,
+            this.faceFrame * FACE_FRAME,
+            FACE_FRAME,
+            FACE_FRAME,
+            0,
+            0,
+            FACE_FRAME,
+            FACE_FRAME,
         );
 
         const texture = new THREE.CanvasTexture(canvas);
@@ -509,17 +545,25 @@ export class DonchanRenderer {
      * game's flat custom shaders (which are not lit). userData is preserved so the
      * shaderType classification survives.
      */
-    private toFlatMaterial(original: THREE.MeshStandardMaterial, shaderType: string): THREE.MeshBasicMaterial {
+    private toFlatMaterial(
+        original: THREE.MeshStandardMaterial,
+        shaderType: string,
+    ): THREE.MeshBasicMaterial {
         const name = original.name.toLowerCase();
         const isFace = shaderType === SHADER_FACE;
         const isGlass = shaderType === 'taikoEffectGlass';
-        const isDonBase = shaderType === SHADER_RECOLOR
-            && (name.startsWith('rgb_don_color') || name.includes('don_facehip_color'));
+        const isDonBase =
+            shaderType === SHADER_RECOLOR &&
+            (name.startsWith('rgb_don_color') ||
+                name.includes('don_facehip_color'));
         const hasCutout = this.hasCutoutAlpha(original, name);
 
         const flat = new THREE.MeshBasicMaterial({
             map: original.map ?? null,
-            side: !isFace && (hasCutout || isGlass || name.includes('cullnone')) ? THREE.DoubleSide : original.side,
+            side:
+                !isFace && (hasCutout || isGlass || name.includes('cullnone'))
+                    ? THREE.DoubleSide
+                    : original.side,
             name: original.name,
         });
         flat.userData = original.userData;
@@ -543,11 +587,21 @@ export class DonchanRenderer {
         return flat;
     }
 
-    private hasCutoutAlpha(material: THREE.Material, materialName: string): boolean {
-        return materialName.includes('_a_ab') || materialName.includes('_aa_add') || material.transparent;
+    private hasCutoutAlpha(
+        material: THREE.Material,
+        materialName: string,
+    ): boolean {
+        return (
+            materialName.includes('_a_ab') ||
+            materialName.includes('_aa_add') ||
+            material.transparent
+        );
     }
 
-    private shouldOutline(material: THREE.Material, shaderType: string): boolean {
+    private shouldOutline(
+        material: THREE.Material,
+        shaderType: string,
+    ): boolean {
         if (shaderType === SHADER_FACE || shaderType === 'taikoEffectGlass') {
             return false;
         }
@@ -556,14 +610,20 @@ export class DonchanRenderer {
     }
 
     /** Inject the channel-dominance remap into a recolor material's compiled shader. */
-    private attachRecolorShader(material: THREE.MeshBasicMaterial, uniforms: RecolorUniforms): void {
+    private attachRecolorShader(
+        material: THREE.MeshBasicMaterial,
+        uniforms: RecolorUniforms,
+    ): void {
         material.onBeforeCompile = (shader) => {
             shader.uniforms.uBody = uniforms.uBody;
             shader.uniforms.uFace = uniforms.uFace;
             shader.uniforms.uRim = uniforms.uRim;
             shader.fragmentShader =
                 'uniform vec3 uBody;\nuniform vec3 uFace;\nuniform vec3 uRim;\n' +
-                shader.fragmentShader.replace('#include <map_fragment>', RECOLOR_INJECT);
+                shader.fragmentShader.replace(
+                    '#include <map_fragment>',
+                    RECOLOR_INJECT,
+                );
         };
         material.customProgramCacheKey = () => 'don-recolor';
     }
@@ -572,9 +632,24 @@ export class DonchanRenderer {
         const { body, face, rim } = this.colors;
 
         for (const target of this.recolorTargets) {
-            target.uniforms.uBody.value.setRGB(body.r / 255, body.g / 255, body.b / 255, THREE.SRGBColorSpace);
-            target.uniforms.uFace.value.setRGB(face.r / 255, face.g / 255, face.b / 255, THREE.SRGBColorSpace);
-            target.uniforms.uRim.value.setRGB(rim.r / 255, rim.g / 255, rim.b / 255, THREE.SRGBColorSpace);
+            target.uniforms.uBody.value.setRGB(
+                body.r / 255,
+                body.g / 255,
+                body.b / 255,
+                THREE.SRGBColorSpace,
+            );
+            target.uniforms.uFace.value.setRGB(
+                face.r / 255,
+                face.g / 255,
+                face.b / 255,
+                THREE.SRGBColorSpace,
+            );
+            target.uniforms.uRim.value.setRGB(
+                rim.r / 255,
+                rim.g / 255,
+                rim.b / 255,
+                THREE.SRGBColorSpace,
+            );
         }
     }
 
@@ -636,7 +711,11 @@ export class DonchanRenderer {
             this.camTarget.copy(this.baseCenter);
         }
 
-        this.camera.position.set(this.camTarget.x, this.camTarget.y, this.camTarget.z + 1000);
+        this.camera.position.set(
+            this.camTarget.x,
+            this.camTarget.y,
+            this.camTarget.z + 1000,
+        );
         this.camera.lookAt(this.camTarget);
     }
 
@@ -661,7 +740,10 @@ export class DonchanRenderer {
     }
 
     private normalizeYaw(yaw: number): number {
-        return THREE.MathUtils.euclideanModulo(yaw + Math.PI, Math.PI * 2) - Math.PI;
+        return (
+            THREE.MathUtils.euclideanModulo(yaw + Math.PI, Math.PI * 2) -
+            Math.PI
+        );
     }
 
     private loadImage(url: string): Promise<HTMLImageElement> {
@@ -680,7 +762,9 @@ export class DonchanRenderer {
 
             if (mesh.isMesh) {
                 mesh.geometry.dispose();
-                const material = mesh.material as THREE.Material | THREE.Material[];
+                const material = mesh.material as
+                    | THREE.Material
+                    | THREE.Material[];
 
                 if (Array.isArray(material)) {
                     material.forEach((m) => m.dispose());
