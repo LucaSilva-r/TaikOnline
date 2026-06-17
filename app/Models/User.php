@@ -45,6 +45,9 @@ class User extends Authenticatable
             'avatar_animation_frame' => 'float',
             'avatar_camera_yaw' => 'float',
             'avatar_camera_pitch' => 'float',
+            'avatar_puchi_x' => 'float',
+            'avatar_puchi_y' => 'float',
+            'avatar_puchi_scale' => 'float',
             'role' => UserRole::class,
         ];
     }

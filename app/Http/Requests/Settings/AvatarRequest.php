@@ -40,6 +40,11 @@ class AvatarRequest extends FormRequest
             'animation_frame' => ['required', 'numeric', 'min:0', 'max:1'],
             'camera_yaw' => ['required', 'numeric', 'min:-3.141592653589793', 'max:3.141592653589793'],
             'camera_pitch' => ['required', 'numeric', 'min:-1.0471975511965976', 'max:1.0471975511965976'],
+            'puchi' => ['required', 'integer', 'min:0'],
+            'puchi_frame' => ['required', 'integer', 'min:0', 'max:1'],
+            'puchi_x' => ['required', 'numeric', 'min:0', 'max:1'],
+            'puchi_y' => ['required', 'numeric', 'min:0', 'max:1'],
+            'puchi_scale' => ['required', 'numeric', 'min:0.5', 'max:2'],
         ];
     }
 }

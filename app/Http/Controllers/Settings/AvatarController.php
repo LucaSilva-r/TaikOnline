@@ -41,11 +41,17 @@ class AvatarController extends Controller
             'avatar' => $user->avatar,
             'versionLabel' => $version?->label() ?? '',
             'sheet' => $this->sheet(),
+            'puchiSheet' => $this->puchiSheet(),
             'faces' => $faces,
             'defaults' => [
                 'costume' => $user->avatar_costume ?? (int) ($cosmetic?->costume_1 ?? 0),
                 'head' => $user->avatar_head ?? (int) ($cosmetic?->costume_2 ?? 0),
                 'body' => $user->avatar_body ?? (int) ($cosmetic?->costume_3 ?? 0),
+                'puchi' => $user->avatar_puchi ?? (int) ($cosmetic?->costume_5 ?? 0),
+                'puchiFrame' => $user->avatar_puchi_frame ?? 0,
+                'puchiX' => $user->avatar_puchi_x ?? 0.78,
+                'puchiY' => $user->avatar_puchi_y ?? 0.78,
+                'puchiScale' => $user->avatar_puchi_scale ?? 1.0,
                 'colorFace' => $user->avatar_color_face ?? $card?->player->color_face ?? 0,
                 'colorBody' => $user->avatar_color_body ?? $card?->player->color_body ?? 1,
                 'colorLimb' => $user->avatar_color_limb ?? $card?->player->color_limb ?? 3,
@@ -102,6 +108,11 @@ class AvatarController extends Controller
             'avatar_color_limb' => (int) $request->validated('color_limb'),
             'avatar_head' => (int) $request->validated('head'),
             'avatar_body' => (int) $request->validated('body'),
+            'avatar_puchi' => (int) $request->validated('puchi'),
+            'avatar_puchi_frame' => (int) $request->validated('puchi_frame'),
+            'avatar_puchi_x' => (float) $request->validated('puchi_x'),
+            'avatar_puchi_y' => (float) $request->validated('puchi_y'),
+            'avatar_puchi_scale' => (float) $request->validated('puchi_scale'),
             'avatar_face' => $request->validated('face'),
             'avatar_face_frame' => (int) $request->validated('face_frame'),
             'avatar_animation' => $request->validated('animation'),
@@ -137,6 +148,32 @@ class AvatarController extends Controller
             'width' => $data['sheet'][0],
             'height' => $data['sheet'][1],
             'slots' => $data['slots'],
+        ];
+    }
+
+    /**
+     * Puchi-chara picker spritesheet. Each item stores the top-left of a
+     * two-frame strip, with frames laid out horizontally.
+     *
+     * @return array{url: string, frameWidth: int, frameHeight: int, width: int, height: int, items: array<int, array{id: int, x: int, y: int}>}|null
+     */
+    private function puchiSheet(): ?array
+    {
+        $path = public_path('donchan/puchi-sheet.json');
+        if (! File::exists($path)) {
+            return null;
+        }
+
+        /** @var array{frameWidth: int, frameHeight: int, sheet: array{0: int, 1: int}, items: array<int, array{id: int, x: int, y: int}>} $data */
+        $data = json_decode(File::get($path), true);
+
+        return [
+            'url' => '/donchan/puchi-sheet.png',
+            'frameWidth' => $data['frameWidth'],
+            'frameHeight' => $data['frameHeight'],
+            'width' => $data['sheet'][0],
+            'height' => $data['sheet'][1],
+            'items' => $data['items'],
         ];
     }
 

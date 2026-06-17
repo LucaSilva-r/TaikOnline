@@ -15,6 +15,9 @@ Layout produced:
     public/donchan/models/body/{id}.glb  body part models
     public/donchan/sheet.png             picker spritesheet matching the exported GLB ids
     public/donchan/sheet.json            picker sprite coordinates
+    public/donchan/puchi/{id}.png        original two-frame puchi-chara sprites
+    public/donchan/puchi-sheet.png       small two-frame puchi-chara picker spritesheet
+    public/donchan/puchi-sheet.json      puchi-chara sprite coordinates
     public/donchan/animations.glb        shared skeleton animations (used to pose the model)
     public/donchan/face/{sheet}.png      face expression sheets (12 stacked 128x128 frames)
 """
@@ -35,12 +38,14 @@ SKIN_MODELS = Path("Skins/PyTaikoGreen/Models")
 
 PUBLIC_ROOT = Path(__file__).resolve().parents[2] / "public" / "donchan"
 CELL = 96
+PUCHI_FRAME = 64
 COLS = 16
 SLOTS = {
     "kigurumi": ("cos", "costume_icon"),
     "head": ("head", "costume_head_icon"),
     "body": ("body", "costume_body_icon"),
 }
+RESAMPLE_NEAREST = Image.Resampling.NEAREST if hasattr(Image, "Resampling") else Image.NEAREST
 
 
 def copy_tree(src: Path, dst: Path, pattern: str, force: bool) -> int:
@@ -59,6 +64,13 @@ def numeric_pngs(src: Path) -> list[Path]:
     return sorted(
         (file for file in src.glob("*.png") if file.stem.isdigit()),
         key=lambda file: int(file.stem),
+    )
+
+
+def acce_pngs(src: Path) -> list[Path]:
+    return sorted(
+        (file for file in src.glob("acce_*.png") if file.stem.removeprefix("acce_").isdigit()),
+        key=lambda file: int(file.stem.removeprefix("acce_")),
     )
 
 
@@ -117,6 +129,63 @@ def build_picker_sheet(models_root: Path) -> dict[str, int]:
     return {slot: len(items) for slot, items in slots.items() if items} | skipped
 
 
+def build_puchi_sheet(models_root: Path, force: bool) -> dict[str, int]:
+    """Build a small picker sheet and copy original puchi sprites for rendering."""
+    source_dir = models_root / "acce"
+    original_dir = PUBLIC_ROOT / "puchi"
+    items: list[tuple[int, Path]] = []
+    seen: set[int] = set()
+    copied = 0
+
+    for icon in acce_pngs(source_dir):
+        puchi_id = int(icon.stem.removeprefix("acce_")) // 1000
+        if puchi_id in seen:
+            continue
+
+        seen.add(puchi_id)
+        items.append((puchi_id, icon))
+
+    if not items:
+        return {}
+
+    original_dir.mkdir(parents=True, exist_ok=True)
+    cell_width = PUCHI_FRAME * 2
+    rows = (len(items) + COLS - 1) // COLS
+    sheet = Image.new("RGBA", (COLS * cell_width, rows * PUCHI_FRAME), (0, 0, 0, 0))
+    output_items: list[dict[str, int]] = []
+
+    for index, (puchi_id, path) in enumerate(items):
+        x = (index % COLS) * cell_width
+        y = (index // COLS) * PUCHI_FRAME
+        icon = Image.open(path).convert("RGBA")
+
+        if icon.width != 256 or icon.height != 512:
+            raise ValueError(f"{path} is {icon.width}x{icon.height}, expected 256x512")
+
+        original_target = original_dir / f"{puchi_id}.png"
+        if force or not original_target.exists():
+            shutil.copy2(path, original_target)
+            copied += 1
+
+        for frame in range(2):
+            source_y = frame * 256
+            sprite = icon.crop((0, source_y, 256, source_y + 256))
+            sprite = sprite.resize((PUCHI_FRAME, PUCHI_FRAME), RESAMPLE_NEAREST)
+            sheet.paste(sprite, (x + frame * PUCHI_FRAME, y), sprite)
+
+        output_items.append({"id": puchi_id, "x": x, "y": y})
+
+    sheet.save(PUBLIC_ROOT / "puchi-sheet.png")
+    (PUBLIC_ROOT / "puchi-sheet.json").write_text(json.dumps({
+        "frameWidth": PUCHI_FRAME,
+        "frameHeight": PUCHI_FRAME,
+        "sheet": [sheet.width, sheet.height],
+        "items": output_items,
+    }))
+
+    return {"puchi": len(output_items), "puchi_originals": copied}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--yataidon", type=Path, default=DEFAULT_YATAIDON,
@@ -135,6 +204,7 @@ def main() -> int:
     body = copy_tree(models_root / "body", PUBLIC_ROOT / "models" / "body", "*.glb", args.force)
     face = copy_tree(models_root / "face", PUBLIC_ROOT / "face", "*.png", args.force)
     sheet = build_picker_sheet(models_root)
+    puchi_sheet = build_puchi_sheet(models_root, args.force)
 
     anim_src = models_root / "animations.glb"
     anim_dst = PUBLIC_ROOT / "animations.glb"
@@ -148,6 +218,8 @@ def main() -> int:
           f"{face} face sheets, {anim} animations.glb")
     if sheet:
         print(f"picker sheet: {sheet}")
+    if puchi_sheet:
+        print(f"puchi sheet: {puchi_sheet}")
     print(f"  -> {PUBLIC_ROOT}")
     return 0
 
