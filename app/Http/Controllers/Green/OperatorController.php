@@ -6,6 +6,7 @@ use App\GameProtocol\Support\GameDataCatalog;
 use App\Http\Controllers\Controller;
 use App\Models\Player;
 use App\Models\PlayerRankSnapshot;
+use App\Models\PlayerVersionStats;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use Illuminate\Http\RedirectResponse;
@@ -113,6 +114,8 @@ class OperatorController extends Controller
             if ($player->user_id !== null) {
                 PlayerRankSnapshot::query()->where('user_id', $player->user_id)->delete();
             }
+
+            PlayerVersionStats::query()->where('baid', $player->baid)->delete();
 
             $player->delete();
         });

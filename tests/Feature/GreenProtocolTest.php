@@ -753,13 +753,52 @@ it('upgrades a crown without a higher score on a later cleaner play', function (
     post_protobuf('/v11r01/chassis/playresult.php', play_result_request_with_crown($player, 100, 980000, 1), PlayResultResponse::class);
     expect(SongBest::query()->where('song_no', 100)->first()->best_crown)->toBe(1);
 
-    // Later play: lower score but a full combo (play_result 2). Crown upgrades,
-    // score stays.
-    post_protobuf('/v11r01/chassis/playresult.php', play_result_request_with_crown($player, 100, 500000, 2), PlayResultResponse::class);
+    // Later play (a separate session, so a later timestamp): lower score but a
+    // full combo (play_result 2). Crown upgrades, score stays.
+    post_protobuf('/v11r01/chassis/playresult.php', play_result_request_with_crown($player, 100, 500000, 2, '2026-05-05 21:00:00'), PlayResultResponse::class);
 
     $best = SongBest::query()->where('song_no', 100)->first();
     expect($best->best_crown)->toBe(2)
         ->and($best->best_score)->toBe(980000);
+});
+
+it('stores every stage when the same song is played twice in one session', function (): void {
+    $player = Player::query()->create();
+
+    // One session (shared played_at) with the same song+level played twice.
+    $first = (new StageData)->setSongNo(100)->setLevel(3)->setPlayResult(1)->setPlayScore(700000);
+    $second = (new StageData)->setSongNo(100)->setLevel(3)->setPlayResult(2)->setPlayScore(900000);
+
+    $data = (new PlayResultDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('2026-05-05 20:00:00')
+        ->setIsRight(true)
+        ->setCardType(1)
+        ->setIsTwoPlayers(false)
+        ->setAryStageInfo([$first, $second])
+        ->setReserved('')
+        ->setDifficultyPlayedCourse(3)
+        ->setDifficultyPlayedStar(8);
+
+    $request = (new PlayResultRequest)
+        ->setBaidConf($player->baid)
+        ->setChassisIdConf('chassis')
+        ->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-05 20:00:00')
+        ->setPlayresultData(gzencode($data->serializeToString()));
+
+    post_protobuf('/v11r01/chassis/playresult.php', $request, PlayResultResponse::class);
+
+    // Both stages persist (no unique-key collision), and the best reflects the
+    // higher score with the upgraded crown.
+    expect(SongPlayResult::query()->where('baid', $player->baid)->where('song_no', 100)->count())->toBe(2)
+        ->and(SongPlayResult::query()->where('baid', $player->baid)->pluck('stage_index')->sort()->values()->all())->toBe([0, 1]);
+
+    $best = SongBest::query()->where('baid', $player->baid)->where('song_no', 100)->first();
+    expect($best->best_score)->toBe(900000)
+        ->and($best->best_crown)->toBe(2);
 });
 
 it('grants cosmetic unlocks from a play result and renders them as flag bitsets', function (): void {
@@ -1357,7 +1396,7 @@ function play_result_request(Player $player, int $songNo, int $score, ?GhostStag
         ->setPlayresultData(gzencode($data->serializeToString()));
 }
 
-function play_result_request_with_crown(Player $player, int $songNo, int $score, int $playResult): PlayResultRequest
+function play_result_request_with_crown(Player $player, int $songNo, int $score, int $playResult, string $playDatetime = '2026-05-05 20:00:00'): PlayResultRequest
 {
     $stage = (new StageData)
         ->setSongNo($songNo)
@@ -1369,7 +1408,7 @@ function play_result_request_with_crown(Player $player, int $songNo, int $score,
         ->setBaid($player->baid)
         ->setChassisId('chassis')
         ->setShopId('shop')
-        ->setPlayDatetime('2026-05-05 20:00:00')
+        ->setPlayDatetime($playDatetime)
         ->setIsRight(true)
         ->setCardType(1)
         ->setIsTwoPlayers(false)
@@ -1382,7 +1421,7 @@ function play_result_request_with_crown(Player $player, int $songNo, int $score,
         ->setBaidConf($player->baid)
         ->setChassisIdConf('chassis')
         ->setShopIdConf('shop')
-        ->setPlayDatetimeConf('2026-05-05 20:00:00')
+        ->setPlayDatetimeConf($playDatetime)
         ->setPlayresultData(gzencode($data->serializeToString()));
 }
 

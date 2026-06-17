@@ -5,8 +5,6 @@ namespace App\Http\Controllers;
 use App\Enums\TaikoGameVersion;
 use App\Models\Player;
 use App\Models\PlayerRankSnapshot;
-use App\Models\PlayerTokkunStageResult;
-use App\Models\PlayerTokkunState;
 use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
@@ -90,6 +88,7 @@ class BoardController extends Controller
             'total_score' => 0,
             'ranked_song_count' => 0,
             'played_song_count' => 0,
+            'precision' => 0.0,
             'crown_counts' => [
                 'none' => 0,
                 'clear' => 0,

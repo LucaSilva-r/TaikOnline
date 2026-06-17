@@ -91,6 +91,45 @@ it('finds japanese songs by romaji and fullwidth latin titles', function (): voi
         );
 });
 
+it('computes precision from the best play in the leaderboard and recent plays', function (): void {
+    $song = makeCatalogSong('green', 10, 'Precision Song');
+    $user = User::factory()->create(['name' => 'Acc Player']);
+    $player = Player::query()->create(['mydon_name' => 'P', 'user_id' => $user->id]);
+
+    SongBest::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'green',
+        'song_no' => 10,
+        'level' => 4,
+        'best_score' => 950000,
+        'best_score_rank' => 7,
+        'best_crown' => 2,
+        'best_play_result' => 2,
+    ]);
+
+    // 3 good, 1 ok, 0 miss => (3 + 0.5) / 4 = 87.5%.
+    SongPlayResult::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'green',
+        'song_no' => 10,
+        'level' => 4,
+        'play_result' => 2,
+        'score' => 950000,
+        'score_rank' => 7,
+        'good_count' => 3,
+        'ok_count' => 1,
+        'miss_count' => 0,
+        'played_at' => now(),
+    ]);
+
+    $this->get("/green/songs/{$song->id}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('difficulties.0.entries.0.precision', 87.5)
+            ->where('recentPlays.0.precision', 87.5)
+        );
+});
+
 it('shows per-difficulty leaderboards for a song, excluding guests', function (): void {
     $song = makeCatalogSong('green', 10, 'Green Song');
 

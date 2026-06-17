@@ -7,6 +7,7 @@ use App\Models\Player;
 use App\Models\PlayerRankSnapshot;
 use App\Models\Song;
 use App\Models\SongBest;
+use App\Models\SongPlayResult;
 use App\Models\User;
 
 function makeRankingSong(string $version, int $songNo): void
@@ -70,6 +71,21 @@ it('shows the global player leaderboard for the selected version only', function
         'best_play_result' => 2,
     ]);
 
+    // Plays drive the cumulative precision: 3 good + 1 ok + 0 miss => 87.5%.
+    SongPlayResult::query()->create([
+        'baid' => $greenPlayer->baid,
+        'game_version' => 'green',
+        'song_no' => 20,
+        'level' => 3,
+        'play_result' => 2,
+        'score' => 880000,
+        'score_rank' => 6,
+        'good_count' => 3,
+        'ok_count' => 1,
+        'miss_count' => 0,
+        'played_at' => now(),
+    ]);
+
     $this->get('/green/rankings')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
@@ -80,6 +96,7 @@ it('shows the global player leaderboard for the selected version only', function
             ->where('entries.0.rank', 1)
             ->where('entries.0.ranked_song_count', 1)
             ->where('entries.0.crown_counts.gold', 1)
+            ->where('entries.0.precision', 87.5)
             ->where('entries.0.rank_change', null)
             ->missing('entries.1')
         );

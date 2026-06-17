@@ -66,7 +66,9 @@ it('records daily rank snapshots for a selected version in deterministic order',
     $this->artisan('app:record-player-rank-snapshots green')
         ->assertSuccessful();
 
-    expect(PlayerRankSnapshot::query()->count())->toBe(3);
+    // Players with no scores for the version are not ranked, so they get no
+    // snapshot (the empty player is excluded).
+    expect(PlayerRankSnapshot::query()->count())->toBe(2);
 
     $topSnapshot = PlayerRankSnapshot::query()
         ->whereBelongsTo($topUser)
@@ -76,10 +78,8 @@ it('records daily rank snapshots for a selected version in deterministic order',
         ->whereBelongsTo($secondUser)
         ->where('game_version', 'green')
         ->firstOrFail();
-    $emptySnapshot = PlayerRankSnapshot::query()
-        ->whereBelongsTo($emptyUser)
-        ->where('game_version', 'green')
-        ->firstOrFail();
+
+    expect(PlayerRankSnapshot::query()->whereBelongsTo($emptyUser)->exists())->toBeFalse();
 
     expect($topSnapshot->rank)->toBe(1)
         ->and($topSnapshot->total_score)->toBe(1000)
@@ -87,14 +87,12 @@ it('records daily rank snapshots for a selected version in deterministic order',
         ->and($topSnapshot->crown_counts['dondaful'])->toBe(1)
         ->and($secondSnapshot->rank)->toBe(2)
         ->and($secondSnapshot->total_score)->toBe(700)
-        ->and($secondSnapshot->crown_counts['gold'])->toBe(1)
-        ->and($emptySnapshot->rank)->toBe(3)
-        ->and($emptySnapshot->total_score)->toBe(0);
+        ->and($secondSnapshot->crown_counts['gold'])->toBe(1);
 
     $this->artisan('app:record-player-rank-snapshots green')
         ->assertSuccessful();
 
-    expect(PlayerRankSnapshot::query()->count())->toBe(3);
+    expect(PlayerRankSnapshot::query()->count())->toBe(2);
 });
 
 it('fails when the requested game version is unknown', function (): void {

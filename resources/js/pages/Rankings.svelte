@@ -31,6 +31,7 @@
         avatar: string | null;
         total_score: number;
         ranked_song_count: number;
+        precision: number;
         crown_counts: CrownCounts;
     };
 
@@ -44,6 +45,10 @@
 
     const taikoParam = taikoRouteParam();
     const numberFormatter = new Intl.NumberFormat('en-US');
+
+    function formatPrecision(value: number): string {
+        return `${value.toFixed(2)}%`;
+    }
 
     function boardUrl(userId: number): string {
         return toUrl(boardShow({ ...taikoParam, user: userId }));
@@ -99,10 +104,11 @@
         <div class="overflow-hidden rounded-xl border bg-card">
             <!-- Header row (hidden on mobile) -->
             <div
-                class="hidden border-b bg-muted/40 px-4 py-3 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[3.5rem_1fr_6rem_8rem_repeat(3,4rem)] sm:items-center sm:gap-3"
+                class="hidden border-b bg-muted/40 px-4 py-3 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[3.5rem_1fr_5.5rem_6rem_8rem_repeat(3,4rem)] sm:items-center sm:gap-3"
             >
                 <span>#</span>
                 <span>Player</span>
+                <span class="text-right">Precision</span>
                 <span class="text-right">Charts</span>
                 <span class="text-right">Total Score</span>
                 <span class="flex items-center justify-end gap-1" title="Dondaful">
@@ -119,7 +125,7 @@
             <div class="divide-y">
                 {#each entries as entry (entry.user_id)}
                     <div
-                        class="grid grid-cols-[3rem_1fr] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 sm:grid-cols-[3.5rem_1fr_6rem_8rem_repeat(3,4rem)] {entry.rank <=
+                        class="grid grid-cols-[3rem_1fr] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 sm:grid-cols-[3.5rem_1fr_5.5rem_6rem_8rem_repeat(3,4rem)] {entry.rank <=
                         3
                             ? 'bg-[var(--taiko-accent-soft)]'
                             : ''}"
@@ -184,6 +190,13 @@
                                 {entry.player_name}
                             </span>
                         </Link>
+
+                        <!-- Precision -->
+                        <span
+                            class="hidden text-right font-medium tabular-nums text-[var(--taiko-accent-label)] sm:block"
+                        >
+                            {formatPrecision(entry.precision)}
+                        </span>
 
                         <!-- Charts -->
                         <span

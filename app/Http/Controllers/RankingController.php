@@ -52,6 +52,7 @@ class RankingController extends Controller
                 'avatar' => $user?->avatar,
                 'total_score' => $aggregate['total_score'],
                 'ranked_song_count' => $aggregate['ranked_song_count'],
+                'precision' => $aggregate['precision'],
                 'crown_counts' => $aggregate['crown_counts'],
             ];
         })->all();
