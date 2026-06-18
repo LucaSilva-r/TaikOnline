@@ -13,6 +13,7 @@ use App\GameProtocol\Support\ScoreMapper;
 use App\Models\CabinetBookkeepingLog;
 use App\Models\DanCourse;
 use App\Models\DanCourseSong;
+use App\Models\GameCard;
 use App\Models\HeadClerkLog;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
@@ -520,11 +521,18 @@ class GameHandler
 
     public function rewardCardCheck(Request $request, TaikoGameVersion $game): Response
     {
-        $this->parse($request, $game, 'RewardcardcheckRequest');
+        $message = $this->parse($request, $game, 'RewardcardcheckRequest');
 
-        return $this->payloads->response(
-            $this->writer->set($this->messages->make($game, 'RewardcardcheckResponse'), 'setResult', 1)
-        );
+        // Resolve the baid linked to the scanned reward card so the cabinet can
+        // associate the reward with the player. Unknown cards return baid 0,
+        // matching TaikoLocalServer's "card?.Baid ?? 0".
+        $card = GameCard::query()->find($message->getAccessCode());
+
+        $response = $this->messages->make($game, 'RewardcardcheckResponse');
+        $this->writer->set($response, 'setResult', 1);
+        $this->writer->set($response, 'setBaid', $card instanceof GameCard ? (int) $card->baid : 0);
+
+        return $this->payloads->response($response);
     }
 
     public function rewardExecution(Request $request, TaikoGameVersion $game): Response

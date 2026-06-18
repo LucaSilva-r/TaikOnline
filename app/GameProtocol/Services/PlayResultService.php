@@ -12,6 +12,7 @@ use App\Models\PlayerBlueBattleNpcState;
 use App\Models\PlayerBlueBattleState;
 use App\Models\PlayerBlueBattleTokenState;
 use App\Models\PlayerCosmetic;
+use App\Models\PlayerDanProgress;
 use App\Models\PlayerGreenGhostState;
 use App\Models\PlayerGreenGhostToken;
 use App\Models\PlayerGreenGhostWinnings;
@@ -65,22 +66,32 @@ class PlayResultService
         }
 
         if (method_exists($data, 'hasTokkunTutorialFlg') && $data->hasTokkunTutorialFlg()) {
-            $tutorialFlg = $data->getTokkunTutorialFlg();
-            PlayerTokkunState::query()->updateOrCreate(
-                ['baid' => $player->baid, 'game_version' => $version->value],
-                ['tokkun_tutorial_flg' => $tutorialFlg]
+            $tokkunState = PlayerTokkunState::query()->firstOrNew(
+                ['baid' => $player->baid, 'game_version' => $version->value]
             );
+            $tokkunState->tokkun_tutorial_flg = $this->preserveTutorialFlag(
+                (int) ($tokkunState->tokkun_tutorial_flg ?? 0),
+                (int) $data->getTokkunTutorialFlg()
+            );
+            $tokkunState->save();
         }
 
         // The cabinet reports when it has shown the shop / wai-wai tutorials so the
-        // server can stop replaying them on the next boot. The cabinet only sends a
-        // set flag once the tutorial has played, so persist it on the player.
+        // server can stop replaying them on the next boot. Once a tutorial has
+        // played (flag > 0) a later play that reports 0 must not reset it, so
+        // preserve the stored flag against an incoming zero.
         if (method_exists($data, 'hasItemshopTutorialFlg') && $data->hasItemshopTutorialFlg()) {
-            $player->item_shop_tutorial_flg = (int) $data->getItemshopTutorialFlg();
+            $player->item_shop_tutorial_flg = $this->preserveTutorialFlag(
+                (int) $player->item_shop_tutorial_flg,
+                (int) $data->getItemshopTutorialFlg()
+            );
         }
 
         if (method_exists($data, 'hasWaiwaiTutorialFlg') && $data->hasWaiwaiTutorialFlg()) {
-            $player->waiwai_tutorial_flg = (int) $data->getWaiwaiTutorialFlg();
+            $player->waiwai_tutorial_flg = $this->preserveTutorialFlag(
+                (int) $player->waiwai_tutorial_flg,
+                (int) $data->getWaiwaiTutorialFlg()
+            );
         }
 
         if ($player->isDirty(['item_shop_tutorial_flg', 'waiwai_tutorial_flg'])) {
@@ -185,6 +196,8 @@ class PlayResultService
 
         $this->persistCosmetics($player, $data, $version);
 
+        $this->saveDanProgress($player, $data, $version);
+
         if ($version === TaikoGameVersion::Blue) {
             $this->saveBlueBattleData($player, $data);
         }
@@ -199,6 +212,17 @@ class PlayResultService
     private function optionalInt(Message $message, string $getter): int
     {
         return method_exists($message, $getter) ? (int) $message->{$getter}() : 0;
+    }
+
+    /**
+     * Preserve a tutorial flag once it has been set. A cabinet that has already
+     * shown a tutorial (stored flag > 0) may report 0 on a later play; that zero
+     * must not clear the flag, or the tutorial replays on the next boot. Mirrors
+     * TaikoLocalServer's Ac15CommonProfileMutation::PreserveTutorialFlag.
+     */
+    private function preserveTutorialFlag(int $current, int $incoming): int
+    {
+        return $current > 0 && $incoming === 0 ? $current : $incoming;
     }
 
     /**
@@ -696,6 +720,43 @@ class PlayResultService
                 'total_winnings' => $ghostState->total_winnings + $totalWinnings,
             ]);
         }
+    }
+
+    /**
+     * Record dan dojo progress from a dan-mode play. The cabinet reports the
+     * cleared dan via each stage's play_dan and the grade via the top-level
+     * dan_result; a single session always plays exactly one dan. Only normal
+     * dans (1..25) are echoed by the supported dialects, so others are ignored.
+     */
+    private function saveDanProgress(Player $player, Message $data, TaikoGameVersion $version): void
+    {
+        if (! method_exists($data, 'getDanResult')) {
+            return;
+        }
+
+        // play_mode 1 == dan mode (TaikoLocalServer PlayMode.DanMode).
+        $playMode = method_exists($data, 'getPlayMode') ? (int) $data->getPlayMode() : 0;
+        if ($playMode !== 1) {
+            return;
+        }
+
+        $danIds = [];
+        foreach ($data->getAryStageInfo() as $stage) {
+            if ($stage instanceof Message && method_exists($stage, 'getPlayDan')) {
+                $danId = (int) $stage->getPlayDan();
+                if ($danId !== 0) {
+                    $danIds[$danId] = true;
+                }
+            }
+        }
+
+        if (count($danIds) !== 1) {
+            return;
+        }
+
+        $progress = PlayerDanProgress::resolve($player->baid, $version);
+        $progress->recordDanPlay((int) array_key_first($danIds), (int) $data->getDanResult());
+        $progress->save();
     }
 
     private function saveTokkunData(Player $player, Message $data, TaikoGameVersion $version): void

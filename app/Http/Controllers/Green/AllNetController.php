@@ -67,18 +67,23 @@ class AllNetController extends Controller
         // cabinet unable to reach the game server (GAME SERVER NG). Emit the
         // reachable endpoint as host:port only, matching the live Mucha front.
         $muchaHostPort = $this->hostPort((string) config('taiko_green.mucha_game_url'));
-        $serverTime = now()->format('YmdHi');
+
+        // The dongle PRX slices SERVER_TIME as fixed-width YYYYMMDDHHMMSS
+        // (offsets 0/4/6/8/10/12, each len 2 after the year). A 12-char
+        // YmdHi string leaves the final substr(12,2) empty -> std::stoi
+        // throws -> MuchaMainThread aborts. Must be 14-char YmdHis.
+        $serverTime = now()->format('YmdHis');
 
         return $this->formResponse([
             'RESULTS' => '001',
             'AREA_0' => '008',
-            'AREA_0_EN' => '',
+            'AREA_0_EN' => '008',
             'AREA_1' => '009',
-            'AREA_1_EN' => '',
+            'AREA_1_EN' => '009',
             'AREA_2' => '010',
-            'AREA_2_EN' => '',
+            'AREA_2_EN' => '010',
             'AREA_3' => '011',
-            'AREA_3_EN' => '',
+            'AREA_3_EN' => '011',
             'AREA_FULL_0' => '',
             'AREA_FULL_0_EN' => '',
             'AREA_FULL_1' => '',
@@ -91,13 +96,13 @@ class AllNetController extends Controller
             'CHARGE_URL' => $muchaHostPort,
             'COUNTRY_CD' => $countryCode,
             'DONGLE_FLG' => '1',
-            'EXPIRATION_DATE' => 'null',
+            'EXPIRATION_DATE' => '20500613',
             'FILE_URL' => $muchaHostPort,
             'FORCE_BOOT' => '0',
             'PLACE_ID' => $placeId,
             'PREFECTURE_ID' => '14',
             'SERVER_TIME' => $serverTime,
-            'SERVER_TIME_UTC' => now('UTC')->format('YmdHi'),
+            'SERVER_TIME_UTC' => now('UTC')->format('YmdHis'),
             'SHOP_NAME' => (string) config('taiko_green.shop_name'),
             'SHOP_NAME_EN' => (string) config('taiko_green.shop_name'),
             'SHOP_NICKNAME' => 'W',

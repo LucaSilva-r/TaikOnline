@@ -25,6 +25,7 @@ class ItemShopCatalog
         $dirName = match ($version) {
             TaikoGameVersion::Blue => 'blue',
             TaikoGameVersion::Green => 'green',
+            TaikoGameVersion::Yellow => 'yellow',
             default => null,
         };
 

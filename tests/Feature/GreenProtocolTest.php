@@ -107,8 +107,23 @@ it('echoes mucha board auth country codes for regional taiko red cabinets', func
         ->assertOk()
         ->assertSee('RESULTS=001', false)
         ->assertSee('COUNTRY_CD=ASB', false)
-        ->assertSee('EXPIRATION_DATE=null', false)
+        ->assertSee('EXPIRATION_DATE=20500613', false)
         ->assertSee('FORCE_BOOT=0', false);
+});
+
+it('sends AC15 international board auth area codes and a 14-char server time', function (): void {
+    $response = $this->post('/mucha_front/boardauth.do', ['placeId' => 'JPN9999'])
+        ->assertOk()
+        // International AC15 expects the EN area codes populated (not blank).
+        ->assertSee('AREA_0_EN=008', false)
+        ->assertSee('AREA_1_EN=009', false)
+        ->assertSee('AREA_2_EN=010', false)
+        ->assertSee('AREA_3_EN=011', false);
+
+    // The dongle slices SERVER_TIME as fixed-width YYYYMMDDHHMMSS; a 12-char
+    // value crashes MuchaMainThread. Assert the emitted value is 14 digits.
+    expect($response->getContent())->toMatch('/SERVER_TIME=\d{14}\b/');
+    expect($response->getContent())->toMatch('/SERVER_TIME_UTC=\d{14}\b/');
 });
 
 it('responds to mucha registration auth for taiko red cabinets', function (): void {
@@ -555,6 +570,31 @@ it('loads server-issued cards through baidcheck and rejects unknown cards', func
     expect(GameCard::query()->where('access_code', '99999999999999999999')->exists())->toBeFalse();
 });
 
+it('resolves the linked baid from a reward card scan', function (): void {
+    $player = Player::query()->create();
+    GameCard::query()->create([
+        'access_code' => '12345678901234567890',
+        'baid' => $player->baid,
+    ]);
+
+    $known = post_protobuf(
+        '/v08r00/chassis/rewardcardcheck.php',
+        (new RewardcardcheckRequest)->setDeviceType(1)->setAccessCode('12345678901234567890'),
+        RewardcardcheckResponse::class,
+    );
+
+    $unknown = post_protobuf(
+        '/v08r00/chassis/rewardcardcheck.php',
+        (new RewardcardcheckRequest)->setDeviceType(1)->setAccessCode('99999999999999999999'),
+        RewardcardcheckResponse::class,
+    );
+
+    expect($known->getResult())->toBe(1)
+        ->and($known->getBaid())->toBe($player->baid)
+        ->and($unknown->getResult())->toBe(1)
+        ->and($unknown->getBaid())->toBe(0);
+});
+
 it('loads user data for a player', function (): void {
     $player = Player::query()->create([
         'mydon_name' => 'DON',
@@ -718,6 +758,46 @@ it('persists the shop tutorial flag from play results and echoes it on baidcheck
     $after = post_protobuf('/v11r01/chassis/baidcheck.php', $baidRequest, BAIDResponse::class);
     expect($after->getItemshopTutorialFlg())->toBe(1)
         ->and($after->getWaiwaiTutorialFlg())->toBe(1);
+});
+
+it('does not let a later zero tutorial flag reset an already-seen tutorial', function (): void {
+    $player = Player::query()->create([
+        'item_shop_tutorial_flg' => 1,
+        'waiwai_tutorial_flg' => 1,
+    ]);
+
+    $stage = (new StageData)
+        ->setSongNo(100)
+        ->setLevel(3)
+        ->setPlayResult(2)
+        ->setPlayScore(800000);
+
+    // A later play reports the flags as 0; the stored "seen" state must survive.
+    $data = (new PlayResultDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('2026-05-06 20:00:00')
+        ->setIsRight(true)
+        ->setCardType(1)
+        ->setIsTwoPlayers(false)
+        ->setAryStageInfo([$stage])
+        ->setItemshopTutorialFlg(0)
+        ->setWaiwaiTutorialFlg(0)
+        ->setReserved('');
+
+    $request = (new PlayResultRequest)
+        ->setBaidConf($player->baid)
+        ->setChassisIdConf('chassis')
+        ->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-06 20:00:00')
+        ->setPlayresultData(gzencode($data->serializeToString()));
+
+    post_protobuf('/v11r01/chassis/playresult.php', $request, PlayResultResponse::class);
+
+    $player->refresh();
+    expect($player->item_shop_tutorial_flg)->toBe(1)
+        ->and($player->waiwai_tutorial_flg)->toBe(1);
 });
 
 it('records crowns from play results and serves them as a gzip bitfield', function (): void {
@@ -984,6 +1064,58 @@ it('persists the last-used tone and options as the player defaults', function ()
     $user = post_protobuf('/v11r01/chassis/userdata.php', (new UserDataRequest)
         ->setBaid($player->baid)->setChassisId('chassis')->setShopId('shop'), UserDataResponse::class);
     expect($user->getOptionFlg())->toBe("\x0A\x00\x00\x00");
+});
+
+it('records a cleared dan from a dan-mode play and echoes the progress', function (): void {
+    $player = Player::query()->create();
+    GameCard::query()->create([
+        'access_code' => '12345678901234567890',
+        'baid' => $player->baid,
+    ]);
+
+    // Dan-mode play (play_mode 1) gold-clearing dan 1 (dan_result 2).
+    $stage = (new StageData)
+        ->setSongNo(100)
+        ->setLevel(3)
+        ->setPlayResult(2)
+        ->setPlayScore(900000)
+        ->setPlayDan(1);
+
+    $data = (new PlayResultDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('2026-05-07 20:00:00')
+        ->setIsRight(true)
+        ->setCardType(1)
+        ->setIsTwoPlayers(false)
+        ->setAryStageInfo([$stage])
+        ->setPlayMode(1)
+        ->setDanResult(2)
+        ->setReserved('');
+
+    $request = (new PlayResultRequest)
+        ->setBaidConf($player->baid)
+        ->setChassisIdConf('chassis')
+        ->setShopIdConf('shop')
+        ->setPlayDatetimeConf('2026-05-07 20:00:00')
+        ->setPlayresultData(gzencode($data->serializeToString()));
+
+    post_protobuf('/v11r01/chassis/playresult.php', $request, PlayResultResponse::class);
+
+    $baid = post_protobuf('/v11r01/chassis/baidcheck.php', (new BAIDRequest)
+        ->setDeviceType(1)->setAccessCode('12345678901234567890')->setChipId('chip')
+        ->setChassisId('chassis')->setShopId('shop')->setCountryId('JPN'), BAIDResponse::class);
+
+    expect($baid->getGotDanMax())->toBe(1)
+        // Dan 1 = packed slot 0; gold clear is wire value 3 in byte 0's low 2 bits.
+        ->and(ord($baid->getGotDanFlg()[0]) & 0x03)->toBe(3);
+
+    $user = post_protobuf('/v11r01/chassis/userdata.php', (new UserDataRequest)
+        ->setBaid($player->baid)->setChassisId('chassis')->setShopId('shop'), UserDataResponse::class);
+
+    // Clearing dan 1 advances the displayed dan to dan 2.
+    expect($user->getDispTaikojukuDan())->toBe(2);
 });
 
 it('returns version-scoped equipped title on baid', function (): void {
