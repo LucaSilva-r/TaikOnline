@@ -96,9 +96,6 @@ class AvatarController extends Controller
         imagepng($canvas);
         $png = (string) ob_get_clean();
 
-        imagedestroy($source);
-        imagedestroy($canvas);
-
         Storage::disk('public')->put("avatars/{$user->id}.png", $png);
         $user->forceFill([
             'avatar_updated_at' => now(),
