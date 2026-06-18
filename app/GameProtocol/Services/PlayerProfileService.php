@@ -10,6 +10,7 @@ use App\GameProtocol\Support\ScoreMapper;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
+use App\Models\PlayerDanProgress;
 use App\Models\PlayerShopItem;
 use App\Models\PlayerShopSeasonState;
 use App\Models\PlayerTokkunState;
@@ -42,6 +43,15 @@ class PlayerProfileService
         private readonly ProtocolMessageResolver $messages,
         private readonly MessageWriter $writer,
     ) {}
+
+    /**
+     * Clamp the displayed Taikojuku dan to the valid 1..25 range; anything else
+     * (0 / out of range) crashes the client, so fall back to the safe sentinel.
+     */
+    private function safeTaikojukuDan(int $dan): int
+    {
+        return $dan >= 1 && $dan <= 25 ? $dan : self::SAFE_DISP_TAIKOJUKU_DAN;
+    }
 
     private function getShopDetails(Player $player, TaikoGameVersion $version): array
     {
@@ -249,6 +259,7 @@ class PlayerProfileService
             ->where('baid', $player->baid)
             ->where('game_version', $version->value)
             ->first();
+        $danProgress = PlayerDanProgress::resolve((int) $player->baid, $version);
 
         $shop = $this->getShopDetails($player, $version);
         $activeSeason = $shop['activeSeason'];
@@ -306,7 +317,7 @@ class PlayerProfileService
             'setRecommendBestSong' => [],
             'setDispLevelSelf' => 0,
             'setDefaultOptionSetting' => $optionFlg,
-            'setDispTaikojukuDan' => self::SAFE_DISP_TAIKOJUKU_DAN,
+            'setDispTaikojukuDan' => $this->safeTaikojukuDan((int) $danProgress->disp_taikojuku_dan),
             'setDifficultyPlayedCourse' => (int) $player->difficulty_played_course,
             'setDifficultyPlayedStar' => (int) $player->difficulty_played_star,
             'setIsChallengecompe' => false,
@@ -385,6 +396,7 @@ class PlayerProfileService
         $shop = $this->getShopDetails($player, $version);
         $activeSeason = $shop['activeSeason'];
         $unlockedCostumeIdsBySlot = $shop['unlockedCostumeIdsBySlot'];
+        $danProgress = PlayerDanProgress::resolve((int) $player->baid, $version);
 
         return $this->writer->fill($this->messages->make($version, 'BAIDResponse'), [
             'setResult' => 1,
@@ -420,8 +432,8 @@ class PlayerProfileService
             'setLastPlayDatetime' => optional($player->last_played_at)->format('YmdHis') ?? now()->startOfDay()->format('YmdHis'),
             'setUpdateDatetime' => now()->format('YmdHis'),
             'setDispDanType' => (int) $player->disp_dan_type,
-            'setGotDanMax' => 0,
-            'setGotDanFlg' => $this->scoreMapper->emptyFlagBytes(64),
+            'setGotDanMax' => min((int) $danProgress->got_dan_max, PlayerDanProgress::MAX_NORMAL_DAN),
+            'setGotDanFlg' => $danProgress->gotDanFlgBytes(),
             'setGotDanextraFlg' => $this->scoreMapper->emptyFlagBytes(64),
             'setAccesstoken' => $player->access_token ?? '',
             'setContentInfo' => '',

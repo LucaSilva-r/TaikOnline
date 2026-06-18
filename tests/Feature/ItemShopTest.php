@@ -24,6 +24,8 @@ use App\GameProtocol\Proto\Green\Taiko\PlayResultRequest;
 use App\GameProtocol\Proto\Green\Taiko\PlayResultResponse;
 use App\GameProtocol\Proto\Green\Taiko\UserDataRequest;
 use App\GameProtocol\Proto\Green\Taiko\UserDataResponse;
+use App\GameProtocol\Proto\Yellow\Taiko\GetitemshopinfoRequest as YellowGetitemshopinfoRequest;
+use App\GameProtocol\Proto\Yellow\Taiko\GetitemshopinfoResponse as YellowGetitemshopinfoResponse;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Models\PlayerShopItem;
@@ -122,6 +124,25 @@ it('returns item shop info for Blue', function (): void {
         ->and($items[0]->getItemType())->toBe(1) // song
         ->and($items[0]->getItemId())->toBe(780)
         ->and($items[0]->getItemPrice())->toBe(1300);
+});
+
+it('returns item shop info for Yellow', function (): void {
+    $request = (new YellowGetitemshopinfoRequest)
+        ->setChassisId('chassis')
+        ->setShopId('shop');
+
+    $response = post_protobuf('/v09r00/chassis/getitemshopinfo.php', $request, YellowGetitemshopinfoResponse::class);
+
+    expect($response->getResult())->toBe(1)
+        ->and($response->getSeasonId())->toBe(4)
+        ->and(count($response->getAryItemshopData()))->toBe(12);
+
+    // Yellow season 4 item 1: item_type 4 (body), item_id 61, price 500.
+    $items = iterator_to_array($response->getAryItemshopData());
+    expect($items[0]->getItemNo())->toBe(1)
+        ->and($items[0]->getItemType())->toBe(4)
+        ->and($items[0]->getItemId())->toBe(61)
+        ->and($items[0]->getItemPrice())->toBe(500);
 });
 
 it('handles item purchase preflight (item_no == 0) for Green', function (): void {
