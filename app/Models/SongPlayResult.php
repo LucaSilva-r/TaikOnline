@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'game_version',
     'chassis_id',
     'shop_id',
+    'session_hash',
     'played_at',
     'stage_index',
     'is_right',

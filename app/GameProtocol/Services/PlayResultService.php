@@ -20,7 +20,6 @@ use App\Models\PlayerTokkunStageResult;
 use App\Models\PlayerTokkunState;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
-use Carbon\CarbonImmutable;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Support\Facades\DB;
 
@@ -48,15 +47,14 @@ class PlayResultService
     private function persist(Player $player, Message $data, TaikoGameVersion $version): int
     {
         $gameVersion = $version->value;
-        $playedAt = $this->parsePlayedAt($data->getPlayDatetime());
+        $playedAt = now()->toImmutable();
+        $sessionHash = $this->sessionHash($player->baid, $gameVersion, $data);
 
         // The cabinet retries when it doesn't receive a clean response. If we
         // already have results for this exact session, acknowledge success and
         // drop the duplicate request so nothing gets written twice.
         if (SongPlayResult::query()
-            ->where('baid', $player->baid)
-            ->where('game_version', $gameVersion)
-            ->where('played_at', $playedAt)
+            ->where('session_hash', $sessionHash)
             ->exists()) {
             return 1;
         }
@@ -107,6 +105,7 @@ class PlayResultService
                 'game_version' => $gameVersion,
                 'chassis_id' => $data->getChassisId(),
                 'shop_id' => $data->getShopId(),
+                'session_hash' => $sessionHash,
                 'played_at' => $playedAt,
                 // Position within the session (a cabinet can play up to 4 songs,
                 // even the same song twice) — part of the row's natural key.
@@ -439,17 +438,16 @@ class PlayResultService
         return ($playResult >= 1 && $playResult <= 3) ? $playResult : 0;
     }
 
-    private function parsePlayedAt(string $value): CarbonImmutable
+    private function sessionHash(int $baid, string $gameVersion, Message $data): string
     {
-        if ($value === '') {
-            return now()->toImmutable();
-        }
+        $raw = implode('|', [
+            $baid,
+            $gameVersion,
+            $data->getChassisId(),
+            $data->getPlayDatetime(),
+        ]);
 
-        try {
-            return CarbonImmutable::parse($value);
-        } catch (\Throwable) {
-            return now()->toImmutable();
-        }
+        return hash('sha256', $raw);
     }
 
     /**
@@ -702,7 +700,7 @@ class PlayResultService
 
     private function saveTokkunData(Player $player, Message $data, TaikoGameVersion $version): void
     {
-        $playedAt = $this->parsePlayedAt($data->getPlayDatetime());
+        $playedAt = now()->toImmutable();
         $tokkunStage = $data->getAryTokkunstageInfo();
 
         $songNumbers = [];
