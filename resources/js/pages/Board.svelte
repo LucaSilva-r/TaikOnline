@@ -13,6 +13,7 @@
     import { Link } from '@inertiajs/svelte';
     import { LineChart } from 'layerchart';
     import Activity from 'lucide-svelte/icons/activity';
+    import Award from 'lucide-svelte/icons/award';
     import CalendarDays from 'lucide-svelte/icons/calendar-days';
     import Crown from 'lucide-svelte/icons/crown';
     import Drum from 'lucide-svelte/icons/drum';
@@ -158,6 +159,12 @@
         recent_runs: TokkunRun[];
     };
 
+    type DaniData = {
+        got_dan_max: number;
+        disp_taikojuku_dan: number;
+        dans: { dan: number; grade: number }[];
+    };
+
     let {
         profile,
         hasPlayer,
@@ -168,6 +175,7 @@
         blueBattleData = null,
         greenGhostData = null,
         tokkunData = null,
+        daniData = null,
     }: {
         profile: Profile;
         hasPlayer: boolean;
@@ -178,6 +186,7 @@
         blueBattleData?: BlueBattleData | null;
         greenGhostData?: GreenGhostData | null;
         tokkunData?: TokkunData | null;
+        daniData?: DaniData | null;
     } = $props();
 
     const taikoParam = taikoRouteParam();
@@ -450,7 +459,7 @@
 
     {#if blueBattleData}
         <section class="rounded-lg border bg-card">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-5 py-4">
                 <div>
                     <h2 class="font-semibold text-lg flex items-center gap-2">
                         <Trophy class="size-5 text-primary" />
@@ -569,7 +578,7 @@
 
     {#if greenGhostData}
         <section class="rounded-lg border bg-card">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-5 py-4">
                 <div>
                     <h2 class="font-semibold text-lg flex items-center gap-2">
                         <Trophy class="size-5 text-primary" />
@@ -671,7 +680,7 @@
 
     {#if tokkunData}
         <section class="rounded-lg border bg-card">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-5 py-4">
                 <div>
                     <h2 class="font-semibold text-lg flex items-center gap-2">
                         <Trophy class="size-5 text-primary" />
@@ -778,6 +787,55 @@
                     </div>
                 </div>
             {/if}
+        </section>
+    {/if}
+
+    {#if daniData}
+        <section class="rounded-lg border bg-card">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-5 py-4">
+                <div>
+                    <h2 class="font-semibold text-lg flex items-center gap-2">
+                        <Award class="size-5 text-primary" />
+                        Dan Dojo (段位道場) Progress
+                    </h2>
+                    <p class="text-sm text-muted-foreground">
+                        Your certified dan ranks and clear grades
+                    </p>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                    <div class="text-right">
+                        <div class="text-2xs uppercase font-semibold text-muted-foreground">Highest Dan</div>
+                        <div class="font-bold text-lg text-primary tabular-nums">{daniData.got_dan_max || '—'}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-2xs uppercase font-semibold text-muted-foreground">Current Dan</div>
+                        <div class="font-bold text-lg tabular-nums">{daniData.disp_taikojuku_dan}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-5">
+                <div class="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                    {#each daniData.dans as entry}
+                        <div
+                            class="flex items-center justify-between gap-2 rounded-lg border bg-background px-3 py-2"
+                            class:border-amber-500={entry.grade === 2}
+                            class:border-primary={entry.grade === 1}
+                        >
+                            <span class="font-semibold text-sm">Dan {entry.dan}</span>
+                            {#if entry.grade === 2}
+                                <span class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-2xs font-medium text-amber-600 border border-amber-500/30">
+                                    <Crown class="size-3" /> Gold
+                                </span>
+                            {:else}
+                                <span class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-2xs font-medium text-primary border border-primary/20">
+                                    Clear
+                                </span>
+                            {/if}
+                        </div>
+                    {/each}
+                </div>
+            </div>
         </section>
     {/if}
 

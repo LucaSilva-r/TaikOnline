@@ -3,8 +3,10 @@
 use App\Enums\SongGenre;
 use App\Enums\SongPartsSet;
 use App\Enums\SongWai2PartsSet;
+use App\Enums\TaikoGameVersion;
 use App\Models\Player;
 use App\Models\PlayerBlueBattleNpcState;
+use App\Models\PlayerDanProgress;
 use App\Models\PlayerBlueBattleState;
 use App\Models\PlayerBlueBattleTokenState;
 use App\Models\PlayerGreenGhostState;
@@ -239,6 +241,33 @@ it('shows blue battle data on the blue version board', function (): void {
             ->where('blueBattleData.tokens.0.token_id', 1)
             ->where('blueBattleData.tokens.0.token_value', 50)
         );
+});
+
+it('shows dan dojo progress on an AC15 version board and scopes it per version', function (): void {
+    $user = User::factory()->create(['name' => 'Danplayer']);
+    $player = Player::query()->create(['user_id' => $user->id]);
+
+    $progress = PlayerDanProgress::resolve((int) $player->baid, TaikoGameVersion::Green);
+    $progress->recordDanPlay(1, PlayerDanProgress::GRADE_GOLD_CLEAR);
+    $progress->recordDanPlay(2, PlayerDanProgress::GRADE_NORMAL_CLEAR);
+    $progress->save();
+
+    $this->get("/green/users/{$user->id}/board")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Board')
+            ->where('daniData.got_dan_max', 2)
+            ->where('daniData.disp_taikojuku_dan', 3)
+            ->where('daniData.dans.0.dan', 1)
+            ->where('daniData.dans.0.grade', 2)
+            ->where('daniData.dans.1.dan', 2)
+            ->where('daniData.dans.1.grade', 1)
+        );
+
+    // No Red progress for this player, so the Red board reports null.
+    $this->get("/red/users/{$user->id}/board")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('daniData', null));
 });
 
 it('shows green ghost data on the green version board', function (): void {

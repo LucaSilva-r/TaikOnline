@@ -96,6 +96,23 @@ class PlayerDanProgress extends Model
         return $this->flagBuffer();
     }
 
+    /**
+     * Clear grade for every normal dan (1..25), keyed by dan id.
+     * 0 = not cleared, 1 = clear, 2 = gold.
+     *
+     * @return array<int, int>
+     */
+    public function normalDanGrades(): array
+    {
+        $buffer = $this->flagBuffer();
+        $grades = [];
+        for ($dan = self::MIN_NORMAL_DAN; $dan <= self::MAX_NORMAL_DAN; $dan++) {
+            $grades[$dan] = $this->getPackedGrade($buffer, $dan - self::MIN_NORMAL_DAN);
+        }
+
+        return $grades;
+    }
+
     private function flagBuffer(): string
     {
         // Postgres returns a bytea column as a stream resource, not a string.

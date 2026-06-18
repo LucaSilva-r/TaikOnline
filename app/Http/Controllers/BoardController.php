@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\TaikoGameVersion;
 use App\Models\Player;
+use App\Models\PlayerDanProgress;
 use App\Models\PlayerRankSnapshot;
 use App\Models\Song;
 use App\Models\SongBest;
@@ -38,6 +39,7 @@ class BoardController extends Controller
                 'blueBattleData' => null,
                 'greenGhostData' => null,
                 'tokkunData' => null,
+                'daniData' => null,
             ]);
         }
 
@@ -54,6 +56,7 @@ class BoardController extends Controller
             'blueBattleData' => $this->blueBattleData($player, $version),
             'greenGhostData' => $this->greenGhostData($player, $version),
             'tokkunData' => $this->tokkunData($player, $version),
+            'daniData' => $this->daniData($player, $version),
         ]);
     }
 
@@ -338,6 +341,54 @@ class BoardController extends Controller
                     'title' => $songs[$songNo] ?? "#{$songNo}",
                 ])->toArray(),
             ])->toArray(),
+        ];
+    }
+
+    /**
+     * Taikojuku (dan dojo) progress: highest cleared dan, the dan shown in the
+     * dojo menu, and the per-dan clear grades (1 = clear, 2 = gold). Available
+     * for every AC15-era version; null when the player has cleared no dans.
+     *
+     * @return array{got_dan_max: int, disp_taikojuku_dan: int, dans: list<array{dan: int, grade: int}>}|null
+     */
+    private function daniData(?Player $player, TaikoGameVersion $version): ?array
+    {
+        $ac15Versions = [
+            TaikoGameVersion::Red,
+            TaikoGameVersion::Yellow,
+            TaikoGameVersion::Blue,
+            TaikoGameVersion::Green,
+            TaikoGameVersion::White,
+        ];
+
+        if ($player === null || ! in_array($version, $ac15Versions, true)) {
+            return null;
+        }
+
+        $progress = PlayerDanProgress::query()
+            ->where('baid', $player->baid)
+            ->where('game_version', $version->value)
+            ->first();
+
+        if (! $progress instanceof PlayerDanProgress) {
+            return null;
+        }
+
+        $clearedDans = [];
+        foreach ($progress->normalDanGrades() as $dan => $grade) {
+            if ($grade > 0) {
+                $clearedDans[] = ['dan' => $dan, 'grade' => $grade];
+            }
+        }
+
+        if ($clearedDans === []) {
+            return null;
+        }
+
+        return [
+            'got_dan_max' => (int) $progress->got_dan_max,
+            'disp_taikojuku_dan' => (int) $progress->disp_taikojuku_dan,
+            'dans' => $clearedDans,
         ];
     }
 }
