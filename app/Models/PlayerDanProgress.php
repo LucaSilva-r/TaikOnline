@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\PostgresBytea;
 use App\Enums\TaikoGameVersion;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -40,6 +41,10 @@ class PlayerDanProgress extends Model
         'got_dan_flg',
         'got_dan_max',
         'disp_taikojuku_dan',
+    ];
+
+    protected $casts = [
+        'got_dan_flg' => PostgresBytea::class,
     ];
 
     public function player(): BelongsTo
@@ -115,12 +120,7 @@ class PlayerDanProgress extends Model
 
     private function flagBuffer(): string
     {
-        // Postgres returns a bytea column as a stream resource, not a string.
-        $raw = $this->got_dan_flg;
-        if (is_resource($raw)) {
-            $raw = stream_get_contents($raw);
-        }
-        $raw = (string) ($raw ?? '');
+        $raw = (string) ($this->got_dan_flg ?? '');
 
         return str_pad(substr($raw, 0, self::FLAG_BYTES), self::FLAG_BYTES, "\x00");
     }
