@@ -546,7 +546,7 @@ class GameHandler
                 'shop_id' => $message->getShopId(),
                 'baid' => $playData->getBaid() ?: null,
                 'net_id' => $playData->getNetId(),
-                'played_at' => $playData->getPlayedAt() ?: null,
+                'played_at' => now(),
                 'is_right' => $playData->getIsRight(),
                 'place_id' => $playData->getPlaceId(),
                 'type' => $playData->getType(),
