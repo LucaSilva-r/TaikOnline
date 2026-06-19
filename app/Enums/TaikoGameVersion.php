@@ -36,6 +36,15 @@ enum TaikoGameVersion: string
         return $this->generation() >= $other->generation();
     }
 
+    /**
+     * Maximum number of songs the cabinet lets a player keep in the favourite
+     * folder. Pre-Murasaki generations cap at 5, Murasaki and newer at 10.
+     */
+    public function favoriteSongLimit(): int
+    {
+        return $this->isAtLeast(self::Murasaki) ? 10 : 5;
+    }
+
     public function updateIdentifier(): string
     {
         return match ($this) {

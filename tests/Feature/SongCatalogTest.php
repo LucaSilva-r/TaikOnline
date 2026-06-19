@@ -200,3 +200,124 @@ it('redirects to the catalog when the song does not exist at all', function (): 
 it('does not expose the all-version catalog', function (): void {
     $this->get('/all/songs')->assertNotFound();
 });
+
+it('lets an authenticated player favourite and unfavourite a song', function (): void {
+    $song = makeCatalogSong('green', 10, 'Fav Song');
+    $user = User::factory()->create();
+    $player = Player::query()->create(['mydon_name' => 'P', 'user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->post("/green/songs/{$song->id}/favorite")
+        ->assertRedirect();
+
+    expect($player->favoriteSongs()->where('game_version', 'green')->pluck('song_no')->all())->toBe([10]);
+
+    $this->actingAs($user)
+        ->post("/green/songs/{$song->id}/favorite")
+        ->assertRedirect();
+
+    expect($player->favoriteSongs()->where('game_version', 'green')->count())->toBe(0);
+});
+
+it('keeps favourites scoped to each version', function (): void {
+    makeCatalogSong('green', 10, 'Shared Song');
+    makeCatalogSong('blue', 10, 'Shared Song');
+    $user = User::factory()->create();
+    $player = Player::query()->create(['mydon_name' => 'P', 'user_id' => $user->id]);
+
+    $player->favoriteSongs()->create(['game_version' => 'green', 'song_no' => 10]);
+
+    $this->actingAs($user)
+        ->get('/green/songs')
+        ->assertInertia(fn ($page) => $page->where('songs.data.0.is_favorite', true));
+
+    // Same song_no in blue must not inherit the green favourite.
+    $this->actingAs($user)
+        ->get('/blue/songs')
+        ->assertInertia(fn ($page) => $page->where('songs.data.0.is_favorite', false));
+});
+
+it('rejects favouriting past the version limit and reports usage', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['mydon_name' => 'P', 'user_id' => $user->id]);
+
+    // Murasaki caps at 10; fill it up.
+    foreach (range(1, 10) as $no) {
+        makeCatalogSong('murasaki', $no, "Song {$no}");
+        $player->favoriteSongs()->create(['game_version' => 'murasaki', 'song_no' => $no]);
+    }
+
+    $eleventh = makeCatalogSong('murasaki', 11, 'Eleventh');
+
+    $this->actingAs($user)
+        ->post("/murasaki/songs/{$eleventh->id}/favorite")
+        ->assertRedirect();
+
+    expect($player->favoriteSongs()->where('game_version', 'murasaki')->count())->toBe(10);
+});
+
+it('caps pre-murasaki versions at five favourites', function (): void {
+    $song = makeCatalogSong('kimidori', 6, 'Sixth');
+    $user = User::factory()->create();
+    $player = Player::query()->create(['mydon_name' => 'P', 'user_id' => $user->id]);
+
+    foreach (range(1, 5) as $no) {
+        $player->favoriteSongs()->create(['game_version' => 'kimidori', 'song_no' => $no]);
+    }
+
+    $this->actingAs($user)
+        ->get("/kimidori/songs/{$song->id}")
+        ->assertInertia(fn ($page) => $page
+            ->where('favoriteLimit', 5)
+            ->where('favoriteCount', 5)
+        );
+
+    $this->actingAs($user)
+        ->post("/kimidori/songs/{$song->id}/favorite")
+        ->assertRedirect();
+
+    expect($player->favoriteSongs()->where('game_version', 'kimidori')->count())->toBe(5);
+});
+
+it('exposes the favourite state on the catalog and detail pages', function (): void {
+    $song = makeCatalogSong('green', 10, 'Fav Song');
+    $user = User::factory()->create();
+    $player = Player::query()->create(['mydon_name' => 'P', 'user_id' => $user->id]);
+    $player->favoriteSongs()->create(['game_version' => 'green', 'song_no' => 10]);
+
+    $this->actingAs($user)
+        ->get('/green/songs')
+        ->assertInertia(fn ($page) => $page
+            ->where('canFavorite', true)
+            ->where('favoriteLimit', 10)
+            ->where('favoriteCount', 1)
+            ->where('songs.data.0.is_favorite', true)
+        );
+
+    $this->actingAs($user)
+        ->get("/green/songs/{$song->id}")
+        ->assertInertia(fn ($page) => $page
+            ->where('canFavorite', true)
+            ->where('isFavorite', true)
+        );
+});
+
+it('cannot favourite without a linked player', function (): void {
+    $song = makeCatalogSong('green', 10, 'Fav Song');
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get('/green/songs')
+        ->assertInertia(fn ($page) => $page->where('canFavorite', false));
+
+    $this->actingAs($user)
+        ->post("/green/songs/{$song->id}/favorite")
+        ->assertRedirect();
+});
+
+it('requires authentication to favourite a song', function (): void {
+    $song = makeCatalogSong('green', 10, 'Fav Song');
+
+    $this->post("/green/songs/{$song->id}/favorite")
+        ->assertRedirect('/login');
+});
