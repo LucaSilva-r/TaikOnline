@@ -4,6 +4,7 @@ namespace App\Enums;
 
 enum TaikoGameVersion: string
 {
+    case Katsudon = 'katsudon';
     case Sorairo = 'sorairo';
     case Momoiro = 'momoiro';
     case Kimidori = 'kimidori';
@@ -48,6 +49,7 @@ enum TaikoGameVersion: string
     public function updateIdentifier(): string
     {
         return match ($this) {
+            self::Katsudon => 'ST2100-1',
             self::Sorairo => 'ST3100-1',
             self::Momoiro => 'ST4100-1',
             self::Kimidori => 'ST5100-1',
@@ -63,6 +65,7 @@ enum TaikoGameVersion: string
     public function label(): string
     {
         return match ($this) {
+            self::Katsudon => 'KATSUDON',
             self::Sorairo => 'SORAIRO',
             self::Momoiro => 'MOMOIRO',
             self::Kimidori => 'KIMIDORI',

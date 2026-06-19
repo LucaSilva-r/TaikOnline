@@ -291,6 +291,12 @@ class GameHandler
                 'setResult' => 1,
                 'setSongHashVer' => 99,
                 'setHashDefaultSongFlg' => $this->releaseSongFlag($game->value),
+                // Katsu Don's DefaultsongResponse carries the flag bytes in
+                // field 2 (default_song_flg) and has no song_hash_ver; newer
+                // dialects lack this setter, so MessageWriter skips it for them.
+                // The blob is a 64-byte bitset indexed directly by unique_id,
+                // NOT by song position or the one-based song flag convention.
+                'setDefaultSongFlg' => $this->defaultMusicFlg($game),
             ])
         );
     }
@@ -618,6 +624,24 @@ class GameHandler
             ->map(fn (mixed $songNo): int => (int) $songNo);
 
         return $this->scoreMapper->songFlagBytes($songNumbers);
+    }
+
+    /**
+     * Default-song enable bitset for Katsu Don. Its defmusic archive contains
+     * a 64-byte bitset keyed directly by musicinfo unique_id.
+     */
+    protected function defaultMusicFlg(TaikoGameVersion $game): string
+    {
+        if ($game !== TaikoGameVersion::Katsudon) {
+            return $this->releaseSongFlag($game->value);
+        }
+
+        $uniqueIds = Song::query()
+            ->where('version', $game->value)
+            ->pluck('unique_id')
+            ->map(fn (mixed $uniqueId): int => (int) $uniqueId);
+
+        return $this->scoreMapper->katsudonDefaultSongFlagBytes($uniqueIds);
     }
 
     protected function releaseSongFlag(string $gameVersion, ?array $activeSeason = null): string

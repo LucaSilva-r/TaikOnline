@@ -52,6 +52,15 @@ it('keeps the song_no-indexed flag for newer release flags', function (): void {
         ->and(ord($flags[1]))->toBe(1);
 });
 
+it('maps katsudon default songs directly by unique id', function (): void {
+    $flags = (new ScoreMapper)->katsudonDefaultSongFlagBytes([0, 2, 8, 454]);
+
+    expect($flags)->toHaveLength(64)
+        ->and(ord($flags[0]))->toBe(0b00000101)
+        ->and(ord($flags[1]))->toBe(0b00000001)
+        ->and(ord($flags[56]))->toBe(0b01000000);
+});
+
 it('builds the legacy songhash table as ascending big-endian uint16s', function (): void {
     $table = (new ScoreMapper)->legacySongHashTable([20015, 1, 8]);
 
