@@ -4,6 +4,7 @@ namespace App\Http\Requests\Settings;
 
 use App\Models\GameCard;
 use App\Models\Player;
+use App\Services\MifareAccessCodeService;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -26,7 +27,13 @@ class AccessCodeBindRequest extends FormRequest
             'access_code' => [
                 'required',
                 'string',
-                'exists:cards,access_code',
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    $existsInDb = GameCard::query()->whereKey($value)->exists();
+
+                    if (! $existsInDb && ! app(MifareAccessCodeService::class)->isEncodable($value)) {
+                        $fail(__('Invalid access code. Only physical MIFARE Banapassport cards are supported.'));
+                    }
+                },
                 function (string $attribute, mixed $value, Closure $fail) use ($userId): void {
                     $card = GameCard::query()->with('player')->find($value);
 

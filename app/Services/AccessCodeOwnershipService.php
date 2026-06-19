@@ -6,6 +6,7 @@ use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AccessCodeOwnershipService
@@ -19,8 +20,14 @@ class AccessCodeOwnershipService
                 ->first();
 
             if (! $card instanceof GameCard) {
-                throw ValidationException::withMessages([
-                    'access_code' => __('This access code is not registered. Create it from Zucchini first.'),
+                $newPlayer = Player::query()->create([
+                    'access_token' => Str::random(32),
+                    'person_id' => (string) Str::uuid(),
+                ]);
+
+                $card = GameCard::query()->create([
+                    'access_code' => $accessCode,
+                    'baid' => $newPlayer->baid,
                 ]);
             }
 

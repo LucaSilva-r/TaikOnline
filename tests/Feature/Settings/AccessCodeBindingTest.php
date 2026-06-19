@@ -3,6 +3,7 @@
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\User;
+use App\Services\MifareAccessCodeService;
 
 test('profile page exposes linked access code', function () {
     $user = User::factory()->create();
@@ -34,12 +35,36 @@ test('user can bind an access code', function () {
     expect($player->refresh()->user_id)->toBe($user->id);
 });
 
-test('binding fails for unknown access code', function () {
+test('binding fails for invalid access code', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
         ->from(route('profile.edit'))
         ->patch(route('access-code.update'), ['access_code' => 'NOPE'])
+        ->assertSessionHasErrors('access_code');
+});
+
+test('user can bind a real mifare card not yet in the database', function () {
+    configure_nbgic_test_profiles();
+
+    $user = User::factory()->create();
+    $accessCode = app(MifareAccessCodeService::class)->generate(profile: 0, cardId: 0xABCDEF01);
+
+    $this->actingAs($user)
+        ->patch(route('access-code.update'), ['access_code' => $accessCode])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('profile.edit'));
+
+    $card = GameCard::query()->findOrFail($accessCode);
+    expect(Player::query()->find($card->baid)?->user_id)->toBe($user->id);
+});
+
+test('binding fails for non-mifare access code not in database', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->from(route('profile.edit'))
+        ->patch(route('access-code.update'), ['access_code' => '99999999999999999999'])
         ->assertSessionHasErrors('access_code');
 });
 
