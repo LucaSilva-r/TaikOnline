@@ -496,8 +496,26 @@ class GameHandler
     {
         $this->parse($request, $game, 'RecommendRequest');
 
+        $songNos = Song::query()
+            ->where('version', $game->value)
+            ->where('song_no', '>', 0)
+            ->where('song_no', '<', 1024)
+            ->pluck('song_no')
+            ->map(fn (mixed $no): int => (int) $no)
+            ->shuffle();
+
+        $bestSongLimit = in_array($game, [
+            TaikoGameVersion::Sorairo,
+            TaikoGameVersion::Momoiro,
+            TaikoGameVersion::Kimidori,
+        ], true) ? 5 : 10;
+
         return $this->payloads->response(
-            $this->writer->set($this->messages->make($game, 'RecommendResponse'), 'setResult', 1)
+            $this->writer->fill($this->messages->make($game, 'RecommendResponse'), [
+                'setResult' => 1,
+                'setRecommendSong' => $songNos->first() ?? 0,
+                'setRecommendBestSong' => $songNos->take($bestSongLimit)->values()->all(),
+            ])
         );
     }
 

@@ -16,6 +16,7 @@ use App\Models\PlayerShopSeasonState;
 use App\Models\PlayerTokkunState;
 use App\Models\Song;
 use Google\Protobuf\Internal\Message;
+use Illuminate\Support\Collection;
 
 class PlayerProfileService
 {
@@ -294,6 +295,8 @@ class PlayerProfileService
             ? pack('n', (int) $cosmetic->default_option_setting)
             : pack('V', (int) $cosmetic->default_option_setting);
 
+        $recommendSongs = $this->randomSongNos($version->value);
+
         return $this->writer->fill($this->messages->make($version, 'UserDataResponse'), [
             'setResult' => 1,
             'setIsExplain' => false,
@@ -313,8 +316,8 @@ class PlayerProfileService
             'setSongFavoriteCnt' => count($player->favorite_song_numbers ?? []),
             'setSongRecentCnt' => count($player->recent_song_numbers ?? []),
             'setTotalCreditCnt' => (int) $player->total_credit_count,
-            'setRecommendSong' => 0,
-            'setRecommendBestSong' => [],
+            'setRecommendSong' => $recommendSongs->first() ?? 0,
+            'setRecommendBestSong' => $recommendSongs->take($isLegacy ? 5 : 10)->values()->all(),
             'setDispLevelSelf' => 0,
             'setDefaultOptionSetting' => $optionFlg,
             'setDispTaikojukuDan' => $this->safeTaikojukuDan((int) $danProgress->disp_taikojuku_dan),
@@ -352,6 +355,20 @@ class PlayerProfileService
             ->all();
 
         return $this->scoreMapper->releaseSongFlagBytes($gameVersion, $songNumbers);
+    }
+
+    /**
+     * @return Collection<int, int>
+     */
+    private function randomSongNos(string $gameVersion): Collection
+    {
+        return Song::query()
+            ->where('version', $gameVersion)
+            ->where('song_no', '>', 0)
+            ->where('song_no', '<', 1024)
+            ->pluck('song_no')
+            ->map(fn (mixed $no): int => (int) $no)
+            ->shuffle();
     }
 
     private function baidFailureResponse(TaikoGameVersion $version, string $accessCode): Message
