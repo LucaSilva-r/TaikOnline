@@ -297,10 +297,16 @@ class PlayerProfileService
 
         $recommendSongs = $this->randomSongNos($version->value);
 
+        $favoriteSongNos = $player->favoriteSongs()
+            ->where('game_version', $version->value)
+            ->orderBy('id')
+            ->pluck('song_no')
+            ->all();
+
         return $this->writer->fill($this->messages->make($version, 'UserDataResponse'), [
             'setResult' => 1,
             'setIsExplain' => false,
-            'setAryFavoriteSongNo' => $player->favorite_song_numbers ?? [],
+            'setAryFavoriteSongNo' => $favoriteSongNos,
             'setAryRecentSongNo' => $player->recent_song_numbers ?? [],
             'setSongHashVer' => 99,
             'setHashReleaseSongFlg' => $this->releaseSongFlag($version->value, $activeSeason, $unlockedSongIds),
@@ -313,7 +319,7 @@ class PlayerProfileService
             'setToneFlg' => $this->scoreMapper->idFlagBytes($tones, self::TONE_FLAG_BYTES),
             'setTitleFlg' => $this->scoreMapper->idFlagBytes($cosmetic->unlocked_titles ?? [], self::TITLE_FLAG_BYTES),
             'setSongPushedCnt' => 0,
-            'setSongFavoriteCnt' => count($player->favorite_song_numbers ?? []),
+            'setSongFavoriteCnt' => count($favoriteSongNos),
             'setSongRecentCnt' => count($player->recent_song_numbers ?? []),
             'setTotalCreditCnt' => (int) $player->total_credit_count,
             'setRecommendSong' => $recommendSongs->first() ?? 0,

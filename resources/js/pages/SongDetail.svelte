@@ -11,13 +11,15 @@
     import { toUrl } from '@/lib/utils';
     import { show as boardShow } from '@/routes/board';
     import songs from '@/routes/songs';
-    import { Link } from '@inertiajs/svelte';
+    import { Link, router } from '@inertiajs/svelte';
     import ArrowLeft from 'lucide-svelte/icons/arrow-left';
     import CalendarDays from 'lucide-svelte/icons/calendar-days';
     import Crown from 'lucide-svelte/icons/crown';
     import Music2 from 'lucide-svelte/icons/music-2';
     import Play from 'lucide-svelte/icons/play';
+    import Star from 'lucide-svelte/icons/star';
     import Users from 'lucide-svelte/icons/users';
+    import { toast } from 'svelte-sonner';
 
     type Genre = { value: string; label: string; label_jp: string };
 
@@ -60,6 +62,10 @@
         summary,
         difficulties,
         recentPlays,
+        isFavorite,
+        canFavorite,
+        favoriteLimit,
+        favoriteCount,
     }: {
         gameVersion: { value: string; label: string };
         song: {
@@ -77,9 +83,27 @@
         };
         difficulties: Difficulty[];
         recentPlays: RecentPlay[];
+        isFavorite: boolean;
+        canFavorite: boolean;
+        favoriteLimit: number;
+        favoriteCount: number;
     } = $props();
 
     const taikoParam = taikoRouteParam();
+
+    function toggleFavorite(): void {
+        if (!isFavorite && favoriteCount >= favoriteLimit) {
+            toast.error(
+                `You can only favourite ${favoriteLimit} songs in ${gameVersion.label}. Remove one first.`,
+            );
+            return;
+        }
+        router.post(
+            toUrl(songs.favorite({ ...taikoParam, song: song.id })),
+            {},
+            { preserveScroll: true, preserveState: true },
+        );
+    }
     const numberFormatter = new Intl.NumberFormat('en-US');
     const dateFormatter = new Intl.DateTimeFormat('en-US', {
         dateStyle: 'medium',
@@ -164,7 +188,7 @@
             >
                 <Music2 class="size-7" />
             </div>
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
                 <div class="mb-1 flex items-center gap-2">
                     <Badge variant="secondary">{song.genre.label}</Badge>
                     <span class="font-mono text-xs text-muted-foreground/60">
@@ -180,6 +204,30 @@
                     </p>
                 {/if}
             </div>
+            {#if canFavorite}
+                <div class="flex shrink-0 flex-col items-end gap-1">
+                    <button
+                        type="button"
+                        onclick={toggleFavorite}
+                        class="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground {isFavorite
+                            ? 'border-amber-400/60 text-amber-600 dark:text-amber-400'
+                            : 'text-muted-foreground'}"
+                        aria-pressed={isFavorite}
+                    >
+                        <Star
+                            class="size-4 {isFavorite
+                                ? 'fill-amber-400 text-amber-400'
+                                : ''}"
+                        />
+                        <span class="hidden sm:inline">
+                            {isFavorite ? 'Favourited' : 'Favourite'}
+                        </span>
+                    </button>
+                    <span class="text-xs text-muted-foreground/70">
+                        {favoriteCount}/{favoriteLimit} favourites
+                    </span>
+                </div>
+            {/if}
         </div>
     </div>
 
@@ -341,7 +389,9 @@
                                         <span
                                             class="w-20 text-right font-semibold tabular-nums"
                                         >
-                                            {numberFormatter.format(entry.score)}
+                                            {numberFormatter.format(
+                                                entry.score,
+                                            )}
                                         </span>
                                     </div>
                                 </div>
@@ -391,9 +441,7 @@
                                     >
                                         {play.player_name}
                                     </div>
-                                    <div
-                                        class="text-xs text-muted-foreground"
-                                    >
+                                    <div class="text-xs text-muted-foreground">
                                         {difficultyLabel(play.level)} · {formatPrecision(
                                             play.precision,
                                         )} · {formatDate(play.played_at)}

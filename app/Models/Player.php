@@ -20,7 +20,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'color_face',
     'color_body',
     'color_limb',
-    'favorite_song_numbers',
     'recent_song_numbers',
     'unlocked_song_numbers',
     'difficulty_played_course',
@@ -61,7 +60,6 @@ class Player extends Model
     {
         return [
             'is_publish' => 'boolean',
-            'favorite_song_numbers' => 'array',
             'recent_song_numbers' => 'array',
             'unlocked_song_numbers' => 'array',
             'last_played_at' => 'datetime',
@@ -86,6 +84,11 @@ class Player extends Model
     public function cosmetics(): HasMany
     {
         return $this->hasMany(PlayerCosmetic::class, 'baid', 'baid');
+    }
+
+    public function favoriteSongs(): HasMany
+    {
+        return $this->hasMany(PlayerFavoriteSong::class, 'baid', 'baid');
     }
 
     public function blueBattleState(): HasOne

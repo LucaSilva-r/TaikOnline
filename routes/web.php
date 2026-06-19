@@ -36,6 +36,8 @@ Route::prefix('{taikoVersion}')
         Route::get('users/{user}/board', [BoardController::class, 'show'])->name('board.show');
 
         Route::middleware(['auth', 'verified'])->group(function (): void {
+            Route::post('songs/{song}/favorite', [SongCatalogController::class, 'toggleFavorite'])->name('songs.favorite');
+
             Route::middleware('admin')->prefix('admin')->name('admin.')->group(function (): void {
                 Route::inertia('/', 'admin/Dashboard')->name('dashboard');
 

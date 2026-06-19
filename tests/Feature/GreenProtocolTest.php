@@ -598,9 +598,10 @@ it('resolves the linked baid from a reward card scan', function (): void {
 it('loads user data for a player', function (): void {
     $player = Player::query()->create([
         'mydon_name' => 'DON',
-        'favorite_song_numbers' => [1, 2],
         'recent_song_numbers' => [3],
     ]);
+    $player->favoriteSongs()->create(['game_version' => 'red', 'song_no' => 1]);
+    $player->favoriteSongs()->create(['game_version' => 'red', 'song_no' => 2]);
 
     $request = (new UserDataRequest)
         ->setBaid($player->baid)

@@ -29,6 +29,8 @@ class SongCatalogController extends Controller
         $version = $this->resolveVersion($request);
         $search = trim((string) $request->query('q', ''));
 
+        $favorites = $this->favoriteState($request, $version);
+
         $resultsTable = (new SongPlayResult)->getTable();
 
         $playStats = DB::table($resultsTable)
@@ -61,6 +63,7 @@ class SongCatalogController extends Controller
                 ],
                 'play_count' => (int) ($song->getAttribute('play_count') ?? 0),
                 'player_count' => (int) ($song->getAttribute('player_count') ?? 0),
+                'is_favorite' => in_array((int) $song->song_no, $favorites['numbers'], true),
             ]);
 
         return Inertia::render('Songs', [
@@ -72,6 +75,9 @@ class SongCatalogController extends Controller
             'filters' => [
                 'q' => $search,
             ],
+            'canFavorite' => $favorites['can_favorite'],
+            'favoriteLimit' => $favorites['limit'],
+            'favoriteCount' => $favorites['count'],
         ]);
     }
 
@@ -104,6 +110,8 @@ class SongCatalogController extends Controller
 
         $song = $resolved;
 
+        $favorites = $this->favoriteState($request, $version);
+
         return Inertia::render('SongDetail', [
             'gameVersion' => [
                 'value' => $version->value,
@@ -123,7 +131,65 @@ class SongCatalogController extends Controller
             'summary' => $this->summary($version, $song),
             'difficulties' => $this->difficulties($version, $song),
             'recentPlays' => $this->recentPlays($version, $song),
+            'isFavorite' => in_array((int) $song->song_no, $favorites['numbers'], true),
+            'canFavorite' => $favorites['can_favorite'],
+            'favoriteLimit' => $favorites['limit'],
+            'favoriteCount' => $favorites['count'],
         ]);
+    }
+
+    /**
+     * Toggle the authenticated player's favourite status for a song. Favourites
+     * are version-scoped (each version ships a different library) and capped at
+     * the version's in-game maximum, so adding past the cap is rejected.
+     */
+    public function toggleFavorite(Request $request, string $song): RedirectResponse
+    {
+        $version = $this->resolveVersion($request);
+
+        $resolved = Song::query()->find($song);
+        if ($resolved === null || $resolved->version !== $version->value) {
+            abort(404);
+        }
+
+        $player = $request->user()?->player;
+        if ($player === null) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => __('Link a game card before favouriting songs.')]);
+
+            return back();
+        }
+
+        $songNo = (int) $resolved->song_no;
+
+        $existing = $player->favoriteSongs()
+            ->where('game_version', $version->value)
+            ->where('song_no', $songNo)
+            ->first();
+
+        if ($existing !== null) {
+            $existing->delete();
+
+            return back();
+        }
+
+        $limit = $version->favoriteSongLimit();
+        $count = $player->favoriteSongs()->where('game_version', $version->value)->count();
+
+        if ($count >= $limit) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => __('You can only favourite :limit songs in :version. Remove one first.', [
+                'limit' => $limit,
+                'version' => $version->label(),
+            ])]);
+
+            return back();
+        }
+
+        $player->favoriteSongs()->create([
+            'game_version' => $version->value,
+            'song_no' => $songNo,
+        ]);
+
+        return back();
     }
 
     private function resolveVersion(Request $request): TaikoGameVersion
@@ -134,6 +200,34 @@ class SongCatalogController extends Controller
         }
 
         return $version;
+    }
+
+    /**
+     * Resolve the authenticated player's favourite song numbers for this version,
+     * whether they may favourite (a player record requires a linked game card),
+     * and the version's favourite cap with the player's current usage.
+     *
+     * @return array{numbers: list<int>, can_favorite: bool, limit: int, count: int}
+     */
+    private function favoriteState(Request $request, TaikoGameVersion $version): array
+    {
+        $player = $request->user()?->player;
+
+        $numbers = $player === null
+            ? []
+            : $player->favoriteSongs()
+                ->where('game_version', $version->value)
+                ->orderBy('id')
+                ->pluck('song_no')
+                ->map(fn (mixed $no): int => (int) $no)
+                ->all();
+
+        return [
+            'numbers' => $numbers,
+            'can_favorite' => $player !== null,
+            'limit' => $version->favoriteSongLimit(),
+            'count' => count($numbers),
+        ];
     }
 
     /**

@@ -9,7 +9,9 @@
     import Music2 from 'lucide-svelte/icons/music-2';
     import Play from 'lucide-svelte/icons/play';
     import Search from 'lucide-svelte/icons/search';
+    import Star from 'lucide-svelte/icons/star';
     import Users from 'lucide-svelte/icons/users';
+    import { toast } from 'svelte-sonner';
 
     type Genre = { value: string; label: string };
 
@@ -21,6 +23,7 @@
         genre: Genre;
         play_count: number;
         player_count: number;
+        is_favorite: boolean;
     };
 
     type PaginatedSongs = {
@@ -38,14 +41,40 @@
         gameVersion,
         songs: songList,
         filters,
+        canFavorite,
+        favoriteLimit,
+        favoriteCount,
     }: {
         gameVersion: { value: string; label: string };
         songs: PaginatedSongs;
         filters: { q: string };
+        canFavorite: boolean;
+        favoriteLimit: number;
+        favoriteCount: number;
     } = $props();
 
     const taikoParam = taikoRouteParam();
     const numberFormatter = new Intl.NumberFormat('en-US');
+
+    function toggleFavorite(
+        event: MouseEvent,
+        id: number,
+        isFavorite: boolean,
+    ): void {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!isFavorite && favoriteCount >= favoriteLimit) {
+            toast.error(
+                `You can only favourite ${favoriteLimit} songs in ${gameVersion.label}. Remove one first.`,
+            );
+            return;
+        }
+        router.post(
+            toUrl(songs.favorite({ ...taikoParam, song: id })),
+            {},
+            { preserveScroll: true, preserveState: true },
+        );
+    }
 
     let search = $state(filters.q);
     let debounce: ReturnType<typeof setTimeout> | undefined;
@@ -72,7 +101,8 @@
         anime: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
         classical: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
         game_music: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
-        namco_original: 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400',
+        namco_original:
+            'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400',
         variety: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
         vocaloid: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
         medley: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
@@ -93,7 +123,9 @@
         <div
             class="pointer-events-none absolute -right-8 -top-10 size-40 rounded-full bg-[var(--taiko-accent)] opacity-15 blur-3xl"
         ></div>
-        <div class="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div
+            class="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        >
             <div class="flex items-center gap-4">
                 <div
                     class="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md"
@@ -104,7 +136,9 @@
                     <h1 class="text-2xl font-bold tracking-tight">Songs</h1>
                     <p class="text-sm text-muted-foreground">
                         Browse the library ·
-                        <span class="font-medium text-[var(--taiko-accent-label)]">
+                        <span
+                            class="font-medium text-[var(--taiko-accent-label)]"
+                        >
                             {gameVersion.label}
                         </span>
                     </p>
@@ -133,54 +167,85 @@
     {:else}
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {#each songList.data as song (song.id)}
-                <Link
-                    href={detailUrl(song.id)}
-                    class="group flex flex-col gap-3 rounded-xl border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-[var(--taiko-accent)] hover:shadow-md"
-                >
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0">
-                            <div
-                                class="truncate font-semibold group-hover:text-[var(--taiko-accent-label)]"
-                            >
-                                {song.title}
-                            </div>
-                            {#if song.title_en}
-                                <div class="truncate text-xs text-muted-foreground">
-                                    {song.title_en}
+                <div class="relative">
+                    {#if canFavorite}
+                        <button
+                            type="button"
+                            onclick={(event) =>
+                                toggleFavorite(
+                                    event,
+                                    song.id,
+                                    song.is_favorite,
+                                )}
+                            class="absolute right-2 top-2 z-10 flex size-8 items-center justify-center rounded-full text-muted-foreground/50 transition-colors hover:bg-muted hover:text-amber-500"
+                            aria-pressed={song.is_favorite}
+                            title={song.is_favorite
+                                ? 'Remove from favourites'
+                                : 'Add to favourites'}
+                        >
+                            <Star
+                                class="size-4 {song.is_favorite
+                                    ? 'fill-amber-400 text-amber-400'
+                                    : ''}"
+                            />
+                        </button>
+                    {/if}
+                    <Link
+                        href={detailUrl(song.id)}
+                        class="group flex h-full flex-col gap-3 rounded-xl border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-[var(--taiko-accent)] hover:shadow-md"
+                    >
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <div
+                                    class="truncate font-semibold group-hover:text-[var(--taiko-accent-label)]"
+                                >
+                                    {song.title}
                                 </div>
-                            {/if}
-                        </div>
-                        <span
-                            class="font-mono text-[10px] text-muted-foreground/60"
-                        >
-                            #{song.song_no}
-                        </span>
-                    </div>
-
-                    <div class="flex items-center justify-between gap-2">
-                        <Badge
-                            class="border-0 {genreClass(song.genre.value)}"
-                            variant="secondary"
-                        >
-                            {song.genre.label}
-                        </Badge>
-                        <div
-                            class="flex items-center gap-3 text-xs text-muted-foreground"
-                        >
-                            <span class="flex items-center gap-1" title="Plays">
-                                <Play class="size-3.5" />
-                                {numberFormatter.format(song.play_count)}
-                            </span>
+                                {#if song.title_en}
+                                    <div
+                                        class="truncate text-xs text-muted-foreground"
+                                    >
+                                        {song.title_en}
+                                    </div>
+                                {/if}
+                            </div>
                             <span
-                                class="flex items-center gap-1"
-                                title="Players"
+                                class="font-mono text-[10px] text-muted-foreground/60 {canFavorite
+                                    ? 'mr-8'
+                                    : ''}"
                             >
-                                <Users class="size-3.5" />
-                                {numberFormatter.format(song.player_count)}
+                                #{song.song_no}
                             </span>
                         </div>
-                    </div>
-                </Link>
+
+                        <div class="flex items-center justify-between gap-2">
+                            <Badge
+                                class="border-0 {genreClass(song.genre.value)}"
+                                variant="secondary"
+                            >
+                                {song.genre.label}
+                            </Badge>
+                            <div
+                                class="flex items-center gap-3 text-xs text-muted-foreground"
+                            >
+                                <span
+                                    class="flex items-center gap-1"
+                                    title="Plays"
+                                >
+                                    <Play class="size-3.5" />
+                                    {numberFormatter.format(song.play_count)}
+                                </span>
+                                <span
+                                    class="flex items-center gap-1"
+                                    title="Players"
+                                >
+                                    <Users class="size-3.5" />
+                                    {numberFormatter.format(song.player_count)}
+                                </span>
+                            </div>
+                        </div>
+                    </Link>
+                </div>
             {/each}
         </div>
 
