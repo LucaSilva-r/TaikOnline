@@ -147,6 +147,16 @@
         description="Link an access code to view your arcade scores online. Only one code can be linked at a time."
     />
 
+    <div
+        class="rounded-md border border-blue-500/40 bg-blue-500/10 p-4 text-sm text-blue-700 dark:text-blue-300"
+    >
+        <strong>Physical MIFARE cards only.</strong> Only Banapassport cards with
+        a MIFARE chip are supported. Newer FELICA cards are <strong>not supported</strong>.
+        <br /><br />
+        You can identify a MIFARE card by its 20-digit numeric access code. The first
+        3 always start with (<code class="font-mono">300 to 309</code>),
+    </div>
+
     {#if accessCode}
         <div class="space-y-4">
             <div class="grid gap-2">
