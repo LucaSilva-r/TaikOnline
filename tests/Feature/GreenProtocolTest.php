@@ -1337,6 +1337,30 @@ it('unlocks every legacy song in the default song response', function (TaikoGame
     'murasaki' => [TaikoGameVersion::Murasaki],
 ]);
 
+it('generates the katsudon default song flag from catalog unique ids', function (): void {
+    create_song(TaikoGameVersion::Katsudon->value, 8);
+    Song::query()
+        ->where('version', TaikoGameVersion::Katsudon->value)
+        ->where('song_no', 8)
+        ->update(['unique_id' => 454]);
+
+    $resolver = app(ProtocolMessageResolver::class);
+    $requestClass = $resolver->class(TaikoGameVersion::Katsudon, 'DefaultsongRequest');
+    $request = (new $requestClass)->setChassisId('chassis');
+
+    $response = post_protobuf(
+        '/v02r00/chassis/defaultsong.php',
+        $request,
+        $resolver->class(TaikoGameVersion::Katsudon, 'DefaultsongResponse'),
+    );
+
+    $flags = $response->getDefaultSongFlg();
+
+    expect($response->getResult())->toBe(1)
+        ->and($flags)->toHaveLength(64)
+        ->and(ord($flags[56]))->toBe(0b01000000);
+});
+
 it('unlocks every legacy song in a carded player release flag', function (TaikoGameVersion $version): void {
     create_song($version->value, 1);
     create_song($version->value, 20015);

@@ -17,6 +17,7 @@ class ScoreMapper
      * @var list<value-of<TaikoGameVersion>>
      */
     private const LEGACY_VERSIONS = [
+        TaikoGameVersion::Katsudon->value,
         TaikoGameVersion::Sorairo->value,
         TaikoGameVersion::Momoiro->value,
         TaikoGameVersion::Kimidori->value,
@@ -297,6 +298,20 @@ class ScoreMapper
         }
 
         return $this->songFlagBytes($songNumbers);
+    }
+
+    /**
+     * Build Katsu Don's 64-byte default-song bitset.
+     *
+     * Unlike later song flags, the bit index is the song's unique_id directly:
+     * unique_id 0 => byte 0 bit 0, with no one-based adjustment. Katsu Don's
+     * catalog uses even unique ids, but the direct mapping is intentional.
+     *
+     * @param  iterable<int>  $uniqueIds
+     */
+    public function katsudonDefaultSongFlagBytes(iterable $uniqueIds): string
+    {
+        return $this->idFlagBytes($uniqueIds, 64);
     }
 
     /**

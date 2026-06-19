@@ -20,8 +20,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROTOC="$ROOT/tools/protoc/bin/protoc"
 
 # enum value => StudlyCase namespace segment
-VERSIONS=(sorairo momoiro kimidori murasaki white red yellow blue green)
+VERSIONS=(katsudon sorairo momoiro kimidori murasaki white red yellow blue green)
 declare -A STUDLY=(
+    [katsudon]=Katsudon
     [sorairo]=Sorairo [momoiro]=Momoiro [kimidori]=Kimidori [murasaki]=Murasaki
     [white]=White [red]=Red [yellow]=Yellow [blue]=Blue [green]=Green
 )
