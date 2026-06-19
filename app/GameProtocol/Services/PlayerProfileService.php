@@ -321,7 +321,7 @@ class PlayerProfileService
             'setDifficultyPlayedCourse' => (int) $player->difficulty_played_course,
             'setDifficultyPlayedStar' => (int) $player->difficulty_played_star,
             'setIsChallengecompe' => false,
-            'setIsTojiru' => false,
+            'setIsTojiru' => true,
             'setTokkunTutorialFlg' => (int) ($tokkunState?->tokkun_tutorial_flg ?? 0),
         ]);
     }
