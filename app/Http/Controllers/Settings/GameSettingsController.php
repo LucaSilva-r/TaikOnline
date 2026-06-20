@@ -41,19 +41,17 @@ class GameSettingsController extends Controller
             $random = ($optionSetting & 96) >> 5;
         }
 
-        $supportsFolderSettings = in_array($version, [
-            TaikoGameVersion::Red,
-            TaikoGameVersion::Yellow,
-            TaikoGameVersion::Blue,
-            TaikoGameVersion::Green,
-        ], true);
-
-        // Per-version feature introduction (donderhiroba):
+        // Per-version feature introduction (donderhiroba), see
+        // docs/features/version-feature-matrix.md:
+        // - Profile publicity (gender/birthday): Sorairo onward.
         // - Default enso options (speed/doron/abekobe/random): Momoiro onward.
         // - Default taiko sound (tone) + in-arcade ranking difficulty: Murasaki onward.
-        $supportsPlayOptions = $version?->isAtLeast(TaikoGameVersion::Momoiro) ?? false;
-        $supportsTone = $version?->isAtLeast(TaikoGameVersion::Murasaki) ?? false;
-        $supportsRankingDifficulty = $version?->isAtLeast(TaikoGameVersion::Murasaki) ?? false;
+        // - "Select by difficulty" folder presets: White onward.
+        $supportsFolderSettings = $version?->supportsDifficultyFolderPresets() ?? false;
+        $supportsPlayOptions = $version?->supportsPlayOptionDefaults() ?? false;
+        $supportsTone = $version?->supportsToneDefault() ?? false;
+        $supportsRankingDifficulty = $version?->supportsRankingDifficulty() ?? false;
+        $supportsProfilePublicity = $version?->supportsProfilePublicity() ?? false;
 
         return Inertia::render('settings/GameSettings', [
             'hasAccessCode' => $card !== null,
@@ -74,6 +72,7 @@ class GameSettingsController extends Controller
             'supportsPlayOptions' => $supportsPlayOptions,
             'supportsTone' => $supportsTone,
             'supportsRankingDifficulty' => $supportsRankingDifficulty,
+            'supportsProfilePublicity' => $supportsProfilePublicity,
             'status' => $request->session()->get('status'),
         ]);
     }
@@ -93,16 +92,24 @@ class GameSettingsController extends Controller
             $version = $request->attributes->get('taikoGameVersion');
 
             $supportsRankingDifficulty = $version instanceof TaikoGameVersion
-                && $version->isAtLeast(TaikoGameVersion::Murasaki);
+                && $version->supportsRankingDifficulty();
 
             $playerData = [
                 'prefecture_id' => (int) $request->validated('prefecture_id'),
-                'is_publish' => (bool) $request->validated('is_publish'),
                 'disp_dan_type' => (int) $request->validated('disp_dan_type'),
-                'difficulty_played_course' => (int) $request->validated('difficulty_played_course'),
-                'difficulty_played_star' => (int) $request->validated('difficulty_played_star'),
-                'difficulty_played_sort' => (int) $request->validated('difficulty_played_sort'),
             ];
+
+            // Gender/birthday publicity toggle only exists from Sorairo onward.
+            if ($version instanceof TaikoGameVersion && $version->supportsProfilePublicity()) {
+                $playerData['is_publish'] = (bool) $request->validated('is_publish');
+            }
+
+            // "Select by difficulty" folder presets only exist from White onward.
+            if ($version instanceof TaikoGameVersion && $version->supportsDifficultyFolderPresets()) {
+                $playerData['difficulty_played_course'] = (int) $request->validated('difficulty_played_course');
+                $playerData['difficulty_played_star'] = (int) $request->validated('difficulty_played_star');
+                $playerData['difficulty_played_sort'] = (int) $request->validated('difficulty_played_sort');
+            }
 
             if ($supportsRankingDifficulty) {
                 $playerData['disp_score_type'] = (int) $request->validated('disp_score_type');
@@ -111,8 +118,8 @@ class GameSettingsController extends Controller
             $player->update($playerData);
 
             if ($version instanceof TaikoGameVersion) {
-                $supportsPlayOptions = $version->isAtLeast(TaikoGameVersion::Momoiro);
-                $supportsTone = $version->isAtLeast(TaikoGameVersion::Murasaki);
+                $supportsPlayOptions = $version->supportsPlayOptionDefaults();
+                $supportsTone = $version->supportsToneDefault();
 
                 $speed = (int) $request->validated('speed');
                 $doron = (int) $request->validated('doron');

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Enums\TaikoGameVersion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\CustomizeRequest;
 use App\Models\GameCard;
@@ -17,6 +18,11 @@ class CustomizeController extends Controller
 
     public function update(CustomizeRequest $request): RedirectResponse
     {
+        $version = $request->attributes->get('taikoGameVersion');
+        if (! $version instanceof TaikoGameVersion || ! $version->supportsCostumeSlots()) {
+            abort(404);
+        }
+
         $card = GameCard::query()
             ->whereHas('player', fn ($query) => $query->where('user_id', $request->user()->id))
             ->with('player')

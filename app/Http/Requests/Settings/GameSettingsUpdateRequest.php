@@ -17,13 +17,15 @@ class GameSettingsUpdateRequest extends FormRequest
         return [
             // Shared profile settings
             'prefecture_id' => ['required', 'integer', 'min:0', 'max:47'],
-            'is_publish' => ['required', 'boolean'],
+            // Publicity toggle only present from Sorairo onward; gated server-side.
+            'is_publish' => ['sometimes', 'boolean'],
             // Only present from Murasaki onward (in-arcade ranking display difficulty).
             'disp_score_type' => ['sometimes', 'integer', 'min:0', 'max:5'],
             'disp_dan_type' => ['required', 'integer', 'min:0', 'max:1'],
-            'difficulty_played_course' => ['required', 'integer', Rule::in([0, 1, 2, 3, 4, 5, 99])],
-            'difficulty_played_star' => ['required', 'integer', Rule::in([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 99])],
-            'difficulty_played_sort' => ['required', 'integer', Rule::in([0, 1, 2, 3, 4, 99])],
+            // "Select by difficulty" folder presets only present from White onward; gated server-side.
+            'difficulty_played_course' => ['sometimes', 'integer', Rule::in([0, 1, 2, 3, 4, 5, 99])],
+            'difficulty_played_star' => ['sometimes', 'integer', Rule::in([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 99])],
+            'difficulty_played_sort' => ['sometimes', 'integer', Rule::in([0, 1, 2, 3, 4, 99])],
 
             // Version-specific settings. Tone is Murasaki onward; enso options are
             // Momoiro onward, so all are optional and gated server-side by version.

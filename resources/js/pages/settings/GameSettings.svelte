@@ -152,6 +152,7 @@
         supportsPlayOptions = true,
         supportsTone = true,
         supportsRankingDifficulty = true,
+        supportsProfilePublicity = true,
         syncPlayOptions = true,
         syncToneSettings = true,
     }: {
@@ -173,6 +174,7 @@
         supportsPlayOptions?: boolean;
         supportsTone?: boolean;
         supportsRankingDifficulty?: boolean;
+        supportsProfilePublicity?: boolean;
         syncPlayOptions?: boolean;
         syncToneSettings?: boolean;
     } = $props();
@@ -269,16 +271,18 @@
                             </div>
                         {/if}
 
-                        <div class="flex items-center gap-2 pt-6">
-                            <Checkbox
-                                id="is_publish"
-                                name="is_publish"
-                                bind:checked={selectedIsPublish}
-                            />
-                            <Label for="is_publish" class="cursor-pointer font-medium">Public Profile</Label>
-                            <input type="hidden" name="is_publish" value={selectedIsPublish ? '1' : '0'} />
-                            <InputError message={errors.is_publish} />
-                        </div>
+                        {#if supportsProfilePublicity}
+                            <div class="flex items-center gap-2 pt-6">
+                                <Checkbox
+                                    id="is_publish"
+                                    name="is_publish"
+                                    bind:checked={selectedIsPublish}
+                                />
+                                <Label for="is_publish" class="cursor-pointer font-medium">Public Profile</Label>
+                                <input type="hidden" name="is_publish" value={selectedIsPublish ? '1' : '0'} />
+                                <InputError message={errors.is_publish} />
+                            </div>
+                        {/if}
                     </div>
                 </div>
 

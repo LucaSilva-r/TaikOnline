@@ -5,7 +5,7 @@
     import { Button } from '@/components/ui/button';
     import { Separator } from '@/components/ui/separator';
     import { currentUrlState } from '@/lib/currentUrl.svelte';
-    import { taikoRouteParam } from '@/lib/taiko-version';
+    import { currentTaikoSupports, taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
     import { edit as editAppearance } from '@/routes/appearance';
     import { edit as editAvatar } from '@/routes/avatar';
@@ -24,7 +24,11 @@
         wide?: boolean;
     } = $props();
 
-    const sidebarNavItems: NavItem[] = [
+    // DonChan (costume) editing only exists from Momoiro onward; hide it for
+    // versions that never had website costume customization.
+    const supports = $derived(currentTaikoSupports());
+
+    const sidebarNavItems: NavItem[] = $derived([
         {
             title: 'Profile',
             href: editProfile(taikoRouteParam()),
@@ -33,10 +37,14 @@
             title: 'Security',
             href: editSecurity(taikoRouteParam()),
         },
-        {
-            title: 'DonChan',
-            href: editCostumes(taikoRouteParam()),
-        },
+        ...(supports.costumeSlots
+            ? [
+                  {
+                      title: 'DonChan',
+                      href: editCostumes(taikoRouteParam()),
+                  },
+              ]
+            : []),
         {
             title: 'Profile Picture',
             href: editAvatar(taikoRouteParam()),
@@ -53,7 +61,7 @@
             title: 'Appearance',
             href: editAppearance(taikoRouteParam()),
         },
-    ];
+    ]);
 
     const url = currentUrlState();
 </script>

@@ -1,9 +1,32 @@
 import { page, router } from '@inertiajs/svelte';
 import { setUrlDefaults } from '@/wayfinder';
 
+export type TaikoVersionSupport = {
+    favoriteFolder: boolean;
+    favoriteLimit: number;
+    costumeSlots: boolean;
+    playOptionDefaults: boolean;
+    toneDefault: boolean;
+    rankingDifficulty: boolean;
+    profilePublicity: boolean;
+    difficultyFolderPresets: boolean;
+};
+
 export type TaikoVersionOption = {
     value: string;
     label: string;
+    supports: TaikoVersionSupport;
+};
+
+const noFeatureSupport: TaikoVersionSupport = {
+    favoriteFolder: false,
+    favoriteLimit: 0,
+    costumeSlots: false,
+    playOptionDefaults: false,
+    toneDefault: false,
+    rankingDifficulty: false,
+    profilePublicity: false,
+    difficultyFolderPresets: false,
 };
 
 export type TaikoVersionContext = {
@@ -187,6 +210,14 @@ export function initializeTaikoRouteDefaults(): void {
 
 export function taikoVersionContext(): TaikoVersionContext {
     return page.props.taikoVersion as TaikoVersionContext;
+}
+
+/**
+ * Feature-support flags for the currently scoped version, falling back to "no
+ * support" when the context is missing (e.g. version-agnostic pages).
+ */
+export function currentTaikoSupports(): TaikoVersionSupport {
+    return taikoVersionContext().current?.supports ?? noFeatureSupport;
 }
 
 export function switchTaikoScope(targetScope: string): void {

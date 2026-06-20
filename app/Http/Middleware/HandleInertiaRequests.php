@@ -67,13 +67,14 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * @return array{value: string, label: string}
+     * @return array{value: string, label: string, supports: array<string, bool|int>}
      */
     private function versionPayload(TaikoGameVersion $version): array
     {
         return [
             'value' => $version->value,
             'label' => $version->label(),
+            'supports' => $version->featureSupport(),
         ];
     }
 }
