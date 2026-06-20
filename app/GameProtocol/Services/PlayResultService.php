@@ -134,7 +134,7 @@ class PlayResultService
                 'miss_count' => $stage->getNgCnt(),
                 'drumroll_count' => $stage->getPoundCnt(),
                 'combo_count' => $stage->getComboCnt(),
-                'hit_count' => $stage->getHitCnt(),
+                'hit_count' => $this->stageHitCount($stage),
                 'music_category' => $stage->getMusicCateg(),
                 'selected_folder_id' => $this->optionalInt($stage, 'getSelectedFolderId'),
                 'raw_stage' => [
@@ -212,6 +212,17 @@ class PlayResultService
     private function optionalInt(Message $message, string $getter): int
     {
         return method_exists($message, $getter) ? (int) $message->{$getter}() : 0;
+    }
+
+    private function stageHitCount(Message $stage): int
+    {
+        if (method_exists($stage, 'getHitCnt')) {
+            return (int) $stage->getHitCnt();
+        }
+
+        return (int) $stage->getGoodCnt()
+            + (int) $stage->getOkCnt()
+            + (int) $stage->getNgCnt();
     }
 
     /**
