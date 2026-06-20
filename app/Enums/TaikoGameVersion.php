@@ -22,7 +22,8 @@ enum TaikoGameVersion: string
 
     /**
      * Chronological generation index, derived from enum declaration order
-     * (Sorairo is oldest, Green is newest).
+     * (Katsudon is oldest, Green is newest). Note: the 2011 launch version
+     * (初代 / 無印) predates Katsudon and is intentionally not modelled here.
      */
     public function generation(): int
     {
@@ -38,12 +39,107 @@ enum TaikoGameVersion: string
     }
 
     /**
-     * Maximum number of songs the cabinet lets a player keep in the favourite
-     * folder. Pre-Murasaki generations cap at 5, Murasaki and newer at 10.
+     * Whether the cabinet song-select exposes a favourite-song folder at all.
+     * The folder debuts in Kimidori (V0.12); KATSU-DON, Sorairo and Momoiro
+     * have no such folder, so favourites must not be offered there.
+     */
+    public function supportsFavoriteFolder(): bool
+    {
+        return $this->isAtLeast(self::Kimidori);
+    }
+
+    /**
+     * Maximum number of songs the favourite folder holds. Kimidori/White cap at
+     * 5, Murasaki and newer at 10. Only meaningful when
+     * {@see supportsFavoriteFolder()} is true.
      */
     public function favoriteSongLimit(): int
     {
         return $this->isAtLeast(self::Murasaki) ? 10 : 5;
+    }
+
+    /**
+     * Whether costume customization exists on the website. The からだ/あたま/メイク
+     * slot system, きぐるみ and the reward shop debut in Momoiro; earlier versions
+     * only had a single card-applied きせかえ with no website editor.
+     */
+    public function supportsCostumeSlots(): bool
+    {
+        return $this->isAtLeast(self::Momoiro);
+    }
+
+    /**
+     * Whether donderhiroba lets the player set default enso (play) options.
+     * Debuts in Momoiro.
+     */
+    public function supportsPlayOptionDefaults(): bool
+    {
+        return $this->isAtLeast(self::Momoiro);
+    }
+
+    /**
+     * Whether donderhiroba lets the player set a default taiko tone (音色).
+     * Debuts in Murasaki.
+     */
+    public function supportsToneDefault(): bool
+    {
+        return $this->isAtLeast(self::Murasaki);
+    }
+
+    /**
+     * Whether the player can pick which difficulty the in-arcade ranking shows.
+     * Debuts in Murasaki.
+     */
+    public function supportsRankingDifficulty(): bool
+    {
+        return $this->isAtLeast(self::Murasaki);
+    }
+
+    /**
+     * Whether the gender/birthday publicity toggle exists. Debuts on donderhiroba
+     * in Sorairo.
+     */
+    public function supportsProfilePublicity(): bool
+    {
+        return $this->isAtLeast(self::Sorairo);
+    }
+
+    /**
+     * Whether the "select by difficulty" (むずかしさからえらぶ) folder and its
+     * presets exist. The folder debuts in White.
+     */
+    public function supportsDifficultyFolderPresets(): bool
+    {
+        return $this->isAtLeast(self::White);
+    }
+
+    /**
+     * Feature-availability map shared with the frontend so the website can hide
+     * controls for versions that never had a given feature.
+     *
+     * @return array{
+     *     favoriteFolder: bool,
+     *     favoriteLimit: int,
+     *     costumeSlots: bool,
+     *     playOptionDefaults: bool,
+     *     toneDefault: bool,
+     *     rankingDifficulty: bool,
+     *     profilePublicity: bool,
+     *     difficultyFolderPresets: bool,
+     * }
+     */
+    public function featureSupport(): array
+    {
+        return [
+            'favoriteFolder' => $this->supportsFavoriteFolder(),
+            'favoriteLimit' => $this->favoriteSongLimit(),
+            'costumeSlots' => $this->supportsCostumeSlots(),
+            'playOptionDefaults' => $this->supportsPlayOptionDefaults(),
+            'toneDefault' => $this->supportsToneDefault(),
+            'rankingDifficulty' => $this->supportsRankingDifficulty(),
+            'profilePublicity' => $this->supportsProfilePublicity(),
+            'difficultyFolderPresets' => $this->supportsDifficultyFolderPresets(),
+        ];
     }
 
     public function updateIdentifier(): string

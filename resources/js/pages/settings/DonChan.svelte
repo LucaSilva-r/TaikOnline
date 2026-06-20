@@ -70,6 +70,7 @@
     const PICKER_BUTTON_SIZE = 56;
 
     let {
+        supported = true,
         hasAccessCode,
         versionLabel = '',
         sheet = null,
@@ -79,6 +80,7 @@
         colorBody = 0,
         colorLimb = 0,
     }: {
+        supported?: boolean;
         hasAccessCode: boolean;
         versionLabel?: string;
         sheet?: Sheet;
@@ -166,7 +168,15 @@
         description="Manage your DonChan colors and costume presets for {versionLabel}."
     />
 
-    {#if !hasAccessCode}
+    {#if !supported}
+        <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <p class="text-sm text-amber-800">
+                DonChan costume customization isn't available in {versionLabel}. The costume slot
+                system (body / head / makeup) was introduced in Momoiro — switch to a newer version
+                to edit your DonChan.
+            </p>
+        </div>
+    {:else if !hasAccessCode}
         <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
             <p class="text-sm text-amber-800">
                 Link your Banapassport access code in the Profile settings to customize your DonChan.

@@ -75,6 +75,7 @@ class SongCatalogController extends Controller
             'filters' => [
                 'q' => $search,
             ],
+            'favoritesSupported' => $favorites['supported'],
             'canFavorite' => $favorites['can_favorite'],
             'favoriteLimit' => $favorites['limit'],
             'favoriteCount' => $favorites['count'],
@@ -132,6 +133,7 @@ class SongCatalogController extends Controller
             'difficulties' => $this->difficulties($version, $song),
             'recentPlays' => $this->recentPlays($version, $song),
             'isFavorite' => in_array((int) $song->song_no, $favorites['numbers'], true),
+            'favoritesSupported' => $favorites['supported'],
             'canFavorite' => $favorites['can_favorite'],
             'favoriteLimit' => $favorites['limit'],
             'favoriteCount' => $favorites['count'],
@@ -149,6 +151,10 @@ class SongCatalogController extends Controller
 
         $resolved = Song::query()->find($song);
         if ($resolved === null || $resolved->version !== $version->value) {
+            abort(404);
+        }
+
+        if (! $version->supportsFavoriteFolder()) {
             abort(404);
         }
 
@@ -204,16 +210,18 @@ class SongCatalogController extends Controller
 
     /**
      * Resolve the authenticated player's favourite song numbers for this version,
-     * whether they may favourite (a player record requires a linked game card),
-     * and the version's favourite cap with the player's current usage.
+     * whether they may favourite (the version must expose a favourite folder and
+     * the user must have a linked game card), and the version's favourite cap with
+     * the player's current usage.
      *
-     * @return array{numbers: list<int>, can_favorite: bool, limit: int, count: int}
+     * @return array{numbers: list<int>, supported: bool, can_favorite: bool, limit: int, count: int}
      */
     private function favoriteState(Request $request, TaikoGameVersion $version): array
     {
+        $supported = $version->supportsFavoriteFolder();
         $player = $request->user()?->player;
 
-        $numbers = $player === null
+        $numbers = ($player === null || ! $supported)
             ? []
             : $player->favoriteSongs()
                 ->where('game_version', $version->value)
@@ -224,7 +232,8 @@ class SongCatalogController extends Controller
 
         return [
             'numbers' => $numbers,
-            'can_favorite' => $player !== null,
+            'supported' => $supported,
+            'can_favorite' => $supported && $player !== null,
             'limit' => $version->favoriteSongLimit(),
             'count' => count($numbers),
         ];

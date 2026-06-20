@@ -56,6 +56,36 @@ it('shows saved presets for player with access code', function (): void {
             ->where('presets.2.costume_1', 0));
 });
 
+it('marks the costume page unsupported for pre-Momoiro versions', function (): void {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->get('/katsudon/settings/costumes')
+        ->assertOk()
+        ->assertInertia(fn ($assert) => $assert
+            ->component('settings/DonChan')
+            ->where('supported', false)
+            ->where('versionLabel', 'KATSUDON'));
+});
+
+it('rejects costume updates on pre-Momoiro versions', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    GameCard::query()->create(['access_code' => '12345678901234567890', 'baid' => $player->baid]);
+
+    $this->actingAs($user)
+        ->patch('/katsudon/settings/costumes', [
+            'active_preset' => 0,
+            'presets' => [
+                ['costume_1' => 1, 'costume_2' => 0, 'costume_3' => 0, 'costume_5' => 0],
+                ['costume_1' => 0, 'costume_2' => 0, 'costume_3' => 0, 'costume_5' => 0],
+                ['costume_1' => 0, 'costume_2' => 0, 'costume_3' => 0, 'costume_5' => 0],
+            ],
+        ])
+        ->assertNotFound();
+
+    expect(PlayerCosmetic::query()->where('baid', $player->baid)->count())->toBe(0);
+});
+
 it('saves presets and mirrors the worn preset into the equipped columns', function (): void {
     $user = User::factory()->create();
     $player = Player::query()->create(['user_id' => $user->id]);

@@ -299,6 +299,48 @@ it('ignores version-gated settings on Sorairo (no enso options, tone, or ranking
         ->and($cosmetic->default_tone_setting)->toBe(0);
 });
 
+it('gates publicity and folder presets on Katsudon (fields absent, never written)', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create([
+        'user_id' => $user->id,
+        'prefecture_id' => 0,
+        'is_publish' => true,
+        'disp_dan_type' => 0,
+        'difficulty_played_course' => 2,
+        'difficulty_played_star' => 5,
+        'difficulty_played_sort' => 3,
+    ]);
+    GameCard::query()->create([
+        'access_code' => '12345678901234567890',
+        'baid' => $player->baid,
+    ]);
+
+    // Katsudon UI omits the publicity toggle (Sorairo+) and folder presets (White+),
+    // so the request arrives without those fields and must still validate.
+    $this->actingAs($user)
+        ->patch('/katsudon/settings/game', [
+            'prefecture_id' => 13,
+            'disp_dan_type' => 1,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $player->refresh();
+    expect($player->prefecture_id)->toBe(13)
+        ->and($player->disp_dan_type)->toBe(1)
+        // Publicity unsupported pre-Sorairo: unchanged.
+        ->and($player->is_publish)->toBeTrue()
+        // Folder presets unsupported pre-White: unchanged.
+        ->and($player->difficulty_played_course)->toBe(2)
+        ->and($player->difficulty_played_star)->toBe(5)
+        ->and($player->difficulty_played_sort)->toBe(3);
+});
+
+it('does not expose the DonChan costume support flag for older versions', function (): void {
+    expect(TaikoGameVersion::Sorairo->featureSupport()['costumeSlots'])->toBeFalse()
+        ->and(TaikoGameVersion::Momoiro->featureSupport()['costumeSlots'])->toBeTrue();
+});
+
 it('saves enso options on Momoiro but still gates tone (Murasaki+)', function (): void {
     $user = User::factory()->create();
     $player = Player::query()->create([

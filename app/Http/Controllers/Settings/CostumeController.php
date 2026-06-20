@@ -36,16 +36,19 @@ class CostumeController extends Controller
             ->with('player')
             ->first();
 
+        $supported = $version instanceof TaikoGameVersion && $version->supportsCostumeSlots();
+
         $presets = array_fill(0, PlayerCosmetic::PRESET_COUNT, array_fill_keys(PlayerCosmetic::PRESET_KEYS, 0));
         $activePreset = 0;
 
-        if ($card !== null && $version instanceof TaikoGameVersion) {
+        if ($card !== null && $supported && $version instanceof TaikoGameVersion) {
             $cosmetic = PlayerCosmetic::resolve($card->player->baid, $version);
             $presets = $cosmetic->normalizedPresets();
             $activePreset = min((int) $cosmetic->active_costume_preset, PlayerCosmetic::PRESET_COUNT - 1);
         }
 
         return Inertia::render('settings/DonChan', [
+            'supported' => $supported,
             'hasAccessCode' => $card !== null,
             'versionLabel' => $version?->label() ?? '',
             'sheet' => $this->spritesheet($version),
@@ -66,7 +69,11 @@ class CostumeController extends Controller
             ->with('player')
             ->first();
 
-        if ($card !== null && $version instanceof TaikoGameVersion) {
+        if (! $version instanceof TaikoGameVersion || ! $version->supportsCostumeSlots()) {
+            abort(404);
+        }
+
+        if ($card !== null) {
             $cosmetic = PlayerCosmetic::resolve($card->player->baid, $version);
 
             /** @var array<int, array<string, mixed>> $rawPresets */

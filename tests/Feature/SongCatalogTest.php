@@ -219,6 +219,28 @@ it('lets an authenticated player favourite and unfavourite a song', function ():
     expect($player->favoriteSongs()->where('game_version', 'green')->count())->toBe(0);
 });
 
+it('rejects favouriting on a version without a favourite folder', function (): void {
+    $song = makeCatalogSong('katsudon', 10, 'Old Song');
+    $user = User::factory()->create();
+    Player::query()->create(['mydon_name' => 'P', 'user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->post("/katsudon/songs/{$song->id}/favorite")
+        ->assertNotFound();
+});
+
+it('reports favourites as unsupported in the catalog for pre-Kimidori versions', function (): void {
+    makeCatalogSong('katsudon', 10, 'Old Song');
+    $user = User::factory()->create();
+    Player::query()->create(['mydon_name' => 'P', 'user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->get('/katsudon/songs')
+        ->assertInertia(fn ($page) => $page
+            ->where('favoritesSupported', false)
+            ->where('canFavorite', false));
+});
+
 it('keeps favourites scoped to each version', function (): void {
     makeCatalogSong('green', 10, 'Shared Song');
     makeCatalogSong('blue', 10, 'Shared Song');
