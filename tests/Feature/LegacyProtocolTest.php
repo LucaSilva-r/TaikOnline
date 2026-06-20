@@ -11,6 +11,82 @@ use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Models\Song;
 use App\Models\SongBest;
+use App\Models\SongPlayResult;
+
+it('returns Katsu Don song info without dropping the cabinet connection', function (): void {
+    $player = Player::query()->create();
+    $version = TaikoGameVersion::Katsudon;
+    $resolver = app(ProtocolMessageResolver::class);
+
+    SongBest::query()->create([
+        'baid' => $player->baid,
+        'game_version' => $version->value,
+        'song_no' => 386,
+        'level' => 3,
+        'best_score' => 441440,
+    ]);
+
+    $requestClass = $resolver->class($version, 'SongInfoRequest');
+    $request = (new $requestClass)
+        ->setBaid($player->baid)
+        ->setChassisId('268410359554')
+        ->setIsFriend(false)
+        ->setArySongNo([386]);
+
+    $responseClass = $resolver->class($version, 'SongInfoResponse');
+    $response = post_protobuf('/v02r00/chassis/songinfo.php', $request, $responseClass);
+
+    expect($response->getResult())->toBe(1)
+        ->and($response->getAryGroupScore())->toHaveCount(1);
+
+    $group = $response->getAryGroupScore()[0];
+    expect($group->getSongNo())->toBe(386)
+        ->and(iterator_to_array($group->getAryHighScore()))->toBe([0, 0, 0, 441440, 0])
+        ->and($group->getAryFriendScore())->toHaveCount(0);
+});
+
+it('stores a Katsu Don play result whose stage omits hit count', function (): void {
+    $player = Player::query()->create();
+    $resolver = app(ProtocolMessageResolver::class);
+    $version = TaikoGameVersion::Katsudon;
+
+    $stageClass = $resolver->class($version, 'PlayResultRequest\\StageData');
+    $stage = (new $stageClass)
+        ->setSongNo(100)
+        ->setLevel(3)
+        ->setPlayResult(2)
+        ->setPlayScore(876543)
+        ->setGoodCnt(500)
+        ->setOkCnt(20)
+        ->setNgCnt(3)
+        ->setPoundCnt(11)
+        ->setComboCnt(450)
+        ->setMusicCateg(1);
+
+    $requestClass = $resolver->class($version, 'PlayResultRequest');
+    $request = (new $requestClass)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('20260619203524')
+        ->setIsRight(true)
+        ->setCardType(1)
+        ->setIsTwoPlayers(false)
+        ->setAryStageInfo([$stage]);
+
+    $responseClass = $resolver->class($version, 'PlayResultResponse');
+    $response = post_protobuf('/v02r00/chassis/playresult.php', $request, $responseClass);
+
+    expect($response->getResult())->toBe(1);
+
+    $stored = SongPlayResult::query()
+        ->where('baid', $player->baid)
+        ->where('game_version', $version->value)
+        ->firstOrFail();
+
+    expect($stored->score)->toBe(876543)
+        ->and($stored->hit_count)->toBe(523);
+});
 
 it('saves cosmetic unlocks and equipped items from a legacy play result request (kimidori)', function (): void {
     $player = Player::query()->create();

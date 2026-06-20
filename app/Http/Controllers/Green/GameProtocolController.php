@@ -65,6 +65,11 @@ class GameProtocolController extends Controller
         return $this->dispatch($version, 'playResult', $request);
     }
 
+    public function songInfo(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'songInfo', $request);
+    }
+
     public function selfBest(Request $request, string $version): Response
     {
         return $this->dispatch($version, 'selfBest', $request);

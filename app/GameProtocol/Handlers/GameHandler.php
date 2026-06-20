@@ -211,6 +211,51 @@ class GameHandler
         );
     }
 
+    public function songInfo(Request $request, TaikoGameVersion $game): Response
+    {
+        $message = $this->parse($request, $game, 'SongInfoRequest');
+        $songNumbers = collect($message->getArySongNo())
+            ->map(fn (mixed $songNo): int => (int) $songNo)
+            ->unique()
+            ->values();
+
+        $bests = SongBest::query()
+            ->select(['song_no', 'level', 'best_score'])
+            ->where('baid', $message->getBaid())
+            ->where('game_version', $game->value)
+            ->whereIn('song_no', $songNumbers)
+            ->get()
+            ->groupBy('song_no');
+
+        $groups = $songNumbers
+            ->map(function (int $songNo) use ($bests, $game): Message {
+                $scores = array_fill(0, 5, 0);
+                foreach ($bests->get($songNo, collect()) as $best) {
+                    $level = (int) $best->level;
+                    if ($level >= 0 && $level < count($scores)) {
+                        $scores[$level] = (int) $best->best_score;
+                    }
+                }
+
+                return $this->writer->fill(
+                    $this->messages->make($game, 'SongInfoResponse\\GroupData'),
+                    [
+                        'setSongNo' => $songNo,
+                        'setAryHighScore' => $scores,
+                        'setAryFriendScore' => [],
+                    ],
+                );
+            })
+            ->all();
+
+        return $this->payloads->response(
+            $this->writer->fill($this->messages->make($game, 'SongInfoResponse'), [
+                'setResult' => 1,
+                'setAryGroupScore' => $groups,
+            ])
+        );
+    }
+
     public function crownsData(Request $request, TaikoGameVersion $game): Response
     {
         $message = $this->parse($request, $game, 'CrownsDataRequest');

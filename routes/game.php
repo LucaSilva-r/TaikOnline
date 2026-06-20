@@ -42,6 +42,7 @@ Route::middleware(LogGreenCabinetTraffic::class)->group(function () use ($protoc
     Route::post('{version}/chassis/mydonentry.php', [GameProtocolController::class, 'mydonEntry'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/userdata.php', [GameProtocolController::class, 'userData'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/playresult.php', [GameProtocolController::class, 'playResult'])->where('version', $protocolVersionPattern);
+    Route::post('{version}/chassis/songinfo.php', [GameProtocolController::class, 'songInfo'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/selfbest.php', [GameProtocolController::class, 'selfBest'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/crownsdata.php', [GameProtocolController::class, 'crownsData'])->where('version', $protocolVersionPattern);
     Route::post('{version}/chassis/getfolder.php', [GameProtocolController::class, 'getFolder'])->where('version', $protocolVersionPattern);
