@@ -447,12 +447,6 @@
                         {numberFormatter.format(summary.crown_counts.clear)}
                     </span>
                 </div>
-                <div class="flex items-center justify-between rounded-md bg-muted/50 p-3">
-                    <span class="text-sm text-muted-foreground">No crown</span>
-                    <span class="font-semibold tabular-nums">
-                        {numberFormatter.format(summary.crown_counts.none)}
-                    </span>
-                </div>
             </div>
         </section>
     </div>

@@ -509,7 +509,7 @@ class PlayResultService
         // Crowns improve independently of score: a later lower-scoring full combo
         // still upgrades the crown. Rank order matches the stored values
         // (0 none < 1 clear < 2 gold < 3 dondaful).
-        $crown = $this->crownForPlayResult($stage->getPlayResult());
+        $crown = $this->crownForCounts((int) $stage->getOkCnt(), (int) $stage->getNgCnt());
         if ($crown > (int) $best->best_crown) {
             $best->best_crown = $crown;
             $dirty = true;
@@ -528,12 +528,20 @@ class PlayResultService
     }
 
     /**
-     * Clamp the cabinet's play_result to a crown rank (1 clear, 2 gold,
-     * 3 dondaful); anything else counts as no crown.
+     * Derive the crown rank from the actual note counts rather than the
+     * cabinet-reported play_result, which some versions do not set correctly.
+     * 3 dondaful (no ok/miss), 2 gold (no miss but has ok), 1 clear (has miss).
      */
-    private function crownForPlayResult(int $playResult): int
+    private function crownForCounts(int $okCount, int $missCount): int
     {
-        return ($playResult >= 1 && $playResult <= 3) ? $playResult : 0;
+        if ($missCount === 0 && $okCount === 0) {
+            return 3;
+        }
+        if ($missCount === 0) {
+            return 2;
+        }
+
+        return 1;
     }
 
     private function sessionHash(int $baid, string $gameVersion, Message $data): string
