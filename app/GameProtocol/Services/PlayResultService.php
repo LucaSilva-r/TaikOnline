@@ -13,6 +13,7 @@ use App\Models\PlayerBlueBattleState;
 use App\Models\PlayerBlueBattleTokenState;
 use App\Models\PlayerCosmetic;
 use App\Models\PlayerDanProgress;
+use App\Models\PlayerDonPointState;
 use App\Models\PlayerGreenGhostState;
 use App\Models\PlayerGreenGhostToken;
 use App\Models\PlayerGreenGhostWinnings;
@@ -59,6 +60,12 @@ class PlayResultService
             ->exists()) {
             return 1;
         }
+
+        if ($version === TaikoGameVersion::Momoiro && method_exists($data, 'getPlayMode') && ! in_array((int) $data->getPlayMode(), [0, 1], true)) {
+            return 1;
+        }
+
+        $this->saveDonPointState($player, $data, $version);
 
         $isTokkun = false;
         if (method_exists($data, 'hasAryTokkunstageInfo') && $data->hasAryTokkunstageInfo() && $data->getAryTokkunstageInfo() !== null) {
@@ -285,6 +292,37 @@ class PlayResultService
         $cosmetic->save();
     }
 
+    private function saveDonPointState(Player $player, Message $data, TaikoGameVersion $version): void
+    {
+        if (! method_exists($data, 'getGetDonpoint')
+            && ! method_exists($data, 'getRewardPtn')
+            && ! method_exists($data, 'getRewardProgress')) {
+            return;
+        }
+
+        $state = PlayerDonPointState::resolve($player->baid, $version);
+
+        if (method_exists($data, 'getGetDonpoint')) {
+            $state->total_get_donpoint = (int) $state->total_get_donpoint + (int) $data->getGetDonpoint();
+        }
+
+        if (method_exists($data, 'getRewardPtn')) {
+            $incoming = (int) $data->getRewardPtn();
+            $state->reward_ptn = (int) $state->reward_ptn > 0 && $incoming === 0
+                ? (int) $state->reward_ptn
+                : $incoming;
+        }
+
+        if (method_exists($data, 'getRewardProgress')) {
+            $incoming = (int) $data->getRewardProgress();
+            $state->reward_progress = (int) $state->reward_progress > 0 && $incoming === 0
+                ? (int) $state->reward_progress
+                : $incoming;
+        }
+
+        $state->save();
+    }
+
     /**
      * Carry the tone and play options the player used on their last stage into
      * the cosmetic row so the cabinet pre-selects them next session. The cabinet
@@ -399,35 +437,52 @@ class PlayResultService
     public function selfBest(Player $player, int $level, TaikoGameVersion $version, iterable $songNumbers): Message
     {
         $numbers = collect($songNumbers)->map(fn (mixed $value): int => (int) $value)->filter()->values();
-        $query = SongBest::query()
+        $levels = $level === 4 ? [4, 5] : [$level];
+
+        $bests = SongBest::query()
             ->where('baid', $player->baid)
-            ->where('game_version', $version->value);
+            ->where('game_version', $version->value)
+            ->whereIn('level', $levels)
+            ->when($numbers->isNotEmpty(), fn ($query) => $query->whereIn('song_no', $numbers))
+            ->get()
+            ->groupBy(fn (SongBest $best): string => implode(':', [
+                (int) $best->song_no,
+                (int) $best->level,
+                (int) (bool) $best->is_shin,
+            ]));
 
-        if ($level > 0) {
-            $query->where('level', $level);
-        }
+        $normalItems = $numbers
+            ->map(fn (int $songNo): Message => $this->selfBestData($version, $songNo, $level, false, $bests))
+            ->all();
 
-        if ($numbers->isNotEmpty()) {
-            $query->whereIn('song_no', $numbers);
-        }
-
-        $items = $query->get()
-            ->map(fn (SongBest $best): Message => $this->writer->fill(
-                $this->messages->make($version, 'SelfBestResponse\\SelfBestData'),
-                [
-                    'setSongNo' => (int) $best->song_no,
-                    'setSelfBestScore' => (int) $best->best_score,
-                    'setUraBestScore' => 0,
-                ],
-            ))
+        $shinItems = $numbers
+            ->map(fn (int $songNo): Message => $this->selfBestData($version, $songNo, $level, true, $bests))
             ->all();
 
         return $this->writer->fill($this->messages->make($version, 'SelfBestResponse'), [
             'setResult' => 1,
             'setLevel' => $level,
-            'setArySelfbestScore' => $items,
-            'setAryShinSelfbestScore' => [],
+            'setArySelfbestScore' => $normalItems,
+            'setAryShinSelfbestScore' => $shinItems,
         ]);
+    }
+
+    private function selfBestData(TaikoGameVersion $version, int $songNo, int $level, bool $isShin, mixed $bests): Message
+    {
+        $key = fn (int $difficulty): string => implode(':', [$songNo, $difficulty, (int) $isShin]);
+        $best = $bests->get($key($level), collect())->first();
+        $uraBest = $level === 4
+            ? $bests->get($key(5), collect())->first()
+            : null;
+
+        return $this->writer->fill(
+            $this->messages->make($version, 'SelfBestResponse\\SelfBestData'),
+            [
+                'setSongNo' => $songNo,
+                'setSelfBestScore' => $best instanceof SongBest ? (int) $best->best_score : 0,
+                'setUraBestScore' => $uraBest instanceof SongBest ? (int) $uraBest->best_score : 0,
+            ],
+        );
     }
 
     private function updateBest(Player $player, Message $stage, int $rank, string $gameVersion): void
@@ -437,6 +492,7 @@ class PlayResultService
             'game_version' => $gameVersion,
             'song_no' => $stage->getSongNo(),
             'level' => $stage->getLevel(),
+            'is_shin' => $this->isShinStage($stage),
         ]);
 
         $dirty = ! $best->exists;
@@ -462,6 +518,13 @@ class PlayResultService
         if ($dirty) {
             $best->save();
         }
+    }
+
+    private function isShinStage(Message $stage): bool
+    {
+        $stageMode = $this->optionalInt($stage, 'getStageMode');
+
+        return in_array($stageMode, [1, 4], true);
     }
 
     /**

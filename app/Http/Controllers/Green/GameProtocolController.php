@@ -75,6 +75,26 @@ class GameProtocolController extends Controller
         return $this->dispatch($version, 'selfBest', $request);
     }
 
+    public function mainichiSong(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'mainichiSong', $request);
+    }
+
+    public function bestScore(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'bestScore', $request);
+    }
+
+    public function communicationLog(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'communicationLog', $request);
+    }
+
+    public function shoppingResult(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'shoppingResult', $request);
+    }
+
     public function crownsData(Request $request, string $version): Response
     {
         return $this->dispatch($version, 'crownsData', $request);

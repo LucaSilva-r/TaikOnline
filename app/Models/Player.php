@@ -86,6 +86,11 @@ class Player extends Model
         return $this->hasMany(PlayerCosmetic::class, 'baid', 'baid');
     }
 
+    public function donPointStates(): HasMany
+    {
+        return $this->hasMany(PlayerDonPointState::class, 'baid', 'baid');
+    }
+
     public function favoriteSongs(): HasMany
     {
         return $this->hasMany(PlayerFavoriteSong::class, 'baid', 'baid');

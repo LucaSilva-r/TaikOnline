@@ -17,6 +17,7 @@ use App\Models\GameCard;
 use App\Models\HeadClerkLog;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
+use App\Models\PlayerDonPointState;
 use App\Models\PlayerGreenGhostState;
 use App\Models\PlayerGreenGhostToken;
 use App\Models\PlayerGreenGhostWinnings;
@@ -209,6 +210,79 @@ class GameHandler
                 $player instanceof Player ? $message->getArySongNo() : [],
             )
         );
+    }
+
+    public function mainichiSong(Request $request, TaikoGameVersion $game): Response
+    {
+        $this->parse($request, $game, 'MainichisongRequest');
+
+        return $this->payloads->response(
+            $this->writer->fill($this->messages->make($game, 'MainichisongResponse'), [
+                'setResult' => 1,
+                'setSongHashVer' => 99,
+                'setHashMainichidojoAll' => $this->scoreMapper->emptyFlagBytes(128),
+                'setHashMainichidojoRare' => $this->scoreMapper->emptyFlagBytes(128),
+            ])
+        );
+    }
+
+    public function bestScore(Request $request, TaikoGameVersion $game): Response
+    {
+        $message = $this->parse($request, $game, 'BestScoreRequest');
+        $seqId = method_exists($message, 'getSeqId') ? (int) $message->getSeqId() : 0;
+
+        return $this->payloads->response(
+            $this->writer->fill($this->messages->make($game, 'BestScoreResponse'), [
+                'setResult' => 1,
+                'setSeqId' => $seqId,
+                'setLastSeqId' => $seqId,
+                'setArySongScore' => [],
+            ])
+        );
+    }
+
+    public function communicationLog(Request $request, TaikoGameVersion $game): Response
+    {
+        $this->parse($request, $game, 'CommunicationLogRequest');
+
+        return $this->payloads->response(
+            $this->writer->set($this->messages->make($game, 'CommunicationLogResponse'), 'setResult', 1)
+        );
+    }
+
+    public function shoppingResult(Request $request, TaikoGameVersion $game): Response
+    {
+        $message = $this->parse($request, $game, 'ShoppingResultRequest');
+        $player = Player::query()->find($message->getBaid());
+
+        if (! $player instanceof Player) {
+            return $this->payloads->response($this->shoppingResultResponse($game));
+        }
+
+        DB::transaction(function () use ($player, $message, $game): void {
+            $donPointState = PlayerDonPointState::resolve($player->baid, $game);
+            $donPointState->total_use_donpoint = (int) $donPointState->total_use_donpoint + (int) $message->getUseDonpoint();
+            $donPointState->save();
+
+            $player->unlocked_song_numbers = $this->mergeIds($player->unlocked_song_numbers ?? [], $message->getAryShoppingSongNo());
+            $player->save();
+
+            $cosmetic = PlayerCosmetic::resolve($player->baid, $game);
+            $cosmetic->unlocked_tones = $this->mergeIds($cosmetic->unlocked_tones ?? [], $this->scoreMapper->flagBytesToIds($message->getToneFlg()));
+
+            $costumes = $cosmetic->unlocked_costumes ?? [];
+            for ($slot = 1; $slot <= 3; $slot++) {
+                $getter = "getCostumeFlg{$slot}";
+                $costumes[(string) $slot] = $this->mergeIds(
+                    $costumes[(string) $slot] ?? [],
+                    $this->scoreMapper->flagBytesToIds($message->{$getter}()),
+                );
+            }
+            $cosmetic->unlocked_costumes = $costumes;
+            $cosmetic->save();
+        });
+
+        return $this->payloads->response($this->shoppingResultResponse($game, $player));
     }
 
     public function songInfo(Request $request, TaikoGameVersion $game): Response
@@ -733,6 +807,44 @@ class GameHandler
             ->map(fn (mixed $songNo): int => (int) $songNo);
 
         return $this->scoreMapper->legacySongHashTable($songNumbers);
+    }
+
+    protected function shoppingResultResponse(TaikoGameVersion $game, ?Player $player = null): Message
+    {
+        $donPointState = $player instanceof Player
+            ? PlayerDonPointState::resolve($player->baid, $game)
+            : null;
+        $cosmetic = $player instanceof Player
+            ? PlayerCosmetic::resolve($player->baid, $game)
+            : null;
+
+        return $this->writer->fill($this->messages->make($game, 'ShoppingResultResponse'), [
+            'setResult' => 1,
+            'setTotalGetDonpoint' => (int) ($donPointState?->total_get_donpoint ?? 0),
+            'setTotalUseDonpoint' => (int) ($donPointState?->total_use_donpoint ?? 0),
+            'setToneFlg' => $this->scoreMapper->idFlagBytes($cosmetic?->unlocked_tones ?? [], 16),
+            'setCostumeFlg1' => $this->scoreMapper->idFlagBytes(($cosmetic?->unlocked_costumes ?? [])['1'] ?? [], 32),
+            'setCostumeFlg2' => $this->scoreMapper->idFlagBytes(($cosmetic?->unlocked_costumes ?? [])['2'] ?? [], 32),
+            'setCostumeFlg3' => $this->scoreMapper->idFlagBytes(($cosmetic?->unlocked_costumes ?? [])['3'] ?? [], 32),
+            'setSongHashVer' => 99,
+            'setHashReleaseSongFlg' => $this->releaseSongFlag($game->value),
+        ]);
+    }
+
+    /**
+     * @param  array<int, int>  $existing
+     * @param  iterable<int>  $incoming
+     * @return array<int, int>
+     */
+    protected function mergeIds(array $existing, iterable $incoming): array
+    {
+        return collect($existing)
+            ->merge(collect($incoming)->map(fn (mixed $id): int => (int) $id))
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 
     public function getItemShopInfo(Request $request, TaikoGameVersion $game): Response
