@@ -180,6 +180,51 @@ class ScoreMapper
     }
 
     /**
+     * Build Momoiro's userdata hash_crown_flg. Unlike crownsdata.php's legacy
+     * 10-bit-per-song table, userdata packs only easy..oni into one byte per
+     * songhash row.
+     *
+     * @param  iterable<array{song_no: int, level: int, best_crown: int}|SongBest>  $bests
+     */
+    public function momoiroUserDataCrownFlagBytes(iterable $bests): string
+    {
+        $songNumbers = Song::query()
+            ->where('version', TaikoGameVersion::Momoiro->value)
+            ->pluck('song_no')
+            ->map(fn (mixed $songNo): int => (int) $songNo);
+
+        $orderedSongs = $this->legacySongOrder($songNumbers);
+        if ($orderedSongs === []) {
+            return '';
+        }
+
+        $songIndexMap = array_flip($orderedSongs);
+        $values = array_fill(0, count($orderedSongs), 0);
+
+        foreach ($bests as $best) {
+            $songNo = (int) $best->song_no;
+            if (! isset($songIndexMap[$songNo])) {
+                continue;
+            }
+
+            $level = (int) $best->level;
+            $slot = $level - 1;
+            if ($slot < 0 || $slot > 3) {
+                continue;
+            }
+
+            $state = $this->crownWireState((int) $best->best_crown);
+            if ($state === 0) {
+                continue;
+            }
+
+            $values[$songIndexMap[$songNo]] |= ($state & 0x03) << ($slot * 2);
+        }
+
+        return implode('', array_map(static fn (int $value): string => chr($value & 0xFF), $values));
+    }
+
+    /**
      * Build a fixed-size bitset where each unlocked id maps directly to its bit
      * (id 0 => byte 0 bit 0). Used for tone/title/costume unlock flags, which —
      * unlike song flags — are not offset by one.

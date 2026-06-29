@@ -9,6 +9,8 @@ use App\GameProtocol\Support\ScoreMapper;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
+use App\Models\PlayerDonPointState;
+use App\Models\PlayerVersionStats;
 use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
@@ -300,4 +302,324 @@ it('packs and unpacks option flags as big-endian for legacy versions (kimidori)'
     // Database should be updated with decoded option value (5)
     $cosmetic->refresh();
     expect($cosmetic->default_option_setting)->toBe(5);
+});
+
+it('stores Momoiro normal and shin bests separately and returns requested selfbest rows', function (): void {
+    $player = Player::query()->create();
+    $resolver = app(ProtocolMessageResolver::class);
+    $version = TaikoGameVersion::Momoiro;
+
+    $stageClass = $resolver->class($version, 'PlayResultRequest\\StageData');
+    $requestClass = $resolver->class($version, 'PlayResultRequest');
+    $responseClass = $resolver->class($version, 'PlayResultResponse');
+
+    $normalStage = (new $stageClass)
+        ->setSongNo(123)
+        ->setLevel(4)
+        ->setStageMode(0)
+        ->setPlayResult(2)
+        ->setPlayScore(700000)
+        ->setGoodCnt(100)
+        ->setOkCnt(10)
+        ->setNgCnt(1)
+        ->setPoundCnt(0)
+        ->setComboCnt(100)
+        ->setMusicCateg(1);
+
+    $shinStage = (new $stageClass)
+        ->setSongNo(123)
+        ->setLevel(4)
+        ->setStageMode(1)
+        ->setPlayResult(2)
+        ->setPlayScore(900000)
+        ->setGoodCnt(100)
+        ->setOkCnt(10)
+        ->setNgCnt(1)
+        ->setPoundCnt(0)
+        ->setComboCnt(100)
+        ->setMusicCateg(1);
+
+    post_protobuf('/v04r02/chassis/playresult.php', (new $requestClass)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('20260629120000')
+        ->setIsRight(true)
+        ->setCardType(1)
+        ->setIsTwoPlayers(false)
+        ->setPlayMode(0)
+        ->setAryStageInfo([$normalStage]), $responseClass);
+
+    post_protobuf('/v04r02/chassis/playresult.php', (new $requestClass)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('20260629120500')
+        ->setIsRight(true)
+        ->setCardType(1)
+        ->setIsTwoPlayers(false)
+        ->setPlayMode(0)
+        ->setAryStageInfo([$shinStage]), $responseClass);
+
+    expect(SongBest::query()->where('baid', $player->baid)->where('game_version', 'momoiro')->count())->toBe(2)
+        ->and(SongBest::query()->where('is_shin', false)->firstOrFail()->best_score)->toBe(700000)
+        ->and(SongBest::query()->where('is_shin', true)->firstOrFail()->best_score)->toBe(900000);
+
+    $stats = PlayerVersionStats::query()
+        ->where('baid', $player->baid)
+        ->where('game_version', $version->value)
+        ->firstOrFail();
+
+    expect($stats->ranked_song_count)->toBe(1)
+        ->and($stats->total_score)->toBe(700000);
+
+    $selfBestRequestClass = $resolver->class($version, 'SelfBestRequest');
+    $selfBestResponseClass = $resolver->class($version, 'SelfBestResponse');
+    $selfBest = post_protobuf('/v04r02/chassis/selfbest.php', (new $selfBestRequestClass)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setLevel(4)
+        ->setArySongNo([123, 456]), $selfBestResponseClass);
+
+    expect($selfBest->getResult())->toBe(1)
+        ->and($selfBest->getArySelfbestScore())->toHaveCount(2)
+        ->and($selfBest->getAryShinSelfbestScore())->toHaveCount(2)
+        ->and($selfBest->getArySelfbestScore()[0]->getSongNo())->toBe(123)
+        ->and($selfBest->getArySelfbestScore()[0]->getSelfBestScore())->toBe(700000)
+        ->and($selfBest->getArySelfbestScore()[1]->getSongNo())->toBe(456)
+        ->and($selfBest->getArySelfbestScore()[1]->getSelfBestScore())->toBe(0)
+        ->and($selfBest->getAryShinSelfbestScore()[0]->getSelfBestScore())->toBe(900000)
+        ->and($selfBest->getAryShinSelfbestScore()[1]->getSelfBestScore())->toBe(0);
+});
+
+it('acknowledges unsupported Momoiro play modes without mutating state', function (): void {
+    $player = Player::query()->create();
+    $resolver = app(ProtocolMessageResolver::class);
+    $version = TaikoGameVersion::Momoiro;
+
+    $stageClass = $resolver->class($version, 'PlayResultRequest\\StageData');
+    $stage = (new $stageClass)
+        ->setSongNo(222)
+        ->setLevel(3)
+        ->setPlayResult(2)
+        ->setPlayScore(800000)
+        ->setGoodCnt(100)
+        ->setOkCnt(10)
+        ->setNgCnt(1)
+        ->setPoundCnt(0)
+        ->setComboCnt(100)
+        ->setMusicCateg(1);
+
+    $requestClass = $resolver->class($version, 'PlayResultRequest');
+    $responseClass = $resolver->class($version, 'PlayResultResponse');
+    $response = post_protobuf('/v04r02/chassis/playresult.php', (new $requestClass)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setPlayDatetime('20260629121000')
+        ->setIsRight(true)
+        ->setCardType(1)
+        ->setIsTwoPlayers(false)
+        ->setPlayMode(2)
+        ->setGetDonpoint(50)
+        ->setRewardPtn(4)
+        ->setRewardProgress(8)
+        ->setAryStageInfo([$stage]), $responseClass);
+
+    expect($response->getResult())->toBe(1)
+        ->and(SongPlayResult::query()->where('baid', $player->baid)->exists())->toBeFalse()
+        ->and(SongBest::query()->where('baid', $player->baid)->exists())->toBeFalse()
+        ->and(PlayerDonPointState::query()->where('baid', $player->baid)->exists())->toBeFalse();
+});
+
+it('persists legacy Don Point totals and preserves reward progress against zero playresult updates', function (): void {
+    $player = Player::query()->create();
+    $resolver = app(ProtocolMessageResolver::class);
+    $version = TaikoGameVersion::Momoiro;
+
+    $stageClass = $resolver->class($version, 'PlayResultRequest\\StageData');
+    $requestClass = $resolver->class($version, 'PlayResultRequest');
+    $responseClass = $resolver->class($version, 'PlayResultResponse');
+
+    $makeRequest = function (string $playedAt, int $getDonpoint, int $rewardPtn, int $rewardProgress) use ($player, $stageClass, $requestClass): object {
+        $stage = (new $stageClass)
+            ->setSongNo(333)
+            ->setLevel(3)
+            ->setPlayResult(2)
+            ->setPlayScore(700000 + $getDonpoint)
+            ->setGoodCnt(100)
+            ->setOkCnt(10)
+            ->setNgCnt(1)
+            ->setPoundCnt(0)
+            ->setComboCnt(100)
+            ->setMusicCateg(1);
+
+        return (new $requestClass)
+            ->setBaid($player->baid)
+            ->setChassisId('chassis')
+            ->setShopId('shop')
+            ->setPlayDatetime($playedAt)
+            ->setIsRight(true)
+            ->setCardType(1)
+            ->setIsTwoPlayers(false)
+            ->setPlayMode(0)
+            ->setGetDonpoint($getDonpoint)
+            ->setRewardPtn($rewardPtn)
+            ->setRewardProgress($rewardProgress)
+            ->setAryStageInfo([$stage]);
+    };
+
+    post_protobuf('/v04r02/chassis/playresult.php', $makeRequest('20260629122000', 25, 7, 9), $responseClass);
+    post_protobuf('/v04r02/chassis/playresult.php', $makeRequest('20260629122500', 5, 0, 0), $responseClass);
+
+    $state = PlayerDonPointState::query()
+        ->where('baid', $player->baid)
+        ->where('game_version', 'momoiro')
+        ->firstOrFail();
+
+    expect($state->total_get_donpoint)->toBe(30)
+        ->and($state->reward_ptn)->toBe(7)
+        ->and($state->reward_progress)->toBe(9);
+
+    $userRequestClass = $resolver->class($version, 'UserDataRequest');
+    $userResponseClass = $resolver->class($version, 'UserDataResponse');
+    $userData = post_protobuf('/v04r02/chassis/userdata.php', (new $userRequestClass)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis'), $userResponseClass);
+
+    expect($userData->getTotalGetDonpoint())->toBe(30)
+        ->and($userData->getTotalUseDonpoint())->toBe(0)
+        ->and($userData->getRewardProgress())->toBe(9);
+});
+
+it('returns Momoiro userdata crown flags in compact songhash order', function (): void {
+    $player = Player::query()->create();
+    $version = TaikoGameVersion::Momoiro;
+
+    Song::query()->create([
+        'version' => $version->value,
+        'song_no' => 10,
+        'music_id' => 'momoiro-10',
+        'unique_id' => 10,
+        'title' => 'Song 10',
+        'genre' => SongGenre::Jpop,
+        'partsset' => SongPartsSet::Taiko,
+        'wai2_partsset' => SongWai2PartsSet::Taiko,
+        'flags' => [],
+        'tags' => [],
+    ]);
+    Song::query()->create([
+        'version' => $version->value,
+        'song_no' => 20,
+        'music_id' => 'momoiro-20',
+        'unique_id' => 20,
+        'title' => 'Song 20',
+        'genre' => SongGenre::Jpop,
+        'partsset' => SongPartsSet::Taiko,
+        'wai2_partsset' => SongWai2PartsSet::Taiko,
+        'flags' => [],
+        'tags' => [],
+    ]);
+
+    SongBest::query()->create([
+        'baid' => $player->baid,
+        'game_version' => $version->value,
+        'song_no' => 10,
+        'level' => 1,
+        'best_crown' => 1,
+        'best_score' => 600000,
+    ]);
+    SongBest::query()->create([
+        'baid' => $player->baid,
+        'game_version' => $version->value,
+        'song_no' => 20,
+        'level' => 4,
+        'best_crown' => 2,
+        'best_score' => 900000,
+    ]);
+
+    $resolver = app(ProtocolMessageResolver::class);
+    $requestClass = $resolver->class($version, 'UserDataRequest');
+    $responseClass = $resolver->class($version, 'UserDataResponse');
+    $response = post_protobuf('/v04r02/chassis/userdata.php', (new $requestClass)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis'), $responseClass);
+
+    expect($response->getResult())->toBe(1)
+        ->and($response->getHashCrownFlg())->toBe(chr(2).chr(192));
+});
+
+it('serves Kimidori final support endpoints and persists shopping results', function (): void {
+    $player = Player::query()->create();
+    $resolver = app(ProtocolMessageResolver::class);
+    $mapper = app(ScoreMapper::class);
+    $version = TaikoGameVersion::Kimidori;
+
+    PlayerDonPointState::query()->create([
+        'baid' => $player->baid,
+        'game_version' => $version->value,
+        'total_get_donpoint' => 120,
+        'total_use_donpoint' => 10,
+    ]);
+
+    $mainichiRequestClass = $resolver->class($version, 'MainichisongRequest');
+    $mainichiResponseClass = $resolver->class($version, 'MainichisongResponse');
+    $mainichi = post_protobuf('/v05r06/chassis/mainichisong.php', (new $mainichiRequestClass)
+        ->setChassisId('chassis'), $mainichiResponseClass);
+
+    $bestScoreRequestClass = $resolver->class($version, 'BestScoreRequest');
+    $bestScoreResponseClass = $resolver->class($version, 'BestScoreResponse');
+    $bestScore = post_protobuf('/v05r06/chassis/bestscore.php', (new $bestScoreRequestClass)
+        ->setChassisId('chassis')
+        ->setSeqId(42), $bestScoreResponseClass);
+
+    $communicationRequestClass = $resolver->class($version, 'CommunicationLogRequest');
+    $communicationResponseClass = $resolver->class($version, 'CommunicationLogResponse');
+    $communication = post_protobuf('/v05r06/chassis/communicationlog.php', (new $communicationRequestClass)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setUpdateDatetime('20260629123000'), $communicationResponseClass);
+
+    $shoppingRequestClass = $resolver->class($version, 'ShoppingResultRequest');
+    $shoppingResponseClass = $resolver->class($version, 'ShoppingResultResponse');
+    $shopping = post_protobuf('/v05r06/chassis/shoppingresult.php', (new $shoppingRequestClass)
+        ->setBaid($player->baid)
+        ->setShoppingDatetime('20260629123500')
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setIsRight(true)
+        ->setUseDonpoint(35)
+        ->setToneFlg($mapper->idFlagBytes([6], 16))
+        ->setCostumeFlg1($mapper->idFlagBytes([2], 32))
+        ->setCostumeFlg2($mapper->idFlagBytes([4], 32))
+        ->setCostumeFlg3($mapper->idFlagBytes([8], 32))
+        ->setAryShoppingSongNo([77]), $shoppingResponseClass);
+
+    expect($mainichi->getResult())->toBe(1)
+        ->and($mainichi->getSongHashVer())->toBe(99)
+        ->and($bestScore->getResult())->toBe(1)
+        ->and($bestScore->getSeqId())->toBe(42)
+        ->and($bestScore->getLastSeqId())->toBe(42)
+        ->and($communication->getResult())->toBe(1)
+        ->and($shopping->getResult())->toBe(1)
+        ->and($shopping->getTotalGetDonpoint())->toBe(120)
+        ->and($shopping->getTotalUseDonpoint())->toBe(45)
+        ->and($shopping->getToneFlg())->toBe($mapper->idFlagBytes([6], 16))
+        ->and($shopping->getCostumeFlg1())->toBe($mapper->idFlagBytes([2], 32));
+
+    $state = PlayerDonPointState::query()
+        ->where('baid', $player->baid)
+        ->where('game_version', $version->value)
+        ->firstOrFail();
+    $cosmetic = PlayerCosmetic::query()
+        ->where('baid', $player->baid)
+        ->where('game_version', $version->value)
+        ->firstOrFail();
+
+    expect($state->total_use_donpoint)->toBe(45)
+        ->and($player->refresh()->unlocked_song_numbers)->toBe([77])
+        ->and($cosmetic->unlocked_tones)->toBe([6])
+        ->and($cosmetic->unlocked_costumes['1'])->toBe([2])
+        ->and($cosmetic->unlocked_costumes['2'])->toBe([4])
+        ->and($cosmetic->unlocked_costumes['3'])->toBe([8]);
 });

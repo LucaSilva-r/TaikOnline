@@ -71,6 +71,7 @@ class PlayerRankAggregateService
         $bests = DB::table($bestsTable)
             ->where('baid', $player->baid)
             ->where('game_version', $version->value)
+            ->where('is_shin', false)
             ->selectRaw('COALESCE(SUM(best_score), 0) as total_score')
             ->selectRaw('COUNT(*) as ranked_song_count')
             ->selectRaw('SUM(CASE WHEN best_crown = 0 THEN 1 ELSE 0 END) as none_crowns')

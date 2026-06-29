@@ -11,10 +11,12 @@ use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Models\PlayerDanProgress;
+use App\Models\PlayerDonPointState;
 use App\Models\PlayerShopItem;
 use App\Models\PlayerShopSeasonState;
 use App\Models\PlayerTokkunState;
 use App\Models\Song;
+use App\Models\SongBest;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Support\Collection;
 
@@ -256,6 +258,7 @@ class PlayerProfileService
     public function userData(Player $player, TaikoGameVersion $version): Message
     {
         $cosmetic = PlayerCosmetic::resolve((int) $player->baid, $version);
+        $donPointState = PlayerDonPointState::resolve((int) $player->baid, $version);
         $tokkunState = PlayerTokkunState::query()
             ->where('baid', $player->baid)
             ->where('game_version', $version->value)
@@ -310,6 +313,7 @@ class PlayerProfileService
             'setAryRecentSongNo' => $player->recent_song_numbers ?? [],
             'setSongHashVer' => 99,
             'setHashReleaseSongFlg' => $this->releaseSongFlag($version->value, $activeSeason, $unlockedSongIds),
+            'setHashCrownFlg' => $this->userDataCrownFlag($player, $version),
             'setIsDevil' => false,
             'setDispScoreType' => (int) $player->disp_score_type,
             'setAryFriendInfo' => [],
@@ -332,7 +336,27 @@ class PlayerProfileService
             'setIsChallengecompe' => false,
             'setIsTojiru' => true,
             'setTokkunTutorialFlg' => (int) ($tokkunState?->tokkun_tutorial_flg ?? 0),
+            'setTotalGetDonpoint' => (int) $donPointState->total_get_donpoint,
+            'setTotalUseDonpoint' => (int) $donPointState->total_use_donpoint,
+            'setRewardProgress' => (int) $donPointState->reward_progress,
         ]);
+    }
+
+    private function userDataCrownFlag(Player $player, TaikoGameVersion $version): string
+    {
+        if ($version !== TaikoGameVersion::Momoiro) {
+            return '';
+        }
+
+        $bests = SongBest::query()
+            ->select(['song_no', 'level', 'best_crown'])
+            ->where('baid', $player->baid)
+            ->where('game_version', $version->value)
+            ->where('is_shin', false)
+            ->where('best_crown', '>', 0)
+            ->get();
+
+        return $this->scoreMapper->momoiroUserDataCrownFlagBytes($bests);
     }
 
     private function releaseSongFlag(string $gameVersion, ?array $activeSeason = null, array $unlockedSongIds = []): string
@@ -416,6 +440,7 @@ class PlayerProfileService
     private function baidResponse(TaikoGameVersion $version, Player $player, string $accessCode, bool $needsRegistration): Message
     {
         $cosmetic = PlayerCosmetic::resolve((int) $player->baid, $version);
+        $donPointState = PlayerDonPointState::resolve((int) $player->baid, $version);
         $shop = $this->getShopDetails($player, $version);
         $activeSeason = $shop['activeSeason'];
         $unlockedCostumeIdsBySlot = $shop['unlockedCostumeIdsBySlot'];
@@ -446,6 +471,7 @@ class PlayerProfileService
             'setCostumeFlg3' => $this->costumeFlag($cosmetic, 3, $activeSeason, $unlockedCostumeIdsBySlot),
             'setCostumeFlg4' => $this->costumeFlag($cosmetic, 4, $activeSeason, $unlockedCostumeIdsBySlot),
             'setCostumeFlg5' => $this->costumeFlag($cosmetic, 5, $activeSeason, $unlockedCostumeIdsBySlot),
+            'setRewardPtn' => (int) $donPointState->reward_ptn,
             'setTotalGetDonmedal' => (int) $shop['totalGet'],
             'setTotalUseDonmedal' => (int) $shop['totalUse'],
             'setTotalGetKatsumedal' => (int) $player->total_get_katsumedal,
