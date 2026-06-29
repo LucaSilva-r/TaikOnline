@@ -804,7 +804,7 @@ it('does not let a later zero tutorial flag reset an already-seen tutorial', fun
 it('records crowns from play results and serves them as a gzip bitfield', function (): void {
     $player = Player::query()->create();
 
-    // play_result_request plays song 100 at level 3 (Hard) with play_result 2 = gold.
+    // play_result_request plays song 100 at level 3 (Hard) with ok=5 and no misses = gold crown.
     post_protobuf('/v11r01/chassis/playresult.php', play_result_request($player, 100, 876543), PlayResultResponse::class);
 
     expect(SongBest::query()->where('song_no', 100)->where('level', 3)->first()->best_crown)->toBe(2);
@@ -820,7 +820,7 @@ it('records crowns from play results and serves them as a gzip bitfield', functi
 
     $inflated = gzdecode($response->getHashCrownFlg());
 
-    // gold crown (wire state 3) on difficulty slot 2 (Hard) => value 3 << 4 = 0x30,
+    // gold/dondaful crown (wire state 3) on difficulty slot 2 (Hard) => value 3 << 4 = 0x30,
     // packed at bit offset song_no*10 = 1000 => byte 125 holds bits 4 and 5.
     expect(strlen($inflated))->toBe(1280)
         ->and(ord($inflated[125]))->toBe(0x30)
@@ -830,13 +830,13 @@ it('records crowns from play results and serves them as a gzip bitfield', functi
 it('upgrades a crown without a higher score on a later cleaner play', function (): void {
     $player = Player::query()->create();
 
-    // First play: a clear (play_result 1) at a high score.
-    post_protobuf('/v11r01/chassis/playresult.php', play_result_request_with_crown($player, 100, 980000, 1), PlayResultResponse::class);
+    // First play: a clear (has misses) at a high score.
+    post_protobuf('/v11r01/chassis/playresult.php', play_result_request_with_crown($player, 100, 980000, 0, 1), PlayResultResponse::class);
     expect(SongBest::query()->where('song_no', 100)->first()->best_crown)->toBe(1);
 
     // Later play (a separate session, so a later timestamp): lower score but a
-    // full combo (play_result 2). Crown upgrades, score stays.
-    post_protobuf('/v11r01/chassis/playresult.php', play_result_request_with_crown($player, 100, 500000, 2, '2026-05-05 21:00:00'), PlayResultResponse::class);
+    // full combo (has ok hits, no misses). Crown upgrades, score stays.
+    post_protobuf('/v11r01/chassis/playresult.php', play_result_request_with_crown($player, 100, 500000, 3, 0, '2026-05-05 21:00:00'), PlayResultResponse::class);
 
     $best = SongBest::query()->where('song_no', 100)->first();
     expect($best->best_crown)->toBe(2)
@@ -847,8 +847,8 @@ it('stores every stage when the same song is played twice in one session', funct
     $player = Player::query()->create();
 
     // One session (shared played_at) with the same song+level played twice.
-    $first = (new StageData)->setSongNo(100)->setLevel(3)->setPlayResult(1)->setPlayScore(700000);
-    $second = (new StageData)->setSongNo(100)->setLevel(3)->setPlayResult(2)->setPlayScore(900000);
+    $first = (new StageData)->setSongNo(100)->setLevel(3)->setPlayResult(1)->setPlayScore(700000)->setOkCnt(0)->setNgCnt(2);
+    $second = (new StageData)->setSongNo(100)->setLevel(3)->setPlayResult(2)->setPlayScore(900000)->setOkCnt(3)->setNgCnt(0);
 
     $data = (new PlayResultDataRequest)
         ->setBaid($player->baid)
@@ -1517,7 +1517,9 @@ function play_result_request(Player $player, int $songNo, int $score, ?GhostStag
         ->setSongNo($songNo)
         ->setLevel(3)
         ->setPlayResult(2)
-        ->setPlayScore($score);
+        ->setPlayScore($score)
+        ->setOkCnt(5)
+        ->setNgCnt(0);
 
     if ($ghostStageData instanceof GhostStageData) {
         $stage->setGhostStagedata($ghostStageData);
@@ -1553,13 +1555,15 @@ function play_result_request(Player $player, int $songNo, int $score, ?GhostStag
         ->setPlayresultData(gzencode($data->serializeToString()));
 }
 
-function play_result_request_with_crown(Player $player, int $songNo, int $score, int $playResult, string $playDatetime = '2026-05-05 20:00:00'): PlayResultRequest
+function play_result_request_with_crown(Player $player, int $songNo, int $score, int $okCount, int $missCount, string $playDatetime = '2026-05-05 20:00:00'): PlayResultRequest
 {
     $stage = (new StageData)
         ->setSongNo($songNo)
         ->setLevel(3)
-        ->setPlayResult($playResult)
-        ->setPlayScore($score);
+        ->setPlayResult(2)
+        ->setPlayScore($score)
+        ->setOkCnt($okCount)
+        ->setNgCnt($missCount);
 
     $data = (new PlayResultDataRequest)
         ->setBaid($player->baid)
