@@ -556,12 +556,17 @@ export class DonchanRenderer {
             shaderType === SHADER_RECOLOR &&
             (name.startsWith('rgb_don_color') ||
                 name.includes('don_facehip_color'));
-        const hasCutout = this.hasCutoutAlpha(original, name);
+        // Trust the glTF alphaMode, not the material-name tokens: BLEND surfaces as
+        // original.transparent (alpha-blended overlays like visors/netting), MASK as
+        // original.alphaTest (hard cutout). The name flags (A_AB/AA_ADD) lie about this.
+        const isBlend = original.transparent === true && !isDonBase;
+        const isMask = (original.alphaTest ?? 0) > 0;
 
         const flat = new THREE.MeshBasicMaterial({
             map: original.map ?? null,
             side:
-                !isFace && (hasCutout || isGlass || name.includes('cullnone'))
+                !isFace &&
+                (isBlend || isMask || isGlass || name.includes('cullnone'))
                     ? THREE.DoubleSide
                     : original.side,
             name: original.name,
@@ -573,29 +578,33 @@ export class DonchanRenderer {
             flat.depthWrite = false;
         } else if (isGlass) {
             flat.transparent = true;
-            flat.depthWrite = false;
+            // Keep depth writes so the lens occludes/sorts against its border and the
+            // rest of the model instead of painting over whatever drew first.
+            flat.depthWrite = true;
+            // Glass textures with no alpha (opaque reflections) need a material opacity
+            // to read as see-through; textures carrying their own alpha define it.
+            if (!original.transparent) {
+                flat.opacity = 0.5;
+            }
         } else if (isDonBase) {
             flat.transparent = false;
-        } else if (hasCutout) {
-            flat.transparent = false;
+        } else if (isBlend) {
+            // Alpha-blended overlay (visor/netting/shuriken) composited over the body.
+            // Depth writes on so it sorts against other transparent parts rather than
+            // painting by draw order; a low alphaTest discards fully-transparent texels
+            // so they don't write depth and cull whatever is behind them.
+            flat.transparent = true;
+            flat.depthWrite = true;
             flat.alphaTest = 0.1;
+        } else if (isMask) {
+            flat.transparent = false;
+            flat.alphaTest = original.alphaTest || 0.5;
             flat.depthWrite = true;
         } else {
             flat.transparent = false;
         }
 
         return flat;
-    }
-
-    private hasCutoutAlpha(
-        material: THREE.Material,
-        materialName: string,
-    ): boolean {
-        return (
-            materialName.includes('_a_ab') ||
-            materialName.includes('_aa_add') ||
-            material.transparent
-        );
     }
 
     private shouldOutline(
@@ -606,7 +615,11 @@ export class DonchanRenderer {
             return false;
         }
 
-        return !(material as THREE.MeshBasicMaterial).alphaTest;
+        const flat = material as THREE.MeshBasicMaterial;
+
+        // Transparent/cutout surfaces skip the inverted-hull outline: a solid black
+        // hull behind a see-through mesh would show through it.
+        return !flat.transparent && !flat.alphaTest;
     }
 
     /** Inject the channel-dominance remap into a recolor material's compiled shader. */
