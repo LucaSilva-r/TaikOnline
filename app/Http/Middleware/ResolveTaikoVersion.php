@@ -12,6 +12,8 @@ class ResolveTaikoVersion
 {
     public const All = 'all';
 
+    public const Extra = 'extra';
+
     /**
      * Handle an incoming request.
      *
@@ -29,9 +31,9 @@ class ResolveTaikoVersion
         }
 
         $scope = (string) $scope;
-        $version = $scope === self::All ? null : TaikoGameVersion::tryFrom($scope);
+        $version = in_array($scope, [self::All, self::Extra], true) ? null : TaikoGameVersion::tryFrom($scope);
 
-        if ($scope !== self::All && ! $version instanceof TaikoGameVersion) {
+        if (! in_array($scope, [self::All, self::Extra], true) && ! $version instanceof TaikoGameVersion) {
             abort(404);
         }
 
@@ -43,6 +45,7 @@ class ResolveTaikoVersion
 
         $request->attributes->set('taikoVersionScope', $scope);
         $request->attributes->set('taikoVersionIsAll', $scope === self::All);
+        $request->attributes->set('taikoVersionIsExtra', $scope === self::Extra);
         $request->attributes->set('taikoGameVersion', $version);
         $route->forgetParameter('taikoVersion');
 

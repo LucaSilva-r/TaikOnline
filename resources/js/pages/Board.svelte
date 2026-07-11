@@ -77,6 +77,7 @@
         ok_count: number;
         miss_count: number;
         combo_count: number;
+        counts_for_leaderboard?: boolean;
     };
 
     type BestPerformance = {
@@ -88,6 +89,7 @@
         score_rank: number;
         crown: number;
         placement: number;
+        counts_for_leaderboard?: boolean;
     };
 
     type NpcData = {
@@ -860,6 +862,11 @@
                                 <div class="truncate font-medium">
                                     {play.song_title}
                                 </div>
+                                {#if play.counts_for_leaderboard === false}
+                                    <span class="mt-1 inline-flex rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                                        Unregistered chart · not counted
+                                    </span>
+                                {/if}
                                 <div
                                     class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
                                 >
@@ -921,6 +928,11 @@
                                 <div class="truncate font-medium">
                                     {best.song_title}
                                 </div>
+                                {#if best.counts_for_leaderboard === false}
+                                    <span class="mt-1 inline-flex rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                                        Unregistered chart · not counted
+                                    </span>
+                                {/if}
                                 <div
                                     class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
                                 >

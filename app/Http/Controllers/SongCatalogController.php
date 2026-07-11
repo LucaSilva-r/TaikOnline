@@ -24,8 +24,11 @@ class SongCatalogController extends Controller
      */
     private const LEADERBOARD_SIZE = 20;
 
-    public function index(Request $request): Response
+    public function index(Request $request, ExtraWebController $extra): Response
     {
+        if ((bool) $request->attributes->get('taikoVersionIsExtra', false)) {
+            return $extra->songs($request);
+        }
         $version = $this->resolveVersion($request);
         $search = trim((string) $request->query('q', ''));
 
@@ -82,8 +85,11 @@ class SongCatalogController extends Controller
         ]);
     }
 
-    public function show(Request $request, string $song): Response|RedirectResponse
+    public function show(Request $request, string $song, ExtraWebController $extra): Response|RedirectResponse
     {
+        if ((bool) $request->attributes->get('taikoVersionIsExtra', false)) {
+            return $extra->song($song);
+        }
         $version = $this->resolveVersion($request);
 
         $resolved = Song::query()->find($song);
@@ -147,6 +153,9 @@ class SongCatalogController extends Controller
      */
     public function toggleFavorite(Request $request, string $song): RedirectResponse
     {
+        if ((bool) $request->attributes->get('taikoVersionIsExtra', false)) {
+            abort(404);
+        }
         $version = $this->resolveVersion($request);
 
         $resolved = Song::query()->find($song);

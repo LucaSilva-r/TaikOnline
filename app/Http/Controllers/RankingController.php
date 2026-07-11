@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\TaikoGameVersion;
 use App\Models\PlayerRankSnapshot;
 use App\Models\User;
+use App\Services\ExtraRankAggregateService;
 use App\Services\PlayerRankAggregateService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -19,8 +20,11 @@ class RankingController extends Controller
      */
     private const LIMIT = 100;
 
-    public function index(Request $request, PlayerRankAggregateService $rankAggregates): Response
+    public function index(Request $request, PlayerRankAggregateService $rankAggregates, ExtraWebController $extra): Response
     {
+        if ((bool) $request->attributes->get('taikoVersionIsExtra', false)) {
+            return $extra->rankings(app(ExtraRankAggregateService::class));
+        }
         $version = $request->attributes->get('taikoGameVersion');
         if (! $version instanceof TaikoGameVersion || (bool) $request->attributes->get('taikoVersionIsAll', false)) {
             abort(404);

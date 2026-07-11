@@ -7,6 +7,7 @@ use App\GameProtocol\Support\ItemShopCatalog;
 use App\GameProtocol\Support\MessageWriter;
 use App\GameProtocol\Support\ProtocolMessageResolver;
 use App\GameProtocol\Support\ScoreMapper;
+use App\Models\ExtraChartPlayResult;
 use App\Models\Player;
 use App\Models\PlayerBlueBattleNpcState;
 use App\Models\PlayerBlueBattleState;
@@ -22,6 +23,7 @@ use App\Models\PlayerTokkunStageResult;
 use App\Models\PlayerTokkunState;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
+use App\Services\ExtraScoreService;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Support\Facades\DB;
 
@@ -31,9 +33,10 @@ class PlayResultService
         private readonly ScoreMapper $scoreMapper,
         private readonly ProtocolMessageResolver $messages,
         private readonly MessageWriter $writer,
+        private readonly ExtraScoreService $extraScores,
     ) {}
 
-    public function save(Message $data, TaikoGameVersion $version): int
+    public function save(Message $data, TaikoGameVersion $version, array $extraAssociations = []): int
     {
         $player = Player::query()->find($data->getBaid());
         if (! $player instanceof Player) {
@@ -43,10 +46,10 @@ class PlayResultService
         // Wrap the whole persist in a transaction: the cabinet retries the save
         // when the HTTP response is not a valid protobuf, so a partial failure
         // mid-write must roll back rather than leave duplicate result rows.
-        return DB::transaction(fn (): int => $this->persist($player, $data, $version));
+        return DB::transaction(fn (): int => $this->persist($player, $data, $version, $extraAssociations));
     }
 
-    private function persist(Player $player, Message $data, TaikoGameVersion $version): int
+    private function persist(Player $player, Message $data, TaikoGameVersion $version, array $extraAssociations): int
     {
         $gameVersion = $version->value;
         $playedAt = now()->toImmutable();
@@ -57,7 +60,7 @@ class PlayResultService
         // drop the duplicate request so nothing gets written twice.
         if (SongPlayResult::query()
             ->where('session_hash', $sessionHash)
-            ->exists()) {
+            ->exists() || ExtraChartPlayResult::query()->where('session_hash', $sessionHash)->exists()) {
             return 1;
         }
 
@@ -118,6 +121,16 @@ class PlayResultService
 
             $rank = $this->scoreMapper->rankForScore($stage->getPlayScore());
 
+            $extraKey = $this->extraScores->associationKey((int) $stage->getSongNo(), (int) $stage->getLevel());
+            if (isset($extraAssociations[$extraKey])) {
+                $this->extraScores->persistStage(
+                    $player, $data, $stage, (int) $stageIndex, $version,
+                    $sessionHash, $playedAt, $rank, $extraAssociations[$extraKey],
+                );
+
+                continue;
+            }
+
             SongPlayResult::query()->create([
                 'baid' => $player->baid,
                 'game_version' => $gameVersion,
@@ -177,7 +190,7 @@ class PlayResultService
 
         $attributes = [
             'last_played_at' => $playedAt,
-            'recent_song_numbers' => $this->recentSongs($player, $data),
+            'recent_song_numbers' => $this->recentSongs($player, $data, $extraAssociations),
             'total_credit_count' => (int) $player->total_credit_count + 1,
             'total_get_donmedal' => $totalGetDonmedal,
             'total_get_katsumedal' => (int) $player->total_get_katsumedal + $getKatsumedal,
@@ -559,10 +572,13 @@ class PlayResultService
     /**
      * @return array<int, int>
      */
-    private function recentSongs(Player $player, Message $data): array
+    private function recentSongs(Player $player, Message $data, array $extraAssociations): array
     {
         $songs = collect($data->getAryStageInfo())
             ->filter(fn (mixed $stage): bool => $stage instanceof Message)
+            ->reject(fn (Message $stage): bool => isset($extraAssociations[
+                $this->extraScores->associationKey((int) $stage->getSongNo(), (int) $stage->getLevel())
+            ]))
             ->map(fn (Message $stage): int => $stage->getSongNo());
 
         return $songs
