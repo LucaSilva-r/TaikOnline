@@ -81,6 +81,16 @@ class Player extends Model
         return $this->hasMany(SongBest::class, 'baid', 'baid');
     }
 
+    public function extraChartBests(): HasMany
+    {
+        return $this->hasMany(ExtraChartBest::class, 'baid', 'baid');
+    }
+
+    public function extraChartPlayResults(): HasMany
+    {
+        return $this->hasMany(ExtraChartPlayResult::class, 'baid', 'baid');
+    }
+
     public function cosmetics(): HasMany
     {
         return $this->hasMany(PlayerCosmetic::class, 'baid', 'baid');

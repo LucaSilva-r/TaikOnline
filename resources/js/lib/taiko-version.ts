@@ -57,6 +57,13 @@ const fallbackAccent: TaikoVersionAccent = {
 
 const taikoVersionAccents: Record<string, TaikoVersionAccent> = {
     all: fallbackAccent,
+    extra: {
+        swatch: 'hsl(285 82% 60%)',
+        primary: 'hsl(285 72% 46%)',
+        primaryForeground: 'hsl(0 0% 100%)',
+        label: 'hsl(285 70% 36%)',
+        progress: '#c026d3',
+    },
     sorairo: {
         swatch: 'hsl(195 89% 52%)',
         primary: 'hsl(195 89% 42%)',

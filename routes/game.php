@@ -4,6 +4,7 @@ use App\Http\Controllers\Green\AllNetController;
 use App\Http\Controllers\Green\GameProtocolController;
 use App\Http\Controllers\Green\VsInterfaceController;
 use App\Http\Controllers\ZucchiniCardController;
+use App\Http\Controllers\ZucchiniExtraBestController;
 use App\Http\Middleware\LogGreenCabinetTraffic;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +14,9 @@ $protocolVersionPattern = 'v[0-9]{2}r[0-9]{2}(?:_[a-z]{2})?';
 
 Route::post('api/zucchini/cards', ZucchiniCardController::class)
     ->middleware(['zucchini.token', 'throttle:zucchini-cards']);
+
+Route::post('api/zucchini/extra/bests', ZucchiniExtraBestController::class)
+    ->middleware(['zucchini.token', 'throttle:zucchini-extra']);
 
 Route::middleware(LogGreenCabinetTraffic::class)->group(function () use ($protocolVersionPattern): void {
     Route::post('sys/servlet/PowerOn', [AllNetController::class, 'powerOn']);

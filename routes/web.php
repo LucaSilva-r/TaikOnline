@@ -2,6 +2,7 @@
 
 use App\Enums\TaikoGameVersion;
 use App\Http\Controllers\Admin\DanDojoController;
+use App\Http\Controllers\Admin\ExtraSongController;
 use App\Http\Controllers\Admin\PlayerController;
 use App\Http\Controllers\Admin\SongController;
 use App\Http\Controllers\BoardController;
@@ -19,6 +20,7 @@ Route::any('settings/{any?}', fn () => abort(404))->where('any', '.*');
 
 $taikoVersionPattern = collect(TaikoGameVersion::cases())
     ->map(fn (TaikoGameVersion $version): string => $version->value)
+    ->push('extra')
     ->push('all')
     ->implode('|');
 
@@ -48,6 +50,8 @@ Route::prefix('{taikoVersion}')
                 Route::delete('baids/{player}/bests/{best}', [OperatorController::class, 'destroyBest'])->name('baids.bests.destroy');
                 Route::get('recent-plays', [OperatorController::class, 'recentPlays'])->name('recent-plays');
                 Route::get('songs', [SongController::class, 'index'])->name('songs.index');
+                Route::get('extra-songs', [ExtraSongController::class, 'index'])->name('extra-songs.index');
+                Route::post('extra-songs', [ExtraSongController::class, 'store'])->name('extra-songs.store');
                 Route::get('dan-dojo', [DanDojoController::class, 'index'])->name('dan-dojo.index');
                 Route::post('dan-dojo/{version}/randomize', [DanDojoController::class, 'randomize'])->name('dan-dojo.randomize');
                 Route::get('status', [OperatorController::class, 'status'])->name('status');

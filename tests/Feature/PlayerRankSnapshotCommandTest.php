@@ -2,6 +2,7 @@
 
 use App\Models\Player;
 use App\Models\PlayerRankSnapshot;
+use App\Models\PlayerVersionStats;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use App\Models\User;
@@ -98,4 +99,33 @@ it('records daily rank snapshots for a selected version in deterministic order',
 it('fails when the requested game version is unknown', function (): void {
     $this->artisan('app:record-player-rank-snapshots nope')
         ->assertFailed();
+});
+
+it('records Extra rank snapshots', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['mydon_name' => 'EXTRA', 'user_id' => $user->id]);
+
+    PlayerVersionStats::query()->create([
+        'baid' => $player->baid,
+        'user_id' => $user->id,
+        'game_version' => 'extra',
+        'total_score' => 765432,
+        'ranked_song_count' => 2,
+        'played_song_count' => 3,
+        'crown_gold' => 1,
+        'crown_dondaful' => 1,
+    ]);
+
+    $this->artisan('app:record-player-rank-snapshots extra')
+        ->assertSuccessful();
+
+    $snapshot = PlayerRankSnapshot::query()
+        ->whereBelongsTo($user)
+        ->where('game_version', 'extra')
+        ->firstOrFail();
+
+    expect($snapshot->total_score)->toBe(765432)
+        ->and($snapshot->rank)->toBe(1)
+        ->and($snapshot->crown_counts['gold'])->toBe(1)
+        ->and($snapshot->crown_counts['dondaful'])->toBe(1);
 });

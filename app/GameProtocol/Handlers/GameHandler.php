@@ -27,6 +27,7 @@ use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use App\Services\CabinetService;
+use App\Services\ExtraScoreService;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -47,6 +48,7 @@ class GameHandler
         protected readonly PlayResultService $playResults,
         protected readonly ScoreMapper $scoreMapper,
         protected readonly CabinetService $cabinets,
+        protected readonly ExtraScoreService $extraScores,
     ) {}
 
     public function heartbeat(Request $request, TaikoGameVersion $game): Response
@@ -192,7 +194,7 @@ class GameHandler
             $this->writer->set(
                 $this->messages->make($game, 'PlayResultResponse'),
                 'setResult',
-                $this->playResults->save($data, $game),
+                $this->playResults->save($data, $game, $this->extraScores->associations($request)),
             )
         );
     }

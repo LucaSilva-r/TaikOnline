@@ -40,6 +40,7 @@ class AppServiceProvider extends ServiceProvider
         URL::defaults(['taikoVersion' => TaikoGameVersion::default()->value]);
 
         RateLimiter::for('zucchini-cards', fn (Request $request): Limit => Limit::perMinute(10)->by($request->ip()));
+        RateLimiter::for('zucchini-extra', fn (Request $request): Limit => Limit::perMinute(30)->by($request->ip()));
 
         DB::prohibitDestructiveCommands(
             app()->isProduction(),

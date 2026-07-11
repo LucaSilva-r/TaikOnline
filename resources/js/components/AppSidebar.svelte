@@ -30,6 +30,7 @@
     import adminBaids from '@/routes/admin/baids';
     import adminPlayers from '@/routes/admin/players';
     import adminSongs from '@/routes/admin/songs';
+    import adminExtraSongs from '@/routes/admin/extra-songs';
     const { dashboard, recentPlays, status } = adminRoute;
     import { home } from '@/routes';
     import type { NavItem } from '@/types';
@@ -47,6 +48,7 @@
         { title: 'BAIDs', href: adminBaids.index(taikoParam), icon: Users },
         { title: 'Recent Plays', href: recentPlays(taikoParam), icon: Activity },
         { title: 'Songs', href: adminSongs.index(taikoParam), icon: Disc },
+        { title: 'Extra Songs', href: adminExtraSongs.index(taikoParam), icon: FolderGit2 },
         { title: 'Dan Dojo', href: adminDanDojo.index(taikoParam), icon: BookOpen },
         { title: 'Server Status', href: status(taikoParam), icon: Server },
         { title: 'Players', href: adminPlayers.index(taikoParam), icon: ShieldCheck },

@@ -48,6 +48,7 @@ class HandleInertiaRequests extends Middleware
                 'current' => $this->currentVersion($request),
                 'versions' => collect(TaikoGameVersion::cases())
                     ->map(fn (TaikoGameVersion $version): array => $this->versionPayload($version))
+                    ->push($this->extraPayload())
                     ->values()
                     ->all(),
                 'allowAll' => $request->routeIs('admin.*'),
@@ -63,6 +64,10 @@ class HandleInertiaRequests extends Middleware
     {
         $version = $request->attributes->get('taikoGameVersion');
 
+        if ((bool) $request->attributes->get('taikoVersionIsExtra', false)) {
+            return $this->extraPayload();
+        }
+
         return $version instanceof TaikoGameVersion ? $this->versionPayload($version) : null;
     }
 
@@ -75,6 +80,24 @@ class HandleInertiaRequests extends Middleware
             'value' => $version->value,
             'label' => $version->label(),
             'supports' => $version->featureSupport(),
+        ];
+    }
+
+    private function extraPayload(): array
+    {
+        return [
+            'value' => 'extra',
+            'label' => 'EXTRA',
+            'supports' => [
+                'favoriteFolder' => false,
+                'favoriteLimit' => 0,
+                'costumeSlots' => false,
+                'playOptionDefaults' => false,
+                'toneDefault' => false,
+                'rankingDifficulty' => false,
+                'profilePublicity' => false,
+                'difficultyFolderPresets' => false,
+            ],
         ];
     }
 }

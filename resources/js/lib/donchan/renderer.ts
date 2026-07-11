@@ -56,16 +56,111 @@ const RECOLOR_INJECT = /* glsl */ `#include <map_fragment>
     }
 }`;
 
-const OUTLINE_VERTEX = /* glsl */ `
+// Per-mesh black-line pass (port of YataiDON's outline shader). Back faces are
+// pushed outward in screen space along the projected normal, scaled by the authored
+// vertex-colour green weight, so seams/borders get a thin constant-width black line.
+const BLACKLINE_VERTEX = /* glsl */ `
 #include <common>
 #include <skinning_pars_vertex>
-uniform float uThickness;
+uniform vec2 uOutlinePixel;
+uniform float uNormalOffset;
+uniform float uDepthBiasClip;
+attribute vec4 color;
+varying float vNormalZ;
+varying float vBlackWeight;
 void main() {
     #include <skinbase_vertex>
     #include <beginnormal_vertex>
     #include <skinnormal_vertex>
     #include <begin_vertex>
     #include <skinning_vertex>
+    mat4 mvp = projectionMatrix * modelViewMatrix;
+    vec4 clip = mvp * vec4( transformed, 1.0 );
+    vec3 clipNormal = ( mvp * vec4( objectNormal, 0.0 ) ).xyz;
+    vNormalZ = length( clipNormal ) > 1e-5 ? normalize( clipNormal ).z : 0.0;
+    vBlackWeight = max( color.g, 0.0 );
+    vec2 dir = clipNormal.xy;
+    float l = length( dir );
+    dir = l > 1e-5 ? dir / l : vec2( 0.0 );
+    clip.xy += dir * uOutlinePixel * uNormalOffset * vBlackWeight;
+    clip.z += uDepthBiasClip;
+    gl_Position = clip;
+}
+`;
+
+const BLACKLINE_FRAGMENT = /* glsl */ `
+uniform float uNormalGate;
+varying float vNormalZ;
+varying float vBlackWeight;
+void main() {
+    if ( ( -vNormalZ + uNormalGate ) < 0.0 ) discard;
+    if ( vBlackWeight <= 0.001 ) discard;
+    gl_FragColor = vec4( 0.0, 0.0, 0.0, 1.0 );
+}
+`;
+
+// Screen-space outer silhouette pass: passes covered pixels through and paints a
+// black ring (radius uRadiusPx) around the model's alpha coverage.
+const SCREEN_OUTLINE_VERTEX = /* glsl */ `
+varying vec2 vUv;
+void main() {
+    vUv = uv;
+    gl_Position = vec4( position.xy, 0.0, 1.0 );
+}
+`;
+
+const SCREEN_OUTLINE_FRAGMENT = /* glsl */ `
+precision highp float;
+uniform sampler2D uScene;
+uniform sampler2D uMask;
+uniform vec2 uTexelSize;
+uniform float uRadiusPx;
+varying vec2 vUv;
+// The ring is detected from the opaque-only mask so transparent parts (glass, netting,
+// shuriken) never grow a silhouette; colour still comes from the full scene.
+float maskAlpha( vec2 uv ) {
+    if ( uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 ) return 0.0;
+    return texture2D( uMask, uv ).a;
+}
+void main() {
+    vec4 c = texture2D( uScene, vUv );
+    if ( c.a > 0.001 ) {
+        gl_FragColor = vec4( c.rgb, 1.0 );
+    } else {
+        vec2 r = uTexelSize * uRadiusPx;
+        // Sample a full ring: more taps = smoother circular dilation, so edge-on flat
+        // decals read as a rounded mass instead of a coarse 12-gon comb of spikes.
+        const int TAPS = 32;
+        float e = 0.0;
+        for ( int i = 0; i < TAPS; i++ ) {
+            float a = 6.2831853 * float( i ) / float( TAPS );
+            e += maskAlpha( vUv + vec2( cos( a ), sin( a ) ) * r );
+        }
+        if ( e <= 0.001 ) discard;
+        // Saturate coverage so thin spikes (hair tip, shuriken points), where only a
+        // couple of the 12 taps land on the silhouette, stay solid black instead of faint.
+        gl_FragColor = vec4( 0.0, 0.0, 0.0, clamp( e, 0.0, 1.0 ) );
+    }
+    // The scene target holds linear colour; let three encode it to the canvas colour space.
+    #include <colorspace_fragment>
+}
+`;
+
+// World-space inverted hull for every solid mesh: sharp geometry outlines the screen ring
+// can't do (pointed tips, self-occlusion). Alpha discard keeps it to the textured shape so
+// hard-alpha cutout decorations (kunai, etc.) outline their silhouette, not the card.
+const HULL_VERTEX = /* glsl */ `
+#include <common>
+#include <skinning_pars_vertex>
+uniform float uThickness;
+varying vec2 vUv;
+void main() {
+    #include <skinbase_vertex>
+    #include <beginnormal_vertex>
+    #include <skinnormal_vertex>
+    #include <begin_vertex>
+    #include <skinning_vertex>
+    vUv = uv;
     vec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );
     vec3 viewNormal = normalize( ( modelViewMatrix * vec4( objectNormal, 0.0 ) ).xyz );
     mvPosition.xyz += viewNormal * uThickness;
@@ -73,9 +168,15 @@ void main() {
 }
 `;
 
-const OUTLINE_FRAGMENT = /* glsl */ `
-uniform vec3 uColor;
-void main() { gl_FragColor = vec4( uColor, 1.0 ); }
+const HULL_FRAGMENT = /* glsl */ `
+uniform sampler2D uMap;
+uniform float uHasMap;
+uniform float uAlphaTest;
+varying vec2 vUv;
+void main() {
+    if ( uHasMap > 0.5 && texture2D( uMap, vUv ).a < uAlphaTest ) discard;
+    gl_FragColor = vec4( 0.0, 0.0, 0.0, 1.0 );
+}
 `;
 
 export class DonchanRenderer {
@@ -120,6 +221,20 @@ export class DonchanRenderer {
     private userYaw = 0;
     private userPitch = 0;
 
+    // Two-pass toon outline: per-mesh black seam lines (drawn into the scene target) plus a
+    // screen-space silhouette ring composited on the way to the canvas.
+    private blackLineMaterials: THREE.ShaderMaterial[] = [];
+    private hullMaterials: THREE.ShaderMaterial[] = [];
+    private readonly smoothAlphaCache = new Map<TexImageSource, boolean>();
+    private blackLineWidthPx = 12;
+    private outerOutlineWidthPx = 12;
+    private sceneTarget: THREE.WebGLRenderTarget | null = null;
+    private maskTarget: THREE.WebGLRenderTarget | null = null;
+    private readonly outlineScene = new THREE.Scene();
+    private readonly outlineCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    private readonly screenOutlineMaterial: THREE.ShaderMaterial;
+    private readonly drawBufferSize = new THREE.Vector2();
+
     /** Called each animation frame with the current normalized time (0..1) while playing. */
     public onFrame: ((normalized: number) => void) | null = null;
 
@@ -145,6 +260,33 @@ export class DonchanRenderer {
 
         this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 5000);
         this.scene.add(this.root);
+
+        this.screenOutlineMaterial = new THREE.ShaderMaterial({
+            vertexShader: SCREEN_OUTLINE_VERTEX,
+            fragmentShader: SCREEN_OUTLINE_FRAGMENT,
+            uniforms: {
+                uScene: { value: null },
+                uMask: { value: null },
+                uTexelSize: { value: new THREE.Vector2() },
+                uRadiusPx: { value: this.outerOutlineWidthPx },
+            },
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+        });
+        this.outlineScene.add(
+            new THREE.Mesh(
+                new THREE.PlaneGeometry(2, 2),
+                this.screenOutlineMaterial,
+            ),
+        );
+    }
+
+    /** Tune outline thickness (drawing-buffer pixels): inner seam lines and outer ring. */
+    public setOutlineWidths(blackLinePx: number, outerPx: number): void {
+        this.blackLineWidthPx = Math.max(0, blackLinePx);
+        this.outerOutlineWidthPx = Math.max(0, outerPx);
+        this.render();
     }
 
     /**
@@ -171,6 +313,7 @@ export class DonchanRenderer {
 
         const converted = new Map<THREE.Material, THREE.MeshBasicMaterial>();
         const outlineSources: THREE.SkinnedMesh[] = [];
+        const hullSources: THREE.SkinnedMesh[] = [];
 
         for (const gltf of loaded) {
             gltf.scene.traverse((object) => {
@@ -211,11 +354,16 @@ export class DonchanRenderer {
 
                 mesh.material = flat;
 
-                if (
-                    (mesh as THREE.SkinnedMesh).isSkinnedMesh &&
-                    this.shouldOutline(flat, shaderType)
-                ) {
-                    outlineSources.push(mesh as THREE.SkinnedMesh);
+                if ((mesh as THREE.SkinnedMesh).isSkinnedMesh) {
+                    if (this.shouldOutline(flat, shaderType)) {
+                        outlineSources.push(mesh as THREE.SkinnedMesh);
+                    }
+
+                    // Solid = anything that isn't see-through (opaque + hard-alpha cutouts
+                    // like the kunai). These get the sharp hull outline.
+                    if (!flat.userData.seeThrough) {
+                        hullSources.push(mesh as THREE.SkinnedMesh);
+                    }
                 }
             });
 
@@ -224,6 +372,7 @@ export class DonchanRenderer {
 
         this.applyColors();
         this.addOutline(outlineSources);
+        this.addHull(hullSources);
         this.setupAnimation();
         this.computeFrustum();
         this.applyRotation();
@@ -524,7 +673,87 @@ export class DonchanRenderer {
     }
 
     public render(): void {
+        const size = this.renderer.getDrawingBufferSize(this.drawBufferSize);
+        this.ensureTargets(size.x, size.y);
+        const scene = this.sceneTarget!;
+        const mask = this.maskTarget!;
+
+        for (const material of this.blackLineMaterials) {
+            material.uniforms.uOutlinePixel.value.set(
+                this.blackLineWidthPx / Math.max(1, size.x),
+                this.blackLineWidthPx / Math.max(1, size.y),
+            );
+        }
+
+        // Pass 1: opaque-only mask so the outer ring ignores transparent parts.
+        const hidden = this.hideForMask();
+        this.renderer.setRenderTarget(mask);
+        this.renderer.clear();
         this.renderer.render(this.scene, this.camera);
+        for (const object of hidden) {
+            object.visible = true;
+        }
+
+        // Pass 2: full model (plus its black seam lines) into the scene target.
+        this.renderer.setRenderTarget(scene);
+        this.renderer.clear();
+        this.renderer.render(this.scene, this.camera);
+
+        // Pass 3: composite the scene colour and the silhouette ring onto the canvas.
+        this.renderer.setRenderTarget(null);
+        this.renderer.clear();
+        const uniforms = this.screenOutlineMaterial.uniforms;
+        uniforms.uScene.value = scene.texture;
+        uniforms.uMask.value = mask.texture;
+        uniforms.uTexelSize.value.set(
+            1 / Math.max(1, size.x),
+            1 / Math.max(1, size.y),
+        );
+        uniforms.uRadiusPx.value = this.outerOutlineWidthPx;
+        this.renderer.render(this.outlineScene, this.outlineCamera);
+    }
+
+    /** Hide transparent meshes and outline helpers so the mask holds opaque coverage only. */
+    private hideForMask(): THREE.Object3D[] {
+        const hidden: THREE.Object3D[] = [];
+
+        this.root.traverse((object) => {
+            const mesh = object as THREE.Mesh;
+
+            if (!mesh.isMesh || !object.visible) {
+                return;
+            }
+
+            const material = mesh.material as THREE.Material;
+            const seeThrough =
+                !Array.isArray(material) && material.userData.seeThrough;
+
+            if (seeThrough || object.userData.isOutlineHelper) {
+                object.visible = false;
+                hidden.push(object);
+            }
+        });
+
+        return hidden;
+    }
+
+    private ensureTargets(width: number, height: number): void {
+        if (
+            this.sceneTarget &&
+            this.sceneTarget.width === width &&
+            this.sceneTarget.height === height
+        ) {
+            return;
+        }
+
+        this.sceneTarget?.dispose();
+        this.maskTarget?.dispose();
+        this.sceneTarget = new THREE.WebGLRenderTarget(width, height, {
+            samples: 4,
+        });
+        this.maskTarget = new THREE.WebGLRenderTarget(width, height, {
+            samples: 4,
+        });
     }
 
     public screenshot(): string {
@@ -537,6 +766,9 @@ export class DonchanRenderer {
         this.setPlaying(false);
         this.mixer?.stopAllAction();
         this.disposeModels();
+        this.sceneTarget?.dispose();
+        this.maskTarget?.dispose();
+        this.screenOutlineMaterial.dispose();
         this.renderer.dispose();
     }
 
@@ -571,7 +803,14 @@ export class DonchanRenderer {
                     : original.side,
             name: original.name,
         });
-        flat.userData = original.userData;
+        // See-through = glass, the face decal, or a blend surface whose texture is a smooth
+        // alpha gradient (an actual lens). Hard-alpha blends (hair, shuriken, netting) are
+        // solid and stay in the outline mask.
+        const seeThrough =
+            isFace ||
+            isGlass ||
+            (isBlend && this.hasSmoothAlpha(original.map));
+        flat.userData = { ...original.userData, seeThrough };
 
         if (isFace) {
             flat.transparent = true;
@@ -605,6 +844,58 @@ export class DonchanRenderer {
         }
 
         return flat;
+    }
+
+    /**
+     * True when a texture's alpha is a smooth gradient (a real see-through lens) rather than
+     * a hard 0/1 cutout (hair, netting, decals). Read back once per image and cached.
+     */
+    private hasSmoothAlpha(map: THREE.Texture | null): boolean {
+        const image = map?.image as TexImageSource | undefined;
+
+        if (!image) {
+            return false;
+        }
+
+        const cached = this.smoothAlphaCache.get(image);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        let smooth = false;
+
+        try {
+            const source = image as CanvasImageSource & {
+                width: number;
+                height: number;
+            };
+            const width = Math.min(source.width || 64, 64);
+            const height = Math.min(source.height || 64, 64);
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d', {
+                willReadFrequently: true,
+            })!;
+            ctx.drawImage(source, 0, 0, width, height);
+            const data = ctx.getImageData(0, 0, width, height).data;
+
+            let partial = 0;
+            let total = 0;
+            for (let i = 3; i < data.length; i += 4) {
+                total++;
+                if (data[i] > 20 && data[i] < 235) {
+                    partial++;
+                }
+            }
+            smooth = total > 0 && partial / total > 0.12;
+        } catch {
+            smooth = false;
+        }
+
+        this.smoothAlphaCache.set(image, smooth);
+
+        return smooth;
     }
 
     private shouldOutline(
@@ -667,22 +958,28 @@ export class DonchanRenderer {
     }
 
     private addOutline(meshes: THREE.SkinnedMesh[]): void {
+        for (const material of this.blackLineMaterials) {
+            material.dispose();
+        }
+        this.blackLineMaterials = [];
+
         if (meshes.length === 0 || !this.root) {
             return;
         }
 
-        const box = new THREE.Box3().setFromObject(this.root);
-        const thickness = box.getSize(new THREE.Vector3()).length() * 0.004;
-
         for (const mesh of meshes) {
             const material = new THREE.ShaderMaterial({
-                vertexShader: OUTLINE_VERTEX,
-                fragmentShader: OUTLINE_FRAGMENT,
+                vertexShader: BLACKLINE_VERTEX,
+                fragmentShader: BLACKLINE_FRAGMENT,
                 uniforms: {
-                    uThickness: { value: thickness },
-                    uColor: { value: new THREE.Color(0x000000) },
+                    uOutlinePixel: { value: new THREE.Vector2() },
+                    uNormalOffset: { value: 1.0 },
+                    uNormalGate: { value: 0.8 },
+                    uDepthBiasClip: { value: 0.0001 },
                 },
                 side: THREE.BackSide,
+                transparent: true,
+                depthWrite: false,
                 defines: { USE_SKINNING: '' },
             });
 
@@ -693,8 +990,53 @@ export class DonchanRenderer {
             outline.position.copy(mesh.position);
             outline.quaternion.copy(mesh.quaternion);
             outline.scale.copy(mesh.scale);
-            outline.renderOrder = -1;
+            // Draw after the model so the depth test hides interior/occluded seam lines.
+            outline.renderOrder = 20;
+            outline.userData.isOutlineHelper = true;
             (mesh.parent ?? this.root).add(outline);
+            this.blackLineMaterials.push(material);
+        }
+    }
+
+    /** Inverted-hull outline for every solid mesh: sharp geometry outlines + self-occlusion. */
+    private addHull(meshes: THREE.SkinnedMesh[]): void {
+        for (const material of this.hullMaterials) {
+            material.dispose();
+        }
+        this.hullMaterials = [];
+
+        if (meshes.length === 0 || !this.root) {
+            return;
+        }
+
+        const box = new THREE.Box3().setFromObject(this.root);
+        const thickness = box.getSize(new THREE.Vector3()).length() * 0.004;
+
+        for (const mesh of meshes) {
+            const map = (mesh.material as THREE.MeshBasicMaterial).map ?? null;
+            const material = new THREE.ShaderMaterial({
+                vertexShader: HULL_VERTEX,
+                fragmentShader: HULL_FRAGMENT,
+                uniforms: {
+                    uThickness: { value: thickness },
+                    uMap: { value: map },
+                    uHasMap: { value: map ? 1 : 0 },
+                    uAlphaTest: { value: 0.5 },
+                },
+                side: THREE.BackSide,
+                defines: { USE_SKINNING: '' },
+            });
+
+            const hull = new THREE.SkinnedMesh(mesh.geometry, material);
+            hull.bind(mesh.skeleton, mesh.bindMatrix);
+            hull.position.copy(mesh.position);
+            hull.quaternion.copy(mesh.quaternion);
+            hull.scale.copy(mesh.scale);
+            // Drawn before the body so it only shows at silhouettes/self-occlusion gaps.
+            hull.renderOrder = -1;
+            hull.userData.isOutlineHelper = true;
+            (mesh.parent ?? this.root).add(hull);
+            this.hullMaterials.push(material);
         }
     }
 

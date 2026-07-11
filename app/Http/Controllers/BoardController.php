@@ -10,6 +10,7 @@ use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use App\Models\User;
+use App\Services\ExtraRankAggregateService;
 use App\Services\PlayerRankAggregateService;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Http\Request;
@@ -18,8 +19,11 @@ use Inertia\Response;
 
 class BoardController extends Controller
 {
-    public function show(Request $request, User $user, PlayerRankAggregateService $rankAggregates): Response
+    public function show(Request $request, User $user, PlayerRankAggregateService $rankAggregates, ExtraWebController $extra): Response
     {
+        if ((bool) $request->attributes->get('taikoVersionIsExtra', false)) {
+            return $extra->board($request, $user, app(ExtraRankAggregateService::class));
+        }
         $version = $request->attributes->get('taikoGameVersion');
         if (! $version instanceof TaikoGameVersion || (bool) $request->attributes->get('taikoVersionIsAll', false)) {
             abort(404);
