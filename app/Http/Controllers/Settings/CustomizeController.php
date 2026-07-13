@@ -6,7 +6,9 @@ use App\Enums\TaikoGameVersion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\CustomizeRequest;
 use App\Http\Requests\Settings\UpdateDonChanNameRequest;
+use App\Http\Requests\Settings\UpdateDonChanTitleRequest;
 use App\Models\GameCard;
+use App\Models\PlayerCosmetic;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 
@@ -59,6 +61,29 @@ class CustomizeController extends Controller
         ]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('DonChan name updated.')]);
+
+        return to_route('costumes.edit');
+    }
+
+    public function updateTitle(UpdateDonChanTitleRequest $request): RedirectResponse
+    {
+        $version = $request->attributes->get('taikoGameVersion');
+        if (! $version instanceof TaikoGameVersion || ! $version->supportsCostumeSlots()) {
+            abort(404);
+        }
+
+        $card = GameCard::query()
+            ->whereHas('player', fn ($query) => $query->where('user_id', $request->user()->id))
+            ->with('player')
+            ->first();
+
+        if ($card !== null) {
+            $cosmetic = PlayerCosmetic::resolve($card->player->baid, $version);
+            $cosmetic->title = $request->validated('title') ?: null;
+            $cosmetic->save();
+        }
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Title updated.')]);
 
         return to_route('costumes.edit');
     }
