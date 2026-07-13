@@ -80,6 +80,7 @@
         presets,
         activePreset = 0,
         mydonName = '',
+        title = '',
         colorFace = 0,
         colorBody = 0,
         colorLimb = 0,
@@ -91,12 +92,14 @@
         presets: Preset[];
         activePreset?: number;
         mydonName?: string;
+        title?: string;
         colorFace?: number;
         colorBody?: number;
         colorLimb?: number;
     } = $props();
 
     let donChanName = $state(mydonName);
+    let donChanTitle = $state(title);
     let selectedFace = $state(colorFace);
     let selectedBody = $state(colorBody);
     let selectedLimb = $state(colorLimb);
@@ -122,6 +125,10 @@
 
     function transliterateDonChanName(): void {
         donChanName = romajiToHiragana(donChanName);
+    }
+
+    function updateDonChanTitle(event: Event): void {
+        donChanTitle = (event.currentTarget as HTMLInputElement).value;
     }
 
     function selectedColor(key: ColorTab): number {
@@ -235,6 +242,45 @@
 
                     <Button type="submit" disabled={processing} data-test="update-donchan-name-button">
                         Save name
+                    </Button>
+                {/snippet}
+            </Form>
+        </section>
+
+        <section class="w-full space-y-4">
+            <Heading
+                variant="small"
+                title="Title"
+                description="Change the title shown above your DonChan."
+            />
+
+            <Form
+                {...CustomizeController.updateTitle.form(taikoRouteParam())}
+                class="space-y-6"
+                options={{ preserveScroll: true }}
+            >
+                {#snippet children({ errors, processing })}
+                    <div class="grid max-w-md gap-2">
+                        <Label for="title">Title text</Label>
+                        <Input
+                            id="title"
+                            name="title"
+                            value={donChanTitle}
+                            oninput={updateDonChanTitle}
+                            maxlength={255}
+                            autocomplete="off"
+                            placeholder="ほんのきもち"
+                            aria-describedby="title-help"
+                        />
+                        <p id="title-help" class="text-sm text-muted-foreground">
+                            Saved separately for {versionLabel}. Leave it empty to remove your title.
+                            Title plate backgrounds will be added separately.
+                        </p>
+                        <InputError message={errors.title} />
+                    </div>
+
+                    <Button type="submit" disabled={processing} data-test="update-donchan-title-button">
+                        Save title
                     </Button>
                 {/snippet}
             </Form>

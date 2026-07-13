@@ -2,6 +2,7 @@
 
 use App\Models\GameCard;
 use App\Models\Player;
+use App\Models\PlayerCosmetic;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -27,6 +28,11 @@ it('shows DonChan page with access code and saved colors', function (): void {
         'access_code' => '12345678901234567890',
         'baid' => $player->baid,
     ]);
+    PlayerCosmetic::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'green',
+        'title' => 'ほんのきもち',
+    ]);
 
     $response = $this->actingAs($user)->get('/green/settings/costumes');
 
@@ -36,9 +42,98 @@ it('shows DonChan page with access code and saved colors', function (): void {
             ->component('settings/DonChan')
             ->where('hasAccessCode', true)
             ->where('mydonName', 'どんちゃん')
+            ->where('title', 'ほんのきもち')
             ->where('colorFace', 10)
             ->where('colorBody', 30)
             ->where('colorLimb', 50));
+});
+
+it('saves title text for only the selected game version', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    GameCard::query()->create([
+        'access_code' => '12345678901234567890',
+        'baid' => $player->baid,
+    ]);
+    PlayerCosmetic::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'blue',
+        'title' => 'ブルーの称号',
+    ]);
+
+    $this->actingAs($user)
+        ->patch('/green/settings/donchan-title', [
+            'title' => ' ほんのきもち ',
+        ])
+        ->assertRedirect('/green/settings/costumes')
+        ->assertSessionHasNoErrors();
+
+    expect(PlayerCosmetic::query()
+        ->where('baid', $player->baid)
+        ->where('game_version', 'green')
+        ->value('title'))->toBe('ほんのきもち')
+        ->and(PlayerCosmetic::query()
+            ->where('baid', $player->baid)
+            ->where('game_version', 'blue')
+            ->value('title'))->toBe('ブルーの称号');
+});
+
+it('clears title text for the selected game version', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    GameCard::query()->create([
+        'access_code' => '12345678901234567890',
+        'baid' => $player->baid,
+    ]);
+    $cosmetic = PlayerCosmetic::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'green',
+        'title' => 'ほんのきもち',
+    ]);
+
+    $this->actingAs($user)
+        ->patch('/green/settings/donchan-title', ['title' => '   '])
+        ->assertRedirect('/green/settings/costumes')
+        ->assertSessionHasNoErrors();
+
+    expect($cosmetic->refresh()->title)->toBeNull();
+});
+
+it('rejects title text that cannot be safely displayed', function (string $title): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    GameCard::query()->create([
+        'access_code' => '12345678901234567890',
+        'baid' => $player->baid,
+    ]);
+    $cosmetic = PlayerCosmetic::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'green',
+        'title' => 'ほんのきもち',
+    ]);
+
+    $this->actingAs($user)
+        ->from('/green/settings/costumes')
+        ->patch('/green/settings/donchan-title', ['title' => $title])
+        ->assertRedirect('/green/settings/costumes')
+        ->assertSessionHasErrors('title');
+
+    expect($cosmetic->refresh()->title)->toBe('ほんのきもち');
+})->with([
+    'more than 255 characters' => str_repeat('あ', 256),
+    'line break' => "前半\n後半",
+    'control character' => "前半\x00後半",
+]);
+
+it('does not create title data without a linked access code', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->patch('/green/settings/donchan-title', ['title' => 'ほんのきもち'])
+        ->assertRedirect('/green/settings/costumes');
+
+    expect(PlayerCosmetic::query()->where('baid', $player->baid)->exists())->toBeFalse();
 });
 
 it('saves a hiragana DonChan name for the linked player', function (): void {

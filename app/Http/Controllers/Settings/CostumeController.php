@@ -40,11 +40,13 @@ class CostumeController extends Controller
 
         $presets = array_fill(0, PlayerCosmetic::PRESET_COUNT, array_fill_keys(PlayerCosmetic::PRESET_KEYS, 0));
         $activePreset = 0;
+        $title = '';
 
         if ($card !== null && $supported && $version instanceof TaikoGameVersion) {
             $cosmetic = PlayerCosmetic::resolve($card->player->baid, $version);
             $presets = $cosmetic->normalizedPresets();
             $activePreset = min((int) $cosmetic->active_costume_preset, PlayerCosmetic::PRESET_COUNT - 1);
+            $title = $cosmetic->title ?? '';
         }
 
         return Inertia::render('settings/DonChan', [
@@ -55,6 +57,7 @@ class CostumeController extends Controller
             'presets' => $presets,
             'activePreset' => $activePreset,
             'mydonName' => $card?->player->mydon_name ?? '',
+            'title' => $title,
             'colorFace' => $card?->player->color_face ?? 0,
             'colorBody' => $card?->player->color_body ?? 0,
             'colorLimb' => $card?->player->color_limb ?? 0,
