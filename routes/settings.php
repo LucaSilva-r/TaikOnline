@@ -21,6 +21,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('settings/customize', [CustomizeController::class, 'edit'])->name('customize.edit');
     Route::patch('settings/customize', [CustomizeController::class, 'update'])->name('customize.update');
+    Route::patch('settings/donchan-name', [CustomizeController::class, 'updateName'])->name('donchan-name.update');
 
     Route::get('settings/costumes', [CostumeController::class, 'edit'])->name('costumes.edit');
     Route::patch('settings/costumes', [CostumeController::class, 'update'])->name('costumes.update');

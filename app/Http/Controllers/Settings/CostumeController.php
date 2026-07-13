@@ -54,6 +54,7 @@ class CostumeController extends Controller
             'sheet' => $this->spritesheet($version),
             'presets' => $presets,
             'activePreset' => $activePreset,
+            'mydonName' => $card?->player->mydon_name ?? '',
             'colorFace' => $card?->player->color_face ?? 0,
             'colorBody' => $card?->player->color_body ?? 0,
             'colorLimb' => $card?->player->color_limb ?? 0,

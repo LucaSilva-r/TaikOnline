@@ -18,6 +18,7 @@ it('shows DonChan page with access code and saved colors', function (): void {
     $user = User::factory()->create();
     $player = Player::query()->create([
         'user_id' => $user->id,
+        'mydon_name' => 'どんちゃん',
         'color_face' => 10,
         'color_body' => 30,
         'color_limb' => 50,
@@ -34,9 +35,98 @@ it('shows DonChan page with access code and saved colors', function (): void {
         ->assertInertia(fn ($assert) => $assert
             ->component('settings/DonChan')
             ->where('hasAccessCode', true)
+            ->where('mydonName', 'どんちゃん')
             ->where('colorFace', 10)
             ->where('colorBody', 30)
             ->where('colorLimb', 50));
+});
+
+it('saves a hiragana DonChan name for the linked player', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create([
+        'user_id' => $user->id,
+        'mydon_name' => 'たいこ',
+    ]);
+    GameCard::query()->create([
+        'access_code' => '12345678901234567890',
+        'baid' => $player->baid,
+    ]);
+
+    $this->actingAs($user)
+        ->patch('/green/settings/donchan-name', [
+            'mydon_name' => 'どんちゃん',
+        ])
+        ->assertRedirect('/green/settings/costumes')
+        ->assertSessionHasNoErrors();
+
+    expect($player->refresh()->mydon_name)->toBe('どんちゃん');
+});
+
+it('rejects an invalid DonChan name', function (string $name): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create([
+        'user_id' => $user->id,
+        'mydon_name' => 'たいこ',
+    ]);
+    GameCard::query()->create([
+        'access_code' => '12345678901234567890',
+        'baid' => $player->baid,
+    ]);
+
+    $this->actingAs($user)
+        ->from('/green/settings/costumes')
+        ->patch('/green/settings/donchan-name', [
+            'mydon_name' => $name,
+        ])
+        ->assertRedirect('/green/settings/costumes')
+        ->assertSessionHasErrors('mydon_name');
+
+    expect($player->refresh()->mydon_name)->toBe('たいこ');
+})->with([
+    'empty' => '',
+    'more than five hiragana' => 'あいうえおか',
+    'romaji' => 'donchan',
+    'katakana' => 'ドンチャン',
+    'kanji' => '太鼓',
+    'whitespace' => 'どん ちゃん',
+    'punctuation' => 'どんちゃん!',
+    'emoji' => 'どん🥁',
+]);
+
+it('does not update a DonChan name without a linked access code', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create([
+        'user_id' => $user->id,
+        'mydon_name' => 'たいこ',
+    ]);
+
+    $this->actingAs($user)
+        ->patch('/green/settings/donchan-name', [
+            'mydon_name' => 'どんちゃん',
+        ])
+        ->assertRedirect('/green/settings/costumes');
+
+    expect($player->refresh()->mydon_name)->toBe('たいこ');
+});
+
+it('rejects DonChan name updates on unsupported game versions', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create([
+        'user_id' => $user->id,
+        'mydon_name' => 'たいこ',
+    ]);
+    GameCard::query()->create([
+        'access_code' => '12345678901234567890',
+        'baid' => $player->baid,
+    ]);
+
+    $this->actingAs($user)
+        ->patch('/katsudon/settings/donchan-name', [
+            'mydon_name' => 'どんちゃん',
+        ])
+        ->assertNotFound();
+
+    expect($player->refresh()->mydon_name)->toBe('たいこ');
 });
 
 it('saves customization colors for player with access code', function (): void {

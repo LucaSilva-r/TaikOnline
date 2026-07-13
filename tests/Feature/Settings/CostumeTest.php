@@ -19,6 +19,7 @@ it('shows costume page without access code', function (): void {
             ->where('hasAccessCode', false)
             ->where('versionLabel', 'GREEN')
             ->where('activePreset', 0)
+            ->where('mydonName', '')
             ->where('colorFace', 0)
             ->where('colorBody', 0)
             ->where('colorLimb', 0)
