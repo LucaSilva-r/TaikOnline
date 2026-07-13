@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Enums\TaikoGameVersion;
+use App\GameProtocol\Support\TaikoTitleCatalog;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\CostumeRequest;
 use App\Models\GameCard;
@@ -28,7 +29,7 @@ class CostumeController extends Controller
         5 => 'puchi',
     ];
 
-    public function edit(Request $request): Response
+    public function edit(Request $request, TaikoTitleCatalog $titleCatalog): Response
     {
         $version = $request->attributes->get('taikoGameVersion');
         $card = GameCard::query()
@@ -37,20 +38,27 @@ class CostumeController extends Controller
             ->first();
 
         $supported = $version instanceof TaikoGameVersion && $version->supportsCostumeSlots();
+        $supportsTitlePlates = $version instanceof TaikoGameVersion && $version->supportsTitlePlates();
 
         $presets = array_fill(0, PlayerCosmetic::PRESET_COUNT, array_fill_keys(PlayerCosmetic::PRESET_KEYS, 0));
         $activePreset = 0;
         $title = '';
+        $titlePlateId = 0;
+        $officialTitles = $version instanceof TaikoGameVersion ? $titleCatalog->titles($version) : [];
+        $officialTitleId = 0;
 
         if ($card !== null && $supported && $version instanceof TaikoGameVersion) {
             $cosmetic = PlayerCosmetic::resolve($card->player->baid, $version);
             $presets = $cosmetic->normalizedPresets();
             $activePreset = min((int) $cosmetic->active_costume_preset, PlayerCosmetic::PRESET_COUNT - 1);
             $title = $cosmetic->title ?? '';
+            $titlePlateId = (int) $cosmetic->titleplate_id;
+            $officialTitleId = $titleCatalog->selectedTitleId($version, $title, $titlePlateId);
         }
 
         return Inertia::render('settings/DonChan', [
             'supported' => $supported,
+            'supportsTitlePlates' => $supportsTitlePlates,
             'hasAccessCode' => $card !== null,
             'versionLabel' => $version?->label() ?? '',
             'sheet' => $this->spritesheet($version),
@@ -58,6 +66,9 @@ class CostumeController extends Controller
             'activePreset' => $activePreset,
             'mydonName' => $card?->player->mydon_name ?? '',
             'title' => $title,
+            'titlePlateId' => $titlePlateId,
+            'officialTitles' => $officialTitles,
+            'officialTitleId' => $officialTitleId,
             'colorFace' => $card?->player->color_face ?? 0,
             'colorBody' => $card?->player->color_body ?? 0,
             'colorLimb' => $card?->player->color_limb ?? 0,

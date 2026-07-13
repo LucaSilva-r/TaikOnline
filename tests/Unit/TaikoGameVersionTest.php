@@ -23,6 +23,13 @@ it('gates costume slots to Momoiro and newer', function (): void {
         ->and(TaikoGameVersion::Green->supportsCostumeSlots())->toBeTrue();
 });
 
+it('gates title plate backgrounds to Red and newer', function (): void {
+    expect(TaikoGameVersion::White->supportsTitlePlates())->toBeFalse()
+        ->and(TaikoGameVersion::Red->supportsTitlePlates())->toBeTrue()
+        ->and(TaikoGameVersion::Yellow->supportsTitlePlates())->toBeTrue()
+        ->and(TaikoGameVersion::Green->supportsTitlePlates())->toBeTrue();
+});
+
 it('gates profile publicity to Sorairo and newer', function (): void {
     expect(TaikoGameVersion::Katsudon->supportsProfilePublicity())->toBeFalse()
         ->and(TaikoGameVersion::Sorairo->supportsProfilePublicity())->toBeTrue()

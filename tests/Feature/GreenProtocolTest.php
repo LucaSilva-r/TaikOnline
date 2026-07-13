@@ -1119,13 +1119,13 @@ it('records a cleared dan from a dan-mode play and echoes the progress', functio
     expect($user->getDispTaikojukuDan())->toBe(2);
 });
 
-it('returns version-scoped equipped title on baid', function (): void {
+it('returns version-scoped title and title plate on baid', function (): void {
     $player = Player::query()->create();
     PlayerCosmetic::query()->create([
         'baid' => $player->baid,
         'game_version' => 'green',
         'title' => 'Master of Don',
-        'titleplate_id' => 42,
+        'titleplate_id' => 2,
     ]);
     GameCard::query()->create([
         'access_code' => '55555555555555555555',
@@ -1140,9 +1140,9 @@ it('returns version-scoped equipped title on baid', function (): void {
         ->setChassisId('chassis')->setShopId('shop')->setCountryId('JPN'), BAIDResponse::class);
 
     expect($green->getTitle())->toBe('Master of Don')
-        ->and($green->getTitleplateId())->toBe(42);
+        ->and($green->getTitleplateId())->toBe(2);
 
-    // A version with no cosmetic row returns no equipped title.
+    // A version without cosmetics uses its default title and plate.
     $blue = post_protobuf('/v10r00/chassis/baidcheck.php', (new BAIDRequest)
         ->setAccessCode('55555555555555555555')->setChipId('chip')
         ->setChassisId('chassis')->setShopId('shop')->setCountryId('JPN'), BAIDResponse::class);
