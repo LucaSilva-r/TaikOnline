@@ -21,6 +21,9 @@
     import Heading from '@/components/Heading.svelte';
     import InputError from '@/components/InputError.svelte';
     import { Button } from '@/components/ui/button';
+    import { Input } from '@/components/ui/input';
+    import { Label } from '@/components/ui/label';
+    import { romajiToHiragana } from '@/lib/romaji';
     import { taikoRouteParam } from '@/lib/taiko-version';
 
     type ColorTab = 'face' | 'body' | 'limb';
@@ -76,6 +79,7 @@
         sheet = null,
         presets,
         activePreset = 0,
+        mydonName = '',
         colorFace = 0,
         colorBody = 0,
         colorLimb = 0,
@@ -86,11 +90,13 @@
         sheet?: Sheet;
         presets: Preset[];
         activePreset?: number;
+        mydonName?: string;
         colorFace?: number;
         colorBody?: number;
         colorLimb?: number;
     } = $props();
 
+    let donChanName = $state(mydonName);
     let selectedFace = $state(colorFace);
     let selectedBody = $state(colorBody);
     let selectedLimb = $state(colorLimb);
@@ -109,6 +115,14 @@
     });
 
     const current = $derived(sets[editIndex]);
+
+    function updateDonChanName(event: Event): void {
+        donChanName = (event.currentTarget as HTMLInputElement).value;
+    }
+
+    function transliterateDonChanName(): void {
+        donChanName = romajiToHiragana(donChanName);
+    }
 
     function selectedColor(key: ColorTab): number {
         if (key === 'body') {
@@ -165,7 +179,7 @@
     <Heading
         variant="small"
         title="DonChan"
-        description="Manage your DonChan colors and costume presets for {versionLabel}."
+        description="Manage your DonChan name, colors, and costume presets for {versionLabel}."
     />
 
     {#if !supported}
@@ -183,6 +197,49 @@
             </p>
         </div>
     {:else}
+        <section class="w-full space-y-4">
+            <Heading
+                variant="small"
+                title="Name"
+                description="Change the name shown for your DonChan."
+            />
+
+            <Form
+                {...CustomizeController.updateName.form(taikoRouteParam())}
+                class="space-y-6"
+                options={{ preserveScroll: true }}
+            >
+                {#snippet children({ errors, processing })}
+                    <div class="grid max-w-md gap-2">
+                        <Label for="mydon_name">DonChan name</Label>
+                        <Input
+                            id="mydon_name"
+                            name="mydon_name"
+                            value={donChanName}
+                            oninput={updateDonChanName}
+                            onblur={transliterateDonChanName}
+                            required
+                            autocomplete="off"
+                            placeholder="donchan → どんちゃん"
+                            aria-describedby="mydon-name-help"
+                        />
+                        <div
+                            id="mydon-name-help"
+                            class="flex items-start justify-between gap-4 text-sm text-muted-foreground"
+                        >
+                            <p>Up to 5 hiragana. Romaji is converted when you leave the field.</p>
+                            <span class="shrink-0">{Array.from(donChanName).length}/5</span>
+                        </div>
+                        <InputError message={errors.mydon_name} />
+                    </div>
+
+                    <Button type="submit" disabled={processing} data-test="update-donchan-name-button">
+                        Save name
+                    </Button>
+                {/snippet}
+            </Form>
+        </section>
+
         <section class="w-full space-y-4">
             <Heading
                 variant="small"

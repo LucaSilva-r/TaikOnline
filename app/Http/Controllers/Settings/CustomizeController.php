@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Settings;
 use App\Enums\TaikoGameVersion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\CustomizeRequest;
+use App\Http\Requests\Settings\UpdateDonChanNameRequest;
 use App\Models\GameCard;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -37,6 +38,27 @@ class CustomizeController extends Controller
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Customization updated.')]);
+
+        return to_route('costumes.edit');
+    }
+
+    public function updateName(UpdateDonChanNameRequest $request): RedirectResponse
+    {
+        $version = $request->attributes->get('taikoGameVersion');
+        if (! $version instanceof TaikoGameVersion || ! $version->supportsCostumeSlots()) {
+            abort(404);
+        }
+
+        $card = GameCard::query()
+            ->whereHas('player', fn ($query) => $query->where('user_id', $request->user()->id))
+            ->with('player')
+            ->first();
+
+        $card?->player->update([
+            'mydon_name' => $request->validated('mydon_name'),
+        ]);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('DonChan name updated.')]);
 
         return to_route('costumes.edit');
     }
