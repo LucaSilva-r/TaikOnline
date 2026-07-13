@@ -69,6 +69,15 @@ enum TaikoGameVersion: string
     }
 
     /**
+     * Whether the profile protocol accepts a selectable title plate id.
+     * Title plate backgrounds debut in Red and retain the same ids through Green.
+     */
+    public function supportsTitlePlates(): bool
+    {
+        return $this->isAtLeast(self::Red);
+    }
+
+    /**
      * Whether donderhiroba lets the player set default enso (play) options.
      * Debuts in Momoiro.
      */

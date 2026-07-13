@@ -8,9 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Version-scoped cosmetic loadout for a card: equipped costume parts plus the
- * costume/tone/title unlock lists, keyed per (baid, game_version) because the
- * id-to-item mappings differ between Taiko versions.
+ * Version-scoped cosmetic loadout for a card: equipped costume parts, title,
+ * title plate, and item unlock lists. Item ids differ by version.
  */
 #[Fillable([
     'baid',
@@ -32,6 +31,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class PlayerCosmetic extends Model
 {
+    public const CUSTOM_TITLE_PLATE_MAX_ID = 3;
+
     protected function casts(): array
     {
         return [

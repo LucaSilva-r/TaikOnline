@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Enums\TaikoGameVersion;
+use App\GameProtocol\Support\TaikoTitleCatalog;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\CustomizeRequest;
 use App\Http\Requests\Settings\UpdateDonChanNameRequest;
 use App\Http\Requests\Settings\UpdateDonChanTitleRequest;
+use App\Http\Requests\Settings\UpdateOfficialDonChanTitleRequest;
 use App\Models\GameCard;
 use App\Models\PlayerCosmetic;
 use Illuminate\Http\RedirectResponse;
@@ -78,12 +80,54 @@ class CustomizeController extends Controller
             ->first();
 
         if ($card !== null) {
+            $title = $request->validated('title');
             $cosmetic = PlayerCosmetic::resolve($card->player->baid, $version);
-            $cosmetic->title = $request->validated('title') ?: null;
+            $cosmetic->title = is_string($title) && $title !== '' ? $title : null;
+
+            if ($version->supportsTitlePlates()) {
+                $cosmetic->titleplate_id = (int) $request->validated('titleplate_id');
+            }
+
             $cosmetic->save();
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Title updated.')]);
+
+        return to_route('costumes.edit');
+    }
+
+    public function updateOfficialTitle(
+        UpdateOfficialDonChanTitleRequest $request,
+        TaikoTitleCatalog $catalog,
+    ): RedirectResponse {
+        $version = $request->attributes->get('taikoGameVersion');
+        if (! $version instanceof TaikoGameVersion || ! $version->supportsCostumeSlots()) {
+            abort(404);
+        }
+
+        $title = $catalog->find($version, (int) $request->validated('title_id'));
+        abort_if($title === null, 422);
+
+        $card = GameCard::query()
+            ->whereHas('player', fn ($query) => $query->where('user_id', $request->user()->id))
+            ->with('player')
+            ->first();
+
+        if ($card !== null) {
+            $cosmetic = PlayerCosmetic::resolve($card->player->baid, $version);
+            $cosmetic->title = $title['name'];
+            $cosmetic->titleplate_id = $title['plate'];
+            $cosmetic->unlocked_titles = collect($cosmetic->unlocked_titles ?? [])
+                ->map(fn (mixed $id): int => (int) $id)
+                ->push($title['id'])
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+            $cosmetic->save();
+        }
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Official title updated.')]);
 
         return to_route('costumes.edit');
     }
