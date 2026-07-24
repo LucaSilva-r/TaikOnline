@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\GameCard;
 use App\Models\Player;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -14,10 +15,21 @@ class CardIssueService
 
     public function issueAnonymous(): GameCard
     {
-        return DB::transaction(function (): GameCard {
+        return $this->issue();
+    }
+
+    public function issueFor(User $user): GameCard
+    {
+        return $this->issue($user);
+    }
+
+    private function issue(?User $user = null): GameCard
+    {
+        return DB::transaction(function () use ($user): GameCard {
             $player = Player::query()->create([
                 'access_token' => Str::random(32),
                 'person_id' => (string) Str::uuid(),
+                'user_id' => $user?->id,
             ]);
 
             return GameCard::query()->create([

@@ -92,7 +92,7 @@
                 />
                 <p class="text-sm text-muted-foreground">
                     Link an existing Zucchini-issued card while creating your
-                    account.
+                    account, or leave this blank to generate a new access code.
                 </p>
                 <InputError message={errors.access_code} />
             </div>

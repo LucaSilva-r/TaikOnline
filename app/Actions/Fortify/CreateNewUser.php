@@ -7,6 +7,7 @@ use App\Concerns\ProfileValidationRules;
 use App\Enums\UserRole;
 use App\Models\User;
 use App\Services\AccessCodeOwnershipService;
+use App\Services\CardIssueService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -16,7 +17,10 @@ class CreateNewUser implements CreatesNewUsers
 {
     use PasswordValidationRules, ProfileValidationRules;
 
-    public function __construct(private readonly AccessCodeOwnershipService $accessCodes) {}
+    public function __construct(
+        private readonly AccessCodeOwnershipService $accessCodes,
+        private readonly CardIssueService $cards,
+    ) {}
 
     /**
      * Validate and create a newly registered user.
@@ -45,6 +49,8 @@ class CreateNewUser implements CreatesNewUsers
 
             if (! empty($input['access_code'])) {
                 $this->accessCodes->claim($user, $input['access_code']);
+            } else {
+                $this->cards->issueFor($user);
             }
 
             return $user;

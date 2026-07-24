@@ -8,6 +8,7 @@ use Laravel\Fortify\Features;
 
 beforeEach(function () {
     $this->skipUnlessFortifyHas(Features::registration());
+    configure_nbgic_test_profiles();
 });
 
 test('registration screen can be rendered', function () {
@@ -27,6 +28,31 @@ test('new users can register', function () {
 
     $this->assertAuthenticated();
     $response->assertRedirect(route('home', absolute: false));
+
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
+    $player = $user->player()->with('card')->firstOrFail();
+
+    expect($player->card)->not->toBeNull()
+        ->and($player->card->access_code)->toMatch('/^[0-9]{20}$/')
+        ->and($player->access_token)->toHaveLength(32)
+        ->and($player->person_id)->not->toBeEmpty();
+});
+
+test('new users return to the play page after registering', function () {
+    $playUrl = route('play.create', ['taikoVersion' => 'green'], absolute: false);
+
+    $this->get($playUrl)->assertRedirect(route('login'));
+
+    $response = $this->post(route('register.store'), [
+        'name' => 'Play User',
+        'username' => 'playuser',
+        'email' => 'play@example.com',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect($playUrl);
 });
 
 test('username is stored lowercase and must be unique', function () {
@@ -97,7 +123,9 @@ test('new users can claim an issued access code during registration', function (
 
     $user = User::firstWhere('email', 'card@example.com');
 
-    expect($player->refresh()->user_id)->toBe($user->id);
+    expect($player->refresh()->user_id)->toBe($user->id)
+        ->and(Player::query()->where('user_id', $user->id)->count())->toBe(1)
+        ->and(GameCard::query()->where('baid', $player->baid)->count())->toBe(1);
 });
 
 test('registration rejects access codes that were not issued by the server', function () {

@@ -8,9 +8,9 @@ use App\Http\Controllers\Admin\SongController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\Green\OperatorController;
 use App\Http\Controllers\RankingController;
+use App\Http\Controllers\Settings\CabinetLoginController;
 use App\Http\Controllers\SongCatalogController;
 use Illuminate\Support\Facades\Route;
-use Laravel\Fortify\Features;
 
 Route::get('/', fn () => redirect('/'.TaikoGameVersion::default()->value));
 Route::any('rankings', fn () => abort(404));
@@ -27,15 +27,20 @@ $taikoVersionPattern = collect(TaikoGameVersion::cases())
 Route::prefix('{taikoVersion}')
     ->where(['taikoVersion' => $taikoVersionPattern])
     ->group(function (): void {
-        Route::inertia('/', 'Home', [
-            'canRegister' => Features::enabled(Features::registration()),
-        ])->name('home');
+        Route::inertia('/', 'Home')->name('home');
 
         Route::get('rankings', [RankingController::class, 'index'])->name('rankings');
         Route::get('songs', [SongCatalogController::class, 'index'])->name('songs.index');
         Route::get('songs/{song}', [SongCatalogController::class, 'show'])->name('songs.show');
         Route::inertia('community', 'Community')->name('community');
         Route::get('users/{user}/board', [BoardController::class, 'show'])->name('board.show');
+
+        Route::middleware('auth')->group(function (): void {
+            Route::get('play', [CabinetLoginController::class, 'create'])->name('play.create');
+            Route::post('play', [CabinetLoginController::class, 'store'])
+                ->middleware('throttle:cabinet-login')
+                ->name('play.store');
+        });
 
         Route::middleware(['auth', 'verified'])->group(function (): void {
             Route::post('songs/{song}/favorite', [SongCatalogController::class, 'toggleFavorite'])->name('songs.favorite');

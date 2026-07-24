@@ -19,7 +19,7 @@ test('profile page exposes linked access code', function () {
         ->assertInertia(fn ($page) => $page->where('accessCode', 'AC-123456'));
 });
 
-test('user can bind an access code', function () {
+test('user cannot bind an access code', function () {
     $user = User::factory()->create();
     $player = Player::query()->create();
     GameCard::query()->create([
@@ -28,47 +28,42 @@ test('user can bind an access code', function () {
     ]);
 
     $this->actingAs($user)
-        ->patch(route('access-code.update'), ['access_code' => 'AC-AAA'])
-        ->assertSessionHasNoErrors()
-        ->assertRedirect(route('profile.edit'));
+        ->patch('/green/settings/access-code', ['access_code' => 'AC-AAA'])
+        ->assertNotFound();
 
-    expect($player->refresh()->user_id)->toBe($user->id);
+    expect($player->refresh()->user_id)->toBeNull();
 });
 
-test('binding fails for invalid access code', function () {
+test('invalid access codes cannot be submitted from user settings', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
-        ->from(route('profile.edit'))
-        ->patch(route('access-code.update'), ['access_code' => 'NOPE'])
-        ->assertSessionHasErrors('access_code');
+        ->patch('/green/settings/access-code', ['access_code' => 'NOPE'])
+        ->assertNotFound();
 });
 
-test('user can bind a real mifare card not yet in the database', function () {
+test('users cannot bind a real mifare card not yet in the database', function () {
     configure_nbgic_test_profiles();
 
     $user = User::factory()->create();
     $accessCode = app(MifareAccessCodeService::class)->generate(profile: 0, cardId: 0xABCDEF01);
 
     $this->actingAs($user)
-        ->patch(route('access-code.update'), ['access_code' => $accessCode])
-        ->assertSessionHasNoErrors()
-        ->assertRedirect(route('profile.edit'));
+        ->patch('/green/settings/access-code', ['access_code' => $accessCode])
+        ->assertNotFound();
 
-    $card = GameCard::query()->findOrFail($accessCode);
-    expect(Player::query()->find($card->baid)?->user_id)->toBe($user->id);
+    expect(GameCard::query()->whereKey($accessCode)->exists())->toBeFalse();
 });
 
-test('binding fails for non-mifare access code not in database', function () {
+test('non-mifare access codes cannot be submitted from user settings', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
-        ->from(route('profile.edit'))
-        ->patch(route('access-code.update'), ['access_code' => '99999999999999999999'])
-        ->assertSessionHasErrors('access_code');
+        ->patch('/green/settings/access-code', ['access_code' => '99999999999999999999'])
+        ->assertNotFound();
 });
 
-test('binding fails when access code already linked to other user', function () {
+test('users cannot claim an access code linked to another user', function () {
     $owner = User::factory()->create();
     $other = User::factory()->create();
     $player = Player::query()->create(['user_id' => $owner->id]);
@@ -78,14 +73,13 @@ test('binding fails when access code already linked to other user', function () 
     ]);
 
     $this->actingAs($other)
-        ->from(route('profile.edit'))
-        ->patch(route('access-code.update'), ['access_code' => 'AC-OWNED'])
-        ->assertSessionHasErrors('access_code');
+        ->patch('/green/settings/access-code', ['access_code' => 'AC-OWNED'])
+        ->assertNotFound();
 
     expect($player->refresh()->user_id)->toBe($owner->id);
 });
 
-test('binding fails when user already has a linked code', function () {
+test('users cannot replace their linked access code', function () {
     $user = User::factory()->create();
     $existingPlayer = Player::query()->create(['user_id' => $user->id]);
     GameCard::query()->create([
@@ -100,14 +94,14 @@ test('binding fails when user already has a linked code', function () {
     ]);
 
     $this->actingAs($user)
-        ->from(route('profile.edit'))
-        ->patch(route('access-code.update'), ['access_code' => 'AC-NEW'])
-        ->assertSessionHasErrors('access_code');
+        ->patch('/green/settings/access-code', ['access_code' => 'AC-NEW'])
+        ->assertNotFound();
 
-    expect($newPlayer->refresh()->user_id)->toBeNull();
+    expect($existingPlayer->refresh()->user_id)->toBe($user->id)
+        ->and($newPlayer->refresh()->user_id)->toBeNull();
 });
 
-test('user can unbind their access code', function () {
+test('user cannot unbind their access code', function () {
     $user = User::factory()->create();
     $player = Player::query()->create(['user_id' => $user->id]);
     GameCard::query()->create([
@@ -116,9 +110,8 @@ test('user can unbind their access code', function () {
     ]);
 
     $this->actingAs($user)
-        ->delete(route('access-code.destroy'))
-        ->assertSessionHasNoErrors()
-        ->assertRedirect(route('profile.edit'));
+        ->delete('/green/settings/access-code')
+        ->assertNotFound();
 
-    expect($player->refresh()->user_id)->toBeNull();
+    expect($player->refresh()->user_id)->toBe($user->id);
 });

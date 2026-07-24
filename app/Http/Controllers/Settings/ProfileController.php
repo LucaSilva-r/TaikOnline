@@ -28,19 +28,10 @@ class ProfileController extends Controller
             ->whereHas('player', fn ($query) => $query->where('user_id', $request->user()->id))
             ->value('access_code');
 
-        // A card created from the dongle deep-links here as ?access_code=... so
-        // the bind form can be prefilled and confirmed in one step. Only honour
-        // it when the user has no code linked yet and it looks like a code.
-        $prefill = (string) $request->query('access_code', '');
-        $prefillAccessCode = ($accessCode === null && preg_match('/^\d{20}$/', $prefill) === 1)
-            ? $prefill
-            : null;
-
         return Inertia::render('settings/Profile', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
             'accessCode' => $accessCode,
-            'prefillAccessCode' => $prefillAccessCode,
             // QR encodes the bare 20-digit code (the exact payload Zucchini's
             // camera reader accepts) so it can be scanned in lieu of a card.
             'accessCodeQr' => $accessCode !== null ? $this->accessCodeQrSvg($accessCode) : null,
@@ -54,7 +45,7 @@ class ProfileController extends Controller
     {
         $renderer = new ImageRenderer(
             new RendererStyle(220, 1),
-            new SvgImageBackEnd()
+            new SvgImageBackEnd
         );
 
         $svg = (new Writer($renderer))->writeString($code);

@@ -1,7 +1,8 @@
 <script module lang="ts">
     export const layout = {
         title: 'Log in to your account',
-        description: 'Enter your username or email and password below to log in',
+        description:
+            'Enter your username or email and password below to log in',
     };
 </script>
 
@@ -26,12 +27,14 @@
         canRegister,
         signupAccessCode = null,
         signupVersion = null,
+        playIntent = false,
     }: {
         status?: string;
         canResetPassword: boolean;
         canRegister: boolean;
         signupAccessCode?: string | null;
         signupVersion?: string | null;
+        playIntent?: boolean;
     } = $props();
 
     // Forward a pending card access code (user was bounced here from the
@@ -39,13 +42,25 @@
     const registerHref = $derived(
         signupAccessCode
             ? register({
-                  query: { access_code: signupAccessCode, v: signupVersion ?? 'green' },
+                  query: {
+                      access_code: signupAccessCode,
+                      v: signupVersion ?? 'green',
+                  },
               })
             : register(),
     );
 </script>
 
 <AppHead title="Log in" />
+
+{#if playIntent}
+    <div
+        class="mb-4 rounded-md border border-[var(--taiko-accent-border)] bg-[var(--taiko-accent-soft)] p-3 text-center text-sm"
+    >
+        Log in to send your Banapass to a cabinet. You will return to the Play
+        page afterward.
+    </div>
+{/if}
 
 {#if status}
     <div class="mb-4 text-center text-sm font-medium text-green-600">

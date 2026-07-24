@@ -1,6 +1,6 @@
 <script module lang="ts">
-    import { edit } from '@/routes/profile';
     import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
+    import { edit } from '@/routes/profile';
 
     export const layout = {
         breadcrumbs: [
@@ -14,7 +14,6 @@
 
 <script lang="ts">
     import { Form, page } from '@inertiajs/svelte';
-    import AccessCodeController from '@/actions/App/Http/Controllers/Settings/AccessCodeController';
     import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
     import AppHead from '@/components/AppHead.svelte';
     import DeleteUser from '@/components/DeleteUser.svelte';
@@ -31,13 +30,11 @@
         mustVerifyEmail,
         status = '',
         accessCode = null,
-        prefillAccessCode = null,
         accessCodeQr = null,
     }: {
         mustVerifyEmail: boolean;
         status?: string;
         accessCode?: string | null;
-        prefillAccessCode?: string | null;
         accessCodeQr?: string | null;
     } = $props();
 
@@ -144,18 +141,8 @@
     <Heading
         variant="small"
         title="Banapassport access code"
-        description="Link an access code to view your arcade scores online. Only one code can be linked at a time."
+        description="Your permanent access code for playing and viewing arcade scores online."
     />
-
-    <div
-        class="rounded-md border border-blue-500/40 bg-blue-500/10 p-4 text-sm text-blue-700 dark:text-blue-300"
-    >
-        <strong>Physical MIFARE cards only.</strong> Only Banapassport cards with
-        a MIFARE chip are supported. Newer FELICA cards are <strong>not supported</strong>.
-        <br /><br />
-        You can identify a MIFARE card by its 20-digit numeric access code. The first
-        3 always start with (<code class="font-mono">300 to 309</code>),
-    </div>
 
     {#if accessCode}
         <div class="space-y-4">
@@ -178,61 +165,18 @@
                     </p>
                 </div>
             {/if}
-            <Form
-                {...AccessCodeController.destroy.form(taikoRouteParam())}
-                options={{ preserveScroll: true }}
-            >
-                {#snippet children({ processing })}
-                    <Button
-                        type="submit"
-                        variant="destructive"
-                        disabled={processing}
-                        data-test="unbind-access-code-button">Unlink</Button
-                    >
-                {/snippet}
-            </Form>
+            <p class="text-sm text-muted-foreground">
+                Access codes cannot be changed or unlinked from your profile.
+                Contact an administrator if your code needs to be replaced.
+            </p>
         </div>
     {:else}
-        {#if prefillAccessCode}
-            <div
-                class="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300"
-            >
-                You're about to link the access code from your newly created
-                card. Confirm below to claim it for this account — once linked,
-                nobody else can claim it.
-            </div>
-        {/if}
-
-        <Form
-            {...AccessCodeController.update.form(taikoRouteParam())}
-            class="space-y-6"
-            options={{ preserveScroll: true }}
-            resetOnSuccess
+        <div
+            class="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300"
         >
-            {#snippet children({ errors, processing })}
-                <div class="grid gap-2">
-                    <Label for="access_code">Access code</Label>
-                    <Input
-                        id="access_code"
-                        name="access_code"
-                        class="mt-1 block w-full"
-                        required
-                        value={prefillAccessCode ?? ''}
-                        placeholder="Enter the access code from your arcade card"
-                    />
-                    <InputError class="mt-2" message={errors.access_code} />
-                </div>
-
-                <div class="flex items-center gap-4">
-                    <Button
-                        type="submit"
-                        disabled={processing}
-                        data-test="bind-access-code-button"
-                        >{prefillAccessCode ? 'Confirm and link' : 'Link'}</Button
-                    >
-                </div>
-            {/snippet}
-        </Form>
+            This account does not have an access code. Contact an administrator
+            to assign one.
+        </div>
     {/if}
 </div>
 

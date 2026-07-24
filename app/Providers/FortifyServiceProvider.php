@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Enums\TaikoGameVersion;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -77,6 +78,7 @@ class FortifyServiceProvider extends ServiceProvider
                 'status' => $request->session()->get('status'),
                 'signupAccessCode' => $code,
                 'signupVersion' => $code !== null ? $version : null,
+                'playIntent' => $this->intendedForPlay($request),
             ]);
         });
 
@@ -141,6 +143,25 @@ class FortifyServiceProvider extends ServiceProvider
     private function validAccessCode(string $value): ?string
     {
         return preg_match('/^\d{20}$/', $value) === 1 ? $value : null;
+    }
+
+    private function intendedForPlay(Request $request): bool
+    {
+        $intended = (string) $request->session()->get('url.intended', '');
+        $path = (string) (parse_url($intended, PHP_URL_PATH) ?? '');
+        $segments = explode('/', trim($path, '/'));
+        $supportedScopes = [
+            ...array_map(
+                fn (TaikoGameVersion $version): string => $version->value,
+                TaikoGameVersion::cases(),
+            ),
+            'extra',
+            'all',
+        ];
+
+        return count($segments) === 2
+            && in_array($segments[0], $supportedScopes, true)
+            && $segments[1] === 'play';
     }
 
     private function sanitizeVersion(string $value): string
