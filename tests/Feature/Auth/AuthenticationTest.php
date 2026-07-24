@@ -34,6 +34,21 @@ test('users can authenticate using their username', function () {
     $response->assertRedirect(route('home', absolute: false));
 });
 
+test('users return to the play page after authenticating', function () {
+    $user = User::factory()->create();
+    $playUrl = route('play.create', ['taikoVersion' => 'green'], absolute: false);
+
+    $this->get($playUrl)->assertRedirect(route('login'));
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect($playUrl);
+});
+
 test('username login is case insensitive', function () {
     $user = User::factory()->create(['username' => 'taikofan']);
 

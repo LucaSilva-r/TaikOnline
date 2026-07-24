@@ -1,24 +1,20 @@
 <script lang="ts">
-    import { Link, page } from '@inertiajs/svelte';
+    import { Link } from '@inertiajs/svelte';
     import AppHead from '@/components/AppHead.svelte';
     import { buttonVariants } from '@/components/ui/button';
     import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
-    import { community, login, rankings, register } from '@/routes';
+    import { rankings } from '@/routes';
+    import { create as createPlay } from '@/routes/play';
 
-    let {
-        canRegister = true,
-    }: {
-        canRegister?: boolean;
-    } = $props();
-
-    const auth = $derived(page.props.auth);
     const taikoParam = taikoRouteParam();
 </script>
 
 <AppHead title="Home" />
 
-<section class="mx-auto flex w-full max-w-7xl flex-col items-center px-4 py-20 text-center">
+<section
+    class="mx-auto flex w-full max-w-7xl flex-col items-center px-4 py-20 text-center"
+>
     <h1 class="text-4xl font-bold tracking-tight sm:text-5xl">
         Welcome to TaikOnline
     </h1>
@@ -27,34 +23,17 @@
     </p>
 
     <div class="mt-8 flex flex-wrap justify-center gap-3">
-        {#if auth?.user}
-            <Link
-                href={toUrl(rankings(taikoParam))}
-                class={buttonVariants({ variant: 'default' })}
-            >
-                Browse Rankings
-            </Link>
-            <Link
-                href={toUrl(community(taikoParam))}
-                class={buttonVariants({ variant: 'outline' })}
-            >
-                Community
-            </Link>
-        {:else}
-            <Link
-                href={toUrl(login())}
-                class={buttonVariants({ variant: 'default' })}
-            >
-                Log in
-            </Link>
-            {#if canRegister}
-                <Link
-                    href={toUrl(register())}
-                    class={buttonVariants({ variant: 'outline' })}
-                >
-                    Sign up
-                </Link>
-            {/if}
-        {/if}
+        <Link
+            href={toUrl(createPlay(taikoParam))}
+            class={buttonVariants({ variant: 'default' })}
+        >
+            Play on cabinet
+        </Link>
+        <Link
+            href={toUrl(rankings(taikoParam))}
+            class={buttonVariants({ variant: 'outline' })}
+        >
+            Browse Rankings
+        </Link>
     </div>
 </section>

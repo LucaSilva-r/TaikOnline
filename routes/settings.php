@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Settings\AccessCodeController;
 use App\Http\Controllers\Settings\AvatarController;
 use App\Http\Controllers\Settings\CabinetController;
 use App\Http\Controllers\Settings\CostumeController;
@@ -15,9 +14,6 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
-
-    Route::patch('settings/access-code', [AccessCodeController::class, 'update'])->name('access-code.update');
-    Route::delete('settings/access-code', [AccessCodeController::class, 'destroy'])->name('access-code.destroy');
 
     Route::get('settings/customize', [CustomizeController::class, 'edit'])->name('customize.edit');
     Route::patch('settings/customize', [CustomizeController::class, 'update'])->name('customize.update');
@@ -45,6 +41,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('settings/cabinets/{cabinet}/config', [CabinetController::class, 'updateConfig'])->name('cabinets.config');
     Route::delete('settings/cabinets/{cabinet}', [CabinetController::class, 'destroy'])->name('cabinets.destroy');
     Route::get('settings/cabinets/{cabinet}/download', [CabinetController::class, 'download'])->name('cabinets.download');
+
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
