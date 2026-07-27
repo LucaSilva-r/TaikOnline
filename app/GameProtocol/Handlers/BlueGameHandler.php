@@ -24,7 +24,11 @@ class BlueGameHandler extends GameHandler
         $catalog = new ItemShopCatalog($game);
         $activeSeason = $catalog->getActiveSeason();
 
-        return $this->blueInitialDataCheckResponse($this->releaseSongFlag($game->value, $activeSeason), $catalog);
+        return $this->blueInitialDataCheckResponse(
+            $this->releaseSongFlag($game->value, $activeSeason),
+            $catalog,
+            $this->taikojukuInformationRows($game),
+        );
     }
 
     public function battleUserData(Request $request, TaikoGameVersion $game): Response
@@ -177,8 +181,14 @@ class BlueGameHandler extends GameHandler
         return $this->scoreMapper->idFlagBytes(array_unique($enabledIds), 16);
     }
 
-    private function blueInitialDataCheckResponse(string $releaseSongFlag, ItemShopCatalog $catalog): Response
-    {
+    /**
+     * @param  array<int, array{dan: int, verup_no: int}>  $taikojukuRows
+     */
+    private function blueInitialDataCheckResponse(
+        string $releaseSongFlag,
+        ItemShopCatalog $catalog,
+        array $taikojukuRows,
+    ): Response {
         $activeSeason = $catalog->getActiveSeason();
         $isItemShop = ($catalog->isEnabled && $activeSeason) ? 1 : 0;
 
@@ -187,6 +197,14 @@ class BlueGameHandler extends GameHandler
             $itemShopField = $this->protobufBytesField(9, $this->protobufMessage([
                 $this->protobufVarintField(1, $activeSeason['season_id']),
                 $this->protobufVarintField(2, $activeSeason['verup_no']),
+            ]));
+        }
+
+        $taikojukuFields = '';
+        foreach ($taikojukuRows as $row) {
+            $taikojukuFields .= $this->protobufBytesField(8, $this->protobufMessage([
+                $this->protobufVarintField(1, $row['dan']),
+                $this->protobufVarintField(2, $row['verup_no']),
             ]));
         }
 
@@ -199,6 +217,7 @@ class BlueGameHandler extends GameHandler
                 $this->protobufVarintField(1, 1),
                 $this->protobufVarintField(2, 2),
             ]))
+            .$taikojukuFields
             .$itemShopField
             .$this->protobufVarintField(10, 1)
             .$this->protobufVarintField(11, 0)

@@ -330,7 +330,7 @@ class PlayerProfileService
             'setRecommendBestSong' => $recommendSongs->take($isLegacy ? 5 : 10)->values()->all(),
             'setDispLevelSelf' => 0,
             'setDefaultOptionSetting' => $optionFlg,
-            'setDispTaikojukuDan' => $this->safeTaikojukuDan((int) $danProgress->disp_taikojuku_dan),
+            'setDispTaikojukuDan' => $this->safeTaikojukuDan($danProgress->normalizedDisplayDan()),
             'setDifficultyPlayedCourse' => (int) $player->difficulty_played_course,
             'setDifficultyPlayedStar' => (int) $player->difficulty_played_star,
             'setIsChallengecompe' => false,

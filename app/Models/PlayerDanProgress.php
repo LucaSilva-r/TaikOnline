@@ -89,7 +89,7 @@ class PlayerDanProgress extends Model
         // grade), not when an earlier session already had — otherwise a failed
         // replay of an already-cleared dan would wrongly bump the menu forward.
         $this->disp_taikojuku_dan = $this->isClear($grade)
-            ? min($danId + 1, self::MAX_NORMAL_DAN)
+            ? $this->normalizeDisplayDan(min($danId + 1, self::MAX_NORMAL_DAN), $buffer)
             : $this->normalizeDisplayDan((int) ($this->disp_taikojuku_dan ?: self::MIN_NORMAL_DAN), $buffer);
     }
 
@@ -116,6 +116,18 @@ class PlayerDanProgress extends Model
         }
 
         return $grades;
+    }
+
+    /**
+     * Return a client-safe display slot, advancing past ranks already cleared
+     * in the packed flag even when an older row stored a stale selection.
+     */
+    public function normalizedDisplayDan(): int
+    {
+        return $this->normalizeDisplayDan(
+            (int) ($this->disp_taikojuku_dan ?: self::MIN_NORMAL_DAN),
+            $this->flagBuffer(),
+        );
     }
 
     private function flagBuffer(): string
