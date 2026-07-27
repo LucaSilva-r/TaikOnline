@@ -209,6 +209,30 @@ test('only the first user can claim a displayed cabinet code', function (): void
         ->assertSessionHasErrors('code');
 });
 
+test('a cabinet that cannot classify its scene still gets a code', function (): void {
+    useCabinetPairingCodes(['654321']);
+
+    $payload = cabinetPairingPayload(pollCabinetPairing([
+        'cabinet_id' => '1234abcd',
+        'state' => 'unknown',
+        'accepting' => '1',
+    ])->assertOk());
+
+    expect($payload)
+        ->status->toBe('active')
+        ->code->toBe('654321');
+});
+
+test('a cabinet reporting a gameplay scene is still refused', function (): void {
+    $payload = cabinetPairingPayload(pollCabinetPairing([
+        'cabinet_id' => '1234abcd',
+        'state' => 'gameplay',
+        'accepting' => '1',
+    ])->assertOk());
+
+    expect($payload['status'])->toBe('closed');
+});
+
 test('closing the reader invalidates its displayed code', function (): void {
     useCabinetPairingCodes(['123456']);
     $user = createPairingUser('30800000000000000001');

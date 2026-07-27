@@ -33,7 +33,12 @@ class CabinetPairingService
         ?string $sessionToken,
         ?string $ackCommandId,
     ): array {
-        if (! $accepting || ! in_array($state, ['attract', 'shop'], true)) {
+        // 'unknown' is a cabinet that cannot classify its own scene: pre-Murasaki
+        // builds load every asset through std::ifstream, so the plugin's cellFsOpen
+        // hook never sees a path to classify. Those cabinets still gate locally on
+        // the card reader's own "waiting for a card" signal before polling with
+        // accepting=1, which is the same thing this check is approximating.
+        if (! $accepting || ! in_array($state, ['attract', 'shop', 'unknown'], true)) {
             $this->close($sessionToken);
 
             return $this->result('closed');
