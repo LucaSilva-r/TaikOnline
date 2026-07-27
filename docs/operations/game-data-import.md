@@ -30,11 +30,13 @@ Dumps nest a serial-id folder between the colour folder and `USRDIR`:
 
 The import resolves a version's file in its **own** colour dump:
 
-1. the base `data/musicmedleyinfo.xml` if present
-   (sorairo, momoiro, kimidori, blue, green);
-2. otherwise the `data/config/<board>/` variant whose folder name contains the
-   version's board number (murasaki 6100, white 7100, red 8100 — note red's folder
-   is `ST8100-7`, the suffix varies, yellow 9100).
+1. the `data/config/<board>/` variant whose folder name contains the version's
+   board number;
+2. otherwise the base `data/musicmedleyinfo.xml`.
+
+The order matters for Blue and Green: their base files contain the same legacy
+16-course catalog, while `S10100-1` and `S11100-1` contain the current 25 normal
+Dan slots. Other base-only eras continue to use their base file.
 
 > Do **not** read another dump's `config/<board>` file. Those are a newer cabinet's
 > view of an older board and differ — e.g. the green dump's murasaki board has 25
@@ -67,7 +69,7 @@ dump under, say, `/mnt/shared` is **not** visible inside it. Two options:
 A full import of the reference dumps yields, per version:
 
 ```
-sorairo 5 · momoiro 15 · kimidori 16 · murasaki 22 · white 25 · red 25 · yellow 25 · blue 16 · green 16
+sorairo 5 · momoiro 15 · kimidori 16 · murasaki 22 · white 25 · red 25 · yellow 25 · blue 25 · green 25
 ```
 
 Course counts grow with the release era, which matches the games' history.

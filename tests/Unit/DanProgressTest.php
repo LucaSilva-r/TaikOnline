@@ -45,3 +45,15 @@ it('ignores dan ids outside the normal 1..25 range', function (): void {
 
     expect((int) $progress->got_dan_max)->toBe(0);
 });
+
+it('does not rewind the display slot when replaying a lower cleared dan', function (): void {
+    $progress = dan_progress();
+    $progress->recordDanPlay(1, PlayerDanProgress::GRADE_GOLD_CLEAR);
+    $progress->recordDanPlay(2, PlayerDanProgress::GRADE_GOLD_CLEAR);
+    $progress->recordDanPlay(3, PlayerDanProgress::GRADE_GOLD_CLEAR);
+
+    $progress->recordDanPlay(2, PlayerDanProgress::GRADE_GOLD_CLEAR);
+
+    expect((int) $progress->disp_taikojuku_dan)->toBe(4)
+        ->and($progress->normalizedDisplayDan())->toBe(4);
+});

@@ -4,6 +4,7 @@ use App\Enums\SongGenre;
 use App\Enums\SongPartsSet;
 use App\Enums\SongWai2PartsSet;
 use App\Enums\TaikoGameVersion;
+use App\GameProtocol\Proto\Blue\Taiko\InitialdatacheckResponse as BlueInitialdatacheckResponse;
 use App\GameProtocol\Proto\Green\Taiko\BAIDRequest;
 use App\GameProtocol\Proto\Green\Taiko\BAIDResponse;
 use App\GameProtocol\Proto\Green\Taiko\BookKeepingRequest;
@@ -60,6 +61,7 @@ use App\Models\DanCourse;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
+use App\Models\PlayerDanProgress;
 use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
@@ -311,6 +313,35 @@ it('returns default released songs during initial data check', function (): void
         ->and(ord($response->getHashDefaultSongFlg()[1]))->toBe(0);
 });
 
+it('advertises version-scoped dan course revisions during initial data check', function (): void {
+    create_song('green', 628);
+    create_song('blue', 629);
+
+    DanCourse::query()->create([
+        'version' => 'green', 'dan' => 5, 'unique_id' => 20008, 'name' => '1kyu', 'difficulty' => 3, 'verup_no' => 77,
+    ])->songs()->create(['song_no' => 628, 'level' => 3, 'sort_order' => 0]);
+    DanCourse::query()->create([
+        'version' => 'blue', 'dan' => 6, 'unique_id' => 20010, 'name' => 'shodan', 'difficulty' => 3, 'verup_no' => 88,
+    ])->songs()->create(['song_no' => 629, 'level' => 4, 'sort_order' => 0]);
+
+    $request = (new InitialdatacheckRequest)
+        ->setChassisId('chassis')
+        ->setShopId('shop');
+
+    $green = post_protobuf('/v11r01/chassis/initialdatacheck.php', $request, InitialdatacheckResponse::class);
+    $blue = post_protobuf('/v10r00/chassis/initialdatacheck.php', $request, BlueInitialdatacheckResponse::class);
+
+    $greenRows = iterator_to_array($green->getAryTaikojukuData());
+    $blueRows = iterator_to_array($blue->getAryTaikojukuData());
+
+    expect($greenRows)->toHaveCount(1)
+        ->and($greenRows[0]->getInfoId())->toBe(5)
+        ->and($greenRows[0]->getVerupNo())->toBe(77)
+        ->and($blueRows)->toHaveCount(1)
+        ->and($blueRows[0]->getInfoId())->toBe(6)
+        ->and($blueRows[0]->getVerupNo())->toBe(88);
+});
+
 it('uses the blue catalog for blue power on route revisions', function (): void {
     create_song('green', 1);
     create_song('blue', 9);
@@ -366,6 +397,26 @@ it('sends the safe disp_taikojuku_dan sentinel to avoid a client crash', functio
 
     // 0 / wire-absent underflows Taikojuku_GetDanSlotSongRange and crashes the client.
     expect($response->getDispTaikojukuDan())->toBe(1);
+});
+
+it('advances a stale displayed dan past ranks already cleared in its flag', function (): void {
+    create_song('green', 1);
+    $player = Player::query()->create();
+    PlayerDanProgress::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'green',
+        // Gold clears for slots 1, 2 and 3.
+        'got_dan_flg' => "\x3f",
+        'got_dan_max' => 3,
+        'disp_taikojuku_dan' => 3,
+    ]);
+
+    $response = post_protobuf('/v11r01/chassis/userdata.php', (new UserDataRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop'), UserDataResponse::class);
+
+    expect($response->getDispTaikojukuDan())->toBe(4);
 });
 
 it('supports the reference green optional game endpoints', function (): void {
@@ -1152,6 +1203,11 @@ it('returns version-scoped title and title plate on baid', function (): void {
 });
 
 it('serves dan dojo courses for requested dan slots', function (): void {
+    create_song('green', 628);
+    create_song('green', 94);
+    create_song('green', 686);
+    create_song('green', 372);
+
     $dan5 = DanCourse::query()->create([
         'version' => 'green', 'dan' => 5, 'unique_id' => 20008, 'name' => '1kyu', 'difficulty' => 3, 'verup_no' => 1,
     ]);
@@ -1181,10 +1237,53 @@ it('serves dan dojo courses for requested dan slots', function (): void {
         ->and($songs[0]->getLevel())->toBe(2)
         ->and($songs[2]->getSongNo())->toBe(686);
 
-    // No requested slots returns every course for the version.
+    // No requested slots means the cabinet has not queued any catalog updates.
     $all = post_protobuf('/v11r01/chassis/taikojuku.php', (new TaikojukuRequest)
         ->setChassisId('chassis')->setShopId('shop'), TaikojukuResponse::class);
-    expect(iterator_to_array($all->getAryJukupackData()))->toHaveCount(2);
+    expect(iterator_to_array($all->getAryJukupackData()))->toHaveCount(0);
+});
+
+it('filters invalid dan course songs before sending them to a cabinet', function (): void {
+    create_song('green', 628);
+    create_song('green', 94);
+
+    DanCourse::query()->create([
+        'version' => 'green', 'dan' => 5, 'unique_id' => 20008, 'name' => '1kyu', 'difficulty' => 3, 'verup_no' => 7,
+    ])->songs()->createMany([
+        ['song_no' => 628, 'level' => 3, 'sort_order' => 0],
+        ['song_no' => 999, 'level' => 3, 'sort_order' => 1],
+        ['song_no' => 94, 'level' => 6, 'sort_order' => 2],
+    ]);
+
+    $response = post_protobuf('/v11r01/chassis/taikojuku.php', (new TaikojukuRequest)
+        ->setChassisId('chassis')->setShopId('shop')->setGetDan([5]), TaikojukuResponse::class);
+
+    $packs = iterator_to_array($response->getAryJukupackData());
+    $songs = iterator_to_array($packs[0]->getAryJukusongData());
+
+    expect($packs)->toHaveCount(1)
+        ->and($songs)->toHaveCount(1)
+        ->and($songs[0]->getSongNo())->toBe(628)
+        ->and($songs[0]->getLevel())->toBe(3);
+});
+
+it('returns deterministic safe packs for an all-invalid dan request', function (): void {
+    foreach ([10, 20, 30, 40, 50, 60] as $songNo) {
+        create_song('green', $songNo);
+    }
+
+    $response = post_protobuf('/v11r01/chassis/taikojuku.php', (new TaikojukuRequest)
+        ->setChassisId('chassis')->setShopId('shop')->setGetDan([101, 102]), TaikojukuResponse::class);
+
+    $packs = iterator_to_array($response->getAryJukupackData());
+
+    expect($packs)->toHaveCount(2)
+        ->and($packs[0]->getGetDan())->toBe(1)
+        ->and($packs[0]->getAryJukusongData()[0]->getSongNo())->toBe(10)
+        ->and($packs[0]->getAryJukusongData()[0]->getLevel())->toBe(1)
+        ->and($packs[1]->getGetDan())->toBe(2)
+        ->and($packs[1]->getAryJukusongData()[0]->getSongNo())->toBe(40)
+        ->and($packs[1]->getAryJukusongData()[0]->getLevel())->toBe(2);
 });
 
 it('scopes dan dojo courses to the requesting version', function (): void {

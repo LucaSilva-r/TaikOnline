@@ -40,6 +40,18 @@ use Illuminate\Support\Facades\DB;
  */
 class GameHandler
 {
+    private const MAX_TAIKOJUKU_REQUEST_SLOTS = 11;
+
+    private const MAX_TAIKOJUKU_SONGS = 10;
+
+    private const MIN_NORMAL_DAN = 1;
+
+    private const MAX_NORMAL_DAN = 25;
+
+    private const MIN_COURSE_LEVEL = 1;
+
+    private const MAX_COURSE_LEVEL = 5;
+
     public function __construct(
         protected readonly ProtocolPayloads $payloads,
         protected readonly ProtocolMessageResolver $messages,
@@ -94,6 +106,16 @@ class GameHandler
             ]);
         }
 
+        $taikojukuData = collect($this->taikojukuInformationRows($game))
+            ->map(fn (array $row): Message => $this->writer->fill(
+                $this->messages->make($game, 'InitialdatacheckResponse\\InformationData'),
+                [
+                    'setInfoId' => $row['dan'],
+                    'setVerupNo' => $row['verup_no'],
+                ],
+            ))
+            ->all();
+
         return $this->payloads->response(
             $this->writer->fill($this->messages->make($game, 'InitialdatacheckResponse'), [
                 'setResult' => 1,
@@ -105,7 +127,7 @@ class GameHandler
                 'setHashMainichidojoRare' => $this->scoreMapper->emptyFlagBytes(128),
                 'setAryTelopData' => [$information],
                 'setAryEventfolderData' => [],
-                'setAryTaikojukuData' => [],
+                'setAryTaikojukuData' => $taikojukuData,
                 'setAryItemshopData' => $itemShopData,
                 'setIsDanplay' => true,
                 'setIsClose' => false,
@@ -469,37 +491,95 @@ class GameHandler
     {
         $message = $this->parse($request, $game, 'TaikojukuRequest');
 
-        $requested = collect($message->getGetDan())
+        $rawRequested = collect($message->getGetDan())
+            ->take(self::MAX_TAIKOJUKU_REQUEST_SLOTS)
             ->map(fn (mixed $dan): int => (int) $dan)
-            ->filter(fn (int $dan): bool => $dan >= 1 && $dan <= 25)
             ->values();
 
-        $query = DanCourse::query()
-            ->with('songs')
-            ->where('version', $game->value)
-            ->orderBy('dan');
+        $requested = $rawRequested
+            ->filter(fn (int $dan): bool => $dan >= self::MIN_NORMAL_DAN && $dan <= self::MAX_NORMAL_DAN)
+            ->unique()
+            ->values();
 
-        if ($requested->isNotEmpty()) {
-            $query->whereIn('dan', $requested->all());
+        // Some clients send placeholder/out-of-range values while still
+        // expecting one response pack per requested slot.
+        if ($requested->isEmpty() && $rawRequested->isNotEmpty()) {
+            $requested = collect(range(1, $rawRequested->count()));
         }
 
-        $packs = $query->get()
-            ->map(fn (DanCourse $course): Message => $this->writer->fill(
-                $this->messages->make($game, 'TaikojukuResponse\\JukupackData'),
-                [
-                    'setGetDan' => (int) $course->dan,
-                    'setVerupNo' => (int) $course->verup_no,
-                    'setAryJukusongData' => $course->songs
-                        ->map(fn (DanCourseSong $song): Message => $this->writer->fill(
-                            $this->messages->make($game, 'TaikojukuResponse\\JukupackData\\JukusongData'),
-                            [
-                                'setSongNo' => (int) $song->song_no,
-                                'setLevel' => (int) $song->level,
-                            ],
-                        ))
-                        ->all(),
-                ],
-            ))
+        $validSongNumbers = Song::query()
+            ->where('version', $game->value)
+            ->pluck('song_no')
+            ->map(fn (mixed $dan): int => (int) $dan)
+            ->flip();
+
+        $courses = DanCourse::query()
+            ->with('songs')
+            ->where('version', $game->value)
+            ->whereIn('dan', $requested->all())
+            ->get()
+            ->keyBy('dan');
+
+        $fallbackSongs = Song::query()
+            ->where('version', $game->value)
+            ->orderBy('id')
+            ->pluck('song_no')
+            ->map(fn (mixed $songNo): int => (int) $songNo)
+            ->values();
+
+        $packs = $requested
+            ->map(function (int $dan, int $index) use ($courses, $fallbackSongs, $game, $validSongNumbers): ?Message {
+                /** @var DanCourse|null $course */
+                $course = $courses->get($dan);
+                $verupNo = 0;
+
+                if ($course instanceof DanCourse) {
+                    $verupNo = (int) $course->verup_no;
+                    $songs = $course->songs
+                        ->filter(fn (DanCourseSong $song): bool => $validSongNumbers->has((int) $song->song_no))
+                        ->filter(fn (DanCourseSong $song): bool => (int) $song->level >= self::MIN_COURSE_LEVEL
+                            && (int) $song->level <= self::MAX_COURSE_LEVEL)
+                        ->take(self::MAX_TAIKOJUKU_SONGS)
+                        ->map(fn (DanCourseSong $song): array => [
+                            'song_no' => (int) $song->song_no,
+                            'level' => (int) $song->level,
+                        ])
+                        ->values();
+                } else {
+                    $songs = $fallbackSongs->skip($index * 3)->take(3);
+                    if ($songs->isEmpty()) {
+                        $songs = $fallbackSongs->take(3);
+                    }
+                    $level = min(self::MAX_COURSE_LEVEL, self::MIN_COURSE_LEVEL + $index);
+                    $songs = $songs->map(fn (int $songNo): array => [
+                        'song_no' => $songNo,
+                        'level' => $level,
+                    ]);
+                }
+
+                if ($songs->isEmpty()) {
+                    return null;
+                }
+
+                return $this->writer->fill(
+                    $this->messages->make($game, 'TaikojukuResponse\\JukupackData'),
+                    [
+                        'setGetDan' => $dan,
+                        'setVerupNo' => $verupNo,
+                        'setAryJukusongData' => $songs
+                            ->map(fn (array $song): Message => $this->writer->fill(
+                                $this->messages->make($game, 'TaikojukuResponse\\JukupackData\\JukusongData'),
+                                [
+                                    'setSongNo' => $song['song_no'],
+                                    'setLevel' => $song['level'],
+                                ],
+                            ))
+                            ->all(),
+                    ],
+                );
+            })
+            ->filter()
+            ->values()
             ->all();
 
         return $this->payloads->response(
@@ -508,6 +588,24 @@ class GameHandler
                 'setAryJukupackData' => $packs,
             ])
         );
+    }
+
+    /**
+     * @return array<int, array{dan: int, verup_no: int}>
+     */
+    protected function taikojukuInformationRows(TaikoGameVersion $game): array
+    {
+        return DanCourse::query()
+            ->where('version', $game->value)
+            ->whereBetween('dan', [self::MIN_NORMAL_DAN, self::MAX_NORMAL_DAN])
+            ->whereHas('songs')
+            ->orderBy('dan')
+            ->get(['dan', 'verup_no'])
+            ->map(fn (DanCourse $course): array => [
+                'dan' => (int) $course->dan,
+                'verup_no' => (int) $course->verup_no,
+            ])
+            ->all();
     }
 
     public function getGhostData(Request $request, TaikoGameVersion $game): Response

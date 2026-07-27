@@ -63,10 +63,8 @@ class ImportDanCoursesCommand extends Command
     }
 
     /**
-     * Copy this version's musicmedleyinfo.xml out of a dump into the canonical
-     * storage location. Each version's authoritative dan data lives in its OWN
-     * colour dump (the config/<board> variants in other dumps are a newer
-     * cabinet's view of an older board and differ).
+     * Copy this version's musicmedleyinfo.xml out of its own colour dump into
+     * the canonical storage location.
      */
     private function syncFromSource(string $source, string $dataPath, TaikoGameVersion $version): bool
     {
@@ -131,37 +129,33 @@ class ImportDanCoursesCommand extends Command
     }
 
     /**
-     * Pick the version's own dan datatable: the base file when present, else the
-     * config/<board> variant matching this version's board number (the suffix
-     * varies, e.g. ST8100-7 for red).
+     * Pick the board-specific datatable when it exists. Green and Blue retain a
+     * legacy base file beside their current-board config, so preferring the base
+     * file silently imports the same stale 16-course catalog for both games.
      */
     private function locateMedleyFile(string $dataDir, TaikoGameVersion $version): ?string
     {
-        if (is_file("{$dataDir}/musicmedleyinfo.xml")) {
-            return "{$dataDir}/musicmedleyinfo.xml";
-        }
-
         $configDir = "{$dataDir}/config";
-        if (! is_dir($configDir)) {
-            return null;
-        }
+        if (is_dir($configDir)) {
+            // Board number is the NNN before "100" in the update identifier,
+            // e.g. ST8100-1 => 8100, ST-11100-1 => 11100.
+            preg_match('/(\d+)100/', $version->updateIdentifier(), $matches);
+            $board = ($matches[1] ?? '').'100';
 
-        // Board number is the NNN before "100" in the update identifier, e.g.
-        // ST8100-1 => 8100, ST-11100-1 => 11100.
-        preg_match('/(\d+)100/', $version->updateIdentifier(), $matches);
-        $board = ($matches[1] ?? '').'100';
-
-        foreach (scandir($configDir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $file = "{$configDir}/{$entry}/musicmedleyinfo.xml";
-            if (str_contains($entry, $board) && is_file($file)) {
-                return $file;
+            foreach (scandir($configDir) ?: [] as $entry) {
+                if ($entry === '.' || $entry === '..') {
+                    continue;
+                }
+                $file = "{$configDir}/{$entry}/musicmedleyinfo.xml";
+                if (str_contains($entry, $board) && is_file($file)) {
+                    return $file;
+                }
             }
         }
 
-        return null;
+        $baseFile = "{$dataDir}/musicmedleyinfo.xml";
+
+        return is_file($baseFile) ? $baseFile : null;
     }
 
     private function importVersion(string $dataPath, TaikoGameVersion $version): ?int
@@ -189,7 +183,12 @@ class ImportDanCoursesCommand extends Command
 
         $courses = $xml->MusicMedleyInfoData ?? [];
 
-        return DB::transaction(function () use ($courses, $version): int {
+        // Any import is a new server-side catalog revision. Advertising this
+        // value during initialDataCheck makes cabinets refresh taikojuku.bin
+        // instead of continuing to use a stale cached pack.
+        $verupNo = time();
+
+        return DB::transaction(function () use ($courses, $version, $verupNo): int {
             // Re-import is authoritative: drop the version's courses (cascades to
             // songs) and rebuild from the datatable.
             DanCourse::query()->where('version', $version->value)->delete();
@@ -210,7 +209,9 @@ class ImportDanCoursesCommand extends Command
 
                     $songs[] = [
                         'song_no' => $songNo,
-                        'level' => (int) $content->difficulty,
+                        // XML difficulty is zero-based; the protocol enum is
+                        // 1=Easy through 5=Ura Oni.
+                        'level' => (int) $content->difficulty + 1,
                         'sort_order' => count($songs),
                     ];
                 }
@@ -225,7 +226,7 @@ class ImportDanCoursesCommand extends Command
                     'unique_id' => (int) $course->uniqueid,
                     'name' => (string) $course->medleyname,
                     'difficulty' => (int) $course->difficulty,
-                    'verup_no' => 1,
+                    'verup_no' => $verupNo,
                 ]);
 
                 $record->songs()->createMany($songs);
