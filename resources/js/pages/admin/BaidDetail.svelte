@@ -13,6 +13,7 @@
     import { Form } from '@inertiajs/svelte';
     import AppHead from '@/components/AppHead.svelte';
     import { Button } from '@/components/ui/button';
+    import BaidAccessCodeTransfer from '@/components/BaidAccessCodeTransfer.svelte';
     import OperatorController from '@/actions/App/Http/Controllers/Green/OperatorController';
 
     type Result = {
@@ -88,6 +89,10 @@
             {/snippet}
         </Form>
     </div>
+
+    <section class="rounded-md border p-4">
+        <BaidAccessCodeTransfer baid={player.baid} accessCode={player.access_code} />
+    </section>
 
     <div class="grid gap-4 lg:grid-cols-2">
         <section class="rounded-md border">

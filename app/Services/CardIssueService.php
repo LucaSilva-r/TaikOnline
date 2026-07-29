@@ -41,29 +41,77 @@ class CardIssueService
 
     public function rotate(Player $player): GameCard
     {
-        return DB::transaction(function () use ($player): GameCard {
+        return DB::transaction(fn (): GameCard => $this->swapAccessCode($player, $this->unusedAccessCode()), attempts: 3);
+    }
+
+    /**
+     * Move a BAID onto a different access code, keeping the BAID number and
+     * therefore every score, best, cosmetic and token tied to it. Used when a
+     * player swaps an emulated card for a real banapassport.
+     */
+    public function replace(Player $player, string $newAccessCode): GameCard
+    {
+        return DB::transaction(function () use ($player, $newAccessCode): GameCard {
+            $conflict = GameCard::query()
+                ->whereKey($newAccessCode)
+                ->lockForUpdate()
+                ->first();
+
+            if ($conflict instanceof GameCard && (int) $conflict->baid !== (int) $player->baid) {
+                throw new RuntimeException(
+                    "That access code already belongs to BAID {$conflict->baid}. Delete that BAID first, then retry."
+                );
+            }
+
+            if ($conflict instanceof GameCard) {
+                return $conflict;
+            }
+
+            return $this->swapAccessCode($player, $newAccessCode);
+        }, attempts: 3);
+    }
+
+    /**
+     * Drop the BAID's access code and account link so the data survives as an
+     * anonymous BAID that nobody can tap into and no account owns.
+     */
+    public function unlink(Player $player): void
+    {
+        DB::transaction(function () use ($player): void {
             $player = Player::query()
                 ->whereKey($player->baid)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $card = GameCard::query()
-                ->where('baid', $player->baid)
-                ->lockForUpdate()
-                ->first();
+            GameCard::query()->where('baid', $player->baid)->delete();
 
-            if (! $card instanceof GameCard) {
-                throw new RuntimeException('This user does not have a linked access code.');
+            if ($player->user_id !== null) {
+                $player->update(['user_id' => null]);
             }
-
-            $newAccessCode = $this->unusedAccessCode();
-
-            GameCard::query()
-                ->whereKey($card->access_code)
-                ->update(['access_code' => $newAccessCode]);
-
-            return GameCard::query()->findOrFail($newAccessCode);
         }, attempts: 3);
+    }
+
+    private function swapAccessCode(Player $player, string $newAccessCode): GameCard
+    {
+        $player = Player::query()
+            ->whereKey($player->baid)
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        $card = GameCard::query()
+            ->where('baid', $player->baid)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $card instanceof GameCard) {
+            throw new RuntimeException('This user does not have a linked access code.');
+        }
+
+        GameCard::query()
+            ->whereKey($card->access_code)
+            ->update(['access_code' => $newAccessCode]);
+
+        return GameCard::query()->findOrFail($newAccessCode);
     }
 
     private function unusedAccessCode(): string

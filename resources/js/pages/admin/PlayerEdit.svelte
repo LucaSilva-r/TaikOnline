@@ -19,6 +19,7 @@
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
+    import BaidAccessCodeTransfer from '@/components/BaidAccessCodeTransfer.svelte';
     import { taikoRouteParam } from '@/lib/taiko-version';
     import playersRoutes from '@/routes/admin/players';
 
@@ -37,10 +38,12 @@
         user,
         roles,
         accessCode = null,
+        baid = null,
     }: {
         user: AdminUser;
         roles: RoleOption[];
         accessCode?: string | null;
+        baid?: number | null;
     } = $props();
 
     const currentUserId = $derived(page.props.auth.user.id);
@@ -181,58 +184,16 @@
     <Heading
         variant="small"
         title="Banapassport access code"
-        description="Link or unlink this user's arcade card. Only one card can be linked at a time."
+        description="Manage this user's arcade card. Only one card can be bound at a time."
     />
 
-    {#if accessCode}
-        <div class="max-w-xl space-y-4">
-            <div class="grid gap-2">
-                <Label>Linked access code</Label>
-                <Input value={accessCode} readonly class="mt-1 block w-full" />
-            </div>
-            <div class="flex flex-wrap gap-3">
-                <Form
-                    {...PlayerController.rotateAccessCode.form({ ...taikoRouteParam(), user: user.id })}
-                    options={{ preserveScroll: true }}
-                >
-                    {#snippet children({ errors, processing })}
-                        <Button
-                            type="submit"
-                            variant="outline"
-                            disabled={processing}
-                            onclick={(event: Event) => {
-                                if (!confirm('Rotate this access code?')) {
-                                    event.preventDefault();
-                                }
-                            }}
-                        >
-                            Rotate
-                        </Button>
-                        <InputError class="mt-2" message={errors.access_code} />
-                    {/snippet}
-                </Form>
-
-                <Form
-                    {...PlayerController.unbindAccessCode.form({ ...taikoRouteParam(), user: user.id })}
-                    options={{ preserveScroll: true }}
-                >
-                    {#snippet children({ processing })}
-                        <Button
-                            type="submit"
-                            variant="destructive"
-                            disabled={processing}
-                            onclick={(event: Event) => {
-                                if (!confirm('Unlink this access code?')) {
-                                    event.preventDefault();
-                                }
-                            }}
-                        >
-                            Unlink
-                        </Button>
-                    {/snippet}
-                </Form>
-            </div>
-        </div>
+    {#if accessCode && baid !== null}
+        <BaidAccessCodeTransfer
+            {baid}
+            {accessCode}
+            rotateForm={PlayerController.rotateAccessCode.form({ ...taikoRouteParam(), user: user.id })}
+            unbindForm={PlayerController.unbindAccessCode.form({ ...taikoRouteParam(), user: user.id })}
+        />
     {:else}
         <Form
             {...PlayerController.bindAccessCode.form({ ...taikoRouteParam(), user: user.id })}

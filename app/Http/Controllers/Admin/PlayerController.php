@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\PlayerAccessCodeBindRequest;
 use App\Http\Requests\Admin\PlayerPasswordUpdateRequest;
 use App\Http\Requests\Admin\PlayerUpdateRequest;
-use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\User;
 use App\Services\AccessCodeOwnershipService;
@@ -45,9 +44,7 @@ class PlayerController extends Controller
 
     public function edit(User $user): Response
     {
-        $accessCode = GameCard::query()
-            ->whereHas('player', fn ($query) => $query->where('user_id', $user->id))
-            ->value('access_code');
+        $player = Player::query()->where('user_id', $user->id)->with('card')->first();
 
         return Inertia::render('admin/PlayerEdit', [
             'user' => [
@@ -61,7 +58,8 @@ class PlayerController extends Controller
                 'value' => $role->value,
                 'label' => $role->label(),
             ]),
-            'accessCode' => $accessCode,
+            'accessCode' => $player?->card?->access_code,
+            'baid' => $player?->baid,
         ]);
     }
 

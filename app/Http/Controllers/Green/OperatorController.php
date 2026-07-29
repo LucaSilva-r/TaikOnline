@@ -4,16 +4,20 @@ namespace App\Http\Controllers\Green;
 
 use App\GameProtocol\Support\GameDataCatalog;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\BaidAccessCodeReplaceRequest;
 use App\Models\Player;
 use App\Models\PlayerRankSnapshot;
 use App\Models\PlayerVersionStats;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
+use App\Services\CardIssueService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class OperatorController extends Controller
 {
@@ -123,6 +127,38 @@ class OperatorController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('BAID and all associated data deleted.')]);
 
         return to_route('admin.baids.index');
+    }
+
+    /**
+     * Point this BAID at a different access code. The BAID number is untouched,
+     * so every score, best, cosmetic and token carries over to the new card.
+     */
+    public function replaceAccessCode(BaidAccessCodeReplaceRequest $request, Player $player, CardIssueService $cards): RedirectResponse
+    {
+        try {
+            $cards->replace($player, $request->validated('access_code'));
+        } catch (RuntimeException $exception) {
+            throw ValidationException::withMessages([
+                'access_code' => $exception->getMessage(),
+            ]);
+        }
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Access code replaced. All data stayed on this BAID.')]);
+
+        return back();
+    }
+
+    /**
+     * Detach the access code and the owning account from this BAID, leaving the
+     * data intact as an anonymous BAID that nobody can tap into.
+     */
+    public function unlinkAccessCode(Player $player, CardIssueService $cards): RedirectResponse
+    {
+        $cards->unlink($player);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Access code unlinked. This BAID is now anonymous.')]);
+
+        return back();
     }
 
     /**
