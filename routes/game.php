@@ -3,6 +3,7 @@
 use App\Http\Controllers\Green\AllNetController;
 use App\Http\Controllers\Green\GameProtocolController;
 use App\Http\Controllers\Green\VsInterfaceController;
+use App\Http\Controllers\TaikoPlusTicketController;
 use App\Http\Controllers\ZucchiniCardController;
 use App\Http\Controllers\ZucchiniExtraBestController;
 use App\Http\Controllers\ZucchiniPairingController;
@@ -20,6 +21,9 @@ Route::post('api/zucchini/extra/bests', ZucchiniExtraBestController::class)
     ->middleware(['zucchini.token', 'throttle:zucchini-extra']);
 
 Route::post('api/zucchini/pairing', ZucchiniPairingController::class)
+    ->middleware(['zucchini.token', 'throttle:zucchini-pairing']);
+
+Route::post('api/taikoplus/ticket', TaikoPlusTicketController::class)
     ->middleware(['zucchini.token', 'throttle:zucchini-pairing']);
 
 Route::middleware(LogGreenCabinetTraffic::class)->group(function () use ($protocolVersionPattern): void {

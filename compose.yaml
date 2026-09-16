@@ -55,6 +55,21 @@ services:
             - pgsql
         restart: unless-stopped
 
+    taikoplus-relay:
+        image: 'oven/bun:1'
+        working_dir: /app
+        command: ['bun', 'run', 'relay.ts']
+        environment:
+            TAIKOPLUS_RELAY_SECRET: '${TAIKOPLUS_RELAY_SECRET}'
+            PORT: 8090
+        expose:
+            - '8090'
+        volumes:
+            - './docker/taikoplus-relay:/app:ro'
+        networks:
+            - sail
+        restart: unless-stopped
+
     tls-proxy:
         build:
             context: './docker/tls-proxy'
@@ -67,6 +82,7 @@ services:
             - sail
         depends_on:
             - laravel.test
+            - taikoplus-relay
         restart: unless-stopped
 
     pgsql:
