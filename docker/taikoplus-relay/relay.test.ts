@@ -63,6 +63,9 @@ test('two players reach the same start deadline and exchange hits', async () => 
     a.send({ type: 'hit', hits: [[1, 1234, 2]] });
     expect((await b.next('hit')).hits).toEqual([[1, 1234, 2]]);
 
+    b.send({ type: 'sync', song: 1500.5, server: 123 });
+    expect(await a.next('sync')).toMatchObject({ song: 1500.5, server: 123 });
+
     b.ws.close();
     expect((await a.next('peer_left')).id).toBeDefined();
     a.ws.close();

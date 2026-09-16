@@ -195,6 +195,11 @@ export function startRelay(secret: string, port: number): Server {
         final(ws, m) {
             if (ws.data.room && ws.data.room.phase !== 'lobby') others(ws, { type: 'final', totals: m.totals });
         },
+        // Song clock samples for aligning the two songs: {song ms, server ms}.
+        sync(ws, m) {
+            if (ws.data.room?.phase === 'playing' && Number.isFinite(m.song) && Number.isFinite(m.server))
+                others(ws, { type: 'sync', song: m.song, server: m.server });
+        },
         cand(ws, m) {
             if (ws.data.room && ws.data.room.phase !== 'lobby') others(ws, { type: 'cand', addrs: m.addrs });
         },
