@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[ObservedBy(ExtraStatsObserver::class)]
 #[Fillable([
-    'baid', 'extra_chart_id', 'origin_game_version', 'chassis_id', 'shop_id',
+    'baid', 'extra_chart_id', 'origin_game_version', 'client', 'chassis_id', 'shop_id',
     'session_hash', 'played_at', 'stage_index', 'is_right', 'is_two_players',
     'runtime_song_no', 'level', 'stage_mode', 'play_result', 'score',
     'score_rank', 'good_count', 'ok_count', 'miss_count', 'drumroll_count',

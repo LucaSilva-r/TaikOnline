@@ -41,6 +41,8 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('zucchini-cards', fn (Request $request): Limit => Limit::perMinute(10)->by($request->ip()));
         RateLimiter::for('zucchini-extra', fn (Request $request): Limit => Limit::perMinute(30)->by($request->ip()));
+        // A round is one request, and a backlog drains a few at a time.
+        RateLimiter::for('taikoplus-scores', fn (Request $request): Limit => Limit::perMinute(60)->by($request->ip()));
         RateLimiter::for('zucchini-pairing', fn (Request $request): array => [
             Limit::perMinute(45)->by('cabinet:'.hash('sha256', (string) $request->input('cabinet_id'))),
             Limit::perMinute(600)->by('ip:'.$request->ip()),

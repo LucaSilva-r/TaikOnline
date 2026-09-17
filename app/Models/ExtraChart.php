@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'sha256', 'extra_song_id', 'difficulty', 'observed_title',
-    'observed_source_id', 'first_seen_at', 'last_seen_at',
+    'sha256', 'extra_song_id', 'difficulty', 'source_kind', 'source_sha256',
+    'observed_title', 'observed_source_id', 'first_seen_at', 'last_seen_at',
 ])]
 class ExtraChart extends Model
 {

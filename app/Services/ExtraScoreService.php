@@ -85,6 +85,9 @@ class ExtraScoreService
     /**
      * @param  array{uid: int, level: int, sha256: string, title: string, source_id: string}  $association
      */
+    /**
+     * @param  array{uid: int, level: int, sha256: string, title: string, source_id: string}  $association
+     */
     public function persistStage(
         Player $player,
         Message $data,
@@ -96,36 +99,23 @@ class ExtraScoreService
         int $rank,
         array $association,
     ): void {
-        $chart = ExtraChart::query()->firstOrNew(['sha256' => $association['sha256']]);
-        if (! $chart->exists) {
-            $chart->first_seen_at = $playedAt;
-        }
-        if (! $chart->observed_title && $association['title'] !== '') {
-            $chart->observed_title = $association['title'];
-        }
-        if (! $chart->observed_source_id && $association['source_id'] !== '') {
-            $chart->observed_source_id = $association['source_id'];
-        }
-        $chart->last_seen_at = $playedAt;
-        $chart->save();
-
-        ExtraChartPlayResult::query()->create([
-            'baid' => $player->baid,
-            'extra_chart_id' => $chart->id,
+        $this->persistNormalizedStage($player, [
+            'sha256' => $association['sha256'],
+            'title' => $association['title'],
+            'source_id' => $association['source_id'],
+            'source_kind' => null,
+            'source_sha256' => null,
+            'client' => 'zucchini',
             'origin_game_version' => $version->value,
             'chassis_id' => $data->getChassisId(),
             'shop_id' => $data->getShopId(),
-            'session_hash' => $sessionHash,
-            'played_at' => $playedAt,
-            'stage_index' => $stageIndex,
             'is_right' => $data->getIsRight(),
             'is_two_players' => $data->getIsTwoPlayers(),
-            'runtime_song_no' => $stage->getSongNo(),
+            'song_no' => $stage->getSongNo(),
             'level' => $stage->getLevel(),
             'stage_mode' => $this->optionalInt($stage, 'getStageMode'),
             'play_result' => $stage->getPlayResult(),
             'score' => $stage->getPlayScore(),
-            'score_rank' => $rank,
             'good_count' => $stage->getGoodCnt(),
             'ok_count' => $stage->getOkCnt(),
             'miss_count' => $stage->getNgCnt(),
@@ -134,28 +124,94 @@ class ExtraScoreService
             'hit_count' => $this->stageHitCount($stage),
             'music_category' => $stage->getMusicCateg(),
             'selected_folder_id' => $this->optionalInt($stage, 'getSelectedFolderId'),
+            'is_shin' => $this->isShinStage($stage),
+            // The protobuf path has always trusted the counts alone.
+            'cleared' => true,
             'raw_stage' => [
                 'star_level' => method_exists($stage, 'getStarLevel') ? $stage->getStarLevel() : null,
                 'support_level' => method_exists($stage, 'getSupportLevel') ? $stage->getSupportLevel() : null,
             ],
+        ], $stageIndex, $sessionHash, $playedAt, $rank);
+    }
+
+    /**
+     * Write one stage, whatever produced it: a decoded playresult packet or a
+     * client posting JSON. Chart rows are created on first sight of a hash.
+     *
+     * @param  array<string, mixed>  $stage
+     */
+    public function persistNormalizedStage(
+        Player $player,
+        array $stage,
+        int $stageIndex,
+        string $sessionHash,
+        CarbonInterface $playedAt,
+        int $rank,
+    ): void {
+        $chart = ExtraChart::query()->firstOrNew(['sha256' => $stage['sha256']]);
+        if (! $chart->exists) {
+            $chart->first_seen_at = $playedAt;
+        }
+        if (! $chart->observed_title && ($stage['title'] ?? '') !== '') {
+            $chart->observed_title = $stage['title'];
+        }
+        if (! $chart->observed_source_id && ($stage['source_id'] ?? '') !== '') {
+            $chart->observed_source_id = $stage['source_id'];
+        }
+        if (! $chart->source_kind && ($stage['source_kind'] ?? null)) {
+            $chart->source_kind = $stage['source_kind'];
+            $chart->source_sha256 = $stage['source_sha256'];
+        }
+        $chart->last_seen_at = $playedAt;
+        $chart->save();
+
+        ExtraChartPlayResult::query()->create([
+            'baid' => $player->baid,
+            'extra_chart_id' => $chart->id,
+            'origin_game_version' => $stage['origin_game_version'],
+            'client' => $stage['client'],
+            'chassis_id' => $stage['chassis_id'],
+            'shop_id' => $stage['shop_id'],
+            'session_hash' => $sessionHash,
+            'played_at' => $playedAt,
+            'stage_index' => $stageIndex,
+            'is_right' => $stage['is_right'],
+            'is_two_players' => $stage['is_two_players'],
+            'runtime_song_no' => $stage['song_no'],
+            'level' => $stage['level'],
+            'stage_mode' => $stage['stage_mode'],
+            'play_result' => $stage['play_result'],
+            'score' => $stage['score'],
+            'score_rank' => $rank,
+            'good_count' => $stage['good_count'],
+            'ok_count' => $stage['ok_count'],
+            'miss_count' => $stage['miss_count'],
+            'drumroll_count' => $stage['drumroll_count'],
+            'combo_count' => $stage['combo_count'],
+            'hit_count' => $stage['hit_count'],
+            'music_category' => $stage['music_category'],
+            'selected_folder_id' => $stage['selected_folder_id'],
+            'raw_stage' => $stage['raw_stage'],
         ]);
 
         $best = ExtraChartBest::query()->firstOrNew([
             'baid' => $player->baid,
             'extra_chart_id' => $chart->id,
-            'is_shin' => $this->isShinStage($stage),
+            'is_shin' => $stage['is_shin'],
         ]);
         $dirty = ! $best->exists;
-        if (! $best->exists || $stage->getPlayScore() >= (int) $best->best_score) {
+        if (! $best->exists || $stage['score'] >= (int) $best->best_score) {
             $best->fill([
-                'best_score' => $stage->getPlayScore(),
+                'best_score' => $stage['score'],
                 'best_score_rank' => $rank,
-                'best_play_result' => $stage->getPlayResult(),
+                'best_play_result' => $stage['play_result'],
             ]);
             $dirty = true;
         }
 
-        $crown = $this->crownForCounts((int) $stage->getOkCnt(), (int) $stage->getNgCnt());
+        $crown = $stage['cleared']
+            ? $this->crownForCounts((int) $stage['ok_count'], (int) $stage['miss_count'])
+            : 0;
         if ($crown > (int) $best->best_crown) {
             $best->best_crown = $crown;
             $dirty = true;

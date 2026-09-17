@@ -4,6 +4,8 @@ use App\Http\Controllers\Green\AllNetController;
 use App\Http\Controllers\Green\GameProtocolController;
 use App\Http\Controllers\Green\VsInterfaceController;
 use App\Http\Controllers\TaikoPlusAliasController;
+use App\Http\Controllers\TaikoPlusBestController;
+use App\Http\Controllers\TaikoPlusScoreController;
 use App\Http\Controllers\TaikoPlusTicketController;
 use App\Http\Controllers\ZucchiniCardController;
 use App\Http\Controllers\ZucchiniExtraBestController;
@@ -29,6 +31,13 @@ Route::post('api/taikoplus/ticket', TaikoPlusTicketController::class)
 
 Route::post('api/taikoplus/alias', TaikoPlusAliasController::class)
     ->middleware(['zucchini.token', 'throttle:zucchini-pairing']);
+
+// Taiko+ play records: imported-chart scores in, that player's own bests out.
+Route::post('api/taikoplus/scores', TaikoPlusScoreController::class)
+    ->middleware(['zucchini.token', 'throttle:taikoplus-scores']);
+
+Route::post('api/taikoplus/bests', TaikoPlusBestController::class)
+    ->middleware(['zucchini.token', 'throttle:zucchini-extra']);
 
 Route::middleware(LogGreenCabinetTraffic::class)->group(function () use ($protocolVersionPattern): void {
     Route::post('sys/servlet/PowerOn', [AllNetController::class, 'powerOn']);
