@@ -17,6 +17,7 @@ use App\Models\PlayerShopSeasonState;
 use App\Models\PlayerTokkunState;
 use App\Models\Song;
 use App\Models\SongBest;
+use App\Services\TaikoPlusAliasService;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Support\Collection;
 
@@ -45,6 +46,7 @@ class PlayerProfileService
         private readonly ScoreMapper $scoreMapper,
         private readonly ProtocolMessageResolver $messages,
         private readonly MessageWriter $writer,
+        private readonly TaikoPlusAliasService $aliases,
     ) {}
 
     /**
@@ -204,7 +206,11 @@ class PlayerProfileService
         $card = GameCard::query()->with('player')->find($request->getAccessCode());
 
         if (! $card instanceof GameCard || ! $card->player instanceof Player) {
-            return $this->baidFailureResponse($version, $request->getAccessCode());
+            $alias = $this->aliases->forAccessCode($request->getAccessCode());
+
+            return $alias === null
+                ? $this->baidFailureResponse($version, $request->getAccessCode())
+                : $this->baidResponse($version, $alias['player'], $request->getAccessCode(), false, $alias['alias_baid']);
         }
 
         $this->updateCardMetadata($card, $request);
@@ -437,7 +443,8 @@ class PlayerProfileService
         ]);
     }
 
-    private function baidResponse(TaikoGameVersion $version, Player $player, string $accessCode, bool $needsRegistration): Message
+    /** An $aliasBaid answers a Taiko+ opponent alias: the profile reads back under it, without credentials. */
+    private function baidResponse(TaikoGameVersion $version, Player $player, string $accessCode, bool $needsRegistration, ?int $aliasBaid = null): Message
     {
         $cosmetic = PlayerCosmetic::resolve((int) $player->baid, $version);
         $donPointState = PlayerDonPointState::resolve((int) $player->baid, $version);
@@ -450,7 +457,7 @@ class PlayerProfileService
             'setResult' => 1,
             'setPlayerType' => $needsRegistration ? 1 : 0,
             'setComSvrResult' => 1,
-            'setBaid' => $player->baid,
+            'setBaid' => $aliasBaid ?? $player->baid,
             'setAccessCode' => $accessCode,
             'setIsPublish' => (bool) $player->is_publish,
             'setCardOwnNum' => 1,
@@ -484,10 +491,10 @@ class PlayerProfileService
             'setGotDanMax' => min((int) $danProgress->got_dan_max, PlayerDanProgress::MAX_NORMAL_DAN),
             'setGotDanFlg' => $danProgress->gotDanFlgBytes(),
             'setGotDanextraFlg' => $this->scoreMapper->emptyFlagBytes(64),
-            'setAccesstoken' => $player->access_token ?? '',
+            'setAccesstoken' => $aliasBaid === null ? ($player->access_token ?? '') : '',
             'setContentInfo' => '',
             'setDefaultToneSetting' => (int) $cosmetic->default_tone_setting,
-            'setPersonid' => $player->person_id ?? '',
+            'setPersonid' => $aliasBaid === null ? ($player->person_id ?? '') : '',
             'setWaiwaiTutorialFlg' => (int) $player->waiwai_tutorial_flg,
         ]);
     }

@@ -48,6 +48,8 @@ test('two players reach the same start deadline and exchange hits', async () => 
     const { code } = await a.next('room');
     b.send({ type: 'join', code });
     expect((await b.next('room')).members).toHaveLength(2);
+    b.send({ type: 'profile', alias: '12345678901234567890' });
+    for (;;) if ((await a.next('room')).members.some((m: any) => m.alias === '12345678901234567890')) break;
 
     a.send({ type: 'select', music_id: 'mikugv', chart: 'c'.repeat(64), audio: 'a'.repeat(64) });
     a.send({ type: 'ready', course: 3 });
@@ -69,6 +71,24 @@ test('two players reach the same start deadline and exchange hits', async () => 
     b.ws.close();
     expect((await a.next('peer_left')).id).toBeDefined();
     a.ws.close();
+});
+
+test('a declined launch aborts back to the lobby', async () => {
+    const a = await connect('A');
+    const b = await connect('B');
+    a.send({ type: 'create' });
+    const { code } = await a.next('room');
+    b.send({ type: 'join', code });
+    await b.next('room');
+    a.send({ type: 'select', music_id: 'mikugv', chart: 'c', audio: 'a' });
+    a.send({ type: 'ready', course: 3 });
+    b.send({ type: 'ready', course: 3 });
+    await Promise.all([a.next('launch'), b.next('launch')]);
+    b.send({ type: 'decline' });
+    expect((await a.next('abort')).reason).toBe('cancelled');
+    for (;;) if ((await a.next('room')).phase === 'lobby') break;
+    a.ws.close();
+    b.ws.close();
 });
 
 test('unauthenticated clients are closed', async () => {

@@ -28,6 +28,7 @@ use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use App\Services\CabinetService;
 use App\Services\ExtraScoreService;
+use App\Services\TaikoPlusAliasService;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -192,7 +193,7 @@ class GameHandler
     public function userData(Request $request, TaikoGameVersion $game): Response
     {
         $message = $this->parse($request, $game, 'UserDataRequest');
-        $player = Player::query()->find($message->getBaid());
+        $player = Player::query()->find(app(TaikoPlusAliasService::class)->readBaid((int) $message->getBaid()));
 
         return $this->payloads->response(
             $this->profiles->userData($player instanceof Player ? $player : new Player, $game)
@@ -360,7 +361,7 @@ class GameHandler
 
         $bests = SongBest::query()
             ->select(['song_no', 'level', 'best_crown'])
-            ->where('baid', $message->getBaid())
+            ->where('baid', app(TaikoPlusAliasService::class)->readBaid((int) $message->getBaid()))
             ->where('game_version', $game->value)
             ->where('best_crown', '>', 0)
             ->get();

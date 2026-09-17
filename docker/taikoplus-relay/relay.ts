@@ -11,6 +11,7 @@ type Song = { music_id: string; chart: string; audio: string };
 type Client = {
     id: string;
     name: string;
+    alias: string; // view-only access code for the player's profile
     cabinet: string;
     room: Room | null;
     course: number;
@@ -66,6 +67,7 @@ export function startRelay(secret: string, port: number): Server {
             members: room.members.map(({ data }) => ({
                 id: data.id,
                 name: data.name,
+                alias: data.alias,
                 course: data.course,
                 ready: data.ready,
             })),
@@ -134,6 +136,11 @@ export function startRelay(secret: string, port: number): Server {
         leave(ws) {
             leave(ws);
         },
+        profile(ws, m) {
+            if (typeof m.alias !== 'string' || !/^([0-9]{20})?$/.test(m.alias)) return;
+            ws.data.alias = m.alias;
+            if (ws.data.room) publishRoom(ws.data.room);
+        },
         select(ws, m) {
             const room = ws.data.room;
             if (!room || room.owner !== ws || room.phase !== 'lobby') return;
@@ -168,6 +175,14 @@ export function startRelay(secret: string, port: number): Server {
             ws.data.ready = false;
             publishRoom(room);
         },
+        // A client that stopped waiting (Escape) as the launch went out.
+        decline(ws) {
+            const room = ws.data.room;
+            if (!room || room.phase !== 'launching') return;
+            broadcast(room, { type: 'abort', reason: 'cancelled' });
+            toLobby(room);
+            publishRoom(room);
+        },
         loaded(ws) {
             const room = ws.data.room;
             if (!room || room.phase !== 'launching') return;
@@ -182,6 +197,7 @@ export function startRelay(secret: string, port: number): Server {
         done(ws) {
             const room = ws.data.room;
             if (!room || room.phase === 'lobby') return;
+            others(ws, { type: 'peer_done' });
             ws.data.ready = false;
             room.loaded.delete(ws);
             if (room.members.every((member) => !member.data.ready)) {
@@ -209,7 +225,7 @@ export function startRelay(secret: string, port: number): Server {
         port,
         fetch(request, server) {
             if (new URL(request.url).pathname !== '/taikoplus/ws') return new Response('Not Found', { status: 404 });
-            const data: Client = { id: '', name: '', cabinet: '', room: null, course: 0, ready: false };
+            const data: Client = { id: '', name: '', alias: '', cabinet: '', room: null, course: 0, ready: false };
             return server.upgrade(request, { data }) ? undefined : new Response('Upgrade required', { status: 426 });
         },
         websocket: {
