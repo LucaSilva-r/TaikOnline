@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AuthenticateWaddamburo;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureZucchiniApiToken;
 use App\Http\Middleware\HandleAppearance;
@@ -43,6 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => EnsureUserIsAdmin::class,
             'taiko.version' => ResolveTaikoVersion::class,
             'zucchini.token' => EnsureZucchiniApiToken::class,
+            'wdb.auth' => AuthenticateWaddamburo::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

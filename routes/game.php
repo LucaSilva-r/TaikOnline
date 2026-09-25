@@ -3,6 +3,7 @@
 use App\Http\Controllers\Green\AllNetController;
 use App\Http\Controllers\Green\GameProtocolController;
 use App\Http\Controllers\Green\VsInterfaceController;
+use App\Http\Controllers\WaddamburoController;
 use App\Http\Controllers\ZucchiniCardController;
 use App\Http\Controllers\ZucchiniExtraBestController;
 use App\Http\Controllers\ZucchiniPairingController;
@@ -21,6 +22,15 @@ Route::post('api/zucchini/extra/bests', ZucchiniExtraBestController::class)
 
 Route::post('api/zucchini/pairing', ZucchiniPairingController::class)
     ->middleware(['zucchini.token', 'throttle:zucchini-pairing']);
+
+Route::post('api/wdb/login', [WaddamburoController::class, 'login'])->middleware('throttle:wdb-login');
+Route::middleware(['wdb.auth', 'throttle:wdb'])->prefix('api/wdb')->group(function (): void {
+    Route::delete('login', [WaddamburoController::class, 'logout']);
+    Route::get('me', [WaddamburoController::class, 'me']);
+    Route::post('cards', [WaddamburoController::class, 'card']);
+    Route::post('plays', [WaddamburoController::class, 'storePlays']);
+    Route::put('charts/{sha256}', [WaddamburoController::class, 'storeChart']);
+});
 
 Route::middleware(LogGreenCabinetTraffic::class)->group(function () use ($protocolVersionPattern): void {
     Route::post('sys/servlet/PowerOn', [AllNetController::class, 'powerOn']);
