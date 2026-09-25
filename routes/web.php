@@ -51,6 +51,8 @@ Route::prefix('{taikoVersion}')
                 Route::get('baids', [OperatorController::class, 'baids'])->name('baids.index');
                 Route::get('baids/{player}', [OperatorController::class, 'baid'])->name('baids.show');
                 Route::delete('baids/{player}', [OperatorController::class, 'destroyBaid'])->name('baids.destroy');
+                Route::patch('baids/{player}/access-code', [OperatorController::class, 'replaceAccessCode'])->name('baids.access-code.replace');
+                Route::delete('baids/{player}/access-code', [OperatorController::class, 'unlinkAccessCode'])->name('baids.access-code.unlink');
                 Route::delete('baids/{player}/plays/{result}', [OperatorController::class, 'destroyPlay'])->name('baids.plays.destroy');
                 Route::delete('baids/{player}/bests/{best}', [OperatorController::class, 'destroyBest'])->name('baids.bests.destroy');
                 Route::get('recent-plays', [OperatorController::class, 'recentPlays'])->name('recent-plays');

@@ -63,6 +63,87 @@ test('non-admins cannot delete players', function () {
     expect(Player::query()->whereKey($player->baid)->exists())->toBeTrue();
 });
 
+test('admins can replace a BAID access code and keep every score', function () {
+    $admin = User::factory()->admin()->create();
+    $owner = User::factory()->create();
+
+    $player = Player::query()->create(['user_id' => $owner->id]);
+    GameCard::query()->create(['access_code' => 'OLD-CARD', 'baid' => $player->baid]);
+    $best = SongBest::query()->create([
+        'baid' => $player->baid,
+        'song_no' => 1,
+        'level' => 3,
+        'best_score' => 950000,
+    ]);
+
+    $this->actingAs($admin)
+        ->from("/green/admin/baids/{$player->baid}")
+        ->patch("/green/admin/baids/{$player->baid}/access-code", ['access_code' => 'NEW-BANAPASS'])
+        ->assertRedirect("/green/admin/baids/{$player->baid}");
+
+    expect(GameCard::query()->whereKey('OLD-CARD')->exists())->toBeFalse()
+        ->and((int) GameCard::query()->findOrFail('NEW-BANAPASS')->baid)->toBe((int) $player->baid)
+        ->and(SongBest::query()->whereKey($best->id)->value('baid'))->toEqual($player->baid)
+        ->and((int) $player->fresh()->user_id)->toBe($owner->id);
+});
+
+test('a BAID cannot take over an access code registered to another BAID', function () {
+    $admin = User::factory()->admin()->create();
+
+    $player = Player::query()->create();
+    $other = Player::query()->create();
+    GameCard::query()->create(['access_code' => 'MINE', 'baid' => $player->baid]);
+    GameCard::query()->create(['access_code' => 'TAKEN', 'baid' => $other->baid]);
+
+    $this->actingAs($admin)
+        ->from("/green/admin/baids/{$player->baid}")
+        ->patch("/green/admin/baids/{$player->baid}/access-code", ['access_code' => 'TAKEN'])
+        ->assertSessionHasErrors('access_code');
+
+    expect((int) GameCard::query()->findOrFail('MINE')->baid)->toBe((int) $player->baid)
+        ->and((int) GameCard::query()->findOrFail('TAKEN')->baid)->toBe((int) $other->baid);
+});
+
+test('admins can unlink a BAID so it becomes anonymous but keeps its data', function () {
+    $admin = User::factory()->admin()->create();
+    $owner = User::factory()->create();
+
+    $player = Player::query()->create(['user_id' => $owner->id]);
+    GameCard::query()->create(['access_code' => 'DROP-ME', 'baid' => $player->baid]);
+    $best = SongBest::query()->create([
+        'baid' => $player->baid,
+        'song_no' => 4,
+        'level' => 2,
+        'best_score' => 800000,
+    ]);
+
+    $this->actingAs($admin)
+        ->from("/green/admin/baids/{$player->baid}")
+        ->delete("/green/admin/baids/{$player->baid}/access-code")
+        ->assertRedirect("/green/admin/baids/{$player->baid}");
+
+    expect(GameCard::query()->whereKey('DROP-ME')->exists())->toBeFalse()
+        ->and(Player::query()->whereKey($player->baid)->exists())->toBeTrue()
+        ->and($player->fresh()->user_id)->toBeNull()
+        ->and(SongBest::query()->whereKey($best->id)->exists())->toBeTrue();
+});
+
+test('non-admins cannot replace or unlink an access code', function () {
+    $user = User::factory()->create();
+    $player = Player::query()->create();
+    GameCard::query()->create(['access_code' => 'SAFE', 'baid' => $player->baid]);
+
+    $this->actingAs($user)
+        ->patch("/green/admin/baids/{$player->baid}/access-code", ['access_code' => 'HIJACK'])
+        ->assertForbidden();
+
+    $this->actingAs($user)
+        ->delete("/green/admin/baids/{$player->baid}/access-code")
+        ->assertForbidden();
+
+    expect(GameCard::query()->whereKey('SAFE')->exists())->toBeTrue();
+});
+
 test('admins can delete a single play of a BAID', function () {
     $admin = User::factory()->admin()->create();
     $player = Player::query()->create();
