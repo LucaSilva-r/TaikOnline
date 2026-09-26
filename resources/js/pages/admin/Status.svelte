@@ -1,7 +1,8 @@
 <script module lang="ts">
     import { status } from '@/routes/admin';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     export const layout = {
-        breadcrumbs: [{ title: 'Server Status', href: status() }],
+        breadcrumbs: [{ title: 'Server Status', href: status(taikoRouteParam()) }],
     };
 </script>
 

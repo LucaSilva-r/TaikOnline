@@ -11,6 +11,9 @@ trait ProfileValidationRules
     /**
      * Get the validation rules used to validate user profiles.
      *
+     * Username is intentionally excluded: it is immutable after registration
+     * and only validated during user creation via {@see usernameRules()}.
+     *
      * @return array<string, array<int, ValidationRule|array<mixed>|string>>
      */
     protected function profileRules(?int $userId = null): array
@@ -18,6 +21,23 @@ trait ProfileValidationRules
         return [
             'name' => $this->nameRules(),
             'email' => $this->emailRules($userId),
+        ];
+    }
+
+    /**
+     * Get the validation rules used to validate usernames (creation only).
+     *
+     * @return array<int, ValidationRule|array<mixed>|string>
+     */
+    protected function usernameRules(): array
+    {
+        return [
+            'required',
+            'string',
+            'min:3',
+            'max:30',
+            'alpha_dash',
+            Rule::unique(User::class),
         ];
     }
 

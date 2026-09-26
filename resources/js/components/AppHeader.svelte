@@ -8,6 +8,7 @@
     import AppLogo from '@/components/AppLogo.svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
     import Breadcrumbs from '@/components/Breadcrumbs.svelte';
+    import TaikoVersionSelect from '@/components/TaikoVersionSelect.svelte';
     import {
         Avatar,
         AvatarFallback,
@@ -41,8 +42,9 @@
     import UserMenuContent from '@/components/UserMenuContent.svelte';
     import { currentUrlState } from '@/lib/currentUrl.svelte';
     import { getInitials } from '@/lib/initials';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
-    import { dashboard } from '@/routes';
+    import { dashboard } from '@/routes/admin';
     import type { BreadcrumbItem, NavItem } from '@/types';
 
     let {
@@ -53,6 +55,7 @@
 
     const auth = $derived(page.props.auth);
     const url = currentUrlState();
+    const taikoParam = taikoRouteParam();
 
     const activeItemStyles =
         'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100';
@@ -60,7 +63,7 @@
     const mainNavItems: NavItem[] = [
         {
             title: 'Dashboard',
-            href: dashboard(),
+            href: dashboard(taikoParam),
             icon: LayoutGrid,
         },
     ];
@@ -146,7 +149,10 @@
                 </Sheet>
             </div>
 
-            <Link href={toUrl(dashboard())} class="flex items-center gap-x-2">
+            <Link
+                href={toUrl(dashboard(taikoParam))}
+                class="flex items-center gap-x-2"
+            >
                 <AppLogo />
             </Link>
 
@@ -176,7 +182,7 @@
                                 </Link>
                                 {#if url.isCurrentUrl(item.href, url.currentUrl)}
                                     <div
-                                        class="absolute bottom-0 left-0 h-0.5 w-full translate-y-px bg-black dark:bg-white"
+                                        class="absolute bottom-0 left-0 h-0.5 w-full translate-y-px bg-primary"
                                     ></div>
                                 {/if}
                             </NavigationMenuItem>
@@ -186,6 +192,8 @@
             </div>
 
             <div class="ml-auto flex items-center space-x-2">
+                <TaikoVersionSelect />
+
                 <div class="relative flex items-center space-x-1">
                     <Button
                         variant="ghost"
@@ -246,13 +254,15 @@
                                         <AvatarImage
                                             src={auth.user.avatar}
                                             alt={auth.user?.name}
+                                            class="bg-muted object-cover"
                                         />
+                                    {:else}
+                                        <AvatarFallback
+                                            class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white"
+                                        >
+                                            {getInitials(auth.user?.name ?? '')}
+                                        </AvatarFallback>
                                     {/if}
-                                    <AvatarFallback
-                                        class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white"
-                                    >
-                                        {getInitials(auth.user?.name ?? '')}
-                                    </AvatarFallback>
                                 </Avatar>
                             </Button>
                         {/snippet}
@@ -265,6 +275,10 @@
                 </DropdownMenu>
             </div>
         </div>
+    </div>
+
+    <div class="flex w-full items-center justify-center bg-red-600 px-4 py-2 text-center text-sm font-semibold text-white">
+        ⚠️ ALPHA — This platform is in early alpha. Your data can and WILL be deleted without warning.
     </div>
 
     {#if breadcrumbs.length > 1}

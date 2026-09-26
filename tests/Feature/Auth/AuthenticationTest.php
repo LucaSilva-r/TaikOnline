@@ -10,7 +10,7 @@ test('login screen can be rendered', function () {
     $response->assertOk();
 });
 
-test('users can authenticate using the login screen', function () {
+test('users can authenticate using their email', function () {
     $user = User::factory()->create();
 
     $response = $this->post(route('login.store'), [
@@ -20,6 +20,44 @@ test('users can authenticate using the login screen', function () {
 
     $this->assertAuthenticated();
     $response->assertRedirect(route('home', absolute: false));
+});
+
+test('users can authenticate using their username', function () {
+    $user = User::factory()->create(['username' => 'taikofan']);
+
+    $response = $this->post(route('login.store'), [
+        'email' => 'taikofan',
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('home', absolute: false));
+});
+
+test('users return to the play page after authenticating', function () {
+    $user = User::factory()->create();
+    $playUrl = route('play.create', ['taikoVersion' => 'green'], absolute: false);
+
+    $this->get($playUrl)->assertRedirect(route('login'));
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect($playUrl);
+});
+
+test('username login is case insensitive', function () {
+    $user = User::factory()->create(['username' => 'taikofan']);
+
+    $this->post(route('login.store'), [
+        'email' => 'TaikoFan',
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
 });
 
 test('users with two factor enabled are redirected to two factor challenge', function () {
@@ -59,13 +97,44 @@ test('users can not authenticate with invalid password', function () {
     $this->assertGuest();
 });
 
+test('remember me persists a remember cookie', function () {
+    $user = User::factory()->create(['remember_token' => null]);
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+        'remember' => '1',
+    ]);
+
+    $this->assertAuthenticated();
+
+    // Fortify issues a long-lived recaller cookie and stores its token.
+    expect($user->fresh()->remember_token)->not->toBeNull();
+
+    $cookies = collect($response->headers->getCookies());
+    expect($cookies->contains(fn ($cookie) => str_starts_with($cookie->getName(), 'remember_web_')))->toBeTrue();
+});
+
+test('login without remember does not set a remember cookie', function () {
+    $user = User::factory()->create(['remember_token' => null]);
+
+    $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+        'remember' => '',
+    ]);
+
+    $this->assertAuthenticated();
+    expect($user->fresh()->remember_token)->toBeNull();
+});
+
 test('users can logout', function () {
     $user = User::factory()->create();
 
     $response = $this->actingAs($user)->post(route('logout'));
 
     $this->assertGuest();
-    $response->assertRedirect(route('home'));
+    $response->assertRedirect('/');
 });
 
 test('users are rate limited', function () {

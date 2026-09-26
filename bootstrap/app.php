@@ -1,8 +1,11 @@
 <?php
 
+use App\Http\Middleware\AuthenticateWaddamburo;
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\EnsureZucchiniApiToken;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ResolveTaikoVersion;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -27,6 +30,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'v*r*/chassis/*',
         ]);
 
+        $middleware->web(prepend: [
+            ResolveTaikoVersion::class,
+        ]);
+
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,
@@ -35,6 +42,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => EnsureUserIsAdmin::class,
+            'taiko.version' => ResolveTaikoVersion::class,
+            'zucchini.token' => EnsureZucchiniApiToken::class,
+            'wdb.auth' => AuthenticateWaddamburo::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

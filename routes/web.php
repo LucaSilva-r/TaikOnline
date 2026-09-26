@@ -1,38 +1,79 @@
 <?php
 
+use App\Enums\TaikoGameVersion;
+use App\Http\Controllers\Admin\DanDojoController;
+use App\Http\Controllers\Admin\ExtraSongController;
+use App\Http\Controllers\Admin\PlayerController;
 use App\Http\Controllers\Admin\SongController;
-use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\BoardController;
 use App\Http\Controllers\Green\OperatorController;
 use App\Http\Controllers\RankingController;
+use App\Http\Controllers\Settings\CabinetLoginController;
+use App\Http\Controllers\SongCatalogController;
 use Illuminate\Support\Facades\Route;
-use Laravel\Fortify\Features;
 
-Route::inertia('/', 'Home', [
-    'canRegister' => Features::enabled(Features::registration()),
-])->name('home');
+Route::get('/', fn () => redirect('/'.TaikoGameVersion::default()->value));
+Route::any('rankings', fn () => abort(404));
+Route::any('community', fn () => abort(404));
+Route::any('admin/{any?}', fn () => abort(404))->where('any', '.*');
+Route::any('settings/{any?}', fn () => abort(404))->where('any', '.*');
 
-Route::get('rankings', [RankingController::class, 'index'])->name('rankings');
-Route::inertia('community', 'Community')->name('community');
+$taikoVersionPattern = collect(TaikoGameVersion::cases())
+    ->map(fn (TaikoGameVersion $version): string => $version->value)
+    ->push('extra')
+    ->push('all')
+    ->implode('|');
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
-        Route::inertia('/', 'admin/Dashboard')->name('dashboard');
+Route::prefix('{taikoVersion}')
+    ->where(['taikoVersion' => $taikoVersionPattern])
+    ->group(function (): void {
+        Route::inertia('/', 'Home')->name('home');
 
-        Route::get('players', [OperatorController::class, 'players'])->name('players.index');
-        Route::get('players/{player}', [OperatorController::class, 'player'])->name('players.show');
-        Route::get('recent-plays', [OperatorController::class, 'recentPlays'])->name('recent-plays');
-        Route::get('songs', [SongController::class, 'index'])->name('songs.index');
-        Route::get('status', [OperatorController::class, 'status'])->name('status');
+        Route::get('rankings', [RankingController::class, 'index'])->name('rankings');
+        Route::get('songs', [SongCatalogController::class, 'index'])->name('songs.index');
+        Route::get('songs/{song}', [SongCatalogController::class, 'show'])->name('songs.show');
+        Route::inertia('community', 'Community')->name('community');
+        Route::get('users/{user}/board', [BoardController::class, 'show'])->name('board.show');
 
-        Route::get('users', [UserController::class, 'index'])->name('users.index');
-        Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
-        Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
-        Route::put('users/{user}/password', [UserController::class, 'updatePassword'])->name('users.password');
-        Route::post('users/{user}/access-code', [UserController::class, 'bindAccessCode'])->name('users.access-code.bind');
-        Route::delete('users/{user}/access-code', [UserController::class, 'unbindAccessCode'])->name('users.access-code.unbind');
-        Route::patch('users/{user}/role', [UserController::class, 'updateRole'])->name('users.role');
-        Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+        Route::middleware('auth')->group(function (): void {
+            Route::get('play', [CabinetLoginController::class, 'create'])->name('play.create');
+            Route::post('play', [CabinetLoginController::class, 'store'])
+                ->middleware('throttle:cabinet-login')
+                ->name('play.store');
+        });
+
+        Route::middleware(['auth', 'verified'])->group(function (): void {
+            Route::post('songs/{song}/favorite', [SongCatalogController::class, 'toggleFavorite'])->name('songs.favorite');
+
+            Route::middleware('admin')->prefix('admin')->name('admin.')->group(function (): void {
+                Route::inertia('/', 'admin/Dashboard')->name('dashboard');
+
+                Route::get('baids', [OperatorController::class, 'baids'])->name('baids.index');
+                Route::get('baids/{player}', [OperatorController::class, 'baid'])->name('baids.show');
+                Route::delete('baids/{player}', [OperatorController::class, 'destroyBaid'])->name('baids.destroy');
+                Route::patch('baids/{player}/access-code', [OperatorController::class, 'replaceAccessCode'])->name('baids.access-code.replace');
+                Route::delete('baids/{player}/access-code', [OperatorController::class, 'unlinkAccessCode'])->name('baids.access-code.unlink');
+                Route::delete('baids/{player}/plays/{result}', [OperatorController::class, 'destroyPlay'])->name('baids.plays.destroy');
+                Route::delete('baids/{player}/bests/{best}', [OperatorController::class, 'destroyBest'])->name('baids.bests.destroy');
+                Route::get('recent-plays', [OperatorController::class, 'recentPlays'])->name('recent-plays');
+                Route::get('songs', [SongController::class, 'index'])->name('songs.index');
+                Route::get('extra-songs', [ExtraSongController::class, 'index'])->name('extra-songs.index');
+                Route::post('extra-songs', [ExtraSongController::class, 'store'])->name('extra-songs.store');
+                Route::get('dan-dojo', [DanDojoController::class, 'index'])->name('dan-dojo.index');
+                Route::post('dan-dojo/{version}/randomize', [DanDojoController::class, 'randomize'])->name('dan-dojo.randomize');
+                Route::get('status', [OperatorController::class, 'status'])->name('status');
+
+                Route::get('players', [PlayerController::class, 'index'])->name('players.index');
+                Route::get('players/{user}/edit', [PlayerController::class, 'edit'])->name('players.edit');
+                Route::put('players/{user}', [PlayerController::class, 'update'])->name('players.update');
+                Route::put('players/{user}/password', [PlayerController::class, 'updatePassword'])->name('players.password');
+                Route::post('players/{user}/access-code', [PlayerController::class, 'bindAccessCode'])->name('players.access-code.bind');
+                Route::patch('players/{user}/access-code', [PlayerController::class, 'rotateAccessCode'])->name('players.access-code.rotate');
+                Route::delete('players/{user}/access-code', [PlayerController::class, 'unbindAccessCode'])->name('players.access-code.unbind');
+                Route::patch('players/{user}/role', [PlayerController::class, 'updateRole'])->name('players.role');
+                Route::delete('players/{user}', [PlayerController::class, 'destroy'])->name('players.destroy');
+            });
+        });
+
+        require __DIR__.'/settings.php';
     });
-});
-
-require __DIR__.'/settings.php';

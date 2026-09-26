@@ -49,7 +49,7 @@
 </script>
 
 {#if open()}
-    <div class="fixed inset-0 z-50">
+    <div class="fixed inset-0 z-[60]">
         <button
             type="button"
             class="fixed inset-0 border-0 bg-black/50"
@@ -58,7 +58,7 @@
         ></button>
         <div
             class={cn(
-                'fixed relative flex flex-col gap-4 overflow-y-auto border-none bg-background p-6 shadow-lg',
+                'fixed flex flex-col gap-4 overflow-y-auto border-none bg-background p-6 shadow-lg',
                 sideClasses[side] ?? sideClasses.right,
                 sizeClasses[side] ?? sizeClasses.right,
                 className,

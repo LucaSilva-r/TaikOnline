@@ -1,3 +1,4 @@
+/backups
 /.phpunit.cache
 /bootstrap/ssr
 /node_modules
@@ -28,3 +29,13 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+**/caddy
+frankenphp
+frankenphp-worker.php
+
+# Don-chan 3D assets exported by scripts/donchan/export_web_assets.py
+/public/donchan/
+/public/costumes/
+
+/staging.yaml

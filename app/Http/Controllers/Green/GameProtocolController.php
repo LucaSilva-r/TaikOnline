@@ -3,420 +3,338 @@
 namespace App\Http\Controllers\Green;
 
 use App\Enums\TaikoGameVersion;
-use App\GameProtocol\Green\Proto\Taiko\BAIDRequest;
-use App\GameProtocol\Green\Proto\Taiko\BookKeepingRequest;
-use App\GameProtocol\Green\Proto\Taiko\BookKeepingResponse;
-use App\GameProtocol\Green\Proto\Taiko\ChallengeCompeRequest;
-use App\GameProtocol\Green\Proto\Taiko\ChallengeCompeResponse;
-use App\GameProtocol\Green\Proto\Taiko\CrownsDataRequest;
-use App\GameProtocol\Green\Proto\Taiko\CrownsDataResponse;
-use App\GameProtocol\Green\Proto\Taiko\GetfolderRequest;
-use App\GameProtocol\Green\Proto\Taiko\GetfolderResponse;
-use App\GameProtocol\Green\Proto\Taiko\GetfolderResponse\EventfolderData;
-use App\GameProtocol\Green\Proto\Taiko\GetghostdataRequest;
-use App\GameProtocol\Green\Proto\Taiko\GetghostdataResponse;
-use App\GameProtocol\Green\Proto\Taiko\GetghostdataResponse\GhostPerfData;
-use App\GameProtocol\Green\Proto\Taiko\GetghostdataResponse\GhostRankData;
-use App\GameProtocol\Green\Proto\Taiko\GetghostscoreRequest;
-use App\GameProtocol\Green\Proto\Taiko\GetghostscoreResponse;
-use App\GameProtocol\Green\Proto\Taiko\GetghostscoreResponse\GhostBestSectionData;
-use App\GameProtocol\Green\Proto\Taiko\GettelopRequest;
-use App\GameProtocol\Green\Proto\Taiko\GettelopResponse;
-use App\GameProtocol\Green\Proto\Taiko\HeadClerk2Request;
-use App\GameProtocol\Green\Proto\Taiko\HeadClerk2Response;
-use App\GameProtocol\Green\Proto\Taiko\HeartBeatRequest;
-use App\GameProtocol\Green\Proto\Taiko\HeartBeatResponse;
-use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckRequest;
-use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckResponse;
-use App\GameProtocol\Green\Proto\Taiko\InitialdatacheckResponse\InformationData;
-use App\GameProtocol\Green\Proto\Taiko\MydonEntryRequest;
-use App\GameProtocol\Green\Proto\Taiko\PlayResultDataRequest;
-use App\GameProtocol\Green\Proto\Taiko\PlayResultRequest;
-use App\GameProtocol\Green\Proto\Taiko\PlayResultResponse;
-use App\GameProtocol\Green\Proto\Taiko\RecommendRequest;
-use App\GameProtocol\Green\Proto\Taiko\RecommendResponse;
-use App\GameProtocol\Green\Proto\Taiko\RewardcardcheckRequest;
-use App\GameProtocol\Green\Proto\Taiko\RewardcardcheckResponse;
-use App\GameProtocol\Green\Proto\Taiko\RewardexecutionRequest;
-use App\GameProtocol\Green\Proto\Taiko\RewardexecutionResponse;
-use App\GameProtocol\Green\Proto\Taiko\SelfBestRequest;
-use App\GameProtocol\Green\Proto\Taiko\TournamentcheckRequest;
-use App\GameProtocol\Green\Proto\Taiko\TournamentcheckResponse;
-use App\GameProtocol\Green\Proto\Taiko\UserDataRequest;
-use App\GameProtocol\Green\Services\PlayerProfileService;
-use App\GameProtocol\Green\Services\PlayResultService;
-use App\GameProtocol\Green\Support\ProtocolPayloads;
-use App\GameProtocol\Green\Support\ScoreMapper;
+use App\GameProtocol\Handlers\GameHandlerRegistry;
 use App\Http\Controllers\Controller;
-use App\Models\CabinetBookkeepingLog;
-use App\Models\HeadClerkLog;
-use App\Models\Player;
-use App\Models\Song;
-use App\Models\SongPlayResult;
-use App\Services\CabinetService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Config;
 
+/**
+ * Thin HTTP entrypoint for the in-game protocol. Resolves the cabinet's dialect
+ * from the route segment and dispatches to the matching {@see GameHandler}; all
+ * response-building logic lives in the handler layer.
+ */
 class GameProtocolController extends Controller
 {
-    public function __construct(
-        private readonly ProtocolPayloads $payloads,
-        private readonly PlayerProfileService $profiles,
-        private readonly PlayResultService $playResults,
-        private readonly ScoreMapper $scoreMapper,
-        private readonly CabinetService $cabinets,
-    ) {}
+    /**
+     * Route version Taiko Red posts to the bare "/" setup endpoint. Red sends
+     * initial-data-check, get-telop and book-keeping to the empty path instead
+     * of versioned chassis routes, so all three must resolve to the red dialect.
+     */
+    private const RED_ROOT_ROUTE_VERSION = 'v01r00_tw';
 
-    public function heartbeat(Request $request): Response
+    public function __construct(private readonly GameHandlerRegistry $handlers) {}
+
+    public function heartbeat(Request $request, string $version): Response
     {
-        /** @var HeartBeatRequest $message */
-        $message = $this->payloads->parse($request->getContent(), HeartBeatRequest::class);
-
-        $serial = $message->getChassisId();
-        if ($serial !== '') {
-            $this->cabinets->recordHeartbeat($serial, $request->ip());
-        }
-
-        return $this->payloads->response(
-            (new HeartBeatResponse)
-                ->setResult(1)
-                ->setComSvrStat(1)
-                ->setGameSvrStat(1)
-                ->setBnidSvrStat(1)
-                ->setBanacoinStat(1)
-        );
+        return $this->dispatch($version, 'heartbeat', $request);
     }
 
     public function initialDataCheck(Request $request, string $version): Response
     {
-        /** @var InitialdatacheckRequest $message */
-        $this->payloads->parse($request->getContent(), InitialdatacheckRequest::class);
-        $releaseSongFlag = $this->releaseSongFlag($this->catalogVersion($version));
-
-        return $this->payloads->response(
-            (new InitialdatacheckResponse)
-                ->setResult(1)
-                ->setSongHashVer(1)
-                ->setHashDefaultSongFlg($releaseSongFlag)
-                ->setAryTelopData([(new InformationData)->setInfoId(1)->setVerupNo(2)])
-                ->setAryEventfolderData([])
-                ->setAryTaikojukuData([])
-                ->setAryItemshopData([])
-                ->setIsDanplay(true)
-                ->setIsClose(false)
-                ->setIsItemshop(false)
-                ->setIsGhostbattleplay(true)
-        );
+        return $this->dispatch($version, 'initialDataCheck', $request);
     }
 
-    public function bookKeeping(Request $request): Response
+    public function bookKeeping(Request $request, string $version): Response
     {
-        /** @var BookKeepingRequest $message */
-        $message = $this->payloads->parse($request->getContent(), BookKeepingRequest::class);
-
-        CabinetBookkeepingLog::query()->create([
-            'chassis_id' => $message->getChassisId(),
-            'shop_id' => $message->getShopId(),
-            'update_date' => $message->getUpdateDate(),
-            'all_play_count' => $message->getAllPlayCnt(),
-            'service_switch_count' => $message->getServiceSwCnt(),
-            'free_play_count' => $message->getFreePlayCnt(),
-            'payload' => [
-                'credit_cost_1' => $message->getCreditCost1(),
-                'credit_cost_2' => $message->getCreditCost2(),
-                'credit_songs_1' => $message->getCreditSongs1(),
-                'credit_songs_2' => $message->getCreditSongs2(),
-            ],
-        ]);
-
-        return $this->payloads->response((new BookKeepingResponse)->setResult(1));
+        return $this->dispatch($version, 'bookKeeping', $request);
     }
 
-    public function baid(Request $request): Response
+    public function coinSetting(Request $request, string $version): Response
     {
-        /** @var BAIDRequest $message */
-        $message = $this->payloads->parse($request->getContent(), BAIDRequest::class);
-
-        return $this->payloads->response($this->profiles->baid($message));
+        return $this->dispatch($version, 'coinSetting', $request);
     }
 
-    public function mydonEntry(Request $request): Response
+    public function baid(Request $request, string $version): Response
     {
-        /** @var MydonEntryRequest $message */
-        $message = $this->payloads->parse($request->getContent(), MydonEntryRequest::class);
+        return $this->dispatch($version, 'baid', $request);
+    }
 
-        return $this->payloads->response($this->profiles->registerMydon($message));
+    public function mydonEntry(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'mydonEntry', $request);
     }
 
     public function userData(Request $request, string $version): Response
     {
-        /** @var UserDataRequest $message */
-        $message = $this->payloads->parse($request->getContent(), UserDataRequest::class);
-        $player = Player::query()->find($message->getBaid());
-        $catalogVersion = $this->catalogVersion($version);
-
-        if (! $player instanceof Player) {
-            return $this->payloads->response($this->profiles->userData(new Player, $catalogVersion));
-        }
-
-        return $this->payloads->response($this->profiles->userData($player, $catalogVersion));
+        return $this->dispatch($version, 'userData', $request);
     }
 
     public function playResult(Request $request, string $version): Response
     {
-        /** @var PlayResultRequest $message */
-        $message = $this->payloads->parse($request->getContent(), PlayResultRequest::class);
-        /** @var PlayResultDataRequest $data */
-        $data = $this->payloads->parse(
-            $this->payloads->inflatePlayResultData($message->getPlayresultData()),
-            PlayResultDataRequest::class,
-        );
+        return $this->dispatch($version, 'playResult', $request);
+    }
 
-        return $this->payloads->response(
-            (new PlayResultResponse)->setResult($this->playResults->save($data, $this->catalogVersion($version)))
-        );
+    public function songInfo(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'songInfo', $request);
     }
 
     public function selfBest(Request $request, string $version): Response
     {
-        /** @var SelfBestRequest $message */
-        $message = $this->payloads->parse($request->getContent(), SelfBestRequest::class);
-        $player = Player::query()->find($message->getBaid());
-        $catalogVersion = $this->catalogVersion($version);
-
-        if (! $player instanceof Player) {
-            return $this->payloads->response($this->playResults->selfBest(new Player, $message->getLevel(), $catalogVersion, []));
-        }
-
-        return $this->payloads->response(
-            $this->playResults->selfBest($player, $message->getLevel(), $catalogVersion, $message->getArySongNo())
-        );
+        return $this->dispatch($version, 'selfBest', $request);
     }
 
-    private function catalogVersion(string $routeVersion): string
+    public function mainichiSong(Request $request, string $version): Response
     {
-        $configured = Config::get("taiko_green.route_catalog_versions.{$routeVersion}");
-
-        if (is_string($configured) && $configured !== '') {
-            return TaikoGameVersion::fromInput($configured)?->value ?? TaikoGameVersion::Green->value;
-        }
-
-        $default = Config::get('taiko_green.catalog_version', TaikoGameVersion::Green->value);
-
-        return is_string($default)
-            ? TaikoGameVersion::fromInput($default)?->value ?? TaikoGameVersion::Green->value
-            : TaikoGameVersion::Green->value;
+        return $this->dispatch($version, 'mainichiSong', $request);
     }
 
-    public function crownsData(Request $request): Response
+    public function bestScore(Request $request, string $version): Response
     {
-        /** @var CrownsDataRequest $message */
-        $this->payloads->parse($request->getContent(), CrownsDataRequest::class);
-
-        return $this->payloads->response(
-            (new CrownsDataResponse)
-                ->setResult(1)
-                ->setSongHashVer(1)
-                ->setHashCrownFlg($this->scoreMapper->emptyFlagBytes())
-        );
+        return $this->dispatch($version, 'bestScore', $request);
     }
 
-    public function getFolder(Request $request): Response
+    public function communicationLog(Request $request, string $version): Response
     {
-        /** @var GetfolderRequest $message */
-        $message = $this->payloads->parse($request->getContent(), GetfolderRequest::class);
-
-        $folders = collect($message->getFolderId())
-            ->map(fn (mixed $folderId): EventfolderData => (new EventfolderData)
-                ->setFolderId((int) $folderId)
-                ->setSongNo([1, 2, 3])
-                ->setVerupNo(1))
-            ->all();
-
-        return $this->payloads->response(
-            (new GetfolderResponse)
-                ->setResult(1)
-                ->setAryEventfolderData($folders)
-        );
+        return $this->dispatch($version, 'communicationLog', $request);
     }
 
-    public function getTelop(Request $request): Response
+    public function shoppingResult(Request $request, string $version): Response
     {
-        /** @var GettelopRequest $message */
-        $this->payloads->parse($request->getContent(), GettelopRequest::class);
+        return $this->dispatch($version, 'shoppingResult', $request);
+    }
 
-        return $this->payloads->response(
-            (new GettelopResponse)
-                ->setResult(1)
-                ->setStartDatetime(now()->subDays(999)->format('YmdHis'))
-                ->setEndDatetime(now()->addDays(999)->format('YmdHis'))
-                ->setTelop('Hello world')
-                ->setVerupNo(2)
-        );
+    public function crownsData(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'crownsData', $request);
+    }
+
+    public function getFolder(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'getFolder', $request);
+    }
+
+    public function getTelop(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'getTelop', $request);
+    }
+
+    public function songHash(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'songHash', $request);
+    }
+
+    public function defaultSong(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'defaultSong', $request);
+    }
+
+    public function balanceCheck(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'balanceCheck', $request);
+    }
+
+    public function battleUserData(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'battleUserData', $request);
+    }
+
+    public function folderCheck(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'folderCheck', $request);
+    }
+
+    public function telopCheck(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'telopCheck', $request);
+    }
+
+    public function taikojuku(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'taikojuku', $request);
     }
 
     public function getGhostData(Request $request, string $version): Response
     {
-        /** @var GetghostdataRequest $message */
-        $this->payloads->parse($request->getContent(), GetghostdataRequest::class);
-
-        return $this->payloads->response(
-            (new GetghostdataResponse)
-                ->setResult(1)
-                ->setReleaseInfoFlag($this->scoreMapper->emptyFlagBytes())
-                ->setPlayedSongFlag($this->ghostPlayedSongFlag($this->catalogVersion($version)))
-                ->setTotalWinnings(0)
-                ->setGhostPerfData((new GhostPerfData)->setInputMedian(0)->setInputVariance(0))
-                ->setGhostRecordData((new GhostRankData)
-                    ->setRankId(1)
-                    ->setWinPoint(0)
-                    ->setCertifiedLevelId(0)
-                    ->setAryWinningsData([]))
-                ->setAryTokenData([])
-        );
+        return $this->dispatch($version, 'getGhostData', $request);
     }
 
     public function getGhostScore(Request $request, string $version): Response
     {
-        /** @var GetghostscoreRequest $message */
-        $message = $this->payloads->parse($request->getContent(), GetghostscoreRequest::class);
+        return $this->dispatch($version, 'getGhostScore', $request);
+    }
 
-        $plays = SongPlayResult::query()
-            ->select(['baid', 'score', 'ghost_sections'])
-            ->where('game_version', $this->catalogVersion($version))
-            ->where('song_no', $message->getSongNo())
-            ->where('level', $message->getLevel())
-            ->whereNotNull('ghost_sections')
-            ->orderByDesc('score')
-            ->get();
+    public function recommend(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'recommend', $request);
+    }
 
-        if ($plays->isEmpty()) {
-            return $this->payloads->response(
-                (new GetghostscoreResponse)
-                    ->setResult(1)
-                    ->setAryBestSectionData([])
-            );
+    public function tournamentCheck(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'tournamentCheck', $request);
+    }
+
+    public function challengeCompe(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'challengeCompe', $request);
+    }
+
+    public function rewardCardCheck(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'rewardCardCheck', $request);
+    }
+
+    public function rewardExecution(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'rewardExecution', $request);
+    }
+
+    public function headClerk2(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'headClerk2', $request);
+    }
+
+    public function getItemShopInfo(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'getItemShopInfo', $request);
+    }
+
+    public function itemPurchase(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'itemPurchase', $request);
+    }
+
+    public function getBanacoinInfo(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'getBanacoinInfo', $request);
+    }
+
+    public function banacoinPayment(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'banacoinPayment', $request);
+    }
+
+    public function banacoinErrorLog(Request $request, string $version): Response
+    {
+        return $this->dispatch($version, 'banacoinErrorLog', $request);
+    }
+
+    public function rootSetup(Request $request): Response
+    {
+        $payload = $request->getContent();
+
+        if ($this->hasProtobufField($payload, 3, 2)) {
+            return $this->dispatch(self::RED_ROOT_ROUTE_VERSION, 'bookKeeping', $request);
         }
 
-        $allSections = $plays
-            ->unique('baid')
-            ->map(fn (SongPlayResult $play): array => $play->ghost_sections)
-            ->filter(fn (array $sections): bool => $sections !== [])
-            ->values()
-            ->all();
-
-        if ($allSections === []) {
-            return $this->payloads->response(
-                (new GetghostscoreResponse)
-                    ->setResult(1)
-                    ->setAryBestSectionData([])
-            );
+        if ($this->hasProtobufField($payload, 3, 0)) {
+            return $this->dispatch(self::RED_ROOT_ROUTE_VERSION, 'getTelop', $request);
         }
 
-        $sectionCount = max(array_map('count', $allSections));
-        $sections = collect(range(0, $sectionCount - 1))
-            ->map(function (int $index) use ($allSections): GhostBestSectionData {
-                $randomKey = array_rand($allSections);
-                $section = $allSections[$randomKey][$index] ?? null;
+        $request->attributes->set('songHashVersion', 99);
 
-                return (new GhostBestSectionData)
-                    ->setSectionNo($index + 1)
-                    ->setGoodCnt($section['good_cnt'] ?? 0)
-                    ->setOkCnt($section['ok_cnt'] ?? 0)
-                    ->setNgCnt($section['ng_cnt'] ?? 0)
-                    ->setPoundCnt($section['pound_cnt'] ?? 0);
-            })
-            ->all();
-
-        return $this->payloads->response(
-            (new GetghostscoreResponse)
-                ->setResult(1)
-                ->setAryBestSectionData($sections)
-        );
+        return $this->dispatch(self::RED_ROOT_ROUTE_VERSION, 'initialDataCheck', $request);
     }
 
-    private function ghostPlayedSongFlag(string $gameVersion): string
+    /**
+     * Resolve the dialect from the route segment and hand the request to the
+     * matching handler method.
+     */
+    private function dispatch(string $routeVersion, string $method, Request $request): Response
     {
-        $songNumbers = SongPlayResult::query()
-            ->where('game_version', $gameVersion)
-            ->whereNotNull('ghost_sections')
-            ->distinct()
-            ->pluck('song_no')
-            ->map(fn (mixed $songNo): int => (int) $songNo);
+        $game = $this->version($routeVersion);
 
-        return $this->scoreMapper->songFlagBytes($songNumbers);
+        return $this->handlers->for($game)->{$method}($request, $game);
     }
 
-    private function releaseSongFlag(string $gameVersion): string
+    private function version(string $routeVersion): TaikoGameVersion
     {
-        $songNumbers = Song::query()
-            ->where('version', $gameVersion)
-            ->pluck('song_no')
-            ->map(fn (mixed $songNo): int => (int) $songNo);
+        $normalized = strtolower(trim($routeVersion));
+        $major = preg_match('/^(v\d{2})/', $normalized, $matches) === 1 ? $matches[1] : null;
+        $catalogVersion = Config::get("taiko_green.route_catalog_versions.{$normalized}");
 
-        return $this->scoreMapper->songFlagBytes($songNumbers);
-    }
-
-    public function recommend(Request $request): Response
-    {
-        /** @var RecommendRequest $message */
-        $this->payloads->parse($request->getContent(), RecommendRequest::class);
-
-        return $this->payloads->response((new RecommendResponse)->setResult(1));
-    }
-
-    public function tournamentCheck(Request $request): Response
-    {
-        /** @var TournamentcheckRequest $message */
-        $this->payloads->parse($request->getContent(), TournamentcheckRequest::class);
-
-        return $this->payloads->response((new TournamentcheckResponse)->setResult(1));
-    }
-
-    public function challengeCompe(Request $request): Response
-    {
-        /** @var ChallengeCompeRequest $message */
-        $this->payloads->parse($request->getContent(), ChallengeCompeRequest::class);
-
-        return $this->payloads->response((new ChallengeCompeResponse)->setResult(1));
-    }
-
-    public function rewardCardCheck(Request $request): Response
-    {
-        /** @var RewardcardcheckRequest $message */
-        $this->payloads->parse($request->getContent(), RewardcardcheckRequest::class);
-
-        return $this->payloads->response((new RewardcardcheckResponse)->setResult(1));
-    }
-
-    public function rewardExecution(Request $request): Response
-    {
-        /** @var RewardexecutionRequest $message */
-        $this->payloads->parse($request->getContent(), RewardexecutionRequest::class);
-
-        return $this->payloads->response((new RewardexecutionResponse)->setResult(1));
-    }
-
-    public function headClerk2(Request $request): Response
-    {
-        /** @var HeadClerk2Request $message */
-        $message = $this->payloads->parse($request->getContent(), HeadClerk2Request::class);
-
-        foreach ($message->getAryPlayInfo() as $playData) {
-            HeadClerkLog::query()->create([
-                'chassis_id' => $message->getChassisId(),
-                'shop_id' => $message->getShopId(),
-                'baid' => $playData->getBaid() ?: null,
-                'net_id' => $playData->getNetId(),
-                'played_at' => $playData->getPlayedAt() ?: null,
-                'is_right' => $playData->getIsRight(),
-                'place_id' => $playData->getPlaceId(),
-                'type' => $playData->getType(),
-                'amount' => $playData->getAmount(),
-            ]);
+        if ($catalogVersion === null && $major !== null) {
+            $catalogVersion = Config::get("taiko_green.route_catalog_versions.{$major}");
         }
 
-        return $this->payloads->response((new HeadClerk2Response)->setResult(1));
+        if (is_string($catalogVersion)) {
+            $version = TaikoGameVersion::fromInput($catalogVersion);
+
+            if ($version instanceof TaikoGameVersion) {
+                return $version;
+            }
+        }
+
+        return TaikoGameVersion::fromRouteVersion($routeVersion) ?? TaikoGameVersion::Green;
+    }
+
+    private function hasProtobufField(string $payload, int $fieldNumber, int $wireType): bool
+    {
+        $offset = 0;
+        $length = strlen($payload);
+
+        while ($offset < $length) {
+            $key = $this->readProtobufVarint($payload, $offset);
+            if ($key === null) {
+                return false;
+            }
+
+            $field = $key >> 3;
+            $wire = $key & 0x07;
+
+            if ($field === $fieldNumber && $wire === $wireType) {
+                return true;
+            }
+
+            if (! $this->skipProtobufValue($payload, $offset, $wire)) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    private function skipProtobufValue(string $payload, int &$offset, int $wireType): bool
+    {
+        return match ($wireType) {
+            0 => $this->readProtobufVarint($payload, $offset) !== null,
+            1 => $this->skipBytes($payload, $offset, 8),
+            2 => $this->skipLengthDelimited($payload, $offset),
+            5 => $this->skipBytes($payload, $offset, 4),
+            default => false,
+        };
+    }
+
+    private function skipLengthDelimited(string $payload, int &$offset): bool
+    {
+        $length = $this->readProtobufVarint($payload, $offset);
+        if ($length === null) {
+            return false;
+        }
+
+        return $this->skipBytes($payload, $offset, $length);
+    }
+
+    private function skipBytes(string $payload, int &$offset, int $bytes): bool
+    {
+        if ($bytes < 0 || $offset + $bytes > strlen($payload)) {
+            return false;
+        }
+
+        $offset += $bytes;
+
+        return true;
+    }
+
+    private function readProtobufVarint(string $payload, int &$offset): ?int
+    {
+        $result = 0;
+        $shift = 0;
+        $length = strlen($payload);
+
+        while ($offset < $length && $shift < 64) {
+            $byte = ord($payload[$offset]);
+            $offset++;
+            $result |= ($byte & 0x7F) << $shift;
+
+            if (($byte & 0x80) === 0) {
+                return $result;
+            }
+
+            $shift += 7;
+        }
+
+        return null;
     }
 }

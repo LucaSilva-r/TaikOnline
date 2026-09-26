@@ -17,6 +17,10 @@
     import { Spinner } from '@/components/ui/spinner';
     import { login } from '@/routes';
     import { store } from '@/routes/register';
+
+    // Prefilled when arriving from the dongle "Sign up" deep-link so a freshly
+    // created card is linked as the account is created.
+    let { accessCode = null }: { accessCode?: string | null } = $props();
 </script>
 
 <AppHead title="Register" />
@@ -36,9 +40,30 @@
                     required
                     autocomplete="name"
                     name="name"
-                    placeholder="Full name"
+                    placeholder="Display name"
                 />
+                <p class="text-sm text-muted-foreground">
+                    This is your public display name. You can change it at any
+                    time.
+                </p>
                 <InputError message={errors.name} />
+            </div>
+
+            <div class="grid gap-2">
+                <Label for="username">Username</Label>
+                <Input
+                    id="username"
+                    type="text"
+                    required
+                    autocomplete="username"
+                    name="username"
+                    placeholder="username"
+                />
+                <p class="text-sm text-muted-foreground">
+                    Used to log in. Choose carefully — your username cannot be
+                    changed later.
+                </p>
+                <InputError message={errors.username} />
             </div>
 
             <div class="grid gap-2">
@@ -52,6 +77,24 @@
                     placeholder="email@example.com"
                 />
                 <InputError message={errors.email} />
+            </div>
+
+            <div class="grid gap-2">
+                <Label for="access_code">Access code</Label>
+                <Input
+                    id="access_code"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    name="access_code"
+                    value={accessCode ?? ''}
+                    placeholder="Optional card access code"
+                />
+                <p class="text-sm text-muted-foreground">
+                    Link an existing Zucchini-issued card while creating your
+                    account, or leave this blank to generate a new access code.
+                </p>
+                <InputError message={errors.access_code} />
             </div>
 
             <div class="grid gap-2">

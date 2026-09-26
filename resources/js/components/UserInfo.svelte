@@ -20,11 +20,12 @@
 
 <Avatar class="h-8 w-8 overflow-hidden rounded-lg">
     {#if showAvatar}
-        <AvatarImage src={user.avatar!} alt={user.name} />
+        <AvatarImage src={user.avatar!} alt={user.name} class="bg-muted object-cover" />
+    {:else}
+        <AvatarFallback class="rounded-lg text-black dark:text-white">
+            {getInitials(user.name)}
+        </AvatarFallback>
     {/if}
-    <AvatarFallback class="rounded-lg text-black dark:text-white">
-        {getInitials(user.name)}
-    </AvatarFallback>
 </Avatar>
 
 <div class="grid flex-1 text-left text-sm leading-tight">

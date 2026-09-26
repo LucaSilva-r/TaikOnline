@@ -1,0 +1,294 @@
+syntax = "proto2";
+
+message BAIDRequest {
+  required uint32 device_type = 1;
+  required string access_code = 2;
+  required string chip_id = 3;
+  required string chassis_id = 4;
+  required string shop_id = 5;
+  required string country_id = 6;
+}
+
+message BAIDResponse {
+  required uint32 result = 1;
+  optional uint32 player_type = 2;
+  optional uint32 com_svr_result = 3;
+  optional uint32 personal_id = 4;
+  optional uint32 baid = 5;
+  optional string access_code = 6;
+  optional bool is_publish = 7;
+  optional uint32 card_own_num = 8;
+  optional string reg_country_id = 9;
+  optional uint32 purpose_id = 10;
+  optional uint32 region_id = 11;
+  optional string mydon_name = 12;
+  optional uint32 title = 13;
+  optional uint32 color_face = 14;
+  optional uint32 color_body = 15;
+  optional uint32 color_limb = 16;
+  optional uint32 costume = 17;
+  optional bytes costume_flg = 18;
+  optional uint32 reward_ptn = 19;
+  optional string update_datetime = 20;
+}
+
+message BestScoreRequest {
+  required string chassis_id = 1;
+  required uint32 seq_id = 2;
+}
+
+message BestScoreResponse {
+  message SongData {
+    message Best3Data {
+      message RankData {
+        required uint32 high_score = 1;
+        required string mydon_name = 2;
+      }
+      repeated BestScoreResponse.SongData.Best3Data.RankData ary_rank_score = 1;
+    }
+    required uint32 song_no = 1;
+    repeated BestScoreResponse.SongData.Best3Data ary_best3_score = 2;
+  }
+  required uint32 result = 1;
+  required uint32 seq_id = 2;
+  required uint32 last_seq_id = 3;
+  repeated BestScoreResponse.SongData ary_song_score = 4;
+}
+
+message BookKeepingRequest {
+  required string chassis_id = 1;
+  required string shop_id = 2;
+  required string update_date = 3;
+  required uint32 credit_cost_1 = 4;
+  required uint32 credit_cost_2 = 5;
+  required uint32 credit_songs_1 = 6;
+  required uint32 credit_songs_2 = 7;
+  required uint32 app_play_cnt = 8;
+  required uint32 service_sw_cnt = 9;
+  required uint32 free_play_cnt = 10;
+}
+
+message BookKeepingResponse {
+  required uint32 result = 1;
+}
+
+message CommunicationLogRequest {
+  required string update_datetime = 1;
+  required string chassis_id = 2;
+  required string shop_id = 3;
+  required uint32 network_type = 4;
+  required uint32 sent_cnt = 5;
+  required uint32 fail_cnt = 6;
+  required uint32 trans_time_min = 7;
+  required uint32 trans_time_max = 8;
+  required uint32 trans_time_ave = 9;
+}
+
+message CommunicationLogResponse {
+  required uint32 result = 1;
+}
+
+message DefaultsongRequest {
+  required string chassis_id = 1;
+}
+
+message DefaultsongResponse {
+  required uint32 result = 1;
+  optional bytes default_song_flg = 2;
+}
+
+message GetTelopRequest {
+  required string chassis_id = 1;
+  required uint32 telop_id = 2;
+}
+
+message GetTelopResponse {
+  required uint32 result = 1;
+  optional string start_datetime = 2;
+  optional string end_datetime = 3;
+  optional string telop = 4;
+}
+
+message HeartBeatRequest {
+  required string chassis_id = 1;
+}
+
+message HeartBeatResponse {
+  required uint32 result = 1;
+  required uint32 com_svr_stat = 2;
+  required uint32 game_svr_stat = 3;
+}
+
+message MydonEntryRequest {
+  required uint32 device_type = 1;
+  required string access_code = 2;
+  required string chip_id = 3;
+  required string chassis_id = 4;
+  required string shop_id = 5;
+  required string country_id = 6;
+  required string mydon_name = 7;
+  required uint32 reward_ptn = 8;
+}
+
+message MydonEntryResponse {
+  required uint32 result = 1;
+  optional uint32 com_svr_result = 2;
+  optional uint32 personal_id = 3;
+  optional uint32 baid = 4;
+  optional string access_code = 5;
+  optional bool is_publish = 6;
+  optional uint32 card_own_num = 7;
+  optional string reg_country_id = 8;
+  optional uint32 purpose_id = 9;
+  optional uint32 region_id = 10;
+  optional string mydon_name = 11;
+  optional uint32 reward_ptn = 12;
+}
+
+message PlayResultRequest {
+  message StageData {
+    message ResultcompeData {
+      required uint32 compe_id = 1;
+      required uint32 track_no = 2;
+    }
+    required uint32 song_no = 1;
+    required uint32 level = 2;
+    required uint32 play_result = 3;
+    required uint32 play_score = 4;
+    repeated PlayResultRequest.StageData.ResultcompeData ary_challenge_id = 5;
+    repeated PlayResultRequest.StageData.ResultcompeData ary_user_compe_id = 6;
+    repeated PlayResultRequest.StageData.ResultcompeData ary_bng_compe_id = 7;
+    required uint32 good_cnt = 8;
+    required uint32 ok_cnt = 9;
+    required uint32 ng_cnt = 10;
+    required uint32 pound_cnt = 11;
+    required uint32 combo_cnt = 12;
+    required bytes option_flg = 13;
+    required bytes tone_flg = 14;
+    required uint32 music_categ = 15;
+    required bool is_pushed = 16;
+    required bool is_favorite = 17;
+    required bool is_recent = 18;
+    required uint32 song_rem_time = 19;
+    required uint32 level_rem_time = 20;
+    required bool is_papamama = 21;
+    required uint32 play_dan = 22;
+  }
+  required uint32 baid = 1;
+  required string chassis_id = 2;
+  required string shop_id = 3;
+  required string play_datetime = 4;
+  required bool is_right = 5;
+  required uint32 card_type = 6;
+  required bool is_two_players = 7;
+  repeated PlayResultRequest.StageData ary_stage_info = 8;
+  optional bytes option_flg = 9;
+  optional bytes release_song_flg = 10;
+  optional bytes tone_flg = 11;
+  optional bytes costume_flg = 12;
+  optional bytes title_flg = 13;
+  optional uint32 get_donpoint = 14;
+  optional uint32 reward_ptn = 15;
+  optional uint32 reward_progress = 16;
+  optional bool is_devil = 17;
+  optional bool is_explain = 18;
+  required uint32 play_costume = 19;
+  required uint32 current_costume = 20;
+  required uint32 gender_type = 21;
+  required uint32 player_age = 22;
+  required uint32 play_mode = 23;
+  required uint32 area_code = 24;
+  required bytes reserved = 25;
+}
+
+message PlayResultResponse {
+  required uint32 result = 1;
+}
+
+message SongInfoRequest {
+  required uint32 baid = 1;
+  required string chassis_id = 2;
+  required bool is_friend = 3;
+  repeated uint32 ary_song_no = 4;
+}
+
+message SongInfoResponse {
+  message GroupData {
+    message FriendData {
+      required uint32 baid = 1;
+      required uint32 level = 2;
+      required uint32 high_score = 3;
+    }
+    required uint32 song_no = 1;
+    repeated uint32 ary_high_score = 2;
+    repeated SongInfoResponse.GroupData.FriendData ary_friend_score = 3;
+  }
+  required uint32 result = 1;
+  repeated SongInfoResponse.GroupData ary_group_score = 2;
+}
+
+message TelopCheckRequest {
+  required string chassis_id = 1;
+}
+
+message TelopCheckResponse {
+  required uint32 result = 1;
+  repeated uint32 telop_id = 2;
+}
+
+message UserDataRequest {
+  required uint32 baid = 1;
+  required string chassis_id = 2;
+}
+
+message UserDataResponse {
+  message CompeData {
+    message TracksData {
+      required uint32 song_no = 1;
+      required uint32 level = 2;
+      required bytes option_flg = 3;
+      required uint32 high_score = 4;
+    }
+    required uint32 compe_id = 1;
+    repeated UserDataResponse.CompeData.TracksData ary_track_stat = 2;
+  }
+  message FriendInfo {
+    required uint32 baid = 1;
+    required string friend_name = 2;
+  }
+  required uint32 result = 1;
+  optional bool is_explain = 2;
+  repeated uint32 ary_favorite_song_no = 3;
+  repeated uint32 ary_recent_song_no = 4;
+  optional bytes release_song_flg = 5;
+  optional bool is_devil = 6;
+  optional bytes crown_flg = 7;
+  repeated UserDataResponse.CompeData ary_challenge_stat = 8;
+  repeated UserDataResponse.CompeData ary_user_compe_stat = 9;
+  repeated UserDataResponse.CompeData ary_bng_compe_stat = 10;
+  optional uint32 disp_score_type = 11;
+  repeated UserDataResponse.FriendInfo ary_friend_info = 12;
+  optional uint32 disp_level_total = 13;
+  optional uint32 disp_level_chassis = 14;
+  optional bytes option_flg = 15;
+  optional bytes tone_flg = 16;
+  optional bytes costume_flg = 17;
+  optional bytes title_flg = 18;
+  optional uint32 donpoint = 19;
+  optional uint32 reward_progress = 20;
+  optional uint32 categ_jpop_cnt = 21;
+  optional uint32 categ_anime_cnt = 22;
+  optional uint32 categ_doyo_cnt = 23;
+  optional uint32 categ_variety_cnt = 24;
+  optional uint32 categ_classic_cnt = 25;
+  optional uint32 categ_game_cnt = 26;
+  optional uint32 categ_namco_cnt = 27;
+  optional uint32 song_pushed_cnt = 28;
+  optional uint32 song_favorite_cnt = 29;
+  optional uint32 song_recent_cnt = 30;
+  optional uint32 total_credit_cnt = 31;
+  optional uint32 prev_area_code = 32;
+  optional uint32 consec_area_cnt = 33;
+  repeated uint32 ary_dan = 34;
+  optional bytes got_dan_flg = 35;
+}

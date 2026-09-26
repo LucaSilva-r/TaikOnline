@@ -4,9 +4,18 @@ import AuthLayout from '@/layouts/AuthLayout.svelte';
 import PlayerLayout from '@/layouts/PlayerLayout.svelte';
 import SettingsLayout from '@/layouts/settings/Layout.svelte';
 import { initializeFlashToast } from '@/lib/flash-toast';
+import {
+    currentTaikoScope,
+    initializeTaikoRouteDefaults,
+    initializeTaikoVersionAccent,
+    taikoVersionAccent,
+} from '@/lib/taiko-version';
 import { initializeTheme } from '@/lib/theme.svelte';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+initializeTaikoRouteDefaults();
+initializeTaikoVersionAccent();
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
@@ -23,7 +32,7 @@ createInertiaApp({
         }
     },
     progress: {
-        color: '#4B5563',
+        color: taikoVersionAccent(currentTaikoScope()).progress,
     },
 });
 

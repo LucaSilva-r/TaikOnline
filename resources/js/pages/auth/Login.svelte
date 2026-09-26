@@ -1,7 +1,8 @@
 <script module lang="ts">
     export const layout = {
         title: 'Log in to your account',
-        description: 'Enter your email and password below to log in',
+        description:
+            'Enter your username or email and password below to log in',
     };
 </script>
 
@@ -24,14 +25,42 @@
         status = '',
         canResetPassword,
         canRegister,
+        signupAccessCode = null,
+        signupVersion = null,
+        playIntent = false,
     }: {
         status?: string;
         canResetPassword: boolean;
         canRegister: boolean;
+        signupAccessCode?: string | null;
+        signupVersion?: string | null;
+        playIntent?: boolean;
     } = $props();
+
+    // Forward a pending card access code (user was bounced here from the
+    // dongle deep-link) to the Sign up link so registration can carry it on.
+    const registerHref = $derived(
+        signupAccessCode
+            ? register({
+                  query: {
+                      access_code: signupAccessCode,
+                      v: signupVersion ?? 'green',
+                  },
+              })
+            : register(),
+    );
 </script>
 
 <AppHead title="Log in" />
+
+{#if playIntent}
+    <div
+        class="mb-4 rounded-md border border-[var(--taiko-accent-border)] bg-[var(--taiko-accent-soft)] p-3 text-center text-sm"
+    >
+        Log in to send your Banapass to a cabinet. You will return to the Play
+        page afterward.
+    </div>
+{/if}
 
 {#if status}
     <div class="mb-4 text-center text-sm font-medium text-green-600">
@@ -47,14 +76,14 @@
     {#snippet children({ errors, processing })}
         <div class="grid gap-6">
             <div class="grid gap-2">
-                <Label for="email">Email address</Label>
+                <Label for="email">Username or email</Label>
                 <Input
                     id="email"
-                    type="email"
+                    type="text"
                     name="email"
                     required
-                    autocomplete="email"
-                    placeholder="email@example.com"
+                    autocomplete="username"
+                    placeholder="username or email@example.com"
                 />
                 <InputError message={errors.email} />
             </div>
@@ -99,7 +128,7 @@
         {#if canRegister}
             <div class="text-center text-sm text-muted-foreground">
                 Don't have an account?
-                <TextLink href={register()}>Sign up</TextLink>
+                <TextLink href={registerHref}>Sign up</TextLink>
             </div>
         {/if}
     {/snippet}

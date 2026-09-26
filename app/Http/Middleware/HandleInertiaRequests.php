@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\TaikoGameVersion;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -41,7 +42,62 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'taikoVersion' => [
+                'scope' => $request->attributes->get('taikoVersionScope', TaikoGameVersion::default()->value),
+                'isAll' => (bool) $request->attributes->get('taikoVersionIsAll', false),
+                'current' => $this->currentVersion($request),
+                'versions' => collect(TaikoGameVersion::cases())
+                    ->map(fn (TaikoGameVersion $version): array => $this->versionPayload($version))
+                    ->push($this->extraPayload())
+                    ->values()
+                    ->all(),
+                'allowAll' => $request->routeIs('admin.*'),
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+        ];
+    }
+
+    /**
+     * @return array{value: string, label: string}|null
+     */
+    private function currentVersion(Request $request): ?array
+    {
+        $version = $request->attributes->get('taikoGameVersion');
+
+        if ((bool) $request->attributes->get('taikoVersionIsExtra', false)) {
+            return $this->extraPayload();
+        }
+
+        return $version instanceof TaikoGameVersion ? $this->versionPayload($version) : null;
+    }
+
+    /**
+     * @return array{value: string, label: string, supports: array<string, bool|int>}
+     */
+    private function versionPayload(TaikoGameVersion $version): array
+    {
+        return [
+            'value' => $version->value,
+            'label' => $version->label(),
+            'supports' => $version->featureSupport(),
+        ];
+    }
+
+    private function extraPayload(): array
+    {
+        return [
+            'value' => 'extra',
+            'label' => 'EXTRA',
+            'supports' => [
+                'favoriteFolder' => false,
+                'favoriteLimit' => 0,
+                'costumeSlots' => false,
+                'playOptionDefaults' => false,
+                'toneDefault' => false,
+                'rankingDifficulty' => false,
+                'profilePublicity' => false,
+                'difficultyFolderPresets' => false,
+            ],
         ];
     }
 }

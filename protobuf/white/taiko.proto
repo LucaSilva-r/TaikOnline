@@ -1,0 +1,449 @@
+syntax = "proto2";
+
+message BookKeepingRequest {
+  required string chassis_id = 1;
+  required string shop_id = 2;
+  required string update_date = 3;
+  required uint32 credit_cost_1 = 4;
+  required uint32 credit_cost_2 = 5;
+  required uint32 credit_songs_1 = 6;
+  required uint32 credit_songs_2 = 7;
+  required uint32 all_play_cnt = 8;
+  required uint32 service_sw_cnt = 9;
+  required uint32 free_play_cnt = 10;
+}
+
+message BookKeepingResponse {
+  required uint32 result = 1;
+}
+
+message GettelopRequest {
+  required string chassis_id = 1;
+  required string shop_id = 2;
+  required uint32 telop_id = 3;
+}
+
+message GettelopResponse {
+  required uint32 result = 1;
+  optional uint32 verup_no = 2;
+  optional string start_datetime = 3;
+  optional string end_datetime = 4;
+  optional string telop = 5;
+}
+
+message HeartBeatRequest {
+  required string chassis_id = 1;
+  required string shop_id = 2;
+}
+
+message HeartBeatResponse {
+  required uint32 result = 1;
+  required uint32 com_svr_stat = 2;
+  required uint32 game_svr_stat = 3;
+}
+
+message GetfolderRequest {
+  required string chassis_id = 1;
+  required string shop_id = 2;
+  repeated uint32 folder_id = 3;
+  required uint32 hdd_ver = 4;
+}
+
+message GetfolderResponse {
+  message EventfolderData {
+    optional uint32 folder_id = 1;
+    optional uint32 verup_no = 2;
+    repeated uint32 song_no = 3;
+  }
+  required uint32 result = 1;
+  repeated GetfolderResponse.EventfolderData ary_eventfolder_data = 2;
+}
+
+message TaikojukuRequest {
+  required string chassis_id = 1;
+  required string shop_id = 2;
+  repeated uint32 get_dan = 3;
+}
+
+message TaikojukuResponse {
+  message JukupackData {
+    message JukusongData {
+      required uint32 song_no = 1;
+      required uint32 level = 2;
+    }
+    required uint32 get_dan = 1;
+    optional uint32 verup_no = 2;
+    repeated TaikojukuResponse.JukupackData.JukusongData ary_jukusong_data = 3;
+  }
+  required uint32 result = 1;
+  repeated TaikojukuResponse.JukupackData ary_jukupack_data = 2;
+}
+
+message InitialdatacheckRequest {
+  required string chassis_id = 1;
+  required string shop_id = 2;
+}
+
+message InitialdatacheckResponse {
+  message InformationData {
+    required uint32 info_id = 1;
+    required uint32 verup_no = 2;
+  }
+  required uint32 result = 1;
+  optional uint32 song_hash_ver = 2;
+  optional bytes hash_default_song_flg = 3;
+  optional bytes hash_mainichidojo_all = 4;
+  optional bytes hash_mainichidojo_rare = 5;
+  repeated InitialdatacheckResponse.InformationData ary_telop_data = 6;
+  repeated InitialdatacheckResponse.InformationData ary_eventfolder_data = 7;
+  repeated InitialdatacheckResponse.InformationData ary_taikojuku_data = 8;
+}
+
+message TournamentcheckRequest {
+  required string chassis_id = 1;
+  required string shop_id = 2;
+  required uint32 kit_id = 3;
+}
+
+message TournamentcheckResponse {
+  required uint32 result = 1;
+}
+
+message BAIDRequest {
+  required uint32 device_type = 1;
+  required string access_code = 2;
+  required string chip_id = 3;
+  required string chassis_id = 4;
+  required string shop_id = 5;
+  required string country_id = 6;
+}
+
+message BAIDResponse {
+  message CostumeData {
+    optional uint32 costume_1 = 1;
+    optional uint32 costume_2 = 2;
+    optional uint32 costume_3 = 3;
+    optional uint32 costume_4 = 4;
+    optional uint32 costume_5 = 5;
+  }
+  required uint32 result = 1;
+  optional uint32 player_type = 2;
+  optional uint32 com_svr_result = 3;
+  optional uint32 mb_id = 4;
+  optional uint32 baid = 5;
+  optional string access_code = 6;
+  optional bool is_publish = 7;
+  optional uint32 card_own_num = 8;
+  optional string reg_country_id = 9;
+  optional uint32 purpose_id = 10;
+  optional uint32 region_id = 11;
+  optional string mydon_name = 12;
+  optional string title = 13;
+  optional uint32 color_face = 14;
+  optional uint32 color_body = 15;
+  optional uint32 color_limb = 16;
+  optional BAIDResponse.CostumeData ary_costumedata = 17;
+  repeated BAIDResponse.CostumeData ary_favorite_costumedata = 18;
+  optional bytes costume_flg_1 = 19;
+  optional bytes costume_flg_2 = 20;
+  optional bytes costume_flg_3 = 21;
+  optional bytes costume_flg_4 = 22;
+  optional bytes costume_flg_5 = 23;
+  optional uint32 reward_ptn = 24;
+  optional string update_datetime = 25;
+  optional uint32 disp_dan_type = 26;
+  optional uint32 got_dan_max = 27;
+  optional bytes got_dan_flg = 28;
+  optional string accesstoken = 29;
+  optional bytes content_info = 30;
+  optional uint32 default_tone_setting = 31;
+}
+
+message MydonEntryRequest {
+  required uint32 device_type = 1;
+  required string access_code = 2;
+  required string chip_id = 3;
+  required string chassis_id = 4;
+  required string shop_id = 5;
+  required string country_id = 6;
+  required string mydon_name = 7;
+  required uint32 reward_ptn = 8;
+}
+
+message MydonEntryResponse {
+  required uint32 result = 1;
+  optional uint32 com_svr_result = 2;
+  optional uint32 mb_id = 3;
+  optional uint32 baid = 4;
+  optional string access_code = 5;
+  optional bool is_publish = 6;
+  optional uint32 card_own_num = 7;
+  optional string reg_country_id = 8;
+  optional uint32 purpose_id = 9;
+  optional uint32 region_id = 10;
+  optional string mydon_name = 11;
+  optional uint32 reward_ptn = 12;
+  optional string accesstoken = 13;
+  optional bytes content_info = 14;
+}
+
+message UserDataRequest {
+  required uint32 baid = 1;
+  required string chassis_id = 2;
+  required string shop_id = 3;
+}
+
+message UserDataResponse {
+  message CompeData {
+    message TracksData {
+      required uint32 song_no = 1;
+      required uint32 level = 2;
+      required bytes option_flg = 3;
+      required uint32 stage_mode = 4;
+      required uint32 high_score = 5;
+    }
+    required uint32 compe_id = 1;
+    repeated UserDataResponse.CompeData.TracksData ary_track_stat = 2;
+  }
+  message FriendInfo {
+    required uint32 baid = 1;
+    required string friend_name = 2;
+  }
+  required uint32 result = 1;
+  optional bool is_explain = 2;
+  repeated uint32 ary_favorite_song_no = 3;
+  repeated uint32 ary_recent_song_no = 4;
+  optional uint32 song_hash_ver = 5;
+  optional bytes hash_release_song_flg = 6;
+  optional bool is_devil = 7;
+  repeated UserDataResponse.CompeData ary_challenge_stat = 8;
+  repeated UserDataResponse.CompeData ary_user_compe_stat = 9;
+  repeated UserDataResponse.CompeData ary_bng_compe_stat = 10;
+  optional uint32 disp_score_type = 11;
+  repeated UserDataResponse.FriendInfo ary_friend_info = 12;
+  optional uint32 disp_level_total = 13;
+  optional uint32 disp_level_chassis = 14;
+  optional bytes option_flg = 15;
+  optional bytes tone_flg = 16;
+  optional bytes title_flg = 17;
+  optional uint32 reward_progress = 18;
+  optional uint32 categ_jpop_cnt = 19;
+  optional uint32 categ_anime_cnt = 20;
+  optional uint32 categ_doyo_cnt = 21;
+  optional uint32 categ_variety_cnt = 22;
+  optional uint32 categ_classic_cnt = 23;
+  optional uint32 categ_game_cnt = 24;
+  optional uint32 categ_namco_cnt = 25;
+  optional uint32 categ_vocaloid_cnt = 26;
+  optional uint32 song_pushed_cnt = 27;
+  optional uint32 song_favorite_cnt = 28;
+  optional uint32 song_recent_cnt = 29;
+  optional uint32 total_credit_cnt = 30;
+  optional uint32 prev_area_code = 31;
+  optional uint32 consec_area_cnt = 32;
+  optional uint32 recommend_song = 33;
+  repeated uint32 recommend_best_song = 34;
+  optional uint32 disp_level_self = 35;
+  optional bool is_auto_title_on = 36;
+  optional bytes default_option_setting = 37;
+  optional bool default_shin_setting = 38;
+  optional uint32 total_get_donpoint = 39;
+  optional uint32 total_use_donpoint = 40;
+  optional uint32 disp_taikojuku_dan = 41;
+}
+
+message PlayResultRequest {
+  message StageData {
+    message ResultcompeData {
+      required uint32 compe_id = 1;
+      required uint32 track_no = 2;
+    }
+    required uint32 song_no = 1;
+    required uint32 level = 2;
+    required uint32 play_result = 3;
+    required uint32 play_score = 4;
+    repeated PlayResultRequest.StageData.ResultcompeData ary_challenge_id = 5;
+    repeated PlayResultRequest.StageData.ResultcompeData ary_user_compe_id = 6;
+    repeated PlayResultRequest.StageData.ResultcompeData ary_bng_compe_id = 7;
+    required uint32 good_cnt = 8;
+    required uint32 ok_cnt = 9;
+    required uint32 ng_cnt = 10;
+    required uint32 pound_cnt = 11;
+    required uint32 combo_cnt = 12;
+    required bytes option_flg = 13;
+    required bytes tone_flg = 14;
+    required uint32 music_categ = 15;
+    required bool is_pushed = 16;
+    required bool is_favorite = 17;
+    required bool is_recent = 18;
+    required bool is_papamama = 19;
+    required uint32 play_dan = 20;
+    optional uint32 soul_gauge = 21;
+    optional uint32 hit_cnt = 22;
+    required uint32 stage_mode = 23;
+    required uint32 selected_folder_id = 24;
+  }
+  message CostumeData {
+    optional uint32 costume_1 = 1;
+    optional uint32 costume_2 = 2;
+    optional uint32 costume_3 = 3;
+    optional uint32 costume_4 = 4;
+    optional uint32 costume_5 = 5;
+  }
+  message CollaboData {
+    required uint32 collabo_select = 1;
+    optional uint32 collabo_id = 2;
+    optional uint32 collabo_result = 3;
+  }
+  required uint32 baid = 1;
+  required string chassis_id = 2;
+  required string shop_id = 3;
+  required string play_datetime = 4;
+  required bool is_right = 5;
+  required uint32 card_type = 6;
+  required bool is_two_players = 7;
+  repeated PlayResultRequest.StageData ary_stage_info = 8;
+  repeated uint32 release_song_no = 9;
+  repeated uint32 get_tone_no = 10;
+  repeated uint32 get_costume_no_1 = 11;
+  repeated uint32 get_costume_no_2 = 12;
+  repeated uint32 get_costume_no_3 = 13;
+  repeated uint32 get_costume_no_4 = 14;
+  repeated uint32 get_costume_no_5 = 15;
+  repeated uint32 get_title_no = 16;
+  optional uint32 get_donpoint = 17;
+  optional uint32 reward_ptn = 18;
+  optional uint32 reward_progress = 19;
+  optional bool is_devil = 20;
+  optional bool is_explain = 21;
+  optional PlayResultRequest.CostumeData ary_play_costume = 22;
+  optional PlayResultRequest.CostumeData ary_current_costume = 23;
+  required uint32 gender_type = 24;
+  required uint32 player_age = 25;
+  required uint32 play_mode = 26;
+  required uint32 area_code = 27;
+  required bytes reserved = 28;
+  optional uint32 lowerlimit_age = 29;
+  optional uint32 upperlimit_age = 30;
+  optional uint32 age_score = 31;
+  optional uint32 estimation_count = 32;
+  optional uint32 dan_result = 33;
+  repeated PlayResultRequest.CollaboData ary_collabo_info = 34;
+  optional uint32 tournament_mode = 35;
+  optional string accesstoken = 36;
+  optional bytes content_info = 37;
+}
+
+message PlayResultResponse {
+  required uint32 result = 1;
+}
+
+message SelfBestRequest {
+  required uint32 baid = 1;
+  required string chassis_id = 2;
+  required string shop_id = 3;
+  optional uint32 level = 4;
+  repeated uint32 ary_song_no = 5;
+}
+
+message SelfBestResponse {
+  message SelfBestData {
+    required uint32 song_no = 1;
+    required uint32 self_best_score = 2;
+    required uint32 ura_best_score = 3;
+  }
+  required uint32 result = 1;
+  optional uint32 level = 2;
+  repeated SelfBestResponse.SelfBestData ary_selfbest_score = 3;
+  repeated SelfBestResponse.SelfBestData ary_shin_selfbest_score = 4;
+}
+
+message RecommendRequest {
+  required string chassis_id = 1;
+  required string shop_id = 2;
+  required uint32 gender_type = 3;
+  required uint32 player_age = 4;
+}
+
+message RecommendResponse {
+  required uint32 result = 1;
+  optional uint32 recommend_song = 2;
+  repeated uint32 recommend_best_song = 3;
+}
+
+message CrownsDataRequest {
+  required uint32 baid = 1;
+  required string chassis_id = 2;
+  required string shop_id = 3;
+}
+
+message CrownsDataResponse {
+  required uint32 result = 1;
+  optional uint32 song_hash_ver = 2;
+  optional bytes hash_crown_flg = 3;
+}
+
+message HeadClerk2Request {
+  message PlayData {
+    required uint32 baid = 1;
+    required string net_id = 2;
+    required string played_at = 3;
+    required bool is_right = 4;
+    required string place_id = 5;
+    optional uint32 type = 6;
+    optional uint32 amount = 7;
+  }
+  required string chassis_id = 1;
+  required string shop_id = 2;
+  optional string current_place_id = 3;
+  repeated HeadClerk2Request.PlayData ary_play_info = 4;
+}
+
+message HeadClerk2Response {
+  required uint32 result = 1;
+}
+
+message GetreitaiRequest {
+  required uint32 device_type = 1;
+  required string access_code = 2;
+  required string chip_id = 3;
+  required string chassis_id = 4;
+  required string shop_id = 5;
+  required string country_id = 6;
+}
+
+message GetreitaiResponse {
+  required uint32 result = 1;
+}
+
+message RewardcardcheckRequest {
+  required uint32 device_type = 1;
+  required string access_code = 2;
+  required string chip_id = 3;
+  required string chassis_id = 4;
+  required string shop_id = 5;
+  required string country_id = 6;
+}
+
+message RewardcardcheckResponse {
+  required uint32 result = 1;
+  optional uint32 baid = 2;
+}
+
+message RewardexecutionRequest {
+  required uint32 baid = 1;
+  required string chassis_id = 2;
+  required string shop_id = 3;
+  repeated uint32 release_song_no = 4;
+  repeated uint32 get_tone_no = 5;
+  repeated uint32 get_costume_no_1 = 6;
+  repeated uint32 get_costume_no_2 = 7;
+  repeated uint32 get_costume_no_3 = 8;
+  repeated uint32 get_costume_no_4 = 9;
+  repeated uint32 get_costume_no_5 = 10;
+  repeated uint32 get_title_no = 11;
+}
+
+message RewardexecutionResponse {
+  required uint32 result = 1;
+}

@@ -5,42 +5,63 @@
     import { Button } from '@/components/ui/button';
     import { Separator } from '@/components/ui/separator';
     import { currentUrlState } from '@/lib/currentUrl.svelte';
+    import { currentTaikoSupports, taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
     import { edit as editAppearance } from '@/routes/appearance';
+    import { edit as editAvatar } from '@/routes/avatar';
     import { index as indexCabinets } from '@/routes/cabinets';
-    import { edit as editCustomize } from '@/routes/customize';
+    import { edit as editCostumes } from '@/routes/costumes';
+    import { edit as editGameSettings } from '@/routes/game-settings';
     import { edit as editProfile } from '@/routes/profile';
     import { edit as editSecurity } from '@/routes/security';
     import type { NavItem } from '@/types';
 
     let {
         children,
+        wide = false,
     }: {
         children?: Snippet;
+        wide?: boolean;
     } = $props();
 
-    const sidebarNavItems: NavItem[] = [
+    // DonChan (costume) editing only exists from Momoiro onward; hide it for
+    // versions that never had website costume customization.
+    const supports = $derived(currentTaikoSupports());
+
+    const sidebarNavItems: NavItem[] = $derived([
         {
             title: 'Profile',
-            href: editProfile(),
+            href: editProfile(taikoRouteParam()),
         },
         {
             title: 'Security',
-            href: editSecurity(),
+            href: editSecurity(taikoRouteParam()),
+        },
+        ...(supports.costumeSlots
+            ? [
+                  {
+                      title: 'DonChan',
+                      href: editCostumes(taikoRouteParam()),
+                  },
+              ]
+            : []),
+        {
+            title: 'Profile Picture',
+            href: editAvatar(taikoRouteParam()),
         },
         {
-            title: 'Customization',
-            href: editCustomize(),
+            title: 'Game Settings',
+            href: editGameSettings(taikoRouteParam()),
         },
         {
             title: 'Cabinets',
-            href: indexCabinets(),
+            href: indexCabinets(taikoRouteParam()),
         },
         {
             title: 'Appearance',
-            href: editAppearance(),
+            href: editAppearance(taikoRouteParam()),
         },
-    ];
+    ]);
 
     const url = currentUrlState();
 </script>
@@ -80,8 +101,12 @@
 
         <Separator class="my-6 lg:hidden" />
 
-        <div class="flex-1 md:max-w-2xl">
-            <section class="max-w-xl space-y-12">
+        <div class={wide ? 'min-w-0 flex-1' : 'flex-1 md:max-w-2xl'}>
+            <section
+                class={wide
+                    ? 'w-full max-w-none space-y-12'
+                    : 'max-w-xl space-y-12'}
+            >
                 {@render children?.()}
             </section>
         </div>

@@ -24,10 +24,13 @@
         SidebarMenuItem,
     } from '@/components/ui/sidebar';
     import { toUrl } from '@/lib/utils';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     import adminRoute from '@/routes/admin';
+    import adminDanDojo from '@/routes/admin/dan-dojo';
+    import adminBaids from '@/routes/admin/baids';
     import adminPlayers from '@/routes/admin/players';
     import adminSongs from '@/routes/admin/songs';
-    import adminUsers from '@/routes/admin/users';
+    import adminExtraSongs from '@/routes/admin/extra-songs';
     const { dashboard, recentPlays, status } = adminRoute;
     import { home } from '@/routes';
     import type { NavItem } from '@/types';
@@ -38,17 +41,25 @@
         children?: Snippet;
     } = $props();
 
+    const taikoParam = taikoRouteParam();
+
     const mainNavItems: NavItem[] = [
-        { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
-        { title: 'Players', href: adminPlayers.index(), icon: Users },
-        { title: 'Recent Plays', href: recentPlays(), icon: Activity },
-        { title: 'Songs', href: adminSongs.index(), icon: Disc },
-        { title: 'Server Status', href: status(), icon: Server },
-        { title: 'Users', href: adminUsers.index(), icon: ShieldCheck },
+        { title: 'Dashboard', href: dashboard(taikoParam), icon: LayoutGrid },
+        { title: 'BAIDs', href: adminBaids.index(taikoParam), icon: Users },
+        { title: 'Recent Plays', href: recentPlays(taikoParam), icon: Activity },
+        { title: 'Songs', href: adminSongs.index(taikoParam), icon: Disc },
+        { title: 'Extra Songs', href: adminExtraSongs.index(taikoParam), icon: FolderGit2 },
+        { title: 'Dan Dojo', href: adminDanDojo.index(taikoParam), icon: BookOpen },
+        { title: 'Server Status', href: status(taikoParam), icon: Server },
+        { title: 'Players', href: adminPlayers.index(taikoParam), icon: ShieldCheck },
     ];
 
     const footerNavItems: NavItem[] = [
-        { title: 'Back to site', href: home(), icon: Home },
+        {
+            title: 'Back to site',
+            href: home({ taikoVersion: 'green' }),
+            icon: Home,
+        },
     ];
 </script>
 
@@ -60,7 +71,7 @@
                     {#snippet children(props)}
                         <Link
                             {...props}
-                            href={toUrl(dashboard())}
+                            href={toUrl(dashboard(taikoParam))}
                             class={props.class}
                         >
                             <AppLogo />

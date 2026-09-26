@@ -2,39 +2,78 @@
 
 namespace App\Http\Controllers\Green;
 
-use App\GameProtocol\Green\Support\GameDataCatalog;
+use App\GameProtocol\Support\GameDataCatalog;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\BaidAccessCodeReplaceRequest;
 use App\Models\Player;
+use App\Models\PlayerRankSnapshot;
+use App\Models\PlayerVersionStats;
+use App\Models\SongBest;
 use App\Models\SongPlayResult;
+use App\Services\CardIssueService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class OperatorController extends Controller
 {
-    public function players(): Response
+    public function baids(Request $request): Response
     {
-        return Inertia::render('admin/Players', [
+        $isAll = (bool) $request->attributes->get('taikoVersionIsAll', false);
+        $scope = (string) $request->attributes->get('taikoVersionScope');
+
+        return Inertia::render('admin/Baids', [
             'players' => Player::query()
                 ->with('card')
-                ->withCount(['playResults', 'songBests'])
+                ->withCount([
+                    'playResults' => fn ($query) => $query->when(! $isAll, fn ($query) => $query->where('game_version', $scope)),
+                    'songBests' => fn ($query) => $query->when(! $isAll, fn ($query) => $query->where('game_version', $scope)),
+                ])
+                ->addSelect([
+                    'latest_version_played_at' => SongPlayResult::query()
+                        ->select('played_at')
+                        ->whereColumn('song_play_results.baid', 'players.baid')
+                        ->when(! $isAll, fn ($query) => $query->where('game_version', $scope))
+                        ->latest('played_at')
+                        ->limit(1),
+                ])
                 ->latest('updated_at')
                 ->paginate(25)
-                ->through(fn (Player $player): array => [
-                    'baid' => $player->baid,
-                    'mydon_name' => $player->mydon_name,
-                    'access_code' => $player->card?->access_code,
-                    'last_played_at' => optional($player->last_played_at)->toDateTimeString(),
-                    'play_results_count' => $player->play_results_count,
-                    'song_bests_count' => $player->song_bests_count,
-                ]),
+                ->through(function (Player $player) use ($isAll): array {
+                    $lastPlayedAt = $isAll
+                        ? optional($player->last_played_at)->toDateTimeString()
+                        : ($player->latest_version_played_at ? (string) $player->latest_version_played_at : null);
+
+                    return [
+                        'baid' => $player->baid,
+                        'mydon_name' => $player->mydon_name,
+                        'access_code' => $player->card?->access_code,
+                        'last_played_at' => $lastPlayedAt,
+                        'play_results_count' => $player->play_results_count,
+                        'song_bests_count' => $player->song_bests_count,
+                    ];
+                }),
         ]);
     }
 
-    public function player(Player $player): Response
+    public function baid(Request $request, Player $player): Response
     {
-        $player->load(['card', 'songBests' => fn ($query) => $query->orderByDesc('best_score')->limit(20)]);
+        $isAll = (bool) $request->attributes->get('taikoVersionIsAll', false);
+        $scope = (string) $request->attributes->get('taikoVersionScope');
 
-        return Inertia::render('admin/PlayerDetail', [
+        $player->load([
+            'card',
+            'songBests' => fn ($query) => $query
+                ->when(! $isAll, fn ($query) => $query->where('game_version', $scope))
+                ->orderByDesc('best_score')
+                ->limit(20),
+        ]);
+
+        return Inertia::render('admin/BaidDetail', [
             'player' => [
                 'baid' => $player->baid,
                 'mydon_name' => $player->mydon_name,
@@ -44,10 +83,12 @@ class OperatorController extends Controller
                 'recent_song_numbers' => $player->recent_song_numbers ?? [],
             ],
             'recentResults' => $player->playResults()
+                ->when(! $isAll, fn ($query) => $query->where('game_version', $scope))
                 ->latest('played_at')
                 ->limit(25)
                 ->get()
                 ->map(fn (SongPlayResult $result): array => [
+                    'id' => $result->id,
                     'game_version' => $result->game_version,
                     'song_no' => $result->song_no,
                     'level' => $result->level,
@@ -55,7 +96,8 @@ class OperatorController extends Controller
                     'score_rank' => $result->score_rank,
                     'played_at' => optional($result->played_at)->toDateTimeString(),
                 ]),
-            'bests' => $player->songBests->map(fn ($best): array => [
+            'bests' => $player->songBests->map(fn (SongBest $best): array => [
+                'id' => $best->id,
                 'game_version' => $best->game_version,
                 'song_no' => $best->song_no,
                 'level' => $best->level,
@@ -65,10 +107,96 @@ class OperatorController extends Controller
         ]);
     }
 
-    public function recentPlays(): Response
+    /**
+     * Permanently delete a player and every piece of data tied to it: access
+     * code, scores, best scores, tokens, cosmetics (all cascade via the baid
+     * foreign keys) plus the user-scoped ranking snapshots derived from them.
+     */
+    public function destroyBaid(Player $player): RedirectResponse
     {
+        DB::transaction(function () use ($player): void {
+            if ($player->user_id !== null) {
+                PlayerRankSnapshot::query()->where('user_id', $player->user_id)->delete();
+            }
+
+            PlayerVersionStats::query()->where('baid', $player->baid)->delete();
+
+            $player->delete();
+        });
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('BAID and all associated data deleted.')]);
+
+        return to_route('admin.baids.index');
+    }
+
+    /**
+     * Point this BAID at a different access code. The BAID number is untouched,
+     * so every score, best, cosmetic and token carries over to the new card.
+     */
+    public function replaceAccessCode(BaidAccessCodeReplaceRequest $request, Player $player, CardIssueService $cards): RedirectResponse
+    {
+        try {
+            $cards->replace($player, $request->validated('access_code'));
+        } catch (RuntimeException $exception) {
+            throw ValidationException::withMessages([
+                'access_code' => $exception->getMessage(),
+            ]);
+        }
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Access code replaced. All data stayed on this BAID.')]);
+
+        return back();
+    }
+
+    /**
+     * Detach the access code and the owning account from this BAID, leaving the
+     * data intact as an anonymous BAID that nobody can tap into.
+     */
+    public function unlinkAccessCode(Player $player, CardIssueService $cards): RedirectResponse
+    {
+        $cards->unlink($player);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Access code unlinked. This BAID is now anonymous.')]);
+
+        return back();
+    }
+
+    /**
+     * Delete a single play result belonging to the given BAID.
+     */
+    public function destroyPlay(Player $player, SongPlayResult $result): RedirectResponse
+    {
+        abort_unless((int) $result->baid === (int) $player->baid, 404);
+
+        $result->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Play deleted.')]);
+
+        return back();
+    }
+
+    /**
+     * Delete a single best-score record belonging to the given BAID.
+     */
+    public function destroyBest(Player $player, SongBest $best): RedirectResponse
+    {
+        abort_unless((int) $best->baid === (int) $player->baid, 404);
+
+        $best->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Best score deleted.')]);
+
+        return back();
+    }
+
+    public function recentPlays(Request $request): Response
+    {
+        $isAll = (bool) $request->attributes->get('taikoVersionIsAll', false);
+        $scope = (string) $request->attributes->get('taikoVersionScope');
+
         return Inertia::render('admin/RecentPlays', [
             'results' => SongPlayResult::query()
+                ->when(! $isAll, fn ($query) => $query->where('game_version', $scope))
                 ->with('player')
                 ->latest('played_at')
                 ->paginate(50)
@@ -90,8 +218,10 @@ class OperatorController extends Controller
         return Inertia::render('admin/Status', [
             'gameData' => $catalog->status(),
             'protobuf' => [
-                'taiko' => file_exists(base_path('protobuf/taiko.proto')),
-                'vsinterface' => file_exists(base_path('protobuf/vsinterface.proto')),
+                'taiko' => file_exists(base_path('protobuf/green/taiko.proto')),
+                'vsinterface' => file_exists(base_path('protobuf/green/vsinterface.proto')),
+                'taiko_blue' => file_exists(base_path('protobuf/blue/taiko.proto')),
+                'vsinterface_blue' => file_exists(base_path('protobuf/blue/vsinterface.proto')),
                 'generated' => file_exists(app_path('GameProtocol/Green/Proto/Taiko/BAIDRequest.php')),
             ],
         ]);

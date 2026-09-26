@@ -1,0 +1,221 @@
+<script module lang="ts">
+    import playersRoutesForLayout from '@/routes/admin/players';
+    import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
+
+    export const layout = {
+        breadcrumbs: [
+            { title: 'Players', href: playersRoutesForLayout.index(taikoRouteParamForLayout()) },
+            { title: 'Edit', href: '' },
+        ],
+    };
+</script>
+
+<script lang="ts">
+    import { Form, Link, page } from '@inertiajs/svelte';
+    import PlayerController from '@/actions/App/Http/Controllers/Admin/PlayerController';
+    import AppHead from '@/components/AppHead.svelte';
+    import Heading from '@/components/Heading.svelte';
+    import InputError from '@/components/InputError.svelte';
+    import { Button } from '@/components/ui/button';
+    import { Input } from '@/components/ui/input';
+    import { Label } from '@/components/ui/label';
+    import BaidAccessCodeTransfer from '@/components/BaidAccessCodeTransfer.svelte';
+    import { taikoRouteParam } from '@/lib/taiko-version';
+    import playersRoutes from '@/routes/admin/players';
+
+    type AdminUser = {
+        id: number;
+        name: string;
+        username: string;
+        email: string;
+        role: string;
+        created_at: string | null;
+    };
+
+    type RoleOption = { value: string; label: string };
+
+    let {
+        user,
+        roles,
+        accessCode = null,
+        baid = null,
+    }: {
+        user: AdminUser;
+        roles: RoleOption[];
+        accessCode?: string | null;
+        baid?: number | null;
+    } = $props();
+
+    const currentUserId = $derived(page.props.auth.user.id);
+    const isSelf = $derived(user.id === currentUserId);
+</script>
+
+<AppHead title={`Edit ${user.name}`} />
+
+<div class="flex flex-1 flex-col gap-6 p-4">
+    <Heading
+        title={`Edit ${user.name}`}
+        description="Update name, email, and role for this user."
+    />
+
+    <Form
+        {...PlayerController.update.form({ ...taikoRouteParam(), user: user.id })}
+        class="max-w-xl space-y-6"
+        options={{ preserveScroll: true }}
+    >
+        {#snippet children({ errors, processing })}
+            <div class="grid gap-2">
+                <Label for="name">Name</Label>
+                <Input
+                    id="name"
+                    name="name"
+                    class="mt-1 block w-full"
+                    value={user.name}
+                    required
+                    autocomplete="name"
+                />
+                <InputError class="mt-2" message={errors.name} />
+            </div>
+
+            <div class="grid gap-2">
+                <Label for="username">Username</Label>
+                <Input
+                    id="username"
+                    class="mt-1 block w-full"
+                    value={user.username}
+                    disabled
+                    readonly
+                    tabindex={-1}
+                    aria-readonly="true"
+                />
+                <p class="mt-2 text-sm text-muted-foreground">
+                    Usernames are permanent and cannot be changed.
+                </p>
+            </div>
+
+            <div class="grid gap-2">
+                <Label for="email">Email</Label>
+                <Input
+                    id="email"
+                    type="email"
+                    name="email"
+                    class="mt-1 block w-full"
+                    value={user.email}
+                    required
+                    autocomplete="email"
+                />
+                <InputError class="mt-2" message={errors.email} />
+            </div>
+
+            <div class="grid gap-2">
+                <Label for="role">Role</Label>
+                <select
+                    id="role"
+                    name="role"
+                    value={user.role}
+                    disabled={isSelf}
+                    class="rounded-md border bg-background px-2 py-2 text-sm"
+                >
+                    {#each roles as role (role.value)}
+                        <option value={role.value}>{role.label}</option>
+                    {/each}
+                </select>
+                {#if isSelf}
+                    <p class="text-xs text-muted-foreground">
+                        You cannot change your own role.
+                    </p>
+                {/if}
+                <InputError class="mt-2" message={errors.role} />
+            </div>
+
+            <div class="flex items-center gap-3">
+                <Button type="submit" disabled={processing}>Save</Button>
+                <Button asChild variant="ghost">
+                    {#snippet children(props)}
+                        <Link href={playersRoutes.index(taikoRouteParam())} {...props}>Cancel</Link>
+                    {/snippet}
+                </Button>
+            </div>
+        {/snippet}
+    </Form>
+
+    <Heading
+        variant="small"
+        title="Reset password"
+        description="Set a new password for this user. They will need to log in again with the new password."
+    />
+
+    <Form
+        {...PlayerController.updatePassword.form({ ...taikoRouteParam(), user: user.id })}
+        class="max-w-xl space-y-6"
+        options={{ preserveScroll: true }}
+        resetOnSuccess
+    >
+        {#snippet children({ errors, processing })}
+            <div class="grid gap-2">
+                <Label for="password">New password</Label>
+                <Input
+                    id="password"
+                    type="password"
+                    name="password"
+                    class="mt-1 block w-full"
+                    required
+                    autocomplete="new-password"
+                />
+                <InputError class="mt-2" message={errors.password} />
+            </div>
+
+            <div class="grid gap-2">
+                <Label for="password_confirmation">Confirm password</Label>
+                <Input
+                    id="password_confirmation"
+                    type="password"
+                    name="password_confirmation"
+                    class="mt-1 block w-full"
+                    required
+                    autocomplete="new-password"
+                />
+            </div>
+
+            <Button type="submit" disabled={processing}>Update password</Button>
+        {/snippet}
+    </Form>
+
+    <Heading
+        variant="small"
+        title="Banapassport access code"
+        description="Manage this user's arcade card. Only one card can be bound at a time."
+    />
+
+    {#if accessCode && baid !== null}
+        <BaidAccessCodeTransfer
+            {baid}
+            {accessCode}
+            rotateForm={PlayerController.rotateAccessCode.form({ ...taikoRouteParam(), user: user.id })}
+            unbindForm={PlayerController.unbindAccessCode.form({ ...taikoRouteParam(), user: user.id })}
+        />
+    {:else}
+        <Form
+            {...PlayerController.bindAccessCode.form({ ...taikoRouteParam(), user: user.id })}
+            class="max-w-xl space-y-6"
+            options={{ preserveScroll: true }}
+            resetOnSuccess
+        >
+            {#snippet children({ errors, processing })}
+                <div class="grid gap-2">
+                    <Label for="access_code">Access code</Label>
+                    <Input
+                        id="access_code"
+                        name="access_code"
+                        class="mt-1 block w-full"
+                        required
+                        placeholder="Card access code"
+                    />
+                    <InputError class="mt-2" message={errors.access_code} />
+                </div>
+
+                <Button type="submit" disabled={processing}>Link</Button>
+            {/snippet}
+        </Form>
+    {/if}
+</div>

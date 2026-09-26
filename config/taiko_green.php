@@ -13,8 +13,30 @@ return [
     'region' => (int) env('TAIKO_GREEN_REGION', 1),
     'data_path' => env('TAIKO_GREEN_DATA_PATH', storage_path('app/game-data')),
     'catalog_version' => env('TAIKO_GREEN_CATALOG_VERSION', TaikoGameVersion::Green->value),
-    'route_catalog_versions' => [],
+    'route_catalog_versions' => [
+        'v01r00_tw' => TaikoGameVersion::Red->value,
+        'v10' => TaikoGameVersion::Blue->value,
+        'v11' => TaikoGameVersion::Green->value,
+    ],
+    'startup_movie_ids' => [
+        'v11' => 154,
+    ],
     'traffic_log_enabled' => (bool) env('TAIKO_GREEN_TRAFFIC_LOG_ENABLED', true),
+    'zucchini_api_token_hashes' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('TAIKO_ZUCCHINI_API_TOKEN_HASHES', '')),
+    ))),
+    'nbgic_profile_records' => env('TAIKO_GREEN_NBGIC_PROFILE_RECORDS'),
+    'nbgic_generation_profiles' => array_map(
+        'intval',
+        array_values(array_filter(
+            array_map('trim', explode(',', (string) env('TAIKO_GREEN_NBGIC_GENERATION_PROFILES', '7'))),
+            fn (string $profile): bool => $profile !== '',
+        )),
+    ),
+
+    'enable_shop' => env('TAIKO_GREEN_ENABLE_SHOP', true),
+    'active_shop_season_id' => (int) env('TAIKO_GREEN_ACTIVE_SHOP_SEASON_ID', 4),
 
     'mucha_force_update' => (bool) env('TAIKO_GREEN_MUCHA_FORCE_UPDATE', false),
     'mucha_forced_target_ver' => env('TAIKO_GREEN_MUCHA_TARGET_VER', 'S1110JPN99.99'),

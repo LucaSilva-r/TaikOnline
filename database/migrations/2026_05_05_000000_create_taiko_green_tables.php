@@ -15,8 +15,8 @@ return new class extends Migration
             $table->string('title')->default('');
             $table->unsignedInteger('titleplate_id')->default(0);
             $table->unsignedInteger('color_face')->default(0);
-            $table->unsignedInteger('color_body')->default(0);
-            $table->unsignedInteger('color_limb')->default(0);
+            $table->unsignedInteger('color_body')->default(1);
+            $table->unsignedInteger('color_limb')->default(3);
             $table->json('favorite_song_numbers')->default('[]');
             $table->json('recent_song_numbers')->default('[]');
             $table->json('unlocked_song_numbers')->default('[]');

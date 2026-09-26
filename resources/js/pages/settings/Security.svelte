@@ -1,11 +1,12 @@
 <script module lang="ts">
     import { edit } from '@/routes/security';
+    import { taikoRouteParam as taikoRouteParamForLayout } from '@/lib/taiko-version';
 
     export const layout = {
         breadcrumbs: [
             {
                 title: 'Security settings',
-                href: edit(),
+                href: edit(taikoRouteParamForLayout()),
             },
         ],
     };
@@ -24,6 +25,7 @@
     import TwoFactorSetupModal from '@/components/TwoFactorSetupModal.svelte';
     import { Button } from '@/components/ui/button';
     import { Label } from '@/components/ui/label';
+    import { taikoRouteParam } from '@/lib/taiko-version';
     import { twoFactorAuthState } from '@/lib/twoFactorAuth.svelte';
     import { disable, enable } from '@/routes/two-factor';
 
@@ -55,7 +57,7 @@
     />
 
     <Form
-        {...SecurityController.update.form()}
+        {...SecurityController.update.form(taikoRouteParam())}
         class="space-y-6"
         options={{ preserveScroll: true }}
         resetOnSuccess
