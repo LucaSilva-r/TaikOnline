@@ -204,10 +204,39 @@ class WaddamburoController extends Controller
     }
 
     /**
-     * @return array{baid: int, name: string}
+     * Don-chan's 63 colours by id, as the game numbers them (same table as the web Don editor,
+     * resources/js/pages/settings/DonChanAvatar.svelte).
+     */
+    private const DON_COLORS = [
+        '#f94729', '#68c0c1', '#dd1400', '#f8f1df', '#019587', '#00bf86', '#00ff99', '#65ffc3', '#ffffff',
+        '#690001', '#fe0000', '#ff6a65', '#feb2b4', '#00bbc2', '#00f7ff', '#66fafe', '#b4feff', '#e4e4e4',
+        '#993900', '#ff5f01', '#ff9e79', '#fecfb3', '#024f95', '#0088fe', '#68b8ff', '#b3dbff', '#b9b9b9',
+        '#b37802', '#ffaa00', '#ffcc67', '#fee2b3', '#000d80', '#0119ff', '#6774ff', '#b3baff', '#858585',
+        '#b49b01', '#ffdd00', '#ffff00', '#feff71', '#2b0181', '#5600ff', '#9966ff', '#ccb4ff', '#505050',
+        '#39a102', '#77c800', '#b3ff00', '#ddff8c', '#62007e', '#c600ff', '#df69fe', '#edb3ff', '#232323',
+        '#006600', '#02b900', '#00ff00', '#89ff9e', '#990158', '#ff0097', '#ff67be', '#ffb4df', '#000000',
+    ];
+
+    /**
+     * The player and their Don's look. Waddamburo draws Green's models, so the look is the Green one:
+     * the equipped costume parts (kigurumi, head, body, face, puchi) and the face/body/limb colours.
+     *
+     * @return array{baid: int, name: string, look: array{costume: list<int>, face: string, body: string, limb: string}}
      */
     private function profile(Player $player): array
     {
-        return ['baid' => (int) $player->baid, 'name' => (string) ($player->mydon_name ?? '')];
+        $cosmetics = $player->cosmetics()->where('game_version', 'green')->first();
+        $color = fn (?int $id, int $default): string => self::DON_COLORS[$id ?? $default] ?? self::DON_COLORS[$default];
+
+        return [
+            'baid' => (int) $player->baid,
+            'name' => (string) ($player->mydon_name ?? ''),
+            'look' => [
+                'costume' => array_map(fn (int $slot): int => (int) ($cosmetics?->{"costume_{$slot}"} ?? 0), [1, 2, 3, 4, 5]),
+                'face' => $color($player->color_face, 0),
+                'body' => $color($player->color_body, 1),
+                'limb' => $color($player->color_limb, 3),
+            ],
+        ];
     }
 }

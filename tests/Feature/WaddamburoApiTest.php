@@ -105,8 +105,13 @@ it('stores home plays idempotently under the token owner and asks for unknown ch
 it('lets a cabinet resolve a paired card and upload plays for it', function (): void {
     $player = wdb_player();
 
+    $player->forceFill(['color_face' => 25, 'color_body' => 2, 'color_limb' => 26])->save();
+    $player->cosmetics()->create(['game_version' => 'green', 'costume_1' => 32]);
+
     $this->withToken('official-token')->postJson('/api/wdb/cards', ['access_code' => '30800000000000000001'])
-        ->assertOk()->assertJson(['baid' => $player->baid]);
+        ->assertOk()->assertJson(['baid' => $player->baid, 'look' => [
+            'costume' => [32, 0, 0, 0, 0], 'face' => '#b3dbff', 'body' => '#dd1400', 'limb' => '#b9b9b9',
+        ]]);
     $this->withToken('official-token')->postJson('/api/wdb/cards', ['access_code' => '30800000000000000009'])
         ->assertNotFound();
     $this->withToken('official-token')
