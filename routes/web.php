@@ -9,6 +9,7 @@ use App\Http\Controllers\BoardController;
 use App\Http\Controllers\Green\OperatorController;
 use App\Http\Controllers\RankingController;
 use App\Http\Controllers\Settings\CabinetLoginController;
+use App\Http\Controllers\Settings\DeviceLinkController;
 use App\Http\Controllers\SongCatalogController;
 use Illuminate\Support\Facades\Route;
 
@@ -40,6 +41,10 @@ Route::prefix('{taikoVersion}')
             Route::post('play', [CabinetLoginController::class, 'store'])
                 ->middleware('throttle:cabinet-login')
                 ->name('play.store');
+            Route::get('link', [DeviceLinkController::class, 'create'])->name('link.create');
+            Route::post('link', [DeviceLinkController::class, 'store'])
+                ->middleware('throttle:cabinet-login')
+                ->name('link.store');
         });
 
         Route::middleware(['auth', 'verified'])->group(function (): void {

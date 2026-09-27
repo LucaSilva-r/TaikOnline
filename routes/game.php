@@ -24,10 +24,13 @@ Route::post('api/zucchini/pairing', ZucchiniPairingController::class)
     ->middleware(['zucchini.token', 'throttle:zucchini-pairing']);
 
 Route::post('api/wdb/login', [WaddamburoController::class, 'login'])->middleware('throttle:wdb-login');
+Route::post('api/wdb/device', [WaddamburoController::class, 'startDevice'])->middleware('throttle:wdb-login');
+Route::post('api/wdb/device/token', [WaddamburoController::class, 'pollDevice'])->middleware('throttle:wdb-device-poll');
 Route::middleware(['wdb.auth', 'throttle:wdb'])->prefix('api/wdb')->group(function (): void {
     Route::delete('login', [WaddamburoController::class, 'logout']);
     Route::get('me', [WaddamburoController::class, 'me']);
     Route::post('cards', [WaddamburoController::class, 'card']);
+    Route::post('pairing', [WaddamburoController::class, 'homePairing']);
     Route::post('plays', [WaddamburoController::class, 'storePlays']);
     Route::put('charts/{sha256}', [WaddamburoController::class, 'storeChart']);
 });

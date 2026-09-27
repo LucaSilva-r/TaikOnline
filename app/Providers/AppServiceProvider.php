@@ -46,6 +46,7 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(600)->by('ip:'.$request->ip()),
         ]);
         RateLimiter::for('wdb-login', fn (Request $request): Limit => Limit::perMinute(10)->by($request->ip()));
+        RateLimiter::for('wdb-device-poll', fn (Request $request): Limit => Limit::perMinute(40)->by($request->ip()));
         RateLimiter::for('wdb', fn (Request $request): Limit => Limit::perMinute(120)->by($request->bearerToken() ?? $request->ip()));
         RateLimiter::for('cabinet-login', fn (Request $request): array => [
             Limit::perMinute(10)->by('user:'.$request->user()?->id),

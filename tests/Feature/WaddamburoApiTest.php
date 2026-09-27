@@ -5,7 +5,9 @@ use App\Models\Player;
 use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
+use App\Services\CabinetPairingService;
 use Illuminate\Support\Str;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
     config()->set('taiko_green.zucchini_api_token_hashes', [hash('sha256', 'official-token')]);
@@ -148,4 +150,67 @@ it('revokes the token on logout', function (): void {
     $this->withToken($token)->deleteJson('/api/wdb/login')->assertNoContent();
 
     expect($player->user->tokens()->count())->toBe(0);
+});
+
+it('logs a device in once the player approves its code on the website', function (): void {
+    $player = wdb_player();
+
+    $start = $this->postJson('/api/wdb/device', ['device' => 'Waddamburo on den-pc'])
+        ->assertOk()->assertJsonStructure(['device_code', 'user_code', 'expires_in', 'interval', 'verification_url']);
+    $deviceCode = $start->json('device_code');
+    $userCode = $start->json('user_code');
+
+    $this->postJson('/api/wdb/device/token', ['device_code' => $deviceCode])->assertOk()->assertJson(['status' => 'pending']);
+
+    $this->actingAs($player->user)->get("/green/link?code={$userCode}")
+        ->assertInertia(fn (Assert $page) => $page->component('Link')->where('device', 'Waddamburo on den-pc'));
+    $this->actingAs($player->user)->post('/green/link', ['code' => $userCode, 'approve' => true])->assertRedirect();
+
+    $approved = $this->postJson('/api/wdb/device/token', ['device_code' => $deviceCode])
+        ->assertOk()->assertJson(['status' => 'approved', 'baid' => $player->baid]);
+    $this->app['auth']->forgetGuards();
+    $this->withToken($approved->json('token'))->getJson('/api/wdb/me')->assertOk()->assertJson(['baid' => $player->baid]);
+    expect($player->user->tokens()->first()->name)->toBe('Waddamburo on den-pc');
+
+    // The token is issued once; the code cannot be reused.
+    $this->postJson('/api/wdb/device/token', ['device_code' => $deviceCode])->assertJson(['status' => 'expired']);
+    $this->actingAs($player->user)->post('/green/link', ['code' => $userCode, 'approve' => true])
+        ->assertSessionHasErrors('code');
+});
+
+it('tells the device when the player denies it', function (): void {
+    $player = wdb_player();
+    $start = $this->postJson('/api/wdb/device', ['device' => 'Unknown PC'])->assertOk();
+
+    $this->actingAs($player->user)->post('/green/link', ['code' => $start->json('user_code'), 'approve' => false])
+        ->assertRedirect();
+
+    $this->postJson('/api/wdb/device/token', ['device_code' => $start->json('device_code')])
+        ->assertJson(['status' => 'denied']);
+    expect($player->user->tokens()->count())->toBe(0);
+});
+
+it('gives a home PC a short-lived token for a friend who pairs with the six-digit code', function (): void {
+    $owner = wdb_player();
+    $friend = wdb_player('30800000000000000002');
+    $token = wdb_token($owner);
+
+    $active = $this->withToken($token)->postJson('/api/wdb/pairing', ['accepting' => true])
+        ->assertOk()->assertJson(['status' => 'active']);
+    expect(app(CabinetPairingService::class)->claim($active->json('code'), '30800000000000000002'))->toBeTrue();
+
+    $claimed = $this->withToken($token)
+        ->postJson('/api/wdb/pairing', ['accepting' => true, 'session' => $active->json('session')])
+        ->assertOk()->assertJson(['status' => 'claimed', 'friend' => ['baid' => $friend->baid]])
+        ->assertJsonMissingPath('access_code');
+    $friendToken = $friend->user->tokens()->first();
+    expect($friendToken->expires_at)->not->toBeNull()
+        ->and($claimed->json('friend.token'))->toStartWith($friendToken->id.'|');
+
+    // Re-polled before the acknowledgement: the same token, not a second one.
+    $this->withToken($token)->postJson('/api/wdb/pairing', ['accepting' => true, 'session' => $active->json('session')])
+        ->assertJson(['friend' => ['token' => $claimed->json('friend.token')]]);
+    expect($friend->user->tokens()->count())->toBe(1);
+
+    $this->withToken('official-token')->postJson('/api/wdb/pairing', ['accepting' => true])->assertForbidden();
 });

@@ -2,20 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TaikoGameVersion;
 use App\Http\Middleware\AuthenticateWaddamburo;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
+use App\Services\CabinetPairingService;
+use App\Services\WaddamburoDeviceLoginService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
 use Laravel\Fortify\Fortify;
+use RuntimeException;
 
 /** The Waddamburo client API: login, card lookup, play and chart upload. */
 class WaddamburoController extends Controller
@@ -57,6 +63,93 @@ class WaddamburoController extends Controller
         return response()->json([
             'token' => $user->createToken($validated['device'], ['wdb'])->plainTextToken,
             ...$this->profile($player),
+        ]);
+    }
+
+    /** In-game login, step 1: a code for the player to enter on the website (see WaddamburoDeviceLoginService). */
+    public function startDevice(Request $request, WaddamburoDeviceLoginService $devices): JsonResponse
+    {
+        $validated = $request->validate(['device' => ['required', 'string', 'max:100']]);
+
+        try {
+            $login = $devices->start($validated['device']);
+        } catch (RuntimeException) {
+            return response()->json(['message' => 'Unavailable, try again.'], 503);
+        }
+
+        return response()->json([...$login, 'verification_url' => url('/'.TaikoGameVersion::default()->value.'/link')]);
+    }
+
+    /** In-game login, step 2 (polled): pending, denied, expired, or the token and profile once approved. */
+    public function pollDevice(Request $request, WaddamburoDeviceLoginService $devices): JsonResponse
+    {
+        $validated = $request->validate(['device_code' => ['required', 'string', 'max:128']]);
+        $result = $devices->poll($validated['device_code']);
+        if ($result['status'] !== 'approved') {
+            return response()->json(['status' => $result['status']]);
+        }
+
+        $player = $result['user']->player;
+        if (! $player instanceof Player) {
+            return response()->json(['status' => 'denied', 'message' => 'The account does not have a Banapass yet.']);
+        }
+
+        return response()->json([
+            'status' => 'approved',
+            'token' => $result['user']->createToken($result['device'], ['wdb'])->plainTextToken,
+            ...$this->profile($player),
+        ]);
+    }
+
+    /**
+     * 6-digit pairing for a home PC (a logged-in player's token): a visiting friend enters the code on
+     * the website. Instead of the card, the game receives a short-lived token for the friend, kept in
+     * memory only, so their plays upload under their own account and nothing of theirs stays on the PC.
+     */
+    public function homePairing(Request $request, CabinetPairingService $pairings): JsonResponse
+    {
+        abort_if($this->isCabinet($request), 403);
+        $validated = $request->validate([
+            'accepting' => ['required', 'boolean'],
+            'session' => ['nullable', 'string', 'max:96'],
+            'ack' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        try {
+            $result = $pairings->poll(
+                cabinetId: 'wdb-home-'.$request->user()->currentAccessToken()->getKey(),
+                state: 'attract',
+                accepting: (bool) $validated['accepting'],
+                sessionToken: $validated['session'] ?? null,
+                ackCommandId: $validated['ack'] ?? null,
+            );
+        } catch (RuntimeException) {
+            return response()->json(['status' => 'unavailable'], 503);
+        }
+
+        if ($result['status'] !== 'claimed' || $result['access_code'] === null) {
+            return response()->json(Arr::except($result, ['access_code']));
+        }
+
+        // Re-polled until acknowledged: one token per claim.
+        $friend = Cache::remember('wdb-friend:'.$result['command_id'], 120, function () use ($result, $request): ?array {
+            $player = GameCard::query()->whereKey($result['access_code'])->first()?->player;
+            $user = $player?->user;
+            if (! $player instanceof Player || ! $user instanceof User) {
+                return null;
+            }
+            $device = 'Guest session on '.($request->user()->currentAccessToken()->name ?? 'Waddamburo');
+
+            return [
+                'token' => $user->createToken($device, ['wdb'], now()->addHours(12))->plainTextToken,
+                ...$this->profile($player),
+            ];
+        });
+
+        return response()->json([
+            ...Arr::except($result, ['access_code']),
+            'status' => $friend === null ? 'rejected' : 'claimed',
+            'friend' => $friend,
         ]);
     }
 
@@ -231,6 +324,8 @@ class WaddamburoController extends Controller
         return [
             'baid' => (int) $player->baid,
             'name' => (string) ($player->mydon_name ?? ''),
+            // The account's custom Don-chan (a transparent PNG), for the game's account picker.
+            'avatar' => $player->user?->avatar,
             'look' => [
                 'costume' => array_map(fn (int $slot): int => (int) ($cosmetics?->{"costume_{$slot}"} ?? 0), [1, 2, 3, 4, 5]),
                 'face' => $color($player->color_face, 0),
