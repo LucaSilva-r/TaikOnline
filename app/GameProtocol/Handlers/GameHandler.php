@@ -26,7 +26,6 @@ use App\Models\PlayerShopSeasonState;
 use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
-use App\Services\CabinetService;
 use App\Services\ExtraScoreService;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Http\Request;
@@ -59,18 +58,12 @@ class GameHandler
         protected readonly PlayerProfileService $profiles,
         protected readonly PlayResultService $playResults,
         protected readonly ScoreMapper $scoreMapper,
-        protected readonly CabinetService $cabinets,
         protected readonly ExtraScoreService $extraScores,
     ) {}
 
     public function heartbeat(Request $request, TaikoGameVersion $game): Response
     {
-        $message = $this->parse($request, $game, 'HeartBeatRequest');
-
-        $serial = $message->getChassisId();
-        if ($serial !== '') {
-            $this->cabinets->recordHeartbeat($serial, $request->ip());
-        }
+        $this->parse($request, $game, 'HeartBeatRequest');
 
         return $this->payloads->response(
             $this->writer->fill($this->messages->make($game, 'HeartBeatResponse'), [
@@ -163,12 +156,7 @@ class GameHandler
 
     public function coinSetting(Request $request, TaikoGameVersion $game): Response
     {
-        $message = $this->parse($request, $game, 'CoinsettingRequest');
-
-        $serial = $message->getChassisId();
-        if ($serial !== '') {
-            $this->cabinets->recordHeartbeat($serial, $request->ip());
-        }
+        $this->parse($request, $game, 'CoinsettingRequest');
 
         return $this->payloads->response(
             $this->writer->set($this->messages->make($game, 'CoinsettingResponse'), 'setResult', 1)

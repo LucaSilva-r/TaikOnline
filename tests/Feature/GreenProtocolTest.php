@@ -55,7 +55,6 @@ use App\GameProtocol\Proto\Green\VsInterface\StartupAuthResponse;
 use App\GameProtocol\Proto\Red\Taiko\InitialdatacheckResponse as RedInitialdatacheckResponse;
 use App\GameProtocol\Support\MuchaCrypto;
 use App\GameProtocol\Support\ProtocolMessageResolver;
-use App\Models\Cabinet;
 use App\Models\CabinetBookkeepingLog;
 use App\Models\DanCourse;
 use App\Models\GameCard;
@@ -198,8 +197,6 @@ it('responds to mucha update check like the green reference server', function ()
 });
 
 it('mirrors startup operation data', function (): void {
-    Cabinet::query()->create(['serial' => 'chassis']);
-
     $request = (new StartupAuthRequest)
         ->setChassisId('chassis')
         ->setHddVer(1113)
@@ -1557,7 +1554,6 @@ it('handles yellow coinsetting', function (): void {
     $response = post_protobuf('/v09r00/chassis/coinsetting.php', $request, $resolver->class($version, 'CoinsettingResponse'));
 
     expect($response->getResult())->toBe(1);
-    expect(Cabinet::query()->find('268410000000')->last_heartbeat_at)->not->toBeNull();
 });
 
 it('loads issued cards through baidcheck for versions without nested CostumeData', function (TaikoGameVersion $version): void {

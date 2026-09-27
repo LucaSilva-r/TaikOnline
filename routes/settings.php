@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Settings\AvatarController;
-use App\Http\Controllers\Settings\CabinetController;
 use App\Http\Controllers\Settings\CostumeController;
 use App\Http\Controllers\Settings\CustomizeController;
 use App\Http\Controllers\Settings\DeviceController;
@@ -33,15 +32,6 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('settings/game', [GameSettingsController::class, 'edit'])->name('game-settings.edit');
     Route::patch('settings/game', [GameSettingsController::class, 'update'])->name('game-settings.update');
-
-    Route::get('settings/cabinets', [CabinetController::class, 'index'])->name('cabinets.index');
-    Route::post('settings/cabinets', [CabinetController::class, 'store'])
-        ->middleware('throttle:6,1')
-        ->name('cabinets.store');
-    Route::get('settings/cabinets/{cabinet}', [CabinetController::class, 'show'])->name('cabinets.show');
-    Route::patch('settings/cabinets/{cabinet}/config', [CabinetController::class, 'updateConfig'])->name('cabinets.config');
-    Route::delete('settings/cabinets/{cabinet}', [CabinetController::class, 'destroy'])->name('cabinets.destroy');
-    Route::get('settings/cabinets/{cabinet}/download', [CabinetController::class, 'download'])->name('cabinets.download');
 
     Route::get('settings/devices', [DeviceController::class, 'index'])->name('devices.index');
     Route::delete('settings/devices/{device}', [DeviceController::class, 'destroy'])->name('devices.destroy');

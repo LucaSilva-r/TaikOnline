@@ -7,7 +7,6 @@ use App\GameProtocol\Support\MessageWriter;
 use App\GameProtocol\Support\ProtocolMessageResolver;
 use App\GameProtocol\Support\ProtocolPayloads;
 use App\Http\Controllers\Controller;
-use App\Models\Cabinet;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Config;
@@ -28,9 +27,6 @@ class VsInterfaceController extends Controller
             $this->messages->class($game, 'StartupAuthRequest', 'VsInterface'),
         );
 
-        $serial = $message->getChassisId();
-        $cabinet = $serial !== '' ? Cabinet::query()->whereKey($serial)->first() : null;
-
         $reported = [];
         foreach ($message->getAryOperationInfo() as $operation) {
             $reported[] = [
@@ -39,25 +35,9 @@ class VsInterfaceController extends Controller
             ];
         }
 
-        if ($cabinet !== null) {
-            $cabinet->update([
-                'reported_config' => $reported,
-                'reported_meta' => [
-                    'shop_id' => $message->getShopId(),
-                    'rack_id' => $message->getRackId(),
-                    'country_id' => $message->getCountryId(),
-                    'hdd_ver' => $message->getHddVer(),
-                    'usbmem_ver' => $message->getUsbmemVer(),
-                    'usbmem_key' => $message->getUsbmemKey(),
-                ],
-                'last_reported_at' => now(),
-            ]);
-        }
-
-        $payload = $cabinet?->desired_config ?? $reported;
-
+        // The cabinet's own operation settings, echoed back unchanged.
         $operations = [];
-        foreach ($payload as $entry) {
+        foreach ($reported as $entry) {
             $operations[] = $this->writer->fill(
                 $this->messages->make($game, 'StartupAuthResponse\\OperationData', 'VsInterface'),
                 [

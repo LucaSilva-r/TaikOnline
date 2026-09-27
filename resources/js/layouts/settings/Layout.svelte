@@ -9,7 +9,6 @@
     import { toUrl } from '@/lib/utils';
     import { edit as editAppearance } from '@/routes/appearance';
     import { edit as editAvatar } from '@/routes/avatar';
-    import { index as indexCabinets } from '@/routes/cabinets';
     import { edit as editCostumes } from '@/routes/costumes';
     import { index as indexDevices } from '@/routes/devices';
     import { edit as editGameSettings } from '@/routes/game-settings';
@@ -53,10 +52,6 @@
         {
             title: 'Game Settings',
             href: editGameSettings(taikoRouteParam()),
-        },
-        {
-            title: 'Cabinets',
-            href: indexCabinets(taikoRouteParam()),
         },
         {
             title: 'Devices',
