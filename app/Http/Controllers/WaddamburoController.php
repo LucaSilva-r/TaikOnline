@@ -203,6 +203,36 @@ class WaddamburoController extends Controller
         return response()->json(['rankings' => $rankings]);
     }
 
+    /**
+     * A player's best score and crown per chart (0 none, 1 clear, 2 full combo), so every machine
+     * shows the same crowns. Home: the token's player; cabinet: ?baid= (a card it resolved).
+     */
+    public function bests(Request $request): JsonResponse
+    {
+        if ($this->isCabinet($request)) {
+            $baid = (int) $request->validate(['baid' => ['required', 'integer']])['baid'];
+        } else {
+            $baid = $request->user()->player?->baid;
+            abort_if($baid === null, 404);
+        }
+
+        $bests = WdbPlay::query()
+            ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_plays.wdb_chart_id')
+            ->where('wdb_plays.baid', $baid)
+            ->groupBy('wdb_charts.sha256')
+            ->selectRaw('wdb_charts.sha256, MAX(wdb_plays.score) AS score, '
+                .'MAX(CASE WHEN wdb_plays.cleared AND wdb_plays.miss = 0 THEN 2 WHEN wdb_plays.cleared THEN 1 ELSE 0 END) AS crown')
+            ->get()
+            ->map(fn ($best): array => [
+                'sha256' => (string) $best->sha256,
+                'score' => (int) $best->score,
+                'crown' => (int) $best->crown,
+            ])
+            ->all();
+
+        return response()->json(['bests' => $bests]);
+    }
+
     /** Cabinet: resolve the access code a 6-pin pairing delivered. */
     public function card(Request $request): JsonResponse
     {

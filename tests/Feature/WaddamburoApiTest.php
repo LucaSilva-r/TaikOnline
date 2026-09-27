@@ -239,3 +239,21 @@ it('ranks each chart by every player\'s best score, top three', function (): voi
         ->and($rankings[$sha][0])->toMatchArray(['baid' => $players[0]->baid, 'name' => 'どんちゃん'])
         ->and($rankings[str_repeat('c', 64)])->toBe([]);
 });
+
+it('returns a player\'s best score and crown per chart', function (): void {
+    $player = wdb_player();
+    $other = wdb_player('30800000000000000002');
+    $chart = WdbChart::query()->create(['sha256' => str_repeat('d', 64)]);
+    foreach ([[$player, 800000, true, 3], [$player, 700000, true, 0], [$player, 900000, false, 9], [$other, 950000, true, 0]] as [$owner, $score, $cleared, $miss]) {
+        WdbPlay::query()->create([
+            ...Arr::except(wdb_play($chart->sha256, ['score' => $score, 'cleared' => $cleared, 'miss' => $miss]), ['chart_sha256']),
+            'baid' => $owner->baid,
+            'wdb_chart_id' => $chart->id,
+            'replay' => 'inputs',
+        ]);
+    }
+
+    $this->withToken(wdb_token($player))->getJson('/api/wdb/bests')
+        ->assertOk()
+        ->assertExactJson(['bests' => [['sha256' => $chart->sha256, 'score' => 900000, 'crown' => 2]]]);
+});

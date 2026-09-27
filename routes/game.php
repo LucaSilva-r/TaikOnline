@@ -33,6 +33,7 @@ Route::middleware(['wdb.auth', 'throttle:wdb'])->prefix('api/wdb')->group(functi
     Route::post('pairing', [WaddamburoController::class, 'homePairing']);
     Route::post('plays', [WaddamburoController::class, 'storePlays']);
     Route::post('rankings', [WaddamburoController::class, 'rankings']);
+    Route::get('bests', [WaddamburoController::class, 'bests']);
     Route::put('charts/{sha256}', [WaddamburoController::class, 'storeChart']);
 });
 
