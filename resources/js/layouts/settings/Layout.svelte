@@ -11,6 +11,7 @@
     import { edit as editAvatar } from '@/routes/avatar';
     import { index as indexCabinets } from '@/routes/cabinets';
     import { edit as editCostumes } from '@/routes/costumes';
+    import { index as indexDevices } from '@/routes/devices';
     import { edit as editGameSettings } from '@/routes/game-settings';
     import { edit as editProfile } from '@/routes/profile';
     import { edit as editSecurity } from '@/routes/security';
@@ -56,6 +57,10 @@
         {
             title: 'Cabinets',
             href: indexCabinets(taikoRouteParam()),
+        },
+        {
+            title: 'Devices',
+            href: indexDevices(taikoRouteParam()),
         },
         {
             title: 'Appearance',

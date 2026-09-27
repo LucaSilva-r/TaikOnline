@@ -75,3 +75,11 @@ it('lets admins rank a chart, which recomputes its players\' standings', functio
 
     $this->actingAs($player->user)->patch("/waddamburo/admin/waddamburo-charts/{$chart->id}", ['ranked' => false])->assertForbidden();
 });
+
+it('edits the Green Don-chan from the Waddamburo scope', function (): void {
+    $player = wdb_web_player();
+
+    $this->actingAs($player->user)->get('/waddamburo/settings/costumes')->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page->component('settings/DonChan')->where('supported', true)
+            ->where('taikoVersion.current.supports.costumeSlots', true));
+});

@@ -887,9 +887,11 @@
                                 <div class="font-semibold tabular-nums">
                                     {numberFormatter.format(play.score)}
                                 </div>
-                                <div class="text-sm text-muted-foreground">
-                                    Rank {play.score_rank}
-                                </div>
+                                {#if play.score_rank > 0}
+                                    <div class="text-sm text-muted-foreground">
+                                        Rank {play.score_rank}
+                                    </div>
+                                {/if}
                             </div>
                         </Link>
                     {/each}
@@ -938,7 +940,7 @@
                                 >
                                     <span>{difficultyLabel(best.level)}</span>
                                     <span>{crownLabel(best.crown)}</span>
-                                    <span>Rank {best.score_rank}</span>
+                                    {#if best.score_rank > 0}<span>Rank {best.score_rank}</span>{/if}
                                 </div>
                             </div>
                             <div class="text-left sm:text-right">

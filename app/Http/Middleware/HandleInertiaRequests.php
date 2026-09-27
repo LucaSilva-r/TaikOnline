@@ -92,7 +92,7 @@ class HandleInertiaRequests extends Middleware
             'supports' => [
                 'favoriteFolder' => false,
                 'favoriteLimit' => 0,
-                'costumeSlots' => false,
+                'costumeSlots' => TaikoGameVersion::Green->supportsCostumeSlots(), // edits Green's Don-chan
                 'playOptionDefaults' => false,
                 'toneDefault' => false,
                 'rankingDifficulty' => false,

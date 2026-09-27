@@ -4,6 +4,7 @@ use App\Http\Controllers\Settings\AvatarController;
 use App\Http\Controllers\Settings\CabinetController;
 use App\Http\Controllers\Settings\CostumeController;
 use App\Http\Controllers\Settings\CustomizeController;
+use App\Http\Controllers\Settings\DeviceController;
 use App\Http\Controllers\Settings\GameSettingsController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -41,6 +42,9 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('settings/cabinets/{cabinet}/config', [CabinetController::class, 'updateConfig'])->name('cabinets.config');
     Route::delete('settings/cabinets/{cabinet}', [CabinetController::class, 'destroy'])->name('cabinets.destroy');
     Route::get('settings/cabinets/{cabinet}/download', [CabinetController::class, 'download'])->name('cabinets.download');
+
+    Route::get('settings/devices', [DeviceController::class, 'index'])->name('devices.index');
+    Route::delete('settings/devices/{device}', [DeviceController::class, 'destroy'])->name('devices.destroy');
 
 });
 

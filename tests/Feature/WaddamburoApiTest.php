@@ -257,3 +257,22 @@ it('returns a player\'s best score and crown per chart', function (): void {
         ->assertOk()
         ->assertExactJson(['bests' => [['sha256' => $chart->sha256, 'score' => 900000, 'crown' => 2]]]);
 });
+
+it('lists the account\'s Waddamburo devices and revokes them', function (): void {
+    $player = wdb_player();
+    $player->user->createToken('Living room PC', ['wdb']);
+    $player->user->createToken('Something else', ['other']);
+    $other = wdb_player('30800000000000000002');
+    $foreign = $other->user->createToken('Not mine', ['wdb'])->accessToken;
+
+    $this->actingAs($player->user)->get('/waddamburo/settings/devices')->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page->component('settings/Devices')
+            ->has('devices', 1)->where('devices.0.name', 'Living room PC'));
+
+    $mine = $player->user->tokens()->where('name', 'Living room PC')->firstOrFail();
+    $this->actingAs($player->user)->delete("/waddamburo/settings/devices/{$mine->id}")->assertRedirect();
+    $this->actingAs($player->user)->delete("/waddamburo/settings/devices/{$foreign->id}")->assertNotFound();
+
+    expect($player->user->tokens()->where('name', 'Living room PC')->exists())->toBeFalse()
+        ->and($other->user->tokens()->count())->toBe(1);
+});

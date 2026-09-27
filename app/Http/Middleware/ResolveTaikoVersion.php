@@ -14,6 +14,9 @@ class ResolveTaikoVersion
 
     public const Waddamburo = 'waddamburo';
 
+    /** Don-chan pages that run as Green under the Waddamburo scope. */
+    public const WaddamburoDonRoutes = ['costumes.*', 'customize.*', 'donchan-name.*', 'donchan-title.*', 'donchan-official-title.*', 'avatar.*'];
+
     /** The website's default scope (URLs without one, the home redirect): Waddamburo. */
     public const DefaultScope = self::Waddamburo;
 
@@ -42,6 +45,11 @@ class ResolveTaikoVersion
 
         if ($scope === self::All && ! $request->routeIs('admin.*')) {
             abort(404);
+        }
+
+        // Waddamburo dresses its Don-chan from the Green profile, so its Don-chan pages edit Green's.
+        if ($scope === self::Waddamburo && $request->routeIs(...self::WaddamburoDonRoutes)) {
+            $version = TaikoGameVersion::Green;
         }
 
         URL::defaults(['taikoVersion' => $scope]);
