@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
 use App\Enums\TaikoGameVersion;
+use App\Http\Middleware\ResolveTaikoVersion;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -128,7 +129,7 @@ class FortifyServiceProvider extends ServiceProvider
     {
         $intended = (string) $request->session()->get('url.intended', '');
         if ($intended === '') {
-            return ['green', null];
+            return [ResolveTaikoVersion::DefaultScope, null];
         }
 
         $path = (string) (parse_url($intended, PHP_URL_PATH) ?? '');
@@ -155,7 +156,7 @@ class FortifyServiceProvider extends ServiceProvider
                 fn (TaikoGameVersion $version): string => $version->value,
                 TaikoGameVersion::cases(),
             ),
-            'extra',
+            'waddamburo',
             'all',
         ];
 
@@ -168,7 +169,7 @@ class FortifyServiceProvider extends ServiceProvider
     {
         $value = preg_replace('/[^a-z]/', '', Str::lower($value)) ?? '';
 
-        return $value !== '' ? $value : 'green';
+        return $value !== '' ? $value : ResolveTaikoVersion::DefaultScope;
     }
 
     /**

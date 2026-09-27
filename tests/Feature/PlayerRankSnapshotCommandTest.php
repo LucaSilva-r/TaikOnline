@@ -101,14 +101,14 @@ it('fails when the requested game version is unknown', function (): void {
         ->assertFailed();
 });
 
-it('records Extra rank snapshots', function (): void {
+it('records Waddamburo rank snapshots', function (): void {
     $user = User::factory()->create();
-    $player = Player::query()->create(['mydon_name' => 'EXTRA', 'user_id' => $user->id]);
+    $player = Player::query()->create(['mydon_name' => 'WDB', 'user_id' => $user->id]);
 
     PlayerVersionStats::query()->create([
         'baid' => $player->baid,
         'user_id' => $user->id,
-        'game_version' => 'extra',
+        'game_version' => 'waddamburo',
         'total_score' => 765432,
         'ranked_song_count' => 2,
         'played_song_count' => 3,
@@ -116,12 +116,12 @@ it('records Extra rank snapshots', function (): void {
         'crown_dondaful' => 1,
     ]);
 
-    $this->artisan('app:record-player-rank-snapshots extra')
+    $this->artisan('app:record-player-rank-snapshots waddamburo')
         ->assertSuccessful();
 
     $snapshot = PlayerRankSnapshot::query()
         ->whereBelongsTo($user)
-        ->where('game_version', 'extra')
+        ->where('game_version', 'waddamburo')
         ->firstOrFail();
 
     expect($snapshot->total_score)->toBe(765432)

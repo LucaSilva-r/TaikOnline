@@ -43,12 +43,13 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'taikoVersion' => [
-                'scope' => $request->attributes->get('taikoVersionScope', TaikoGameVersion::default()->value),
+                'scope' => $request->attributes->get('taikoVersionScope', ResolveTaikoVersion::DefaultScope),
                 'isAll' => (bool) $request->attributes->get('taikoVersionIsAll', false),
                 'current' => $this->currentVersion($request),
-                'versions' => collect(TaikoGameVersion::cases())
-                    ->map(fn (TaikoGameVersion $version): array => $this->versionPayload($version))
-                    ->push($this->extraPayload())
+                // Waddamburo first: the site's own game, set apart in the switcher.
+                'versions' => collect([$this->waddamburoPayload()])
+                    ->concat(collect(TaikoGameVersion::cases())
+                        ->map(fn (TaikoGameVersion $version): array => $this->versionPayload($version)))
                     ->values()
                     ->all(),
                 'allowAll' => $request->routeIs('admin.*'),
@@ -64,8 +65,8 @@ class HandleInertiaRequests extends Middleware
     {
         $version = $request->attributes->get('taikoGameVersion');
 
-        if ((bool) $request->attributes->get('taikoVersionIsExtra', false)) {
-            return $this->extraPayload();
+        if ((bool) $request->attributes->get('taikoVersionIsWaddamburo', false)) {
+            return $this->waddamburoPayload();
         }
 
         return $version instanceof TaikoGameVersion ? $this->versionPayload($version) : null;
@@ -83,11 +84,11 @@ class HandleInertiaRequests extends Middleware
         ];
     }
 
-    private function extraPayload(): array
+    private function waddamburoPayload(): array
     {
         return [
-            'value' => 'extra',
-            'label' => 'EXTRA',
+            'value' => 'waddamburo',
+            'label' => 'Waddamburo',
             'supports' => [
                 'favoriteFolder' => false,
                 'favoriteLimit' => 0,

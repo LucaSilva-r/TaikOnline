@@ -24,10 +24,10 @@ class SongCatalogController extends Controller
      */
     private const LEADERBOARD_SIZE = 20;
 
-    public function index(Request $request, ExtraWebController $extra): Response
+    public function index(Request $request, WaddamburoWebController $waddamburo): Response
     {
-        if ((bool) $request->attributes->get('taikoVersionIsExtra', false)) {
-            return $extra->songs($request);
+        if ((bool) $request->attributes->get('taikoVersionIsWaddamburo', false)) {
+            return $waddamburo->songs($request);
         }
         $version = $this->resolveVersion($request);
         $search = trim((string) $request->query('q', ''));
@@ -85,10 +85,10 @@ class SongCatalogController extends Controller
         ]);
     }
 
-    public function show(Request $request, string $song, ExtraWebController $extra): Response|RedirectResponse
+    public function show(Request $request, string $song, WaddamburoWebController $waddamburo): Response|RedirectResponse
     {
-        if ((bool) $request->attributes->get('taikoVersionIsExtra', false)) {
-            return $extra->song($song);
+        if ((bool) $request->attributes->get('taikoVersionIsWaddamburo', false)) {
+            return $waddamburo->song($song);
         }
         $version = $this->resolveVersion($request);
 
@@ -153,7 +153,7 @@ class SongCatalogController extends Controller
      */
     public function toggleFavorite(Request $request, string $song): RedirectResponse
     {
-        if ((bool) $request->attributes->get('taikoVersionIsExtra', false)) {
+        if ((bool) $request->attributes->get('taikoVersionIsWaddamburo', false)) {
             abort(404);
         }
         $version = $this->resolveVersion($request);

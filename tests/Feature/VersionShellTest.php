@@ -25,7 +25,7 @@ function create_version_shell_song(string $version, int $songNo): Song
 }
 
 test('root redirects to the default version shell', function (): void {
-    $this->get('/')->assertRedirect('/green');
+    $this->get('/')->assertRedirect('/waddamburo');
 });
 
 test('old unversioned browser routes no longer render', function (string $path): void {

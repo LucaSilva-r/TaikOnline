@@ -15,7 +15,6 @@ use App\Models\SongPlayResult;
 use App\Models\User;
 use App\Services\ExtraRankAggregateService;
 use Illuminate\Testing\TestResponse;
-use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
     config()->set('taiko_green.zucchini_api_token_hashes', [hash('sha256', 'official-token')]);
@@ -70,30 +69,6 @@ it('keeps unregistered bests personal and applies registration retroactively', f
         ->and(PlayerVersionStats::query()->where('game_version', 'extra')->firstOrFail()->ranked_song_count)->toBe(1);
 });
 
-it('marks whether Extra board scores count for leaderboards', function (): void {
-    $player = extra_player();
-    $hash = str_repeat('f', 64);
-
-    post_extra_play($player, 6689, 4, 900000, 4, 0, $hash, 'Candidate', '2026-07-11 10:00:00')
-        ->assertSuccessful();
-
-    $this->actingAs($player->user)
-        ->get("/extra/users/{$player->user_id}/board")
-        ->assertSuccessful()
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('recentPlays.0.counts_for_leaderboard', false)
-            ->where('bestPerformances.0.counts_for_leaderboard', false));
-
-    $song = ExtraSong::query()->create(['title' => 'Approved', 'is_ranked' => true]);
-    ExtraChart::query()->where('sha256', $hash)->update(['extra_song_id' => $song->id, 'difficulty' => 4]);
-
-    $this->get("/extra/users/{$player->user_id}/board")
-        ->assertSuccessful()
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('recentPlays.0.counts_for_leaderboard', true)
-            ->where('bestPerformances.0.counts_for_leaderboard', true));
-});
-
 it('serves hash keyed bests only to the matching card', function (): void {
     $player = extra_player();
     $hash = str_repeat('c', 64);
@@ -123,22 +98,6 @@ it('ignores unsigned chart metadata and preserves stock behavior', function (): 
     expect(SongPlayResult::query()->count())->toBe(1)
         ->and(SongBest::query()->count())->toBe(1)
         ->and(ExtraChartPlayResult::query()->count())->toBe(0);
-});
-
-it('exposes registered charts through the Extra website scope', function (): void {
-    $player = extra_player();
-    $hash = str_repeat('e', 64);
-    post_extra_play($player, 6689, 4, 880000, 1, 0, $hash, 'Public Extra', '2026-07-11 10:00:00');
-    $song = ExtraSong::query()->create(['title' => 'Public Extra', 'is_ranked' => true]);
-    ExtraChart::query()->where('sha256', $hash)->update(['extra_song_id' => $song->id, 'difficulty' => 4]);
-    app(ExtraRankAggregateService::class)->recompute($player);
-
-    $this->get('/extra/rankings')->assertSuccessful()->assertInertia(fn (Assert $page) => $page
-        ->component('Rankings')->where('gameVersion.value', 'extra')->has('entries', 1));
-    $this->get('/extra/songs')->assertSuccessful()->assertInertia(fn (Assert $page) => $page
-        ->component('Songs')->where('gameVersion.value', 'extra')->has('songs.data', 1));
-    $this->get("/extra/songs/{$song->id}")->assertSuccessful()->assertInertia(fn (Assert $page) => $page
-        ->component('SongDetail')->where('song.title', 'Public Extra')->has('difficulties', 1));
 });
 
 function extra_player(string $accessCode = '30800000000000000001'): Player

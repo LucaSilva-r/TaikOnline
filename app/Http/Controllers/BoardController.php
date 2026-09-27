@@ -10,8 +10,8 @@ use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use App\Models\User;
-use App\Services\ExtraRankAggregateService;
 use App\Services\PlayerRankAggregateService;
+use App\Services\WaddamburoRankAggregateService;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,10 +19,10 @@ use Inertia\Response;
 
 class BoardController extends Controller
 {
-    public function show(Request $request, User $user, PlayerRankAggregateService $rankAggregates, ExtraWebController $extra): Response
+    public function show(Request $request, User $user, PlayerRankAggregateService $rankAggregates, WaddamburoWebController $waddamburo): Response
     {
-        if ((bool) $request->attributes->get('taikoVersionIsExtra', false)) {
-            return $extra->board($request, $user, app(ExtraRankAggregateService::class));
+        if ((bool) $request->attributes->get('taikoVersionIsWaddamburo', false)) {
+            return $waddamburo->board($request, $user, app(WaddamburoRankAggregateService::class));
         }
         $version = $request->attributes->get('taikoGameVersion');
         if (! $version instanceof TaikoGameVersion || (bool) $request->attributes->get('taikoVersionIsAll', false)) {

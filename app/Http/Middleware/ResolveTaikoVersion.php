@@ -12,7 +12,10 @@ class ResolveTaikoVersion
 {
     public const All = 'all';
 
-    public const Extra = 'extra';
+    public const Waddamburo = 'waddamburo';
+
+    /** The website's default scope (URLs without one, the home redirect): Waddamburo. */
+    public const DefaultScope = self::Waddamburo;
 
     /**
      * Handle an incoming request.
@@ -25,15 +28,15 @@ class ResolveTaikoVersion
         $scope = $route?->parameter('taikoVersion');
 
         if ($scope === null) {
-            URL::defaults(['taikoVersion' => TaikoGameVersion::default()->value]);
+            URL::defaults(['taikoVersion' => self::DefaultScope]);
 
             return $next($request);
         }
 
         $scope = (string) $scope;
-        $version = in_array($scope, [self::All, self::Extra], true) ? null : TaikoGameVersion::tryFrom($scope);
+        $version = in_array($scope, [self::All, self::Waddamburo], true) ? null : TaikoGameVersion::tryFrom($scope);
 
-        if (! in_array($scope, [self::All, self::Extra], true) && ! $version instanceof TaikoGameVersion) {
+        if (! in_array($scope, [self::All, self::Waddamburo], true) && ! $version instanceof TaikoGameVersion) {
             abort(404);
         }
 
@@ -45,7 +48,7 @@ class ResolveTaikoVersion
 
         $request->attributes->set('taikoVersionScope', $scope);
         $request->attributes->set('taikoVersionIsAll', $scope === self::All);
-        $request->attributes->set('taikoVersionIsExtra', $scope === self::Extra);
+        $request->attributes->set('taikoVersionIsWaddamburo', $scope === self::Waddamburo);
         $request->attributes->set('taikoGameVersion', $version);
         $route->forgetParameter('taikoVersion');
 

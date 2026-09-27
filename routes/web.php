@@ -5,15 +5,17 @@ use App\Http\Controllers\Admin\DanDojoController;
 use App\Http\Controllers\Admin\ExtraSongController;
 use App\Http\Controllers\Admin\PlayerController;
 use App\Http\Controllers\Admin\SongController;
+use App\Http\Controllers\Admin\WaddamburoChartController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\Green\OperatorController;
 use App\Http\Controllers\RankingController;
 use App\Http\Controllers\Settings\CabinetLoginController;
 use App\Http\Controllers\Settings\DeviceLinkController;
 use App\Http\Controllers\SongCatalogController;
+use App\Http\Middleware\ResolveTaikoVersion;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => redirect('/'.TaikoGameVersion::default()->value));
+Route::get('/', fn () => redirect('/'.ResolveTaikoVersion::DefaultScope));
 Route::any('rankings', fn () => abort(404));
 Route::any('community', fn () => abort(404));
 Route::any('admin/{any?}', fn () => abort(404))->where('any', '.*');
@@ -21,7 +23,7 @@ Route::any('settings/{any?}', fn () => abort(404))->where('any', '.*');
 
 $taikoVersionPattern = collect(TaikoGameVersion::cases())
     ->map(fn (TaikoGameVersion $version): string => $version->value)
-    ->push('extra')
+    ->push('waddamburo')
     ->push('all')
     ->implode('|');
 
@@ -64,6 +66,8 @@ Route::prefix('{taikoVersion}')
                 Route::get('songs', [SongController::class, 'index'])->name('songs.index');
                 Route::get('extra-songs', [ExtraSongController::class, 'index'])->name('extra-songs.index');
                 Route::post('extra-songs', [ExtraSongController::class, 'store'])->name('extra-songs.store');
+                Route::get('waddamburo-charts', [WaddamburoChartController::class, 'index'])->name('waddamburo-charts.index');
+                Route::patch('waddamburo-charts/{chart}', [WaddamburoChartController::class, 'update'])->name('waddamburo-charts.update');
                 Route::get('dan-dojo', [DanDojoController::class, 'index'])->name('dan-dojo.index');
                 Route::post('dan-dojo/{version}/randomize', [DanDojoController::class, 'randomize'])->name('dan-dojo.randomize');
                 Route::get('status', [OperatorController::class, 'status'])->name('status');

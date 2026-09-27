@@ -45,7 +45,7 @@ export type TaikoVersionAccent = {
     progress: string;
 };
 
-const fallbackScope = 'green';
+const fallbackScope = 'waddamburo';
 
 const fallbackAccent: TaikoVersionAccent = {
     swatch: 'hsl(20 92% 52%)',
@@ -57,12 +57,13 @@ const fallbackAccent: TaikoVersionAccent = {
 
 const taikoVersionAccents: Record<string, TaikoVersionAccent> = {
     all: fallbackAccent,
-    extra: {
-        swatch: 'hsl(285 82% 60%)',
-        primary: 'hsl(285 72% 46%)',
+    // The mitsudomoe's red.
+    waddamburo: {
+        swatch: '#c81820',
+        primary: 'hsl(357 76% 42%)',
         primaryForeground: 'hsl(0 0% 100%)',
-        label: 'hsl(285 70% 36%)',
-        progress: '#c026d3',
+        label: 'hsl(357 76% 34%)',
+        progress: '#c81820',
     },
     sorairo: {
         swatch: 'hsl(195 89% 52%)',

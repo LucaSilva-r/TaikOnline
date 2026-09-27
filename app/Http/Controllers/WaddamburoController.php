@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\TaikoGameVersion;
 use App\Http\Middleware\AuthenticateWaddamburo;
+use App\Http\Middleware\ResolveTaikoVersion;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\User;
@@ -11,6 +11,7 @@ use App\Models\WdbChart;
 use App\Models\WdbPlay;
 use App\Services\CabinetPairingService;
 use App\Services\WaddamburoDeviceLoginService;
+use App\Services\WaddamburoRankAggregateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -77,7 +78,7 @@ class WaddamburoController extends Controller
             return response()->json(['message' => 'Unavailable, try again.'], 503);
         }
 
-        return response()->json([...$login, 'verification_url' => url('/'.TaikoGameVersion::default()->value.'/link')]);
+        return response()->json([...$login, 'verification_url' => url('/'.ResolveTaikoVersion::DefaultScope.'/link')]);
     }
 
     /** In-game login, step 2 (polled): pending, denied, expired, or the token and profile once approved. */
@@ -248,7 +249,7 @@ class WaddamburoController extends Controller
      * A batch of plays. Known ids are skipped (idempotent retries). The response lists the charts
      * the server has no notes for yet, which the client then uploads.
      */
-    public function storePlays(Request $request): JsonResponse
+    public function storePlays(Request $request, WaddamburoRankAggregateService $aggregates): JsonResponse
     {
         $cabinet = $this->isCabinet($request);
         $validated = $request->validate([
@@ -310,7 +311,11 @@ class WaddamburoController extends Controller
                 'replay' => $replay,
             ]);
             $accepted[] = $play['id'];
+            $players[$baid] = true;
         }
+        // The website's standings (ranked charts only) follow each upload.
+        Player::query()->whereIn('baid', array_keys($players ?? []))->get()
+            ->each(fn (Player $player) => $aggregates->recompute($player));
 
         $missing = WdbChart::query()
             ->whereIn('sha256', array_keys($charts))

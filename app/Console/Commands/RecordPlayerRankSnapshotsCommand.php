@@ -5,8 +5,8 @@ namespace App\Console\Commands;
 use App\Enums\TaikoGameVersion;
 use App\Models\PlayerRankSnapshot;
 use App\Models\PlayerVersionStats;
-use App\Services\ExtraRankAggregateService;
 use App\Services\PlayerRankAggregateService;
+use App\Services\WaddamburoRankAggregateService;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -17,17 +17,17 @@ class RecordPlayerRankSnapshotsCommand extends Command
 {
     public function handle(
         PlayerRankAggregateService $rankAggregates,
-        ExtraRankAggregateService $extraRankAggregates,
+        WaddamburoRankAggregateService $waddamburoRankAggregates,
     ): int {
         $versionArg = $this->argument('version');
 
         if ($versionArg !== null) {
             $version = (string) $versionArg;
-            $scope = $version === ExtraRankAggregateService::SCOPE
-                ? ExtraRankAggregateService::SCOPE
+            $scope = $version === WaddamburoRankAggregateService::SCOPE
+                ? WaddamburoRankAggregateService::SCOPE
                 : TaikoGameVersion::fromInput($version);
 
-            if (! $scope instanceof TaikoGameVersion && $scope !== ExtraRankAggregateService::SCOPE) {
+            if (! $scope instanceof TaikoGameVersion && $scope !== WaddamburoRankAggregateService::SCOPE) {
                 $this->error("Unknown game version: {$versionArg}");
 
                 return self::FAILURE;
@@ -35,7 +35,7 @@ class RecordPlayerRankSnapshotsCommand extends Command
 
             $scopes = [$scope];
         } else {
-            $scopes = [...TaikoGameVersion::cases(), ExtraRankAggregateService::SCOPE];
+            $scopes = [...TaikoGameVersion::cases(), WaddamburoRankAggregateService::SCOPE];
         }
 
         $snapshotDate = today();
@@ -45,7 +45,7 @@ class RecordPlayerRankSnapshotsCommand extends Command
             $scopeName = $scope instanceof TaikoGameVersion ? $scope->value : $scope;
             $aggregates = $scope instanceof TaikoGameVersion
                 ? $rankAggregates->forVersion($scope)
-                : $extraRankAggregates->standings()->values()->map(function (PlayerVersionStats $stats, int $index): array {
+                : $waddamburoRankAggregates->standings()->values()->map(function (PlayerVersionStats $stats, int $index): array {
                     return [
                         'user_id' => (int) $stats->user_id,
                         'rank' => $index + 1,

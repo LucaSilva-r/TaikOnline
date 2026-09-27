@@ -9,6 +9,7 @@
     import Server from 'lucide-svelte/icons/server';
     import ShieldCheck from 'lucide-svelte/icons/shield-check';
     import Users from 'lucide-svelte/icons/users';
+    import Trophy from 'lucide-svelte/icons/trophy';
     import type { Snippet } from 'svelte';
     import AppLogo from '@/components/AppLogo.svelte';
     import NavFooter from '@/components/NavFooter.svelte';
@@ -31,6 +32,7 @@
     import adminPlayers from '@/routes/admin/players';
     import adminSongs from '@/routes/admin/songs';
     import adminExtraSongs from '@/routes/admin/extra-songs';
+    import adminWaddamburoCharts from '@/routes/admin/waddamburo-charts';
     const { dashboard, recentPlays, status } = adminRoute;
     import { home } from '@/routes';
     import type { NavItem } from '@/types';
@@ -48,6 +50,7 @@
         { title: 'BAIDs', href: adminBaids.index(taikoParam), icon: Users },
         { title: 'Recent Plays', href: recentPlays(taikoParam), icon: Activity },
         { title: 'Songs', href: adminSongs.index(taikoParam), icon: Disc },
+        { title: 'Waddamburo Charts', href: adminWaddamburoCharts.index(taikoParam), icon: Trophy },
         { title: 'Extra Songs', href: adminExtraSongs.index(taikoParam), icon: FolderGit2 },
         { title: 'Dan Dojo', href: adminDanDojo.index(taikoParam), icon: BookOpen },
         { title: 'Server Status', href: status(taikoParam), icon: Server },
@@ -57,7 +60,7 @@
     const footerNavItems: NavItem[] = [
         {
             title: 'Back to site',
-            href: home({ taikoVersion: 'green' }),
+            href: home({ taikoVersion: 'waddamburo' }),
             icon: Home,
         },
     ];
