@@ -62,7 +62,7 @@ it('logs in with username and password and returns a wdb token', function (): vo
     ])->assertOk()->assertJson(['baid' => $player->baid, 'name' => 'どんちゃん']);
 
     $this->withToken($response->json('token'))->getJson('/api/wdb/me')
-        ->assertOk()->assertJson(['baid' => $player->baid]);
+        ->assertOk()->assertJson(['baid' => $player->baid, 'account_name' => $player->user->name]);
 });
 
 it('rejects wrong passwords and asks two-factor accounts for a code', function (): void {

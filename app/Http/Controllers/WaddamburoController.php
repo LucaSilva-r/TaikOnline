@@ -392,6 +392,8 @@ class WaddamburoController extends Controller
         return [
             'baid' => (int) $player->baid,
             'name' => (string) ($player->mydon_name ?? ''),
+            // The website's public display name (not the login username), shown on Waddamburo's name boards.
+            'account_name' => $player->user?->name,
             // The account's custom Don-chan (a transparent PNG), for the game's account picker.
             'avatar' => $player->user?->avatar,
             'look' => [
