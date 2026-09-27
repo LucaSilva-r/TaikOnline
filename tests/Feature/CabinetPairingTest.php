@@ -311,3 +311,12 @@ test('cabinet login validates six ascii digits', function (mixed $code): void {
     'letters' => '12A456',
     'unicode digits' => '１２３４５６',
 ]);
+
+test('play page fills in a code from a scanned QR code', function (): void {
+    $user = createPairingUser('30800000000000000001');
+
+    $this->actingAs($user)->get(route('play.create', ['code' => '123456']))
+        ->assertInertia(fn ($page) => $page->component('Play')->where('code', '123456'));
+    $this->actingAs($user)->get(route('play.create', ['code' => 'abc']))
+        ->assertInertia(fn ($page) => $page->component('Play')->where('code', null));
+});

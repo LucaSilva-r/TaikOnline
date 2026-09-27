@@ -15,10 +15,13 @@
 
     let {
         hasUsableAccessCode,
+        code: scannedCode = null,
     }: {
         hasUsableAccessCode: boolean;
+        code?: string | null;
     } = $props();
-    let code = $state('');
+    // A code from a scanned QR code starts filled in.
+    let code = $state(scannedCode ?? '');
 </script>
 
 <AppHead title="Play on cabinet" />

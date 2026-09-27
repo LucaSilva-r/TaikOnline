@@ -15,8 +15,12 @@ class CabinetLoginController extends Controller
 {
     public function create(Request $request): Response
     {
+        $code = $request->string('code')->toString();
+
         return Inertia::render('Play', [
             'hasUsableAccessCode' => $this->accessCode($request) !== null,
+            // A code from the cabinet's QR code (?code=), filled in for the player to confirm.
+            'code' => preg_match('/\A[0-9]{6}\z/', $code) === 1 ? $code : null,
         ]);
     }
 
