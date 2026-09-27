@@ -170,6 +170,39 @@ class WaddamburoController extends Controller
         return response()->json($this->profile($player));
     }
 
+    /**
+     * Song select's score windows: the top players per chart (best score each), for the charts of
+     * the song under the cursor. Unknown charts come back empty.
+     */
+    public function rankings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'charts' => ['required', 'array', 'max:10'],
+            'charts.*' => ['string', 'regex:/\A[0-9a-f]{64}\z/'],
+        ]);
+        $charts = WdbChart::query()->whereIn('sha256', $validated['charts'])->pluck('sha256', 'id');
+        $rankings = array_fill_keys($validated['charts'], []);
+        foreach ($charts as $chartId => $sha256) {
+            // ponytail: every mode and scoring version counts; filter by ranked/min_scoring_version later.
+            $rankings[$sha256] = WdbPlay::query()
+                ->where('wdb_chart_id', $chartId)
+                ->selectRaw('baid, MAX(score) AS best')
+                ->groupBy('baid')
+                ->orderByDesc('best')
+                ->limit(3)
+                ->with('player:baid,mydon_name')
+                ->get()
+                ->map(fn (WdbPlay $best): array => [
+                    'baid' => (int) $best->baid,
+                    'name' => (string) ($best->player?->mydon_name ?? ''),
+                    'score' => (int) $best->best,
+                ])
+                ->all();
+        }
+
+        return response()->json(['rankings' => $rankings]);
+    }
+
     /** Cabinet: resolve the access code a 6-pin pairing delivered. */
     public function card(Request $request): JsonResponse
     {

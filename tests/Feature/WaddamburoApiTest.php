@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
 use App\Services\CabinetPairingService;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -213,4 +214,28 @@ it('gives a home PC a short-lived token for a friend who pairs with the six-digi
     expect($friend->user->tokens()->count())->toBe(1);
 
     $this->withToken('official-token')->postJson('/api/wdb/pairing', ['accepting' => true])->assertForbidden();
+});
+
+it('ranks each chart by every player\'s best score, top three', function (): void {
+    $players = collect(range(1, 4))->map(fn (int $n): Player => wdb_player('3080000000000000001'.$n));
+    $token = wdb_token($players[0]);
+    $sha = str_repeat('b', 64);
+    $chart = WdbChart::query()->create(['sha256' => $sha]);
+    foreach ([[0, 700000], [0, 900000], [1, 800000], [2, 600000], [3, 500000]] as [$index, $score]) {
+        WdbPlay::query()->create([
+            ...Arr::except(wdb_play($sha, ['score' => $score]), ['chart_sha256']),
+            'baid' => $players[$index]->baid,
+            'wdb_chart_id' => $chart->id,
+            'replay' => 'inputs',
+        ]);
+    }
+
+    $rankings = $this->withToken($token)
+        ->postJson('/api/wdb/rankings', ['charts' => [$sha, str_repeat('c', 64)]])
+        ->assertOk()
+        ->json('rankings');
+
+    expect(array_column($rankings[$sha], 'score'))->toBe([900000, 800000, 600000])
+        ->and($rankings[$sha][0])->toMatchArray(['baid' => $players[0]->baid, 'name' => 'どんちゃん'])
+        ->and($rankings[str_repeat('c', 64)])->toBe([]);
 });
