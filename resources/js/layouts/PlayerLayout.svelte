@@ -3,6 +3,7 @@
     import Menu from 'lucide-svelte/icons/menu';
     import ShieldCheck from 'lucide-svelte/icons/shield-check';
     import type { Snippet } from 'svelte';
+    import AlphaBanner from '@/components/AlphaBanner.svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
     import SiteDisclaimer from '@/components/SiteDisclaimer.svelte';
     import TaikoVersionSelect from '@/components/TaikoVersionSelect.svelte';
@@ -121,12 +122,6 @@
         </SheetContent>
     </Sheet>
 
-    <div
-        class="flex w-full items-center justify-center bg-red-600 px-4 py-2 text-center text-sm font-semibold text-white"
-    >
-        ⚠️ ALPHA — This platform is in early alpha. Your data can and WILL be
-        deleted without warning.
-    </div>
 
     <header
         class="relative z-50 border-b border-border/60 bg-background/80 backdrop-blur"
@@ -249,6 +244,8 @@
     </main>
 
     <SiteDisclaimer />
+
+    <AlphaBanner />
 
     <Toaster />
 </div>

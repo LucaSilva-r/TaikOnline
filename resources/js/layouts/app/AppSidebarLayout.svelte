@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
+    import AlphaBanner from '@/components/AlphaBanner.svelte';
     import AppContent from '@/components/AppContent.svelte';
     import AppShell from '@/components/AppShell.svelte';
     import AppSidebar from '@/components/AppSidebar.svelte';
@@ -21,6 +22,7 @@
     <AppContent variant="sidebar" class="overflow-x-hidden">
         <AppSidebarHeader {breadcrumbs} />
         {@render children?.()}
+        <AlphaBanner />
     </AppContent>
     <Toaster />
 </AppShell>
