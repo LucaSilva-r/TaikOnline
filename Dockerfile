@@ -25,6 +25,9 @@ RUN mkdir -p storage/app/private storage/app/public storage/framework/cache/data
 
 FROM php AS production
 
+# Match the host user that owns the bind-mounted storage directory.
+RUN usermod -u 1000 www-data && groupmod -g 1000 www-data
+
 ENV OCTANE_SERVER=frankenphp \
     XDG_CONFIG_HOME=/app/storage/framework/frankenphp/config \
     XDG_DATA_HOME=/app/storage/framework/frankenphp/data
@@ -34,12 +37,11 @@ COPY --from=build --chown=www-data:www-data /app /app
 RUN mkdir -p storage/app/private storage/app/public storage/framework/cache/data \
         storage/framework/sessions storage/framework/views storage/framework/frankenphp/config \
         storage/framework/frankenphp/data storage/logs bootstrap/cache \
+    && ln -s /app/storage/app/public /app/public/storage \
     && chown -R www-data:www-data storage bootstrap/cache
 
 USER www-data
 
 EXPOSE 8080
-
-ENTRYPOINT ["sh", "-c", "php artisan storage:link --force --no-interaction && exec \"$@\"", "--"]
 
 CMD ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=8080"]

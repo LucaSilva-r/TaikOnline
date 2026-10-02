@@ -1,0 +1,81 @@
+x-app: &app
+    image: 'ghcr.io/lucasilva-r/taikonline:${TAIKONLINE_TAG:-main}'
+    env_file:
+        - .env
+    volumes:
+        - './storage:/app/storage'
+    networks:
+        - main
+    depends_on:
+        pgsql:
+            condition: service_healthy
+    restart: unless-stopped
+
+services:
+    cloudflare-tunnel:
+        image: cloudflare/cloudflared:latest
+        container_name: cloudflare-tunnel
+        hostname: cloudflare-tunnel
+        env_file:
+            - .env
+        environment:
+            - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+        network_mode: host
+        command: tunnel run
+        healthcheck:
+            test: ['CMD', 'cloudflared', '--version']
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 10s
+        restart: unless-stopped
+
+    migrate:
+        <<: *app
+        command: ['php', 'artisan', 'migrate', '--force', '--no-interaction']
+        restart: 'no'
+
+    app:
+        <<: *app
+        ports:
+            - '127.0.0.1:1024:8080'
+        depends_on:
+            pgsql:
+                condition: service_healthy
+            migrate:
+                condition: service_completed_successfully
+
+    queue:
+        <<: *app
+        command: ['php', 'artisan', 'queue:work', 'database', '--queue=default', '--sleep=1', '--tries=1', '--timeout=3600']
+        environment:
+            DB_QUEUE_RETRY_AFTER: 3900
+
+    scheduler:
+        <<: *app
+        command: ['php', 'artisan', 'schedule:work']
+
+    pgsql:
+        image: 'postgres:18-alpine'
+        ports:
+            - '127.0.0.1:${FORWARD_DB_PORT:-5432}:5432'
+        environment:
+            POSTGRES_DB: '${DB_DATABASE}'
+            POSTGRES_USER: '${DB_USERNAME}'
+            POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
+        volumes:
+            - 'sail-pgsql:/var/lib/postgresql'
+        networks:
+            - main
+        healthcheck:
+            test: ['CMD', 'pg_isready', '-q', '-d', '${DB_DATABASE}', '-U', '${DB_USERNAME}']
+            retries: 3
+            timeout: 5s
+        restart: unless-stopped
+
+networks:
+    main:
+
+volumes:
+    sail-pgsql:
+        driver: local
