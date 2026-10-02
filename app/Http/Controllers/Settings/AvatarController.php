@@ -131,7 +131,7 @@ class AvatarController extends Controller
      */
     private function sheet(): ?array
     {
-        $path = public_path('donchan/sheet.json');
+        $path = storage_path('app/public/donchan/sheet.json');
         if (! File::exists($path)) {
             return null;
         }
@@ -140,7 +140,7 @@ class AvatarController extends Controller
         $data = json_decode(File::get($path), true);
 
         return [
-            'url' => '/donchan/sheet.png',
+            'url' => '/storage/donchan/sheet.png',
             'cell' => $data['cell'],
             'width' => $data['sheet'][0],
             'height' => $data['sheet'][1],
@@ -156,7 +156,7 @@ class AvatarController extends Controller
      */
     private function puchiSheet(): ?array
     {
-        $path = public_path('donchan/puchi-sheet.json');
+        $path = storage_path('app/public/donchan/puchi-sheet.json');
         if (! File::exists($path)) {
             return null;
         }
@@ -165,7 +165,7 @@ class AvatarController extends Controller
         $data = json_decode(File::get($path), true);
 
         return [
-            'url' => '/donchan/puchi-sheet.png',
+            'url' => '/storage/donchan/puchi-sheet.png',
             'frameWidth' => $data['frameWidth'],
             'frameHeight' => $data['frameHeight'],
             'width' => $data['sheet'][0],
@@ -181,7 +181,7 @@ class AvatarController extends Controller
      */
     private function faces(): array
     {
-        $dir = public_path('donchan/face');
+        $dir = storage_path('app/public/donchan/face');
         if (! File::isDirectory($dir)) {
             return [];
         }

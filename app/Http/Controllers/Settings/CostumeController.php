@@ -132,7 +132,7 @@ class CostumeController extends Controller
             return null;
         }
 
-        $path = public_path("costumes/{$version->value}/sheet.json");
+        $path = storage_path("app/public/costumes/{$version->value}/sheet.json");
         if (! File::exists($path)) {
             return null;
         }
@@ -141,7 +141,7 @@ class CostumeController extends Controller
         $data = json_decode(File::get($path), true);
 
         return [
-            'url' => "/costumes/{$version->value}/sheet.png",
+            'url' => "/storage/costumes/{$version->value}/sheet.png",
             'cell' => $data['cell'],
             'width' => $data['sheet'][0],
             'height' => $data['sheet'][1],

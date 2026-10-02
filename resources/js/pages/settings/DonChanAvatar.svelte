@@ -204,9 +204,9 @@
     );
     let puchiDisplaySize = $derived(PUCHI_PREVIEW_SIZE * puchiScale);
 
-    const MODEL_BASE = '/donchan/models';
-    const FACE_BASE = '/donchan/face';
-    const ANIMATIONS = '/donchan/animations.glb';
+    const MODEL_BASE = '/storage/donchan/models';
+    const FACE_BASE = '/storage/donchan/face';
+    const ANIMATIONS = '/storage/donchan/animations.glb';
 
     // A worn kigurumi (id > 0) overrides the parts; otherwise composite the head + body.
     function modelUrls(): string[] {
@@ -571,7 +571,7 @@
     }
 
     function originalPuchiUrl(item: PuchiItem): string {
-        return `/donchan/puchi/${item.id}.png`;
+        return `/storage/donchan/puchi/${item.id}.png`;
     }
 
     function originalPuchiSprite(

@@ -2,11 +2,11 @@
 """
 Pack a version's costume icons into a single spritesheet + JSON coord map so the
 frontend loads one image instead of hundreds. Sources the per-slot PNGs already
-published under public/costumes/<version>/<slot>/<id>.png.
+published under storage/app/public/costumes/<version>/<slot>/<id>.png.
 
 Output (per version):
-  public/costumes/<version>/sheet.png
-  public/costumes/<version>/sheet.json  { cell, sheet:[w,h], slots:{slot:[{id,x,y}]} }
+  storage/app/public/costumes/<version>/sheet.png
+  storage/app/public/costumes/<version>/sheet.json  { cell, sheet:[w,h], slots:{slot:[{id,x,y}]} }
 
 Usage: python3 scripts/build_costume_spritesheet.py [version ...]   (default: green)
 """
@@ -39,7 +39,7 @@ def fit_icon(icon: Image.Image, slot: str, path: Path) -> Image.Image:
 
 
 def build(version: str) -> None:
-    base = ROOT / "public" / "costumes" / version
+    base = ROOT / "storage" / "app" / "public" / "costumes" / version
     items = []  # (slot, id, Path), in slot then id order
     for slot in SLOTS:
         d = base / slot

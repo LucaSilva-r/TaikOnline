@@ -6,26 +6,48 @@ use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
 
 uses(RefreshDatabase::class);
 
 it('shows costume page without access code', function (): void {
     $user = User::factory()->create();
+    $sheetPath = storage_path('app/public/costumes/green/sheet.json');
+    $originalSheet = File::exists($sheetPath) ? File::get($sheetPath) : null;
 
-    $this->actingAs($user)->get('/green/settings/costumes')
-        ->assertOk()
-        ->assertInertia(fn ($assert) => $assert
-            ->component('settings/DonChan')
-            ->where('hasAccessCode', false)
-            ->where('versionLabel', 'GREEN')
-            ->where('activePreset', 0)
-            ->where('mydonName', '')
-            ->where('colorFace', 0)
-            ->where('colorBody', 0)
-            ->where('colorLimb', 0)
-            ->has('presets', 3)
-            ->has('sheet.slots.kigurumi')
-            ->has('sheet.slots.puchi'));
+    File::ensureDirectoryExists(dirname($sheetPath));
+    File::put($sheetPath, json_encode([
+        'cell' => 96,
+        'sheet' => [96, 192],
+        'slots' => [
+            'kigurumi' => [['id' => 1, 'x' => 0, 'y' => 0]],
+            'puchi' => [['id' => 2, 'x' => 0, 'y' => 96]],
+        ],
+    ]));
+
+    try {
+        $this->actingAs($user)->get('/green/settings/costumes')
+            ->assertOk()
+            ->assertInertia(fn ($assert) => $assert
+                ->component('settings/DonChan')
+                ->where('hasAccessCode', false)
+                ->where('versionLabel', 'GREEN')
+                ->where('activePreset', 0)
+                ->where('mydonName', '')
+                ->where('colorFace', 0)
+                ->where('colorBody', 0)
+                ->where('colorLimb', 0)
+                ->has('presets', 3)
+                ->where('sheet.url', '/storage/costumes/green/sheet.png')
+                ->has('sheet.slots.kigurumi')
+                ->has('sheet.slots.puchi'));
+    } finally {
+        if ($originalSheet === null) {
+            File::delete($sheetPath);
+        } else {
+            File::put($sheetPath, $originalSheet);
+        }
+    }
 });
 
 it('shows saved presets for player with access code', function (): void {

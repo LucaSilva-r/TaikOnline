@@ -8,7 +8,7 @@ guaranteed correct (ids are not stable across the oldest versions). For every
 in a dump are simply absent (the picker hides empty tabs).
 
 Source : <RPCS3>/costumes_out/manifest.json  (see extract_costumes.py)
-Output : public/costumes/<version>/{sheet.png, sheet.json}
+Output : storage/app/public/costumes/<version>/{sheet.png, sheet.json}
 """
 import json
 import shutil
@@ -83,7 +83,7 @@ def fit_icon(icon, slot, path):
 
 def build(version, dump):
     rows = [r for r in MANIFEST if r["color"] == dump]
-    base = TAIKONLINE / "public" / "costumes" / version
+    base = TAIKONLINE / "storage" / "app" / "public" / "costumes" / version
     if base.exists():
         shutil.rmtree(base)
 

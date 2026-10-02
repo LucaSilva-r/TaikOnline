@@ -34,7 +34,9 @@ yarn-error.log
 frankenphp
 frankenphp-worker.php
 
-# Don-chan 3D assets exported by scripts/donchan/export_web_assets.py
+# Don-chan and costume assets are stored on the public storage disk.
+/storage/app/public/donchan/
+/storage/app/public/costumes/
 /public/donchan/
 /public/costumes/
 

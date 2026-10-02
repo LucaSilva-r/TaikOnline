@@ -63,8 +63,8 @@ it('shows the avatar customizer page', function (): void {
 
 it('uses the Don-chan 3D asset picker sheet', function (): void {
     $user = User::factory()->create();
-    $sheetPath = public_path('donchan/sheet.json');
-    $puchiPath = public_path('donchan/puchi-sheet.json');
+    $sheetPath = storage_path('app/public/donchan/sheet.json');
+    $puchiPath = storage_path('app/public/donchan/puchi-sheet.json');
     $originalSheet = File::exists($sheetPath) ? File::get($sheetPath) : null;
     $originalPuchi = File::exists($puchiPath) ? File::get($puchiPath) : null;
 
@@ -91,12 +91,12 @@ it('uses the Don-chan 3D asset picker sheet', function (): void {
         $this->actingAs($user)->get('/green/settings/avatar')
             ->assertOk()
             ->assertInertia(fn ($assert) => $assert
-                ->where('sheet.url', '/donchan/sheet.png')
+                ->where('sheet.url', '/storage/donchan/sheet.png')
                 ->where('sheet.cell', 96)
                 ->where('sheet.slots.kigurumi.0.id', 1)
                 ->where('sheet.slots.head.0.id', 2)
                 ->where('sheet.slots.body.0.id', 3)
-                ->where('puchiSheet.url', '/donchan/puchi-sheet.png')
+                ->where('puchiSheet.url', '/storage/donchan/puchi-sheet.png')
                 ->where('puchiSheet.frameWidth', 64)
                 ->where('puchiSheet.frameHeight', 64)
                 ->where('puchiSheet.items.0.id', 4));

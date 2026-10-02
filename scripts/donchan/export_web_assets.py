@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
-"""Export the Don-chan 3D assets YataiDON uses into the web-served public dir.
+"""Export the Don-chan 3D assets YataiDON uses into public storage.
 
 The Three.js avatar customizer (resources/js/lib/donchan/renderer.ts) loads these
 GLBs/textures at runtime to render the player's Don. We copy them out of the YataiDON
-skin instead of committing 95MB of binaries into this repo, so public/donchan/ is
-git-ignored and this script must be run on deploy.
+skin instead of committing binaries into this repo, so storage/app/public/donchan/
+is git-ignored and this script must be run for each persistent asset volume.
 
 Usage:
     python3 scripts/donchan/export_web_assets.py [--yataidon /path/to/YataiDON] [--force]
 
 Layout produced:
-    public/donchan/models/cos/{id}.glb   full-body kigurumi models (loaded one at a time)
-    public/donchan/models/head/{id}.glb  head part models
-    public/donchan/models/body/{id}.glb  body part models
-    public/donchan/sheet.png             picker spritesheet matching the exported GLB ids
-    public/donchan/sheet.json            picker sprite coordinates
-    public/donchan/puchi/{id}.png        original two-frame puchi-chara sprites
-    public/donchan/puchi-sheet.png       small two-frame puchi-chara picker spritesheet
-    public/donchan/puchi-sheet.json      puchi-chara sprite coordinates
-    public/donchan/animations.glb        shared skeleton animations (used to pose the model)
-    public/donchan/face/{sheet}.png      face expression sheets (12 stacked 128x128 frames)
+    storage/app/public/donchan/models/cos/{id}.glb
+    storage/app/public/donchan/models/head/{id}.glb
+    storage/app/public/donchan/models/body/{id}.glb
+    storage/app/public/donchan/sheet.png
+    storage/app/public/donchan/sheet.json
+    storage/app/public/donchan/puchi/{id}.png
+    storage/app/public/donchan/puchi-sheet.png
+    storage/app/public/donchan/puchi-sheet.json
+    storage/app/public/donchan/animations.glb
+    storage/app/public/donchan/face/{sheet}.png
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ from PIL import Image
 DEFAULT_YATAIDON = Path(__file__).resolve().parents[3] / "YataiDON"
 SKIN_MODELS = Path("Skins/PyTaikoGreen/Models")
 
-PUBLIC_ROOT = Path(__file__).resolve().parents[2] / "public" / "donchan"
+PUBLIC_ROOT = Path(__file__).resolve().parents[2] / "storage" / "app" / "public" / "donchan"
 CELL = 96
 PUCHI_FRAME = 64
 COLS = 16
