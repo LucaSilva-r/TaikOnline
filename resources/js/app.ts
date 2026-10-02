@@ -12,7 +12,7 @@ import {
 } from '@/lib/taiko-version';
 import { initializeTheme } from '@/lib/theme.svelte';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'TaikOnline';
 
 initializeTaikoRouteDefaults();
 initializeTaikoVersionAccent();
