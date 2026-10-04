@@ -28,7 +28,7 @@ use RuntimeException;
 class WaddamburoController extends Controller
 {
     /** Decompressed canonical chart size limit (a long Oni chart is well under 100 KB). */
-    private const MAX_CHART_BYTES = 4 * 1024 * 1024;
+    public const MAX_CHART_BYTES = 4 * 1024 * 1024;
 
     /** Home login: username or email + password (+ 2FA code) -> a long-lived 'wdb' token. */
     public function login(Request $request, TwoFactorAuthenticationProvider $twoFactor): JsonResponse

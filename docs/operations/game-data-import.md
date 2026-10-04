@@ -73,3 +73,18 @@ sorairo 5 · momoiro 15 · kimidori 16 · murasaki 22 · white 25 · red 25 · y
 ```
 
 Course counts grow with the release era, which matches the games' history.
+
+## Waddamburo charts (stock + Nijiiro, ranked)
+
+Waddamburo's own stock and Nijiiro charts count towards the rankings. Export them once from a client that
+has the game data and the Nijiiro folder (`nijiiro_folder` in its settings), then import it on the server
+(the file is too large for a web upload):
+
+```bash
+Waddamburo --export-charts=charts.jsonl.gz   # gzipped JSON lines, one chart import each
+php artisan app:import-waddamburo-charts charts.jsonl.gz
+```
+
+Every chart is created (notes hash-checked) or, if already known, ranked; standings are recomputed.
+Re-running is safe. Charts first seen through plays
+(TJA, osu!) still start unranked.

@@ -2,7 +2,6 @@
 
 use App\Enums\TaikoGameVersion;
 use App\Http\Controllers\Admin\DanDojoController;
-use App\Http\Controllers\Admin\ExtraSongController;
 use App\Http\Controllers\Admin\PlayerController;
 use App\Http\Controllers\Admin\SongController;
 use App\Http\Controllers\Admin\WaddamburoChartController;
@@ -64,8 +63,6 @@ Route::prefix('{taikoVersion}')
                 Route::delete('baids/{player}/bests/{best}', [OperatorController::class, 'destroyBest'])->name('baids.bests.destroy');
                 Route::get('recent-plays', [OperatorController::class, 'recentPlays'])->name('recent-plays');
                 Route::get('songs', [SongController::class, 'index'])->name('songs.index');
-                Route::get('extra-songs', [ExtraSongController::class, 'index'])->name('extra-songs.index');
-                Route::post('extra-songs', [ExtraSongController::class, 'store'])->name('extra-songs.store');
                 Route::get('waddamburo-charts', [WaddamburoChartController::class, 'index'])->name('waddamburo-charts.index');
                 Route::patch('waddamburo-charts/{chart}', [WaddamburoChartController::class, 'update'])->name('waddamburo-charts.update');
                 Route::get('dan-dojo', [DanDojoController::class, 'index'])->name('dan-dojo.index');

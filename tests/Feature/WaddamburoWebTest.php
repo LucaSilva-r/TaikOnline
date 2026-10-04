@@ -76,6 +76,46 @@ it('lets admins rank a chart, which recomputes its players\' standings', functio
     $this->actingAs($player->user)->patch("/waddamburo/admin/waddamburo-charts/{$chart->id}", ['ranked' => false])->assertForbidden();
 });
 
+it('lists Waddamburo charts filtered by source, sorted, and linked to their song page', function (): void {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $hard = WdbChart::query()->create(['sha256' => str_repeat('d', 64), 'title' => 'Song', 'source' => 'Stock', 'course' => 2, 'level' => 5]);
+    $oni = WdbChart::query()->create(['sha256' => str_repeat('e', 64), 'title' => 'Song', 'source' => 'Stock', 'course' => 3, 'level' => 8]);
+    WdbChart::query()->create(['sha256' => str_repeat('f', 64), 'title' => 'Custom', 'source' => 'Tja', 'course' => 3]);
+    WdbChart::query()->create(['sha256' => str_repeat('0', 64)]);
+
+    $this->actingAs($admin)->get('/waddamburo/admin/waddamburo-charts?source=Stock&sort=course&direction=desc')
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page->component('admin/WaddamburoCharts')
+            ->where('sources', ['Stock', 'Tja'])
+            ->has('charts.data', 2)
+            ->where('charts.data.0.id', $oni->id)
+            ->where('charts.data.0.song_id', $hard->id)
+            ->where('charts.data.1.song_id', $hard->id));
+    $this->actingAs($admin)->get('/waddamburo/admin/waddamburo-charts?sort=title&direction=asc')
+        ->assertInertia(fn (Assert $page) => $page->where('charts.data.3.song_id', null)->where('charts.data.3.has_notes', false));
+});
+
+it('imports and ranks exported stock and Nijiiro charts, skipping lines whose notes do not match', function (): void {
+    $player = wdb_web_player();
+    $notes = 'WDBC canonical notes';
+    $sha256 = hash('sha256', $notes);
+    $played = WdbChart::query()->create(['sha256' => $sha256, 'course' => 3]);
+    wdb_web_play($player, $played, 900000);
+    $line = fn (string $sha, string $title): string => json_encode([
+        'sha256' => $sha, 'notes' => base64_encode(gzencode($notes)), 'title' => $title,
+        'subtitle' => null, 'source' => 'Stock', 'course' => 3, 'level' => 9,
+    ]);
+    $export = tempnam(sys_get_temp_dir(), 'wdb');
+    file_put_contents($export, gzencode($line($sha256, 'Stock song')."\n".$line(str_repeat('9', 64), 'Forged')."\n"));
+
+    $this->artisan('app:import-waddamburo-charts', ['file' => $export])
+        ->expectsOutput('Imported and ranked 1 charts (1 invalid lines skipped).')->assertSuccessful();
+
+    expect(WdbChart::query()->count())->toBe(1)
+        ->and($played->fresh())->title->toBe('Stock song')->level->toBe(9)->ranked_at->not->toBeNull();
+    $this->get('/waddamburo/rankings')->assertInertia(fn (Assert $page) => $page->where('entries.0.total_score', 900000));
+});
+
 it('edits the Green Don-chan from the Waddamburo scope', function (): void {
     $player = wdb_web_player();
 

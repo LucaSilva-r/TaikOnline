@@ -2,7 +2,6 @@
     import { Link } from '@inertiajs/svelte';
     import Activity from 'lucide-svelte/icons/activity';
     import BookOpen from 'lucide-svelte/icons/book-open';
-    import FolderGit2 from 'lucide-svelte/icons/folder-git-2';
     import Home from 'lucide-svelte/icons/home';
     import Disc from 'lucide-svelte/icons/disc';
     import LayoutGrid from 'lucide-svelte/icons/layout-grid';
@@ -31,7 +30,6 @@
     import adminBaids from '@/routes/admin/baids';
     import adminPlayers from '@/routes/admin/players';
     import adminSongs from '@/routes/admin/songs';
-    import adminExtraSongs from '@/routes/admin/extra-songs';
     import adminWaddamburoCharts from '@/routes/admin/waddamburo-charts';
     const { dashboard, recentPlays, status } = adminRoute;
     import { home } from '@/routes';
@@ -51,7 +49,6 @@
         { title: 'Recent Plays', href: recentPlays(taikoParam), icon: Activity },
         { title: 'Songs', href: adminSongs.index(taikoParam), icon: Disc },
         { title: 'Waddamburo Charts', href: adminWaddamburoCharts.index(taikoParam), icon: Trophy },
-        { title: 'Extra Songs', href: adminExtraSongs.index(taikoParam), icon: FolderGit2 },
         { title: 'Dan Dojo', href: adminDanDojo.index(taikoParam), icon: BookOpen },
         { title: 'Server Status', href: status(taikoParam), icon: Server },
         { title: 'Players', href: adminPlayers.index(taikoParam), icon: ShieldCheck },
