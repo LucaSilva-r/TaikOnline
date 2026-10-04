@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Enums\TaikoGameVersion;
+use App\Models\PlayerCosmetic;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -14,7 +15,7 @@ class ResolveTaikoVersion
 
     public const Waddamburo = 'waddamburo';
 
-    /** Don-chan pages that run as Green under the Waddamburo scope. */
+    /** Don-chan pages that use Green's catalogues under the Waddamburo scope, saving to Waddamburo's own loadout. */
     public const WaddamburoDonRoutes = ['costumes.*', 'customize.*', 'donchan-name.*', 'donchan-title.*', 'donchan-official-title.*', 'avatar.*'];
 
     /** The website's default scope (URLs without one, the home redirect): Waddamburo. */
@@ -47,9 +48,12 @@ class ResolveTaikoVersion
             abort(404);
         }
 
-        // Waddamburo dresses its Don-chan from the Green profile, so its Don-chan pages edit Green's.
+        // Waddamburo draws Green's models, so its Don-chan pages use Green's items and titles,
+        // but save to Waddamburo's own loadout (cosmeticVersion).
+        $cosmeticVersion = $version?->value;
         if ($scope === self::Waddamburo && $request->routeIs(...self::WaddamburoDonRoutes)) {
             $version = TaikoGameVersion::Green;
+            $cosmeticVersion = PlayerCosmetic::WADDAMBURO;
         }
 
         URL::defaults(['taikoVersion' => $scope]);
@@ -58,6 +62,7 @@ class ResolveTaikoVersion
         $request->attributes->set('taikoVersionIsAll', $scope === self::All);
         $request->attributes->set('taikoVersionIsWaddamburo', $scope === self::Waddamburo);
         $request->attributes->set('taikoGameVersion', $version);
+        $request->attributes->set('cosmeticVersion', $cosmeticVersion);
         $route->forgetParameter('taikoVersion');
 
         return $next($request);

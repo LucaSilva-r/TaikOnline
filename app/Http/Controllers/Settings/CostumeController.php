@@ -48,7 +48,7 @@ class CostumeController extends Controller
         $officialTitleId = 0;
 
         if ($card !== null && $supported && $version instanceof TaikoGameVersion) {
-            $cosmetic = PlayerCosmetic::resolve($card->player->baid, $version);
+            $cosmetic = PlayerCosmetic::resolve($card->player->baid, $request->attributes->get('cosmeticVersion'));
             $presets = $cosmetic->normalizedPresets();
             $activePreset = min((int) $cosmetic->active_costume_preset, PlayerCosmetic::PRESET_COUNT - 1);
             $title = $cosmetic->title ?? '';
@@ -60,11 +60,13 @@ class CostumeController extends Controller
             'supported' => $supported,
             'supportsTitlePlates' => $supportsTitlePlates,
             'hasAccessCode' => $card !== null,
-            'versionLabel' => $version?->label() ?? '',
+            'versionLabel' => $request->attributes->get('taikoVersionIsWaddamburo') ? 'Waddamburo' : ($version?->label() ?? ''),
             'sheet' => $this->spritesheet($version),
             'presets' => $presets,
             'activePreset' => $activePreset,
             'mydonName' => $card?->player->mydon_name ?? '',
+            // Waddamburo shows the account's public name, not the Don-chan's.
+            'showDonChanName' => ! $request->attributes->get('taikoVersionIsWaddamburo'),
             'title' => $title,
             'titlePlateId' => $titlePlateId,
             'officialTitles' => $officialTitles,
@@ -89,7 +91,7 @@ class CostumeController extends Controller
         }
 
         if ($card !== null) {
-            $cosmetic = PlayerCosmetic::resolve($card->player->baid, $version);
+            $cosmetic = PlayerCosmetic::resolve($card->player->baid, $request->attributes->get('cosmeticVersion'));
 
             /** @var array<int, array<string, mixed>> $rawPresets */
             $rawPresets = $request->validated('presets');

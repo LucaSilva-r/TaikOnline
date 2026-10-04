@@ -6,6 +6,7 @@ use App\Http\Middleware\AuthenticateWaddamburo;
 use App\Http\Middleware\ResolveTaikoVersion;
 use App\Models\GameCard;
 use App\Models\Player;
+use App\Models\PlayerCosmetic;
 use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
@@ -191,11 +192,12 @@ class WaddamburoController extends Controller
                 ->groupBy('baid')
                 ->orderByDesc('best')
                 ->limit(3)
-                ->with('player:baid,mydon_name')
+                ->with('player:baid,mydon_name,user_id', 'player.user:id,name')
                 ->get()
                 ->map(fn (WdbPlay $best): array => [
                     'baid' => (int) $best->baid,
-                    'name' => (string) ($best->player?->mydon_name ?? ''),
+                    // The account's public name (as on the name boards), else the Don-chan's.
+                    'name' => (string) ($best->player?->user?->name ?? $best->player?->mydon_name ?? ''),
                     'score' => (int) $best->best,
                 ])
                 ->all();
@@ -379,14 +381,14 @@ class WaddamburoController extends Controller
     ];
 
     /**
-     * The player and their Don's look. Waddamburo draws Green's models, so the look is the Green one:
+     * The player and their Don's look, from Waddamburo's own loadout (Green's item ids, as it draws Green's models):
      * the equipped costume parts (kigurumi, head, body, face, puchi) and the face/body/limb colours.
      *
-     * @return array{baid: int, name: string, look: array{costume: list<int>, face: string, body: string, limb: string}}
+     * @return array{baid: int, name: string, title: ?string, title_plate: int, look: array{costume: list<int>, presets: list<list<int>>, face: string, body: string, limb: string}}
      */
     private function profile(Player $player): array
     {
-        $cosmetics = $player->cosmetics()->where('game_version', 'green')->first();
+        $cosmetics = $player->cosmetics()->where('game_version', PlayerCosmetic::WADDAMBURO)->first();
         $color = fn (?int $id, int $default): string => self::DON_COLORS[$id ?? $default] ?? self::DON_COLORS[$default];
 
         return [
@@ -396,8 +398,13 @@ class WaddamburoController extends Controller
             'account_name' => $player->user?->name,
             // The account's custom Don-chan (a transparent PNG), for the game's account picker.
             'avatar' => $player->user?->avatar,
+            // Name-board title and plate (0 wood, 1 rainbow, 2 gold, 3 purple).
+            'title' => $cosmetics?->title,
+            'title_plate' => (int) ($cosmetics?->titleplate_id ?? 0),
             'look' => [
                 'costume' => array_map(fn (int $slot): int => (int) ($cosmetics?->{"costume_{$slot}"} ?? 0), [1, 2, 3, 4, 5]),
+                // The entry's three costume sets: [kigurumi, head, body, puchi] each.
+                'presets' => array_map(array_values(...), ($cosmetics ?? new PlayerCosmetic)->normalizedPresets()),
                 'face' => $color($player->color_face, 0),
                 'body' => $color($player->color_body, 1),
                 'limb' => $color($player->color_limb, 3),

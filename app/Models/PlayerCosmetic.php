@@ -33,6 +33,9 @@ class PlayerCosmetic extends Model
 {
     public const CUSTOM_TITLE_PLATE_MAX_ID = 3;
 
+    /** Waddamburo's own loadout row: Green's item ids, stored apart from Green's. */
+    public const WADDAMBURO = 'waddamburo';
+
     protected function casts(): array
     {
         return [
@@ -48,11 +51,11 @@ class PlayerCosmetic extends Model
      * Resolve (without persisting) the cosmetic row for a card and version,
      * returning a fresh instance when the player has never played that version.
      */
-    public static function resolve(int $baid, TaikoGameVersion $version): self
+    public static function resolve(int $baid, TaikoGameVersion|string $version): self
     {
         return self::query()->firstOrNew([
             'baid' => $baid,
-            'game_version' => $version->value,
+            'game_version' => $version instanceof TaikoGameVersion ? $version->value : $version,
         ]);
     }
 

@@ -81,7 +81,7 @@ class CustomizeController extends Controller
 
         if ($card !== null) {
             $title = $request->validated('title');
-            $cosmetic = PlayerCosmetic::resolve($card->player->baid, $version);
+            $cosmetic = PlayerCosmetic::resolve($card->player->baid, $request->attributes->get('cosmeticVersion'));
             $cosmetic->title = is_string($title) && $title !== '' ? $title : null;
 
             if ($version->supportsTitlePlates()) {
@@ -114,7 +114,7 @@ class CustomizeController extends Controller
             ->first();
 
         if ($card !== null) {
-            $cosmetic = PlayerCosmetic::resolve($card->player->baid, $version);
+            $cosmetic = PlayerCosmetic::resolve($card->player->baid, $request->attributes->get('cosmeticVersion'));
             $cosmetic->title = $title['name'];
             $cosmetic->titleplate_id = $title['plate'];
             $cosmetic->unlocked_titles = collect($cosmetic->unlocked_titles ?? [])

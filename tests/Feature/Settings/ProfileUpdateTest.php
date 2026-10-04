@@ -98,3 +98,25 @@ test('correct password must be provided to delete account', function () {
 
     expect($user->fresh())->not->toBeNull();
 });
+
+test('names must fit on the game name board', function (string $name, bool $fits) {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->patch(route('profile.update'), ['name' => $name, 'email' => $user->email]);
+
+    $fits ? $response->assertSessionHasNoErrors() : $response->assertSessionHasErrors('name');
+})->with([
+    'the reference name' => ['[LAWN] Red', true],
+    'seven kana' => ['あいうえおかき', true],
+    'eight kana' => ['あいうえおかきく', false],
+    'narrow letters' => ['iiiiiiiiiiiiiiii', true],
+    'wide letters' => ['WWWWWWWW', false],
+    'eleven capitals' => ['ABCDEFGHIJK', false],
+]);
+
+test('an existing name that is too wide stays saveable', function () {
+    $user = User::factory()->create(['name' => 'A very long legacy display name']);
+
+    $this->actingAs($user)->patch(route('profile.update'), ['name' => $user->name, 'email' => 'new@example.com'])
+        ->assertSessionHasNoErrors();
+});

@@ -31,7 +31,7 @@ class AvatarController extends Controller
         $faces = $this->faces();
 
         $cosmetic = ($card !== null && $version instanceof TaikoGameVersion)
-            ? PlayerCosmetic::resolve($card->player->baid, $version)
+            ? PlayerCosmetic::resolve($card->player->baid, $request->attributes->get('cosmeticVersion'))
             : null;
 
         // Prefer the settings a saved avatar was generated from; otherwise seed from the
@@ -39,7 +39,7 @@ class AvatarController extends Controller
         return Inertia::render('settings/DonChanAvatar', [
             'hasAvatar' => $user->avatar !== null,
             'avatar' => $user->avatar,
-            'versionLabel' => $version?->label() ?? '',
+            'versionLabel' => $request->attributes->get('taikoVersionIsWaddamburo') ? 'Waddamburo' : ($version?->label() ?? ''),
             'sheet' => $this->sheet(),
             'puchiSheet' => $this->puchiSheet(),
             'faces' => $faces,

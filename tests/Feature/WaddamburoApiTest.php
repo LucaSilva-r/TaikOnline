@@ -2,6 +2,7 @@
 
 use App\Models\GameCard;
 use App\Models\Player;
+use App\Models\PlayerCosmetic;
 use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
@@ -65,6 +66,29 @@ it('logs in with username and password and returns a wdb token', function (): vo
         ->assertOk()->assertJson(['baid' => $player->baid, 'account_name' => $player->user->name]);
 });
 
+it('sends the waddamburo loadout: title, plate and costume sets', function (): void {
+    $player = wdb_player();
+    PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'green', 'title' => 'green only']);
+    PlayerCosmetic::create([
+        'baid' => $player->baid, 'game_version' => 'waddamburo', 'title' => 'ほんのきもち', 'titleplate_id' => 3,
+        'costume_presets' => [['costume_1' => 32], ['costume_2' => 10, 'costume_3' => 2, 'costume_5' => 4]],
+    ]);
+
+    $this->withToken(wdb_token($player))->getJson('/api/wdb/me')
+        ->assertOk()->assertJson(['title' => 'ほんのきもち', 'title_plate' => 3,
+            'look' => ['presets' => [[32, 0, 0, 0], [0, 10, 2, 4], [0, 0, 0, 0]]]]);
+});
+
+it('saves the waddamburo scope\'s title to its own loadout, not green\'s', function (): void {
+    $player = wdb_player();
+    $this->actingAs($player->user)
+        ->patch('/waddamburo/settings/donchan-title', ['title' => 'わだんぶろ', 'titleplate_id' => 1])
+        ->assertRedirect();
+
+    expect(PlayerCosmetic::where('baid', $player->baid)->pluck('title', 'game_version')->all())
+        ->toBe(['waddamburo' => 'わだんぶろ']);
+});
+
 it('rejects wrong passwords and asks two-factor accounts for a code', function (): void {
     $player = wdb_player();
     $this->postJson('/api/wdb/login', ['login' => $player->user->email, 'password' => 'nope', 'device' => 'pc'])
@@ -109,7 +133,7 @@ it('lets a cabinet resolve a paired card and upload plays for it', function (): 
     $player = wdb_player();
 
     $player->forceFill(['color_face' => 25, 'color_body' => 2, 'color_limb' => 26])->save();
-    $player->cosmetics()->create(['game_version' => 'green', 'costume_1' => 32]);
+    $player->cosmetics()->create(['game_version' => 'waddamburo', 'costume_1' => 32]);
 
     $this->withToken('official-token')->postJson('/api/wdb/cards', ['access_code' => '30800000000000000001'])
         ->assertOk()->assertJson(['baid' => $player->baid, 'look' => [
@@ -236,7 +260,8 @@ it('ranks each chart by every player\'s best score, top three', function (): voi
         ->json('rankings');
 
     expect(array_column($rankings[$sha], 'score'))->toBe([900000, 800000, 600000])
-        ->and($rankings[$sha][0])->toMatchArray(['baid' => $players[0]->baid, 'name' => 'どんちゃん'])
+        // The account's public name, as on the name boards (not the Don-chan's).
+        ->and($rankings[$sha][0])->toMatchArray(['baid' => $players[0]->baid, 'name' => $players[0]->user->name])
         ->and($rankings[str_repeat('c', 64)])->toBe([]);
 });
 
@@ -275,4 +300,14 @@ it('lists the account\'s Waddamburo devices and revokes them', function (): void
 
     expect($player->user->tokens()->where('name', 'Living room PC')->exists())->toBeFalse()
         ->and($other->user->tokens()->count())->toBe(1);
+});
+
+it('caps custom titles at the official maximum of 20 characters', function (): void {
+    $player = wdb_player();
+    $this->actingAs($player->user)
+        ->patch('/waddamburo/settings/donchan-title', ['title' => str_repeat('あ', 21), 'titleplate_id' => 0])
+        ->assertSessionHasErrors('title');
+    $this->actingAs($player->user)
+        ->patch('/waddamburo/settings/donchan-title', ['title' => str_repeat('あ', 20), 'titleplate_id' => 0])
+        ->assertSessionHasNoErrors();
 });

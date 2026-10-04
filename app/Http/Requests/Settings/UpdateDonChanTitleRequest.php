@@ -9,6 +9,9 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateDonChanTitleRequest extends FormRequest
 {
+    /** The longest official title is 20 characters; the game's name board is laid out for that. */
+    public const MAX_TITLE_LENGTH = 20;
+
     public function authorize(): bool
     {
         return $this->user() !== null;
@@ -20,7 +23,7 @@ class UpdateDonChanTitleRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'title' => ['nullable', 'string', 'max:255', 'not_regex:/[\x{0000}-\x{001F}\x{007F}]/u'],
+            'title' => ['nullable', 'string', 'max:'.self::MAX_TITLE_LENGTH, 'not_regex:/[\x{0000}-\x{001F}\x{007F}]/u'],
         ];
 
         $version = $this->attributes->get('taikoGameVersion');

@@ -170,6 +170,7 @@
         presets,
         activePreset = 0,
         mydonName = '',
+        showDonChanName = true,
         title = '',
         titlePlateId = 0,
         officialTitles = [],
@@ -186,6 +187,7 @@
         presets: Preset[];
         activePreset?: number;
         mydonName?: string;
+        showDonChanName?: boolean;
         title?: string;
         titlePlateId?: number;
         officialTitles?: OfficialTitle[];
@@ -306,7 +308,9 @@
     <Heading
         variant="small"
         title="DonChan"
-        description="Manage your DonChan name, title, colors, and costume presets for {versionLabel}."
+        description="Manage your DonChan {showDonChanName
+            ? 'name, '
+            : ''}title, colors, and costume presets for {versionLabel}."
     />
 
     {#if !supported}
@@ -325,57 +329,64 @@
             </p>
         </div>
     {:else}
-        <section class="w-full space-y-4">
-            <Heading
-                variant="small"
-                title="Name"
-                description="Change the name shown for your DonChan."
-            />
+        {#if !showDonChanName}
+            <p class="text-sm text-muted-foreground">
+                {versionLabel} shows your public display name, set in your Profile
+                settings.
+            </p>
+        {:else}
+            <section class="w-full space-y-4">
+                <Heading
+                    variant="small"
+                    title="Name"
+                    description="Change the name shown for your DonChan."
+                />
 
-            <Form
-                {...CustomizeController.updateName.form(taikoRouteParam())}
-                class="space-y-6"
-                options={{ preserveScroll: true }}
-            >
-                {#snippet children({ errors, processing })}
-                    <div class="grid max-w-md gap-2">
-                        <Label for="mydon_name">DonChan name</Label>
-                        <Input
-                            id="mydon_name"
-                            name="mydon_name"
-                            value={donChanName}
-                            oninput={updateDonChanName}
-                            onblur={transliterateDonChanName}
-                            required
-                            autocomplete="off"
-                            placeholder="donchan → どんちゃん"
-                            aria-describedby="mydon-name-help"
-                        />
-                        <div
-                            id="mydon-name-help"
-                            class="flex items-start justify-between gap-4 text-sm text-muted-foreground"
-                        >
-                            <p>
-                                Up to 5 hiragana. Romaji is converted when you
-                                leave the field.
-                            </p>
-                            <span class="shrink-0"
-                                >{Array.from(donChanName).length}/5</span
+                <Form
+                    {...CustomizeController.updateName.form(taikoRouteParam())}
+                    class="space-y-6"
+                    options={{ preserveScroll: true }}
+                >
+                    {#snippet children({ errors, processing })}
+                        <div class="grid max-w-md gap-2">
+                            <Label for="mydon_name">DonChan name</Label>
+                            <Input
+                                id="mydon_name"
+                                name="mydon_name"
+                                value={donChanName}
+                                oninput={updateDonChanName}
+                                onblur={transliterateDonChanName}
+                                required
+                                autocomplete="off"
+                                placeholder="donchan → どんちゃん"
+                                aria-describedby="mydon-name-help"
+                            />
+                            <div
+                                id="mydon-name-help"
+                                class="flex items-start justify-between gap-4 text-sm text-muted-foreground"
                             >
+                                <p>
+                                    Up to 5 hiragana. Romaji is converted when
+                                    you leave the field.
+                                </p>
+                                <span class="shrink-0"
+                                    >{Array.from(donChanName).length}/5</span
+                                >
+                            </div>
+                            <InputError message={errors.mydon_name} />
                         </div>
-                        <InputError message={errors.mydon_name} />
-                    </div>
 
-                    <Button
-                        type="submit"
-                        disabled={processing}
-                        data-test="update-donchan-name-button"
-                    >
-                        Save name
-                    </Button>
-                {/snippet}
-            </Form>
-        </section>
+                        <Button
+                            type="submit"
+                            disabled={processing}
+                            data-test="update-donchan-name-button"
+                        >
+                            Save name
+                        </Button>
+                    {/snippet}
+                </Form>
+            </section>
+        {/if}
 
         <section class="w-full space-y-4">
             <Heading
@@ -404,7 +415,7 @@
                             name="title"
                             value={donChanTitle}
                             oninput={updateDonChanTitle}
-                            maxlength={255}
+                            maxlength={20}
                             autocomplete="off"
                             placeholder="ほんのきもち"
                             aria-describedby="title-help"
@@ -749,15 +760,15 @@
                                     </span>
                                 </div>
 
-                                {#if slot.key !== 'kigurumi' && current.costume_1 !== 0}
+                                {#if (slot.key === 'head' || slot.key === 'body') && current.costume_1 !== 0}
                                     <p
                                         class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
                                     >
                                         A Full body costume (ID {current.costume_1})
-                                        is set in this preset and overrides
-                                        Body, Head and Puchi-chara in game. Set
-                                        Full body to the default (ID 0) to show
-                                        them.
+                                        is set in this preset and overrides Body
+                                        and Head in game (Puchi-chara still
+                                        shows). Set Full body to the default (ID
+                                        0) to show them.
                                     </p>
                                 {/if}
 

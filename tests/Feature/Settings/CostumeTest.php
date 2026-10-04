@@ -133,3 +133,12 @@ it('saves presets and mirrors the worn preset into the equipped columns', functi
         ->and($cosmetic->costume_2)->toBe(0)
         ->and($cosmetic->costume_5)->toBe(0);
 });
+
+it('shows the Don-chan name setting on game versions but not on Waddamburo', function (): void {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->get('/green/settings/costumes')
+        ->assertInertia(fn ($assert) => $assert->where('showDonChanName', true)->where('versionLabel', 'GREEN'));
+    $this->actingAs($user)->get('/waddamburo/settings/costumes')
+        ->assertInertia(fn ($assert) => $assert->where('showDonChanName', false)->where('versionLabel', 'Waddamburo'));
+});

@@ -89,14 +89,14 @@ test('admins can update name email and role for another user', function () {
 
     $this->actingAs($admin)
         ->put("/green/admin/players/{$user->id}", [
-            'name' => 'Renamed User',
+            'name' => 'Renamed',
             'email' => 'renamed@example.com',
             'role' => UserRole::Admin->value,
         ])
         ->assertRedirect('/green/admin/players');
 
     $user->refresh();
-    expect($user->name)->toBe('Renamed User');
+    expect($user->name)->toBe('Renamed');
     expect($user->email)->toBe('renamed@example.com');
     expect($user->role)->toBe(UserRole::Admin);
     expect($user->email_verified_at)->toBeNull();

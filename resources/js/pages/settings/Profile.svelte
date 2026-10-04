@@ -71,7 +71,8 @@
                 />
                 <p class="text-sm text-muted-foreground">
                     This is your public display name and can be changed at any
-                    time.
+                    time. It is also your name on Waddamburo's name board, so it
+                    must fit there: about 10 letters or 7 Japanese characters.
                 </p>
                 <InputError class="mt-2" message={errors.name} />
             </div>
