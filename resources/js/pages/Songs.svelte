@@ -41,13 +41,16 @@
         gameVersion,
         songs: songList,
         filters,
+        sources = [],
         canFavorite,
         favoriteLimit,
         favoriteCount,
     }: {
         gameVersion: { value: string; label: string };
         songs: PaginatedSongs;
-        filters: { q: string };
+        filters: { q: string; source?: string | null };
+        /** Chart sources to filter by (Waddamburo only). */
+        sources?: Genre[];
         canFavorite: boolean;
         favoriteLimit: number;
         favoriteCount: number;
@@ -77,18 +80,32 @@
     }
 
     let search = $state(filters.q);
+    let source = $state(filters.source ?? null);
     let debounce: ReturnType<typeof setTimeout> | undefined;
+
+    // Every visit carries the search and the source filter (the pager too).
+    function reload(page?: number): void {
+        router.get(
+            toUrl(songs.index(taikoParam)),
+            {
+                q: search,
+                ...(source ? { source } : {}),
+                ...(page ? { page } : {}),
+            },
+            // Typing replaces the history entry; a page turn is a step Back undoes.
+            { preserveState: true, replace: !page, preserveScroll: true },
+        );
+    }
 
     function onSearchInput(event: Event): void {
         search = (event.currentTarget as HTMLInputElement).value;
         clearTimeout(debounce);
-        debounce = setTimeout(() => {
-            router.get(
-                toUrl(songs.index(taikoParam)),
-                { q: search },
-                { preserveState: true, replace: true, preserveScroll: true },
-            );
-        }, 300);
+        debounce = setTimeout(() => reload(), 300);
+    }
+
+    function pickSource(value: string | null): void {
+        source = value;
+        reload();
     }
 
     function detailUrl(id: number): string {
@@ -107,6 +124,11 @@
         vocaloid: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
         medley: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
         childrens_songs: 'bg-lime-500/15 text-lime-600 dark:text-lime-400',
+        wdb_stock: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+        wdb_nijiiro: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+        wdb_osulazer: 'bg-pink-500/15 text-pink-600 dark:text-pink-400',
+        wdb_tja: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+        wdb_stock_nijiiro: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
     };
 
     function genreClass(value: string): string {
@@ -158,6 +180,23 @@
                 />
             </div>
         </div>
+        {#if sources.length > 0}
+            <div class="relative mt-4 flex flex-wrap gap-2">
+                {#each [{ value: null, label: 'All' }, ...sources] as option (option.value)}
+                    <button
+                        type="button"
+                        onclick={() => pickSource(option.value)}
+                        aria-pressed={source === option.value}
+                        class="rounded-full border px-3 py-1 text-xs font-medium transition-colors {source ===
+                        option.value
+                            ? 'border-[var(--taiko-accent)] bg-[var(--taiko-accent)] text-white'
+                            : 'bg-card text-muted-foreground hover:text-foreground'}"
+                    >
+                        {option.label}
+                    </button>
+                {/each}
+            </div>
+        {/if}
     </div>
 
     {#if songList.data.length === 0}
@@ -256,13 +295,12 @@
                 </p>
                 <div class="flex items-center gap-2">
                     {#if songList.prev_page_url}
-                        <Link
+                        <button
+                            type="button"
                             class="inline-flex h-8 items-center justify-center rounded-md border bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-                            href={songList.prev_page_url}
-                            preserveScroll
+                            onclick={() => reload(songList.current_page - 1)}
+                            >Previous</button
                         >
-                            Previous
-                        </Link>
                     {/if}
                     <span
                         class="inline-flex h-8 items-center justify-center px-3 text-sm text-muted-foreground"
@@ -270,13 +308,12 @@
                         {songList.current_page} / {songList.last_page}
                     </span>
                     {#if songList.next_page_url}
-                        <Link
+                        <button
+                            type="button"
                             class="inline-flex h-8 items-center justify-center rounded-md border bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-                            href={songList.next_page_url}
-                            preserveScroll
+                            onclick={() => reload(songList.current_page + 1)}
+                            >Next</button
                         >
-                            Next
-                        </Link>
                     {/if}
                 </div>
             </div>

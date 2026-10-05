@@ -15,6 +15,7 @@
     import ArrowLeft from 'lucide-svelte/icons/arrow-left';
     import CalendarDays from 'lucide-svelte/icons/calendar-days';
     import Crown from 'lucide-svelte/icons/crown';
+    import ExternalLink from 'lucide-svelte/icons/external-link';
     import Music2 from 'lucide-svelte/icons/music-2';
     import Play from 'lucide-svelte/icons/play';
     import Star from 'lucide-svelte/icons/star';
@@ -37,7 +38,13 @@
     };
 
     type Difficulty = {
+        id?: number;
         level: number;
+        /** The chart's own name where courses are not named (osu!). */
+        name?: string | null;
+        /** The sources shipping this chart, when the song has several. */
+        sources?: string[];
+        external_url?: string | null;
         play_count: number;
         player_count: number;
         crown_counts: CrownCounts;
@@ -49,6 +56,7 @@
         player_name: string;
         avatar: string | null;
         level: number;
+        difficulty?: string | null;
         played_at: string | null;
         play_result: number;
         score: number;
@@ -73,7 +81,11 @@
             song_no: number;
             title: string;
             title_en: string | null;
+            subtitle?: string | null;
+            subtitle_en?: string | null;
             genre: Genre;
+            sources?: string[];
+            external_url?: string | null;
         };
         summary: {
             total_plays: number;
@@ -203,6 +215,22 @@
                         {song.title_en}
                     </p>
                 {/if}
+                {#if song.subtitle_en ?? song.subtitle}
+                    <p class="truncate text-xs text-muted-foreground/80">
+                        {song.subtitle_en ?? song.subtitle}
+                    </p>
+                {/if}
+                {#if song.external_url}
+                    <a
+                        href={song.external_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[var(--taiko-accent-label)] hover:underline"
+                    >
+                        View on osu!
+                        <ExternalLink class="size-3" />
+                    </a>
+                {/if}
             </div>
             {#if canFavorite}
                 <div class="flex shrink-0 flex-col items-end gap-1">
@@ -290,7 +318,7 @@
                     No ranked scores for this song yet.
                 </div>
             {:else}
-                {#each difficulties as difficulty (difficulty.level)}
+                {#each difficulties as difficulty (difficulty.id ?? difficulty.level)}
                     <section class="overflow-hidden rounded-xl border bg-card">
                         <div
                             class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4"
@@ -301,8 +329,25 @@
                                         difficulty.level,
                                     )}"
                                 >
-                                    {difficultyLabel(difficulty.level)}
+                                    {difficulty.name ??
+                                        difficultyLabel(difficulty.level)}
                                 </span>
+                                {#if (song.sources?.length ?? 0) > 1 && difficulty.sources && difficulty.sources.length < (song.sources?.length ?? 0)}
+                                    <Badge variant="outline" class="text-xs"
+                                        >{difficulty.sources.join(' · ')} only</Badge
+                                    >
+                                {/if}
+                                {#if difficulty.external_url}
+                                    <a
+                                        href={difficulty.external_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="text-muted-foreground hover:text-foreground"
+                                        title="Open this difficulty on osu!"
+                                    >
+                                        <ExternalLink class="size-3.5" />
+                                    </a>
+                                {/if}
                                 <span class="text-sm text-muted-foreground">
                                     {numberFormatter.format(
                                         difficulty.play_count,
@@ -442,7 +487,8 @@
                                         {play.player_name}
                                     </div>
                                     <div class="text-xs text-muted-foreground">
-                                        {difficultyLabel(play.level)} · {formatPrecision(
+                                        {play.difficulty ??
+                                            difficultyLabel(play.level)} · {formatPrecision(
                                             play.precision,
                                         )} · {formatDate(play.played_at)}
                                     </div>

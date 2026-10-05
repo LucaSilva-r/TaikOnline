@@ -65,6 +65,7 @@ Route::prefix('{taikoVersion}')
                 Route::get('songs', [SongController::class, 'index'])->name('songs.index');
                 Route::get('waddamburo-charts', [WaddamburoChartController::class, 'index'])->name('waddamburo-charts.index');
                 Route::patch('waddamburo-charts/{chart}', [WaddamburoChartController::class, 'update'])->name('waddamburo-charts.update');
+                Route::patch('waddamburo-songs/{song}', [WaddamburoChartController::class, 'updateSong'])->name('waddamburo-songs.update');
                 Route::get('dan-dojo', [DanDojoController::class, 'index'])->name('dan-dojo.index');
                 Route::post('dan-dojo/{version}/randomize', [DanDojoController::class, 'randomize'])->name('dan-dojo.randomize');
                 Route::get('status', [OperatorController::class, 'status'])->name('status');

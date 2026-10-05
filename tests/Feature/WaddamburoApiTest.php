@@ -157,7 +157,7 @@ it('imports chart notes only when they match the hash', function (): void {
     $this->withToken($token)->putJson("/api/wdb/charts/{$sha}", ['notes' => base64_encode(gzencode('forged'))])
         ->assertUnprocessable();
     $this->withToken($token)->putJson("/api/wdb/charts/{$sha}", [
-        'notes' => base64_encode(gzencode($notes)), 'title' => 'Song', 'course' => 3, 'level' => 8,
+        'notes' => base64_encode(gzencode($notes)), 'title' => 'Song', 'source' => 'OsuLazer', 'course' => 3, 'level' => 8,
     ])->assertNoContent();
     $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [wdb_play($sha)]])
         ->assertOk()->assertJson(['missing_charts' => []]);
@@ -166,6 +166,15 @@ it('imports chart notes only when they match the hash', function (): void {
     expect(gzdecode($chart->notes))->toBe($notes)
         ->and($chart->title)->toBe('Song')
         ->and($chart->ranked_at)->toBeNull();
+
+    // A newer client re-sending the chart fills in the metadata it lacked, and changes nothing else.
+    $this->withToken($token)->putJson("/api/wdb/charts/{$sha}", [
+        'notes' => base64_encode(gzencode($notes)), 'title' => 'Other', 'title_en' => 'Song (English)',
+        'difficulty' => 'Inner Oni', 'osu_beatmap_id' => 123, 'osu_beatmapset_id' => 45, 'song_key' => 'set:45', 'source' => 'OsuLazer',
+    ])->assertNoContent();
+    expect($chart->fresh())->title->toBe('Song')->title_en->toBe('Song (English)')->difficulty->toBe('Inner Oni')
+        ->and($chart->fresh()->osuUrl())->toBe('https://osu.ppy.sh/beatmapsets/45#taiko/123')
+        ->and($chart->songs()->pluck('song_key')->all())->toBe(['set:45']);
 });
 
 it('revokes the token on logout', function (): void {

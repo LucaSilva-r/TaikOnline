@@ -13,6 +13,7 @@ use App\Models\WdbPlay;
 use App\Services\CabinetPairingService;
 use App\Services\WaddamburoDeviceLoginService;
 use App\Services\WaddamburoRankAggregateService;
+use App\Services\WaddamburoSongs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -28,6 +29,9 @@ use RuntimeException;
 /** The Waddamburo client API: login, card lookup, play and chart upload. */
 class WaddamburoController extends Controller
 {
+    /** Chart metadata newer than the first imports; filled in on charts that lack it. */
+    public const LATER_METADATA = ['title_en', 'subtitle_en', 'difficulty', 'osu_beatmap_id', 'osu_beatmapset_id'];
+
     /** Decompressed canonical chart size limit (a long Oni chart is well under 100 KB). */
     public const MAX_CHART_BYTES = 4 * 1024 * 1024;
 
@@ -338,6 +342,12 @@ class WaddamburoController extends Controller
             'source' => ['nullable', 'string', 'max:64'],
             'course' => ['nullable', 'integer', 'between:0,4'],
             'level' => ['nullable', 'integer', 'between:0,20'],
+            'song_key' => ['nullable', 'string', 'max:255'],
+            'title_en' => ['nullable', 'string', 'max:255'],
+            'subtitle_en' => ['nullable', 'string', 'max:255'],
+            'difficulty' => ['nullable', 'string', 'max:255'],
+            'osu_beatmap_id' => ['nullable', 'integer', 'min:1'],
+            'osu_beatmapset_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $compressed = base64_decode($validated['notes'], true);
@@ -357,6 +367,12 @@ class WaddamburoController extends Controller
                 'level' => $validated['level'] ?? null,
             ]);
         }
+        // Metadata added after a chart was imported fills in; nothing already set changes.
+        foreach (self::LATER_METADATA as $column) {
+            $chart->{$column} ??= $validated[$column] ?? null;
+        }
+        $chart->save();
+        WaddamburoSongs::attach([['wdb_chart_id' => $chart->id, ...$validated]]);
 
         return response()->noContent();
     }

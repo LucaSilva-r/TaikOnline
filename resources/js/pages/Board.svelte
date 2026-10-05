@@ -69,6 +69,7 @@
         song_id: number | null;
         song_no: number;
         level: number;
+        difficulty?: string | null;
         played_at: string | null;
         play_result: number;
         score: number;
@@ -85,6 +86,7 @@
         song_id: number | null;
         song_no: number;
         level: number;
+        difficulty?: string | null;
         score: number;
         score_rank: number;
         crown: number;
@@ -223,7 +225,9 @@
     const statItems = $derived([
         {
             label: 'Global Rank',
-            value: summary.rank ? `#${numberFormatter.format(summary.rank)}` : '-',
+            value: summary.rank
+                ? `#${numberFormatter.format(summary.rank)}`
+                : '-',
             icon: Trophy,
         },
         {
@@ -287,13 +291,15 @@
 
 <section class="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8">
     <section class="overflow-hidden rounded-lg border bg-card">
-        <div
-            class="border-b bg-[var(--taiko-accent-soft)] px-5 py-8"
-        >
+        <div class="border-b bg-[var(--taiko-accent-soft)] px-5 py-8">
             <div class="flex flex-col gap-5 sm:flex-row sm:items-end">
                 <Avatar class="size-24 border-4 border-background shadow-sm">
                     {#if profile.avatar}
-                        <AvatarImage src={profile.avatar} alt={profile.name} class="bg-muted object-cover" />
+                        <AvatarImage
+                            src={profile.avatar}
+                            alt={profile.name}
+                            class="bg-muted object-cover"
+                        />
                     {:else}
                         <AvatarFallback class="text-2xl font-semibold">
                             {getInitials(profile.name)}
@@ -362,7 +368,9 @@
 
     <div class="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
         <section class="min-w-0 rounded-lg border bg-card">
-            <div class="flex items-center justify-between gap-3 border-b px-5 py-4">
+            <div
+                class="flex items-center justify-between gap-3 border-b px-5 py-4"
+            >
                 <div>
                     <h2 class="font-semibold">Rank History</h2>
                     <p class="text-sm text-muted-foreground">
@@ -420,7 +428,9 @@
         </section>
 
         <section class="rounded-lg border bg-card">
-            <div class="flex items-center justify-between gap-3 border-b px-5 py-4">
+            <div
+                class="flex items-center justify-between gap-3 border-b px-5 py-4"
+            >
                 <div>
                     <h2 class="font-semibold">Crowns</h2>
                     <p class="text-sm text-muted-foreground">
@@ -431,19 +441,26 @@
             </div>
 
             <div class="grid gap-3 p-5">
-                <div class="flex items-center justify-between rounded-md bg-muted/50 p-3">
+                <div
+                    class="flex items-center justify-between rounded-md bg-muted/50 p-3"
+                >
                     <span class="text-sm text-muted-foreground">Dondaful</span>
                     <span class="font-semibold tabular-nums">
                         {numberFormatter.format(summary.crown_counts.dondaful)}
                     </span>
                 </div>
-                <div class="flex items-center justify-between rounded-md bg-muted/50 p-3">
-                    <span class="text-sm text-muted-foreground">Full combo</span>
+                <div
+                    class="flex items-center justify-between rounded-md bg-muted/50 p-3"
+                >
+                    <span class="text-sm text-muted-foreground">Full combo</span
+                    >
                     <span class="font-semibold tabular-nums">
                         {numberFormatter.format(summary.crown_counts.gold)}
                     </span>
                 </div>
-                <div class="flex items-center justify-between rounded-md bg-muted/50 p-3">
+                <div
+                    class="flex items-center justify-between rounded-md bg-muted/50 p-3"
+                >
                     <span class="text-sm text-muted-foreground">Clear</span>
                     <span class="font-semibold tabular-nums">
                         {numberFormatter.format(summary.crown_counts.clear)}
@@ -455,7 +472,9 @@
 
     {#if blueBattleData}
         <section class="rounded-lg border bg-card">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-5 py-4">
+            <div
+                class="flex flex-wrap items-center justify-between gap-3 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-5 py-4"
+            >
                 <div>
                     <h2 class="font-semibold text-lg flex items-center gap-2">
                         <Trophy class="size-5 text-primary" />
@@ -469,42 +488,68 @@
 
             <div class="grid gap-6 p-5 md:grid-cols-3">
                 <!-- Main Battle Stats -->
-                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between">
+                <div
+                    class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between"
+                >
                     <div>
-                        <h3 class="font-medium text-sm text-muted-foreground mb-3">Campaign Progress</h3>
+                        <h3
+                            class="font-medium text-sm text-muted-foreground mb-3"
+                        >
+                            Campaign Progress
+                        </h3>
                         <div class="space-y-3">
                             <div class="flex justify-between items-center">
                                 <span class="text-sm">Assigned Stage</span>
-                                <span class="font-semibold text-lg text-primary">Stage {blueBattleData.assign_stage_id}</span>
+                                <span class="font-semibold text-lg text-primary"
+                                    >Stage {blueBattleData.assign_stage_id}</span
+                                >
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-sm">Last Played Stage</span>
-                                <span class="font-medium">Stage {blueBattleData.last_battle_stage_id}</span>
+                                <span class="font-medium"
+                                    >Stage {blueBattleData.last_battle_stage_id}</span
+                                >
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-sm">Last Boss Life</span>
-                                <span class="font-medium tabular-nums">{blueBattleData.last_boss_life} HP</span>
+                                <span class="font-medium tabular-nums"
+                                    >{blueBattleData.last_boss_life} HP</span
+                                >
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Battle Tokens -->
-                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between md:col-span-2">
+                <div
+                    class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between md:col-span-2"
+                >
                     <div>
-                        <h3 class="font-medium text-sm text-muted-foreground mb-3">Battle Tokens</h3>
+                        <h3
+                            class="font-medium text-sm text-muted-foreground mb-3"
+                        >
+                            Battle Tokens
+                        </h3>
                         <div class="flex flex-wrap gap-3">
                             {#each blueBattleData.tokens as token}
-                                <div class="flex items-center gap-2 rounded-md bg-background px-3 py-2 border">
+                                <div
+                                    class="flex items-center gap-2 rounded-md bg-background px-3 py-2 border"
+                                >
                                     <Medal class="size-4 text-amber-500" />
                                     <div class="text-xs">
-                                        <div class="text-muted-foreground">Token {token.token_id}</div>
-                                        <div class="font-semibold tabular-nums">{token.token_value}</div>
+                                        <div class="text-muted-foreground">
+                                            Token {token.token_id}
+                                        </div>
+                                        <div class="font-semibold tabular-nums">
+                                            {token.token_value}
+                                        </div>
                                     </div>
                                 </div>
                             {/each}
                             {#if blueBattleData.tokens.length === 0}
-                                <div class="text-sm text-muted-foreground py-2">No battle tokens collected yet.</div>
+                                <div class="text-sm text-muted-foreground py-2">
+                                    No battle tokens collected yet.
+                                </div>
                             {/if}
                         </div>
                     </div>
@@ -513,52 +558,79 @@
 
             <!-- NPC Partners -->
             <div class="px-5 pb-5">
-                <h3 class="font-semibold text-sm text-muted-foreground mb-4">NPC Partners</h3>
+                <h3 class="font-semibold text-sm text-muted-foreground mb-4">
+                    NPC Partners
+                </h3>
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {#each blueBattleData.npcs as npc}
-                        <div class="rounded-lg border bg-background p-4 shadow-xs flex flex-col justify-between gap-3">
+                        <div
+                            class="rounded-lg border bg-background p-4 shadow-xs flex flex-col justify-between gap-3"
+                        >
                             <div class="flex justify-between items-start">
                                 <div>
-                                    <div class="font-semibold text-base flex items-center gap-2">
+                                    <div
+                                        class="font-semibold text-base flex items-center gap-2"
+                                    >
                                         Partner ID: {npc.npc_id}
                                         {#if npc.npc_id === blueBattleData.last_npc_id}
-                                            <span class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-2xs font-medium text-primary border border-primary/20">
+                                            <span
+                                                class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-2xs font-medium text-primary border border-primary/20"
+                                            >
                                                 Active
                                             </span>
                                         {/if}
                                     </div>
-                                    <div class="text-xs text-muted-foreground mt-0.5">
+                                    <div
+                                        class="text-xs text-muted-foreground mt-0.5"
+                                    >
                                         Bonds Level {npc.bonds_level}
                                     </div>
                                 </div>
                                 <div class="text-right">
-                                    <div class="text-xs text-muted-foreground">Max Damage</div>
-                                    <div class="font-bold text-sm tabular-nums text-primary">
+                                    <div class="text-xs text-muted-foreground">
+                                        Max Damage
+                                    </div>
+                                    <div
+                                        class="font-bold text-sm tabular-nums text-primary"
+                                    >
                                         {npc.max_dpn} DPN
                                     </div>
                                 </div>
                             </div>
 
                             <div class="space-y-2">
-                                <div class="flex justify-between items-center text-xs text-muted-foreground border-b pb-1.5">
+                                <div
+                                    class="flex justify-between items-center text-xs text-muted-foreground border-b pb-1.5"
+                                >
                                     <span>Total Experience</span>
-                                    <span class="font-medium text-foreground tabular-nums">{npc.total_exp} EXP</span>
+                                    <span
+                                        class="font-medium text-foreground tabular-nums"
+                                        >{npc.total_exp} EXP</span
+                                    >
                                 </div>
                                 <div>
-                                    <div class="text-2xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">
+                                    <div
+                                        class="text-2xs text-muted-foreground uppercase tracking-wider font-semibold mb-1"
+                                    >
                                         Equipped Special Moves
                                     </div>
                                     <div class="flex gap-1.5">
-                                        <span class="inline-flex items-center rounded-md bg-accent px-2 py-1 text-2xs font-medium text-primary">
+                                        <span
+                                            class="inline-flex items-center rounded-md bg-accent px-2 py-1 text-2xs font-medium text-primary"
+                                        >
                                             Move 1: {npc.selected_special_id_1}
                                         </span>
                                         {#if npc.selected_special_id_2 > 0}
-                                            <span class="inline-flex items-center rounded-md bg-accent px-2 py-1 text-2xs font-medium text-primary">
+                                            <span
+                                                class="inline-flex items-center rounded-md bg-accent px-2 py-1 text-2xs font-medium text-primary"
+                                            >
                                                 Move 2: {npc.selected_special_id_2}
                                             </span>
                                         {/if}
                                         {#if npc.selected_special_id_3 > 0}
-                                            <span class="inline-flex items-center rounded-md bg-accent px-2 py-1 text-2xs font-medium text-primary">
+                                            <span
+                                                class="inline-flex items-center rounded-md bg-accent px-2 py-1 text-2xs font-medium text-primary"
+                                            >
                                                 Move 3: {npc.selected_special_id_3}
                                             </span>
                                         {/if}
@@ -574,7 +646,9 @@
 
     {#if greenGhostData}
         <section class="rounded-lg border bg-card">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-5 py-4">
+            <div
+                class="flex flex-wrap items-center justify-between gap-3 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-5 py-4"
+            >
                 <div>
                     <h2 class="font-semibold text-lg flex items-center gap-2">
                         <Trophy class="size-5 text-primary" />
@@ -588,63 +662,106 @@
 
             <div class="grid gap-6 p-5 md:grid-cols-3">
                 <!-- Main Battle Stats -->
-                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between">
+                <div
+                    class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between"
+                >
                     <div>
-                        <h3 class="font-medium text-sm text-muted-foreground mb-3">AI Battle Rank</h3>
+                        <h3
+                            class="font-medium text-sm text-muted-foreground mb-3"
+                        >
+                            AI Battle Rank
+                        </h3>
                         <div class="space-y-3">
                             <div class="flex justify-between items-center">
                                 <span class="text-sm">Rank ID</span>
-                                <span class="font-semibold text-lg text-primary">Rank {greenGhostData.rank_id}</span>
+                                <span class="font-semibold text-lg text-primary"
+                                    >Rank {greenGhostData.rank_id}</span
+                                >
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-sm">Win Points</span>
-                                <span class="font-medium">{greenGhostData.win_point} pts</span>
+                                <span class="font-medium"
+                                    >{greenGhostData.win_point} pts</span
+                                >
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-sm">Certified Level</span>
-                                <span class="font-medium">Level {greenGhostData.certified_level_id}</span>
+                                <span class="font-medium"
+                                    >Level {greenGhostData.certified_level_id}</span
+                                >
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Performance Stats -->
-                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between">
+                <div
+                    class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between"
+                >
                     <div>
-                        <h3 class="font-medium text-sm text-muted-foreground mb-3">Performance Data</h3>
+                        <h3
+                            class="font-medium text-sm text-muted-foreground mb-3"
+                        >
+                            Performance Data
+                        </h3>
                         <div class="space-y-3">
                             <div class="flex justify-between items-center">
                                 <span class="text-sm">Input Median</span>
-                                <span class="font-medium tabular-nums">{greenGhostData.input_median}</span>
+                                <span class="font-medium tabular-nums"
+                                    >{greenGhostData.input_median}</span
+                                >
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-sm">Input Variance</span>
-                                <span class="font-medium tabular-nums">{greenGhostData.input_variance}</span>
+                                <span class="font-medium tabular-nums"
+                                    >{greenGhostData.input_variance}</span
+                                >
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-sm">Total Winnings</span>
-                                <span class="font-semibold text-primary tabular-nums">{numberFormatter.format(greenGhostData.total_winnings)}</span>
+                                <span
+                                    class="font-semibold text-primary tabular-nums"
+                                    >{numberFormatter.format(
+                                        greenGhostData.total_winnings,
+                                    )}</span
+                                >
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Battle Tokens -->
-                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between">
+                <div
+                    class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between"
+                >
                     <div>
-                        <h3 class="font-medium text-sm text-muted-foreground mb-3">Battle Tokens</h3>
+                        <h3
+                            class="font-medium text-sm text-muted-foreground mb-3"
+                        >
+                            Battle Tokens
+                        </h3>
                         <div class="flex flex-wrap gap-2.5">
                             {#each greenGhostData.tokens as token}
-                                <div class="flex items-center gap-2 rounded-md bg-background px-3 py-1.5 border">
+                                <div
+                                    class="flex items-center gap-2 rounded-md bg-background px-3 py-1.5 border"
+                                >
                                     <Medal class="size-4 text-amber-500" />
                                     <div class="text-2xs">
-                                        <div class="text-muted-foreground font-medium">Token {token.token_id}</div>
-                                        <div class="font-bold tabular-nums">{token.token_value}</div>
+                                        <div
+                                            class="text-muted-foreground font-medium"
+                                        >
+                                            Token {token.token_id}
+                                        </div>
+                                        <div class="font-bold tabular-nums">
+                                            {token.token_value}
+                                        </div>
                                     </div>
                                 </div>
                             {/each}
                             {#if greenGhostData.tokens.length === 0}
-                                <div class="text-sm text-muted-foreground py-2">No battle tokens collected yet.</div>
+                                <div class="text-sm text-muted-foreground py-2">
+                                    No battle tokens collected yet.
+                                </div>
                             {/if}
                         </div>
                     </div>
@@ -654,17 +771,41 @@
             <!-- Winnings Level Data -->
             {#if greenGhostData.winnings.length > 0}
                 <div class="px-5 pb-5">
-                    <h3 class="font-semibold text-sm text-muted-foreground mb-4">Level Winnings</h3>
-                    <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                    <h3
+                        class="font-semibold text-sm text-muted-foreground mb-4"
+                    >
+                        Level Winnings
+                    </h3>
+                    <div
+                        class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
+                    >
                         {#each greenGhostData.winnings as win}
-                            <div class="rounded-lg border bg-background p-3.5 shadow-2xs flex items-center justify-between">
+                            <div
+                                class="rounded-lg border bg-background p-3.5 shadow-2xs flex items-center justify-between"
+                            >
                                 <div>
-                                    <div class="text-3xs text-muted-foreground uppercase font-semibold">Level ID</div>
-                                    <div class="font-bold text-sm text-foreground">Level {win.level_id}</div>
+                                    <div
+                                        class="text-3xs text-muted-foreground uppercase font-semibold"
+                                    >
+                                        Level ID
+                                    </div>
+                                    <div
+                                        class="font-bold text-sm text-foreground"
+                                    >
+                                        Level {win.level_id}
+                                    </div>
                                 </div>
                                 <div class="text-right">
-                                    <div class="text-3xs text-muted-foreground uppercase font-semibold">Winnings</div>
-                                    <div class="font-extrabold text-sm text-primary tabular-nums">{win.winnings}</div>
+                                    <div
+                                        class="text-3xs text-muted-foreground uppercase font-semibold"
+                                    >
+                                        Winnings
+                                    </div>
+                                    <div
+                                        class="font-extrabold text-sm text-primary tabular-nums"
+                                    >
+                                        {win.winnings}
+                                    </div>
                                 </div>
                             </div>
                         {/each}
@@ -676,56 +817,106 @@
 
     {#if tokkunData}
         <section class="rounded-lg border bg-card">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-5 py-4">
+            <div
+                class="flex flex-wrap items-center justify-between gap-3 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-5 py-4"
+            >
                 <div>
                     <h2 class="font-semibold text-lg flex items-center gap-2">
                         <Trophy class="size-5 text-primary" />
                         Tokkun Mode (特訓モード) Progress
                     </h2>
                     <p class="text-sm text-muted-foreground">
-                        Your practice session details, metrics, and training history
+                        Your practice session details, metrics, and training
+                        history
                     </p>
                 </div>
             </div>
 
             <div class="grid gap-6 p-5 md:grid-cols-3">
                 <!-- Main Training Stats -->
-                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between">
+                <div
+                    class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between"
+                >
                     <div>
-                        <h3 class="font-medium text-sm text-muted-foreground mb-3">Overall Training</h3>
+                        <h3
+                            class="font-medium text-sm text-muted-foreground mb-3"
+                        >
+                            Overall Training
+                        </h3>
                         <div class="space-y-3">
                             <div class="flex justify-between items-center">
                                 <span class="text-sm">Total Sessions</span>
-                                <span class="font-semibold text-lg text-primary">{tokkunData.summary.total_runs} runs</span>
+                                <span class="font-semibold text-lg text-primary"
+                                    >{tokkunData.summary.total_runs} runs</span
+                                >
                             </div>
                             <div class="flex justify-between items-center">
-                                <span class="text-sm">Total Songs Practiced</span>
-                                <span class="font-medium">{tokkunData.summary.total_songs} songs</span>
+                                <span class="text-sm"
+                                    >Total Songs Practiced</span
+                                >
+                                <span class="font-medium"
+                                    >{tokkunData.summary.total_songs} songs</span
+                                >
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-sm">Tutorial Completed</span>
-                                <span class="font-medium">{tokkunData.tokkun_tutorial_flg ? 'Yes' : 'No'}</span>
+                                <span class="font-medium"
+                                    >{tokkunData.tokkun_tutorial_flg
+                                        ? 'Yes'
+                                        : 'No'}</span
+                                >
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Training Actions -->
-                <div class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between md:col-span-2">
+                <div
+                    class="rounded-lg bg-muted/30 p-4 border flex flex-col justify-between md:col-span-2"
+                >
                     <div>
-                        <h3 class="font-medium text-sm text-muted-foreground mb-3">Practice Metrics</h3>
+                        <h3
+                            class="font-medium text-sm text-muted-foreground mb-3"
+                        >
+                            Practice Metrics
+                        </h3>
                         <div class="grid gap-4 grid-cols-3">
-                            <div class="flex flex-col items-center justify-center p-3 rounded-md bg-background border">
-                                <span class="text-2xs text-muted-foreground uppercase font-semibold">Speed Changes</span>
-                                <span class="font-bold text-lg text-primary tabular-nums mt-1">{tokkunData.summary.total_speedchanges}</span>
+                            <div
+                                class="flex flex-col items-center justify-center p-3 rounded-md bg-background border"
+                            >
+                                <span
+                                    class="text-2xs text-muted-foreground uppercase font-semibold"
+                                    >Speed Changes</span
+                                >
+                                <span
+                                    class="font-bold text-lg text-primary tabular-nums mt-1"
+                                    >{tokkunData.summary
+                                        .total_speedchanges}</span
+                                >
                             </div>
-                            <div class="flex flex-col items-center justify-center p-3 rounded-md bg-background border">
-                                <span class="text-2xs text-muted-foreground uppercase font-semibold">Autoplay Runs</span>
-                                <span class="font-bold text-lg text-primary tabular-nums mt-1">{tokkunData.summary.total_autoplays}</span>
+                            <div
+                                class="flex flex-col items-center justify-center p-3 rounded-md bg-background border"
+                            >
+                                <span
+                                    class="text-2xs text-muted-foreground uppercase font-semibold"
+                                    >Autoplay Runs</span
+                                >
+                                <span
+                                    class="font-bold text-lg text-primary tabular-nums mt-1"
+                                    >{tokkunData.summary.total_autoplays}</span
+                                >
                             </div>
-                            <div class="flex flex-col items-center justify-center p-3 rounded-md bg-background border">
-                                <span class="text-2xs text-muted-foreground uppercase font-semibold">Position Jumps</span>
-                                <span class="font-bold text-lg text-primary tabular-nums mt-1">{tokkunData.summary.total_jumps}</span>
+                            <div
+                                class="flex flex-col items-center justify-center p-3 rounded-md bg-background border"
+                            >
+                                <span
+                                    class="text-2xs text-muted-foreground uppercase font-semibold"
+                                    >Position Jumps</span
+                                >
+                                <span
+                                    class="font-bold text-lg text-primary tabular-nums mt-1"
+                                    >{tokkunData.summary.total_jumps}</span
+                                >
                             </div>
                         </div>
                     </div>
@@ -735,47 +926,84 @@
             <!-- Recent Sessions -->
             {#if tokkunData.recent_runs.length > 0}
                 <div class="px-5 pb-5">
-                    <h3 class="font-semibold text-sm text-muted-foreground mb-4">Recent Training Sessions</h3>
-                    <div class="divide-y border rounded-lg bg-background overflow-hidden">
+                    <h3
+                        class="font-semibold text-sm text-muted-foreground mb-4"
+                    >
+                        Recent Training Sessions
+                    </h3>
+                    <div
+                        class="divide-y border rounded-lg bg-background overflow-hidden"
+                    >
                         {#each tokkunData.recent_runs as run}
                             <div class="grid gap-4 p-4 sm:grid-cols-[1fr_auto]">
                                 <div class="space-y-2">
-                                    <div class="flex flex-wrap items-center gap-2 text-sm">
-                                        <span class="font-semibold text-primary">
-                                            {formatFullDate(run.played_at)} at {new Date(run.played_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    <div
+                                        class="flex flex-wrap items-center gap-2 text-sm"
+                                    >
+                                        <span
+                                            class="font-semibold text-primary"
+                                        >
+                                            {formatFullDate(run.played_at)} at {new Date(
+                                                run.played_at,
+                                            ).toLocaleTimeString([], {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                            })}
                                         </span>
                                         {#if run.banacoin_datetime}
-                                            <span class="inline-flex items-center rounded-full bg-accent px-2 py-0.5 text-2xs font-medium text-primary border">
+                                            <span
+                                                class="inline-flex items-center rounded-full bg-accent px-2 py-0.5 text-2xs font-medium text-primary border"
+                                            >
                                                 Paid Session
                                             </span>
                                         {/if}
                                     </div>
-                                    
+
                                     {#if run.songs.length > 0}
                                         <div class="flex flex-wrap gap-1.5">
                                             {#each run.songs as song}
-                                                <span class="inline-flex items-center rounded-md bg-muted px-2 py-1 text-2xs font-medium text-muted-foreground">
+                                                <span
+                                                    class="inline-flex items-center rounded-md bg-muted px-2 py-1 text-2xs font-medium text-muted-foreground"
+                                                >
                                                     {song.title}
                                                 </span>
                                             {/each}
                                         </div>
                                     {:else}
-                                        <div class="text-xs text-muted-foreground">No songs logged.</div>
+                                        <div
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            No songs logged.
+                                        </div>
                                     {/if}
                                 </div>
 
-                                <div class="flex flex-wrap items-center gap-4 text-xs text-muted-foreground sm:text-right">
+                                <div
+                                    class="flex flex-wrap items-center gap-4 text-xs text-muted-foreground sm:text-right"
+                                >
                                     <div class="text-center sm:text-right">
                                         <div>Speed Changes</div>
-                                        <div class="font-bold text-foreground tabular-nums">{run.tokkun_speedchange_count}</div>
+                                        <div
+                                            class="font-bold text-foreground tabular-nums"
+                                        >
+                                            {run.tokkun_speedchange_count}
+                                        </div>
                                     </div>
                                     <div class="text-center sm:text-right">
                                         <div>Autoplays</div>
-                                        <div class="font-bold text-foreground tabular-nums">{run.tokkun_autoplay_count}</div>
+                                        <div
+                                            class="font-bold text-foreground tabular-nums"
+                                        >
+                                            {run.tokkun_autoplay_count}
+                                        </div>
                                     </div>
                                     <div class="text-center sm:text-right">
                                         <div>Jumps</div>
-                                        <div class="font-bold text-foreground tabular-nums">{run.tokkun_jump_count}</div>
+                                        <div
+                                            class="font-bold text-foreground tabular-nums"
+                                        >
+                                            {run.tokkun_jump_count}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -788,7 +1016,9 @@
 
     {#if daniData}
         <section class="rounded-lg border bg-card">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-5 py-4">
+            <div
+                class="flex flex-wrap items-center justify-between gap-3 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-5 py-4"
+            >
                 <div>
                     <h2 class="font-semibold text-lg flex items-center gap-2">
                         <Award class="size-5 text-primary" />
@@ -800,31 +1030,53 @@
                 </div>
                 <div class="flex items-center gap-3 text-sm">
                     <div class="text-right">
-                        <div class="text-2xs uppercase font-semibold text-muted-foreground">Highest Dan</div>
-                        <div class="font-bold text-lg text-primary tabular-nums">{daniData.got_dan_max || '—'}</div>
+                        <div
+                            class="text-2xs uppercase font-semibold text-muted-foreground"
+                        >
+                            Highest Dan
+                        </div>
+                        <div
+                            class="font-bold text-lg text-primary tabular-nums"
+                        >
+                            {daniData.got_dan_max || '—'}
+                        </div>
                     </div>
                     <div class="text-right">
-                        <div class="text-2xs uppercase font-semibold text-muted-foreground">Current Dan</div>
-                        <div class="font-bold text-lg tabular-nums">{daniData.disp_taikojuku_dan}</div>
+                        <div
+                            class="text-2xs uppercase font-semibold text-muted-foreground"
+                        >
+                            Current Dan
+                        </div>
+                        <div class="font-bold text-lg tabular-nums">
+                            {daniData.disp_taikojuku_dan}
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="p-5">
-                <div class="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                <div
+                    class="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+                >
                     {#each daniData.dans as entry}
                         <div
                             class="flex items-center justify-between gap-2 rounded-lg border bg-background px-3 py-2"
                             class:border-amber-500={entry.grade === 2}
                             class:border-primary={entry.grade === 1}
                         >
-                            <span class="font-semibold text-sm">Dan {entry.dan}</span>
+                            <span class="font-semibold text-sm"
+                                >Dan {entry.dan}</span
+                            >
                             {#if entry.grade === 2}
-                                <span class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-2xs font-medium text-amber-600 border border-amber-500/30">
+                                <span
+                                    class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-2xs font-medium text-amber-600 border border-amber-500/30"
+                                >
                                     <Crown class="size-3" /> Gold
                                 </span>
                             {:else}
-                                <span class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-2xs font-medium text-primary border border-primary/20">
+                                <span
+                                    class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-2xs font-medium text-primary border border-primary/20"
+                                >
                                     Clear
                                 </span>
                             {/if}
@@ -837,7 +1089,9 @@
 
     <div class="grid gap-6 xl:grid-cols-2">
         <section class="rounded-lg border bg-card">
-            <div class="flex items-center justify-between gap-3 border-b px-5 py-4">
+            <div
+                class="flex items-center justify-between gap-3 border-b px-5 py-4"
+            >
                 <div>
                     <h2 class="font-semibold">Recent Plays</h2>
                     <p class="text-sm text-muted-foreground">
@@ -855,7 +1109,12 @@
                 <div class="divide-y">
                     {#each recentPlays as play, i (`${i}-${play.song_no}-${play.level}-${play.played_at}`)}
                         <Link
-                            href={toUrl(songsShow({ ...taikoParam, song: play.song_id ?? play.song_no }))}
+                            href={toUrl(
+                                songsShow({
+                                    ...taikoParam,
+                                    song: play.song_id ?? play.song_no,
+                                }),
+                            )}
                             class="grid gap-3 px-5 py-4 transition-colors hover:bg-muted/50 sm:grid-cols-[1fr_auto]"
                         >
                             <div class="min-w-0">
@@ -863,16 +1122,22 @@
                                     {play.song_title}
                                 </div>
                                 {#if play.counts_for_leaderboard === false}
-                                    <span class="mt-1 inline-flex rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                                    <span
+                                        class="mt-1 inline-flex rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+                                    >
                                         Unregistered chart · not counted
                                     </span>
                                 {/if}
                                 <div
                                     class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
                                 >
-                                    <span>{difficultyLabel(play.level)}</span>
+                                    <span
+                                        >{play.difficulty ??
+                                            difficultyLabel(play.level)}</span
+                                    >
                                     <span>{crownLabel(play.play_result)}</span>
-                                    <span>{formatFullDate(play.played_at)}</span>
+                                    <span>{formatFullDate(play.played_at)}</span
+                                    >
                                 </div>
                                 <div
                                     class="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground"
@@ -900,7 +1165,9 @@
         </section>
 
         <section class="rounded-lg border bg-card">
-            <div class="flex items-center justify-between gap-3 border-b px-5 py-4">
+            <div
+                class="flex items-center justify-between gap-3 border-b px-5 py-4"
+            >
                 <div>
                     <h2 class="font-semibold">Best Performances</h2>
                     <p class="text-sm text-muted-foreground">
@@ -918,7 +1185,12 @@
                 <div class="divide-y">
                     {#each bestPerformances as best (`${best.song_no}-${best.level}`)}
                         <Link
-                            href={toUrl(songsShow({ ...taikoParam, song: best.song_id ?? best.song_no }))}
+                            href={toUrl(
+                                songsShow({
+                                    ...taikoParam,
+                                    song: best.song_id ?? best.song_no,
+                                }),
+                            )}
                             class="grid gap-3 px-5 py-4 transition-colors hover:bg-muted/50 sm:grid-cols-[auto_1fr_auto] sm:items-center"
                         >
                             <div
@@ -931,16 +1203,23 @@
                                     {best.song_title}
                                 </div>
                                 {#if best.counts_for_leaderboard === false}
-                                    <span class="mt-1 inline-flex rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                                    <span
+                                        class="mt-1 inline-flex rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+                                    >
                                         Unregistered chart · not counted
                                     </span>
                                 {/if}
                                 <div
                                     class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
                                 >
-                                    <span>{difficultyLabel(best.level)}</span>
+                                    <span
+                                        >{best.difficulty ??
+                                            difficultyLabel(best.level)}</span
+                                    >
                                     <span>{crownLabel(best.crown)}</span>
-                                    {#if best.score_rank > 0}<span>Rank {best.score_rank}</span>{/if}
+                                    {#if best.score_rank > 0}<span
+                                            >Rank {best.score_rank}</span
+                                        >{/if}
                                 </div>
                             </div>
                             <div class="text-left sm:text-right">

@@ -8,6 +8,7 @@ use App\Models\PlayerVersionStats;
 use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
+use App\Models\WdbSong;
 use App\Services\PlayerRankAggregateService;
 use App\Services\WaddamburoRankAggregateService;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,12 +21,16 @@ use Inertia\Response;
 
 /**
  * The Waddamburo scope of the site: the same pages as a game version (rankings, songs, song page,
- * board), fed from Waddamburo's own plays. A "song" is the charts sharing a title, subtitle and
- * source (one per course); its id is its lowest chart id. Leaderboards show every chart; only
- * ranked charts count towards the rankings.
+ * board), fed from Waddamburo's own plays. A song is a wdb_songs row (its source's song id, see
+ * WaddamburoSongs) with its charts, one per course (osu!: one per difficulty). Leaderboards show every chart; only
+ * ranked charts count towards the rankings. title is the original (Japanese) title, title_en the
+ * English one when the client knows it.
  */
 class WaddamburoWebController extends Controller
 {
+    /** Chart sources as the client names them => label. */
+    private const SOURCES = ['Stock' => 'Stock', 'Nijiiro' => 'Nijiiro', 'OsuLazer' => 'osu!lazer', 'Tja' => 'TJA'];
+
     public function rankings(WaddamburoRankAggregateService $aggregates): Response
     {
         $stats = $aggregates->standings()->take(100)->values();
@@ -54,36 +59,46 @@ class WaddamburoWebController extends Controller
     public function songs(Request $request): Response
     {
         $search = trim((string) $request->query('q', ''));
-        $songs = DB::table('wdb_charts')
-            ->whereNotNull('title')
-            ->whereExists(fn (QueryBuilder $query) => $query->from('wdb_plays')->whereColumn('wdb_plays.wdb_chart_id', 'wdb_charts.id'))
-            ->when($search !== '', fn (QueryBuilder $query) => $query->where(fn (QueryBuilder $inner) => $inner
-                ->where('title', 'ilike', "%{$search}%")->orWhere('subtitle', 'ilike', "%{$search}%")))
-            ->groupBy('title', 'subtitle', 'source')
-            ->select('title', 'subtitle', 'source')
-            ->selectRaw('MIN(id) AS id, MAX(created_at) AS added_at')
-            ->orderByDesc('added_at')
+        $source = $request->query('source');
+        $source = is_string($source) && array_key_exists($source, self::SOURCES) ? $source : null;
+        // A chart linked once per source still counts its plays once.
+        $plays = fn (string $aggregate): QueryBuilder => DB::table('wdb_plays')
+            ->whereIn('wdb_plays.wdb_chart_id', DB::table('wdb_chart_song')->select('wdb_chart_id')
+                ->whereColumn('wdb_chart_song.wdb_song_id', 'wdb_songs.id'))
+            ->selectRaw($aggregate);
+        $songs = WdbSong::query()
+            // Ranked songs (the imported library) and anything played.
+            ->whereHas('charts', fn (Builder $chart) => $chart->where(fn (Builder $listed) => $listed
+                ->whereNotNull('ranked_at')->orWhereHas('plays')))
+            ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
+                ->whereLike('title', "%{$search}%")->orWhereLike('title_en', "%{$search}%")
+                ->orWhereLike('subtitle', "%{$search}%")->orWhereLike('subtitle_en', "%{$search}%")))
+            ->when($source !== null, fn (Builder $query) => $query->whereExists(fn (QueryBuilder $link) => $link
+                ->from('wdb_chart_song')->whereColumn('wdb_chart_song.wdb_song_id', 'wdb_songs.id')->where('source', $source)))
+            ->select('*')
+            ->selectSub($plays('COUNT(*)'), 'play_count')
+            ->selectSub($plays('COUNT(DISTINCT wdb_plays.baid)'), 'player_count')
+            ->orderByDesc('created_at')->orderBy('id')
             ->paginate(40)
-            ->withQueryString()
-            ->through(function (object $song): array {
-                $plays = WdbPlay::query()->whereIn('wdb_chart_id', $this->chartsOf($song)->pluck('id'));
-
-                return [
-                    'id' => (int) $song->id,
-                    'song_no' => (int) $song->id,
-                    'title' => (string) $song->title,
-                    'title_en' => $song->subtitle,
-                    'genre' => ['value' => 'waddamburo', 'label' => $song->source ?? 'Waddamburo'],
-                    'play_count' => (clone $plays)->count(),
-                    'player_count' => (clone $plays)->distinct()->count('baid'),
-                    'is_favorite' => false,
-                ];
-            });
+            ->withQueryString();
+        $sources = DB::table('wdb_chart_song')->whereIn('wdb_song_id', $songs->pluck('id'))->distinct()
+            ->get(['wdb_song_id', 'source'])->groupBy('wdb_song_id')->map->pluck('source');
+        $songs->through(fn (WdbSong $song): array => [
+            'id' => $song->id,
+            'song_no' => $song->id,
+            'title' => (string) ($song->title ?? $song->title_en),
+            'title_en' => $song->title_en,
+            'genre' => $this->genre($sources->get($song->id, collect())->all()),
+            'play_count' => (int) $song->play_count,
+            'player_count' => (int) $song->player_count,
+            'is_favorite' => false,
+        ]);
 
         return Inertia::render('Songs', [
             'gameVersion' => $this->scope(),
             'songs' => $songs,
-            'filters' => ['q' => $search],
+            'filters' => ['q' => $search, 'source' => $source],
+            'sources' => collect(self::SOURCES)->map(fn (string $label, string $value): array => ['value' => $value, 'label' => $label])->values()->all(),
             'favoritesSupported' => false,
             'canFavorite' => false,
             'favoriteLimit' => 0,
@@ -93,19 +108,30 @@ class WaddamburoWebController extends Controller
 
     public function song(string $id): Response
     {
-        $first = WdbChart::query()->whereNotNull('title')->findOrFail($id);
-        $charts = $this->chartsOf($first);
+        $song = WdbSong::query()->findOrFail($id);
+        // One entry per chart, with every source that ships it in this song.
+        $charts = $song->charts->groupBy('id')->map(function (Collection $links): WdbChart {
+            $chart = $links->first();
+            $chart->setAttribute('sources', self::ordered($links->pluck('pivot.source')->all()));
+
+            return $chart;
+        })->values();
         $chartIds = $charts->pluck('id');
+        $songSources = self::ordered($charts->pluck('sources')->flatten()->all());
         $plays = WdbPlay::query()->whereIn('wdb_chart_id', $chartIds);
 
         return Inertia::render('SongDetail', [
             'gameVersion' => $this->scope(),
             'song' => [
-                'id' => (int) $charts->min('id'),
-                'song_no' => (int) $charts->min('id'),
-                'title' => $first->title,
-                'title_en' => $first->subtitle,
-                'genre' => ['value' => 'waddamburo', 'label' => $first->source ?? 'Waddamburo', 'label_jp' => $first->source ?? 'Waddamburo'],
+                'id' => $song->id,
+                'song_no' => $song->id,
+                'title' => $song->title ?? $song->title_en,
+                'title_en' => $song->title_en,
+                'subtitle' => $song->subtitle,
+                'subtitle_en' => $song->subtitle_en,
+                'genre' => [...$this->genre($songSources), 'label_jp' => $this->genre($songSources)['label']],
+                'sources' => array_map(fn (string $source): string => self::SOURCES[$source] ?? $source, $songSources),
+                'external_url' => $song->osuUrl(),
             ],
             'summary' => [
                 'total_plays' => (clone $plays)->count(),
@@ -113,7 +139,9 @@ class WaddamburoWebController extends Controller
                 'first_played_at' => (clone $plays)->min('played_at'),
                 'last_played_at' => (clone $plays)->max('played_at'),
             ],
-            'difficulties' => $charts->sortBy('course')->map(fn (WdbChart $chart): array => $this->difficultyBoard($chart))->values()->all(),
+            'difficulties' => $charts->sortBy(fn (WdbChart $chart): array => [
+                $chart->course, array_search($chart->sources[0] ?? '', array_keys(self::SOURCES), true), $chart->id,
+            ])->map(fn (WdbChart $chart): array => $this->difficultyBoard($chart))->values()->all(),
             'recentPlays' => $this->songRecentPlays($chartIds),
             'isFavorite' => false,
             'favoritesSupported' => false,
@@ -156,16 +184,6 @@ class WaddamburoWebController extends Controller
         ]);
     }
 
-    /** @return Collection<int, WdbChart> the charts of the song (title, subtitle, source) a chart belongs to */
-    private function chartsOf(object $song): Collection
-    {
-        return WdbChart::query()
-            ->where('title', $song->title)
-            ->when($song->subtitle === null, fn (Builder $query) => $query->whereNull('subtitle'), fn (Builder $query) => $query->where('subtitle', $song->subtitle))
-            ->when($song->source === null, fn (Builder $query) => $query->whereNull('source'), fn (Builder $query) => $query->where('source', $song->source))
-            ->get();
-    }
-
     private function difficultyBoard(WdbChart $chart): array
     {
         $rows = WaddamburoRankAggregateService::bests(fn (QueryBuilder $query) => $query->where('wdb_plays.wdb_chart_id', $chart->id))
@@ -174,7 +192,11 @@ class WaddamburoWebController extends Controller
         $players = Player::query()->whereIn('baid', $rows->pluck('baid'))->with('user')->get()->keyBy('baid');
 
         return [
+            'id' => (int) $chart->id,
             'level' => (int) $chart->course + 1,
+            'name' => $chart->difficulty,
+            'sources' => array_map(fn (string $source): string => self::SOURCES[$source] ?? $source, $chart->sources ?? []),
+            'external_url' => $chart->osuUrl(),
             'play_count' => WdbPlay::query()->where('wdb_chart_id', $chart->id)->count(),
             'player_count' => $rows->count(),
             'crown_counts' => ['clear' => $rows->where('best_crown', 1)->count(), 'gold' => $rows->where('best_crown', 2)->count(), 'dondaful' => $rows->where('best_crown', 3)->count()],
@@ -193,11 +215,12 @@ class WaddamburoWebController extends Controller
 
     private function songRecentPlays(Collection $chartIds): array
     {
-        return WdbPlay::query()->whereIn('wdb_chart_id', $chartIds)->with('player.user')->latest('played_at')->limit(15)->get()
+        return WdbPlay::query()->whereIn('wdb_chart_id', $chartIds)->with(['player.user', 'chart'])->latest('played_at')->limit(15)->get()
             ->filter(fn (WdbPlay $play) => $play->player?->user !== null)
             ->map(fn (WdbPlay $play): array => [
                 'user_id' => (int) $play->player->user_id, 'player_name' => $play->player->user->name,
                 'avatar' => $play->player->user->avatar, 'level' => (int) $play->course + 1,
+                'difficulty' => $play->chart?->difficulty,
                 'played_at' => $play->played_at?->toDateTimeString(), 'play_result' => self::crown($play),
                 'score' => (int) $play->score, 'score_rank' => 0,
                 'precision' => PlayerRankAggregateService::precision((int) $play->great, (int) $play->good, (int) $play->miss),
@@ -211,8 +234,9 @@ class WaddamburoWebController extends Controller
             ->latest('played_at')->limit(10)->get()
             ->map(fn (WdbPlay $play): array => [
                 'song_title' => $play->chart->title ?? 'Unknown chart',
-                'song_id' => $play->chart->title === null ? null : $this->songId($play->chart), 'song_no' => (int) $play->wdb_chart_id,
-                'level' => (int) $play->course + 1, 'played_at' => $play->played_at?->toDateTimeString(),
+                'song_id' => $this->songId($play->chart), 'song_no' => (int) $play->wdb_chart_id,
+                'level' => (int) $play->course + 1, 'difficulty' => $play->chart->difficulty,
+                'played_at' => $play->played_at?->toDateTimeString(),
                 'play_result' => self::crown($play), 'score' => (int) $play->score,
                 'score_rank' => 0, 'good_count' => (int) $play->great,
                 'ok_count' => (int) $play->good, 'miss_count' => (int) $play->miss,
@@ -234,8 +258,9 @@ class WaddamburoWebController extends Controller
 
             return [
                 'song_title' => $chart?->title ?? 'Unknown chart',
-                'song_id' => $chart?->title === null ? null : $this->songId($chart), 'song_no' => (int) $row->wdb_chart_id,
-                'level' => (int) ($chart?->course ?? 0) + 1, 'score' => (int) $row->best_score,
+                'song_id' => $chart === null ? null : $this->songId($chart), 'song_no' => (int) $row->wdb_chart_id,
+                'level' => (int) ($chart?->course ?? 0) + 1, 'difficulty' => $chart?->difficulty,
+                'score' => (int) $row->best_score,
                 'score_rank' => 0, 'crown' => (int) $row->best_crown,
                 'counts_for_leaderboard' => $chart?->ranked_at !== null,
                 'placement' => DB::query()->fromSub(WaddamburoRankAggregateService::bests(fn (QueryBuilder $query) => $query
@@ -245,9 +270,11 @@ class WaddamburoWebController extends Controller
         })->all();
     }
 
-    private function songId(WdbChart $chart): int
+    private function songId(WdbChart $chart): ?int
     {
-        return (int) $this->chartsOf($chart)->min('id');
+        $id = $chart->songs()->min('wdb_songs.id');
+
+        return $id === null ? null : (int) $id;
     }
 
     private static function crown(WdbPlay $play): int
@@ -258,6 +285,31 @@ class WaddamburoWebController extends Controller
             $play->cleared => 1,
             default => 0,
         };
+    }
+
+    /**
+     * @param  list<string>  $sources
+     * @return array{value: string, label: string} a song's sources as the song pages' genre badge
+     */
+    private function genre(array $sources): array
+    {
+        $sources = self::ordered($sources);
+
+        return [
+            'value' => 'wdb_'.strtolower(implode('_', $sources) ?: 'unknown'),
+            'label' => implode(' · ', array_map(fn (string $source): string => self::SOURCES[$source] ?? $source, $sources)) ?: 'Waddamburo',
+        ];
+    }
+
+    /**
+     * @param  list<string>  $sources
+     * @return list<string> the sources once each, in SOURCES order (stock before Nijiiro)
+     */
+    private static function ordered(array $sources): array
+    {
+        $sources = array_unique($sources);
+
+        return [...array_intersect(array_keys(self::SOURCES), $sources), ...array_diff($sources, array_keys(self::SOURCES))];
     }
 
     private function scope(): array
