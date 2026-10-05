@@ -1,10 +1,12 @@
 <?php
 
+use App\Events\WdbNoticeEnded;
 use App\Events\WdbNoticePosted;
 use App\Models\User;
 use App\Models\WdbNotice;
 use App\Notifications\WaddamburoNotice;
 use Illuminate\Support\Facades\Event;
+use Inertia\Testing\AssertableInertia as Assert;
 
 function wdb_notice_user(): User
 {
@@ -74,4 +76,31 @@ it('signs only the player\'s own private channel and keeps their notices until r
     $this->withToken($token)->postJson('/api/wdb/notifications/read', ['ids' => [$id]])->assertNoContent();
     $this->withToken($token)->getJson('/api/wdb/notifications')->assertJsonCount(0, 'notifications');
     expect($other->unreadNotifications()->count())->toBe(1);
+});
+
+it('lets admins send, end and delete system notices, pushing each change', function (): void {
+    Event::fake([WdbNoticePosted::class, WdbNoticeEnded::class]);
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)->get('/waddamburo/admin/waddamburo-notices')->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page->component('admin/WaddamburoNotices')->has('notices', 0));
+    $this->actingAs($admin)->post('/waddamburo/admin/waddamburo-notices', [
+        'message' => 'Maintenance at 22:00', 'severity' => 'warning', 'minutes' => 30,
+    ])->assertRedirect();
+    $notice = WdbNotice::query()->sole();
+    expect($notice)->severity->toBe('warning')->created_by->toBe($admin->id)->ends_at->not->toBeNull();
+    Event::assertDispatched(WdbNoticePosted::class);
+
+    $this->actingAs($admin)->patch("/waddamburo/admin/waddamburo-notices/{$notice->id}/end")->assertRedirect();
+    expect($notice->fresh()->ends_at->isFuture())->toBeFalse();
+    $this->getJson('/api/wdb/notices')->assertJsonCount(0, 'notices');
+    $this->actingAs($admin)->get('/waddamburo/admin/waddamburo-notices')
+        ->assertInertia(fn (Assert $page) => $page->where('notices.0.active', false));
+
+    $this->actingAs($admin)->delete("/waddamburo/admin/waddamburo-notices/{$notice->id}")->assertRedirect();
+    expect(WdbNotice::query()->count())->toBe(0);
+    Event::assertDispatchedTimes(WdbNoticeEnded::class, 2);
+
+    $this->actingAs(User::factory()->create())->post('/waddamburo/admin/waddamburo-notices', ['message' => 'x', 'severity' => 'info'])
+        ->assertForbidden();
 });

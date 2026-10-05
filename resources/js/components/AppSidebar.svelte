@@ -1,6 +1,7 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
     import Activity from 'lucide-svelte/icons/activity';
+    import Bell from 'lucide-svelte/icons/bell';
     import BookOpen from 'lucide-svelte/icons/book-open';
     import Home from 'lucide-svelte/icons/home';
     import Disc from 'lucide-svelte/icons/disc';
@@ -31,6 +32,7 @@
     import adminPlayers from '@/routes/admin/players';
     import adminSongs from '@/routes/admin/songs';
     import adminWaddamburoCharts from '@/routes/admin/waddamburo-charts';
+    import adminWaddamburoNotices from '@/routes/admin/waddamburo-notices';
     const { dashboard, recentPlays, status } = adminRoute;
     import { home } from '@/routes';
     import type { NavItem } from '@/types';
@@ -46,12 +48,33 @@
     const mainNavItems: NavItem[] = [
         { title: 'Dashboard', href: dashboard(taikoParam), icon: LayoutGrid },
         { title: 'BAIDs', href: adminBaids.index(taikoParam), icon: Users },
-        { title: 'Recent Plays', href: recentPlays(taikoParam), icon: Activity },
+        {
+            title: 'Recent Plays',
+            href: recentPlays(taikoParam),
+            icon: Activity,
+        },
         { title: 'Songs', href: adminSongs.index(taikoParam), icon: Disc },
-        { title: 'Waddamburo Charts', href: adminWaddamburoCharts.index(taikoParam), icon: Trophy },
-        { title: 'Dan Dojo', href: adminDanDojo.index(taikoParam), icon: BookOpen },
+        {
+            title: 'Waddamburo Charts',
+            href: adminWaddamburoCharts.index(taikoParam),
+            icon: Trophy,
+        },
+        {
+            title: 'Waddamburo Notices',
+            href: adminWaddamburoNotices.index(taikoParam),
+            icon: Bell,
+        },
+        {
+            title: 'Dan Dojo',
+            href: adminDanDojo.index(taikoParam),
+            icon: BookOpen,
+        },
         { title: 'Server Status', href: status(taikoParam), icon: Server },
-        { title: 'Players', href: adminPlayers.index(taikoParam), icon: ShieldCheck },
+        {
+            title: 'Players',
+            href: adminPlayers.index(taikoParam),
+            icon: ShieldCheck,
+        },
     ];
 
     const footerNavItems: NavItem[] = [

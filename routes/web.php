@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\DanDojoController;
 use App\Http\Controllers\Admin\PlayerController;
 use App\Http\Controllers\Admin\SongController;
 use App\Http\Controllers\Admin\WaddamburoChartController;
+use App\Http\Controllers\Admin\WaddamburoNoticeController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\Green\OperatorController;
 use App\Http\Controllers\RankingController;
@@ -66,6 +67,10 @@ Route::prefix('{taikoVersion}')
                 Route::get('waddamburo-charts', [WaddamburoChartController::class, 'index'])->name('waddamburo-charts.index');
                 Route::patch('waddamburo-charts/{chart}', [WaddamburoChartController::class, 'update'])->name('waddamburo-charts.update');
                 Route::patch('waddamburo-songs/{song}', [WaddamburoChartController::class, 'updateSong'])->name('waddamburo-songs.update');
+                Route::get('waddamburo-notices', [WaddamburoNoticeController::class, 'index'])->name('waddamburo-notices.index');
+                Route::post('waddamburo-notices', [WaddamburoNoticeController::class, 'store'])->name('waddamburo-notices.store');
+                Route::patch('waddamburo-notices/{notice}/end', [WaddamburoNoticeController::class, 'end'])->name('waddamburo-notices.end');
+                Route::delete('waddamburo-notices/{notice}', [WaddamburoNoticeController::class, 'destroy'])->name('waddamburo-notices.destroy');
                 Route::get('dan-dojo', [DanDojoController::class, 'index'])->name('dan-dojo.index');
                 Route::post('dan-dojo/{version}/randomize', [DanDojoController::class, 'randomize'])->name('dan-dojo.randomize');
                 Route::get('status', [OperatorController::class, 'status'])->name('status');
