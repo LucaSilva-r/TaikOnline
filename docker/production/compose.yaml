@@ -51,6 +51,14 @@ services:
         environment:
             DB_QUEUE_RETRY_AFTER: 3900
 
+    # WebSockets: route the public hostname's /app/ path to http://localhost:1025 in the
+    # Cloudflare tunnel (REVERB_HOST=reverb, REVERB_PORT=8080, REVERB_SCHEME=http in .env).
+    reverb:
+        <<: *app
+        command: ['php', 'artisan', 'reverb:start', '--host=0.0.0.0', '--port=8080']
+        ports:
+            - '127.0.0.1:1025:8080'
+
     scheduler:
         <<: *app
         command: ['php', 'artisan', 'schedule:work']

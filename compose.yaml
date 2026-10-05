@@ -55,6 +55,25 @@ services:
             - pgsql
         restart: unless-stopped
 
+    reverb:
+        build:
+            context: './docker/8.5'
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: '${WWWGROUP}'
+        image: 'sail-8.5/app'
+        environment:
+            WWWUSER: '${WWWUSER}'
+            LARAVEL_SAIL: 1
+            SUPERVISOR_PHP_COMMAND: '/usr/bin/php /var/www/html/artisan reverb:start --host=0.0.0.0 --port=8080'
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            sail:
+                aliases:
+                    - reverb
+        restart: unless-stopped
+
     tls-proxy:
         build:
             context: './docker/tls-proxy'

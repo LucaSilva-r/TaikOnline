@@ -89,4 +89,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(PlayerRankSnapshot::class);
     }
+
+    /** The private channel this user's notifications are pushed on (Waddamburo subscribes it). */
+    public function receivesBroadcastNotificationsOn(): string
+    {
+        return 'App.Models.User.'.$this->id;
+    }
 }
