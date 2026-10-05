@@ -320,3 +320,17 @@ it('caps custom titles at the official maximum of 20 characters', function (): v
         ->patch('/waddamburo/settings/donchan-title', ['title' => str_repeat('あ', 20), 'titleplate_id' => 0])
         ->assertSessionHasNoErrors();
 });
+
+it('keeps the offsets a play was made with, and takes plays from clients that do not send them', function (): void {
+    $player = wdb_player();
+    $token = wdb_token($player);
+    $with = wdb_play(str_repeat('c', 64), ['audio_offset_ms' => 12, 'input_offset_ms' => -8]);
+    $without = wdb_play(str_repeat('c', 64));
+
+    $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [$with, $without]])->assertOk();
+
+    expect(WdbPlay::query()->find($with['id']))->audio_offset_ms->toBe(12)->input_offset_ms->toBe(-8)
+        ->and(WdbPlay::query()->find($without['id']))->audio_offset_ms->toBeNull();
+    $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [wdb_play(str_repeat('c', 64), ['input_offset_ms' => 9000])]])
+        ->assertUnprocessable();
+});

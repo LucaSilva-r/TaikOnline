@@ -277,6 +277,8 @@ class WaddamburoController extends Controller
             'plays.*.engine_version' => ['present', 'nullable', 'string', 'max:64'],
             'plays.*.played_at' => ['required', 'date'],
             'plays.*.replay' => ['required', 'string', 'max:2000000'],
+            'plays.*.audio_offset_ms' => ['nullable', 'integer', 'between:-5000,5000'],
+            'plays.*.input_offset_ms' => ['nullable', 'integer', 'between:-5000,5000'],
         ]);
 
         $ownBaid = $cabinet ? null : $request->user()->player?->baid;
@@ -315,6 +317,8 @@ class WaddamburoController extends Controller
                 'engine_version' => (string) ($play['engine_version'] ?? ''),
                 'played_at' => $play['played_at'],
                 'replay' => $replay,
+                'audio_offset_ms' => $play['audio_offset_ms'] ?? null,
+                'input_offset_ms' => $play['input_offset_ms'] ?? null,
             ]);
             $accepted[] = $play['id'];
             $players[$baid] = true;
