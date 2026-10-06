@@ -79,6 +79,8 @@
         miss_count: number;
         combo_count: number;
         counts_for_leaderboard?: boolean;
+        /** Play options as tags (1.3x, Hidden, Reversed, Random, Chaos, Shin-uchi). */
+        options?: string[];
     };
 
     type BestPerformance = {
@@ -1146,6 +1148,12 @@
                                     <span>Ok {play.ok_count}</span>
                                     <span>Miss {play.miss_count}</span>
                                     <span>Combo {play.combo_count}</span>
+                                    {#each play.options ?? [] as option (option)}
+                                        <span
+                                            class="rounded-full border px-2 font-medium text-foreground"
+                                            >{option}</span
+                                        >
+                                    {/each}
                                 </div>
                             </div>
                             <div class="text-left sm:text-right">

@@ -190,8 +190,10 @@ class WaddamburoController extends Controller
         $rankings = array_fill_keys($validated['charts'], []);
         foreach ($charts as $chartId => $sha256) {
             // ponytail: every mode and scoring version counts; filter by ranked/min_scoring_version later.
+            // Normal scores only: 真打 plays score on another scale.
             $rankings[$sha256] = WdbPlay::query()
                 ->where('wdb_chart_id', $chartId)
+                ->whereRaw('(options & ?) = 0', [WdbPlay::SHINUCHI])
                 ->selectRaw('baid, MAX(score) AS best')
                 ->groupBy('baid')
                 ->orderByDesc('best')
@@ -227,7 +229,8 @@ class WaddamburoController extends Controller
             ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_plays.wdb_chart_id')
             ->where('wdb_plays.baid', $baid)
             ->groupBy('wdb_charts.sha256')
-            ->selectRaw('wdb_charts.sha256, MAX(wdb_plays.score) AS score, '
+            // The best normal score (真打 ones are on another scale); a crown from any play.
+            ->selectRaw('wdb_charts.sha256, MAX(CASE WHEN (wdb_plays.options & '.WdbPlay::SHINUCHI.') = 0 THEN wdb_plays.score END) AS score, '
                 .'MAX(CASE WHEN wdb_plays.cleared AND wdb_plays.miss = 0 THEN 2 WHEN wdb_plays.cleared THEN 1 ELSE 0 END) AS crown')
             ->get()
             ->map(fn ($best): array => [
@@ -279,6 +282,8 @@ class WaddamburoController extends Controller
             'plays.*.replay' => ['required', 'string', 'max:2000000'],
             'plays.*.audio_offset_ms' => ['nullable', 'integer', 'between:-5000,5000'],
             'plays.*.input_offset_ms' => ['nullable', 'integer', 'between:-5000,5000'],
+            'plays.*.options' => ['nullable', 'integer', 'between:0,65535'],
+            'plays.*.seed' => ['nullable', 'integer'],
         ]);
 
         $ownBaid = $cabinet ? null : $request->user()->player?->baid;
@@ -319,6 +324,8 @@ class WaddamburoController extends Controller
                 'replay' => $replay,
                 'audio_offset_ms' => $play['audio_offset_ms'] ?? null,
                 'input_offset_ms' => $play['input_offset_ms'] ?? null,
+                'options' => $play['options'] ?? 0,
+                'seed' => $play['seed'] ?? null,
             ]);
             $accepted[] = $play['id'];
             $players[$baid] = true;

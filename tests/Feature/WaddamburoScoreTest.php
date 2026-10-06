@@ -84,3 +84,28 @@ it('lists the player\'s own plays best first and hands out any play\'s replay', 
     app('auth')->forgetGuards();
     $this->withoutToken()->getJson("/api/wdb/plays/{$theirs->id}/replay")->assertUnauthorized();
 });
+
+it('keeps 真打 plays on their own board, with their options and seed', function (): void {
+    $chart = WdbChart::query()->create(['sha256' => str_repeat('e', 64), 'course' => 3]);
+    $ann = wdb_score_player('Ann');
+    wdb_score_play($ann, $chart, 800_000, '2026-10-01T10:00:00Z');
+    wdb_score_play($ann, $chart, 990_000, '2026-10-02T10:00:00Z')->forceFill(['options' => 2 | 256, 'seed' => 42])->save();
+    $token = $ann->user->createToken('test', ['wdb'])->plainTextToken;
+    $url = '/api/wdb/charts/'.str_repeat('e', 64).'/scores';
+
+    $this->withToken($token)->getJson($url)->assertOk()
+        ->assertJsonCount(1, 'scores')
+        ->assertJsonPath('scores.0.score', 800_000)
+        ->assertJsonPath('scores.0.options', 0);
+    $this->withToken($token)->getJson($url.'?shinuchi=1')->assertOk()
+        ->assertJsonCount(1, 'scores')
+        ->assertJsonPath('scores.0.score', 990_000)
+        ->assertJsonPath('scores.0.options', 258)
+        ->assertJsonPath('scores.0.seed', 42);
+});
+
+it('names a play\'s options as the game does', function (): void {
+    expect(WdbPlay::optionLabels(0))->toBe([])
+        ->and(WdbPlay::optionLabels((3 << 9) | 4 | 32 | 256 | 2))->toBe(['1.3x', 'Hidden', 'Chaos', 'Shin-uchi'])
+        ->and(WdbPlay::optionLabels(8 | 64 | 128))->toBe(['3.0x', 'Reversed', 'Random']);
+});

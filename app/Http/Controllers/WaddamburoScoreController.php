@@ -20,11 +20,13 @@ class WaddamburoScoreController extends Controller
 
     /** Every column but the replay (the lists never send it). */
     private const COLUMNS = ['id', 'baid', 'wdb_chart_id', 'mode', 'course', 'score', 'great', 'good', 'miss',
-        'max_combo', 'rolls', 'gauge', 'cleared', 'scoring_version', 'played_at', 'audio_offset_ms', 'input_offset_ms'];
+        'max_combo', 'rolls', 'gauge', 'cleared', 'scoring_version', 'played_at', 'audio_offset_ms', 'input_offset_ms',
+        'options', 'seed'];
 
     /**
      * A chart's leaderboard: each player's best play (the earlier one on a tie), best first, and the
      * asking player's own best with its place when it is further down. Unknown charts have none.
+     * ?shinuchi=1: the 真打 plays' board (they score on their own scale), else the normal one.
      */
     public function scores(Request $request, string $sha256): JsonResponse
     {
@@ -35,7 +37,8 @@ class WaddamburoScoreController extends Controller
         $bests = WdbPlay::query()
             ->fromSub(WdbPlay::query()->select(self::COLUMNS)
                 ->selectRaw('ROW_NUMBER() OVER (PARTITION BY baid ORDER BY score DESC, played_at ASC) AS player_best')
-                ->where('wdb_chart_id', $chart->id), 'wdb_plays')
+                ->where('wdb_chart_id', $chart->id)
+                ->whereRaw('(options & ?) '.($request->boolean('shinuchi') ? '<>' : '=').' 0', [WdbPlay::SHINUCHI]), 'wdb_plays')
             ->where('player_best', 1)
             ->orderByDesc('score')->orderBy('played_at');
         $top = (clone $bests)->limit(self::LIMIT)->with('player.user')->get()->values();
@@ -133,6 +136,8 @@ class WaddamburoScoreController extends Controller
             'played_at' => $play->played_at?->toIso8601String(),
             'audio_offset_ms' => $play->audio_offset_ms,
             'input_offset_ms' => $play->input_offset_ms,
+            'options' => (int) $play->options,
+            'seed' => $play->seed === null ? null : (int) $play->seed,
         ];
     }
 }

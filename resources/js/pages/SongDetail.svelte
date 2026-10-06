@@ -49,6 +49,8 @@
         player_count: number;
         crown_counts: CrownCounts;
         entries: LeaderboardEntry[];
+        /** The 真打 (Shin-uchi) plays' board: their own scale, ranked apart. */
+        shinuchi_entries?: LeaderboardEntry[];
     };
 
     type RecentPlay = {
@@ -62,6 +64,8 @@
         score: number;
         score_rank: number;
         precision: number;
+        /** Play options as tags (1.3x, Hidden, Reversed, Random, Chaos, Shin-uchi). */
+        options?: string[];
     };
 
     let {
@@ -102,6 +106,13 @@
     } = $props();
 
     const taikoParam = taikoRouteParam();
+
+    // Per difficulty: the Shin-uchi board shown instead of the normal one.
+    let shinuchiBoards = $state<Record<string, boolean>>({});
+
+    function boardKey(difficulty: Difficulty): string {
+        return String(difficulty.id ?? difficulty.level);
+    }
 
     function toggleFavorite(): void {
         if (!isFavorite && favoriteCount >= favoriteLimit) {
@@ -355,6 +366,30 @@
                                         difficulty.player_count,
                                     )} players
                                 </span>
+                                {#if (difficulty.shinuchi_entries?.length ?? 0) > 0}
+                                    <div
+                                        class="flex overflow-hidden rounded-md border text-xs"
+                                    >
+                                        {#each [false, true] as shinuchi (shinuchi)}
+                                            <button
+                                                type="button"
+                                                class="px-2 py-0.5 {(shinuchiBoards[
+                                                    boardKey(difficulty)
+                                                ] ?? false) === shinuchi
+                                                    ? 'bg-muted font-semibold'
+                                                    : 'text-muted-foreground'}"
+                                                onclick={() =>
+                                                    (shinuchiBoards[
+                                                        boardKey(difficulty)
+                                                    ] = shinuchi)}
+                                            >
+                                                {shinuchi
+                                                    ? 'Shin-uchi'
+                                                    : 'Normal'}
+                                            </button>
+                                        {/each}
+                                    </div>
+                                {/if}
                             </div>
                             <div class="flex items-center gap-3 text-sm">
                                 <span
@@ -382,7 +417,7 @@
                         </div>
 
                         <div class="divide-y">
-                            {#each difficulty.entries as entry (entry.user_id)}
+                            {#each shinuchiBoards[boardKey(difficulty)] ? (difficulty.shinuchi_entries ?? []) : difficulty.entries as entry (entry.user_id)}
                                 <div
                                     class="grid grid-cols-[2.5rem_1fr_auto] items-center gap-3 px-5 py-2.5 transition-colors hover:bg-muted/30"
                                 >
@@ -492,6 +527,17 @@
                                             play.precision,
                                         )} · {formatDate(play.played_at)}
                                     </div>
+                                    {#if play.options?.length}
+                                        <div class="mt-1 flex flex-wrap gap-1">
+                                            {#each play.options as option (option)}
+                                                <Badge
+                                                    variant="secondary"
+                                                    class="px-1.5 py-0 text-[10px]"
+                                                    >{option}</Badge
+                                                >
+                                            {/each}
+                                        </div>
+                                    {/if}
                                 </div>
                             </Link>
                             <div class="flex items-center gap-2">

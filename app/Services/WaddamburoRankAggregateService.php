@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Player;
 use App\Models\PlayerVersionStats;
+use App\Models\WdbPlay;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -21,10 +22,15 @@ class WaddamburoRankAggregateService
         .'WHEN wdb_plays.cleared AND wdb_plays.miss = 0 THEN 2 WHEN wdb_plays.cleared THEN 1 ELSE 0 END';
 
     /** Each (player, chart) best: score and crown, over the given plays. */
-    public static function bests(?callable $filter = null): Builder
+    /**
+     * Each player's best per chart. Normal plays only, or with $shinuchi only 真打 plays (they score on
+     * their own scale, so they rank apart and never count toward the site's totals).
+     */
+    public static function bests(?callable $filter = null, bool $shinuchi = false): Builder
     {
         return DB::table('wdb_plays')
             ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_plays.wdb_chart_id')
+            ->whereRaw('(wdb_plays.options & ?) '.($shinuchi ? '<>' : '=').' 0', [WdbPlay::SHINUCHI])
             ->when($filter !== null, $filter)
             ->groupBy('wdb_plays.baid', 'wdb_plays.wdb_chart_id')
             ->select('wdb_plays.baid', 'wdb_plays.wdb_chart_id')
