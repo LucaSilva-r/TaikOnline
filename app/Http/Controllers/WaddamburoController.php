@@ -406,7 +406,7 @@ class WaddamburoController extends Controller
      *
      * @return array{baid: int, name: string, title: ?string, title_plate: int, look: array{costume: list<int>, presets: list<list<int>>, face: string, body: string, limb: string}}
      */
-    private function profile(Player $player): array
+    public static function profile(Player $player): array
     {
         $cosmetics = $player->cosmetics()->where('game_version', PlayerCosmetic::WADDAMBURO)->first();
         $color = fn (?int $id, int $default): string => self::DON_COLORS[$id ?? $default] ?? self::DON_COLORS[$default];

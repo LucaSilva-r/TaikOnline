@@ -5,6 +5,7 @@ use App\Http\Controllers\Green\GameProtocolController;
 use App\Http\Controllers\Green\VsInterfaceController;
 use App\Http\Controllers\WaddamburoController;
 use App\Http\Controllers\WaddamburoNoticeController;
+use App\Http\Controllers\WaddamburoScoreController;
 use App\Http\Controllers\ZucchiniCardController;
 use App\Http\Controllers\ZucchiniExtraBestController;
 use App\Http\Controllers\ZucchiniPairingController;
@@ -32,6 +33,9 @@ Route::get('api/wdb/realtime', [WaddamburoNoticeController::class, 'realtime'])-
 Route::get('api/wdb/notices', [WaddamburoNoticeController::class, 'notices'])->middleware('throttle:wdb');
 Route::middleware(['wdb.auth', 'throttle:wdb'])->prefix('api/wdb')->group(function (): void {
     Route::delete('login', [WaddamburoController::class, 'logout']);
+    Route::get('charts/{sha256}/scores', [WaddamburoScoreController::class, 'scores']);
+    Route::get('charts/{sha256}/scores/mine', [WaddamburoScoreController::class, 'mine']);
+    Route::get('plays/{id}/replay', [WaddamburoScoreController::class, 'replay']);
     Route::get('notifications', [WaddamburoNoticeController::class, 'notifications']);
     Route::post('notifications/read', [WaddamburoNoticeController::class, 'read']);
     // Private channel subscriptions (Pusher auth) for Waddamburo tokens.
