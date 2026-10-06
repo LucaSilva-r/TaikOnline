@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AuthenticateWaddamburo;
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\EnsureWaddamburoCabinet;
 use App\Http\Middleware\EnsureZucchiniApiToken;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -45,6 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => EnsureUserIsAdmin::class,
             'taiko.version' => ResolveTaikoVersion::class,
             'zucchini.token' => EnsureZucchiniApiToken::class,
+            'wdb.cabinet' => EnsureWaddamburoCabinet::class,
             'wdb.auth' => AuthenticateWaddamburo::class,
         ]);
     })

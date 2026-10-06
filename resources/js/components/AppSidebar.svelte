@@ -2,6 +2,7 @@
     import { Link } from '@inertiajs/svelte';
     import Activity from 'lucide-svelte/icons/activity';
     import Bell from 'lucide-svelte/icons/bell';
+    import Gamepad2 from 'lucide-svelte/icons/gamepad-2';
     import BookOpen from 'lucide-svelte/icons/book-open';
     import Home from 'lucide-svelte/icons/home';
     import Disc from 'lucide-svelte/icons/disc';
@@ -32,6 +33,7 @@
     import adminPlayers from '@/routes/admin/players';
     import adminSongs from '@/routes/admin/songs';
     import adminWaddamburoCharts from '@/routes/admin/waddamburo-charts';
+    import adminWaddamburoCabinets from '@/routes/admin/waddamburo-cabinets';
     import adminWaddamburoNotices from '@/routes/admin/waddamburo-notices';
     const { dashboard, recentPlays, status } = adminRoute;
     import { home } from '@/routes';
@@ -63,6 +65,11 @@
             title: 'Waddamburo Notices',
             href: adminWaddamburoNotices.index(taikoParam),
             icon: Bell,
+        },
+        {
+            title: 'Waddamburo Cabinets',
+            href: adminWaddamburoCabinets.index(taikoParam),
+            icon: Gamepad2,
         },
         {
             title: 'Dan Dojo',

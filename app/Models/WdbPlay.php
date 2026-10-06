@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'id', 'baid', 'wdb_chart_id', 'mode', 'course', 'score', 'great', 'good', 'miss', 'max_combo',
     'rolls', 'gauge', 'cleared', 'scoring_version', 'engine_version', 'played_at', 'replay', 'audio_offset_ms', 'input_offset_ms',
-    'options', 'seed',
+    'options', 'seed', 'wdb_cabinet_id',
 ])]
 #[Hidden(['replay'])]
 class WdbPlay extends Model

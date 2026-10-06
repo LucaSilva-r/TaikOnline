@@ -26,6 +26,10 @@ Route::post('api/zucchini/extra/bests', ZucchiniExtraBestController::class)
 Route::post('api/zucchini/pairing', ZucchiniPairingController::class)
     ->middleware(['zucchini.token', 'throttle:zucchini-pairing']);
 
+// A Waddamburo cabinet's 6-pin pairing: the same codes as Zucchini's (the site's Play page claims either).
+Route::post('api/wdb/cabinet/pairing', ZucchiniPairingController::class)
+    ->middleware(['wdb.cabinet', 'throttle:zucchini-pairing']);
+
 Route::post('api/wdb/login', [WaddamburoController::class, 'login'])->middleware('throttle:wdb-login');
 Route::post('api/wdb/device', [WaddamburoController::class, 'startDevice'])->middleware('throttle:wdb-login');
 Route::post('api/wdb/device/token', [WaddamburoController::class, 'pollDevice'])->middleware('throttle:wdb-device-poll');

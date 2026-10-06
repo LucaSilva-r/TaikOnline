@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Middleware\AuthenticateWaddamburo;
+use App\Http\Middleware\EnsureWaddamburoCabinet;
 use App\Http\Middleware\ResolveTaikoVersion;
 use App\Models\GameCard;
 use App\Models\Player;
@@ -83,7 +84,8 @@ class WaddamburoController extends Controller
             return response()->json(['message' => 'Unavailable, try again.'], 503);
         }
 
-        return response()->json([...$login, 'verification_url' => url('/'.ResolveTaikoVersion::DefaultScope.'/link')]);
+        // The site's one code page (it sends a sign-in code on to its approval).
+        return response()->json([...$login, 'verification_url' => url('/'.ResolveTaikoVersion::DefaultScope.'/play')]);
     }
 
     /** In-game login, step 2 (polled): pending, denied, expired, or the token and profile once approved. */
@@ -326,6 +328,7 @@ class WaddamburoController extends Controller
                 'input_offset_ms' => $play['input_offset_ms'] ?? null,
                 'options' => $play['options'] ?? 0,
                 'seed' => $play['seed'] ?? null,
+                'wdb_cabinet_id' => $request->attributes->get(EnsureWaddamburoCabinet::CABINET_ID),
             ]);
             $accepted[] = $play['id'];
             $players[$baid] = true;

@@ -10,12 +10,18 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** The website side of Waddamburo's in-game login: enter the game's code, then approve the device. */
+/**
+ * The website side of Waddamburo's in-game login: approve (or refuse) the device whose code was entered on
+ * the Play page, which sends sign-in codes here. Without a code, the Play page is where to enter one.
+ */
 class DeviceLinkController extends Controller
 {
-    public function create(Request $request, WaddamburoDeviceLoginService $devices): Response
+    public function create(Request $request, WaddamburoDeviceLoginService $devices): Response|RedirectResponse
     {
         $code = $request->string('code')->toString();
+        if ($code === '') {
+            return to_route('play.create', ['taikoVersion' => $request->route('taikoVersion')]);
+        }
         $valid = preg_match('/\A[0-9]{6}\z/', $code) === 1;
 
         return Inertia::render('Link', [
@@ -47,6 +53,6 @@ class DeviceLinkController extends Controller
                 : __('Device refused.'),
         ]);
 
-        return to_route('link.create');
+        return to_route('play.create', ['taikoVersion' => $request->route('taikoVersion')]);
     }
 }

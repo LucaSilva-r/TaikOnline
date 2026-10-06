@@ -35,63 +35,63 @@
             Send your Banapass to the game
         </h1>
         <p class="mx-auto mt-3 max-w-xl text-balance text-muted-foreground">
-            Enter the six-digit code shown by the cabinet. Not all cabinets may
+            Enter the six-digit code shown by the cabinet, whichever game it
+            runs, or the code Waddamburo shows to sign in. Not all cabinets may
             have 6 pin login enabled.
         </p>
     </div>
 
-    {#if hasUsableAccessCode}
-        <Form
-            {...CabinetLoginController.store.form(taikoRouteParam())}
-            class="flex flex-col items-center gap-8"
-            options={{ preserveScroll: true }}
-            resetOnSuccess
-            onSuccess={() => (code = '')}
-            onError={() => (code = '')}
-        >
-            {#snippet children({ errors, processing })}
-                <input type="hidden" name="code" value={code} />
+    <Form
+        {...CabinetLoginController.store.form(taikoRouteParam())}
+        class="flex flex-col items-center gap-8"
+        options={{ preserveScroll: true }}
+        resetOnSuccess
+        onSuccess={() => (code = '')}
+        onError={() => (code = '')}
+    >
+        {#snippet children({ errors, processing })}
+            <input type="hidden" name="code" value={code} />
 
-                <div class="flex flex-col items-center gap-5 text-center">
-                    <Label for="cabinet-code">Cabinet code</Label>
-                    <InputOTP
-                        id="cabinet-code"
-                        bind:value={code}
-                        maxlength={6}
-                        disabled={processing}
-                        autofocus
-                        aria-invalid={errors.code ? 'true' : undefined}
-                        class="justify-center"
-                    >
-                        <InputOTPGroup class="gap-2 sm:gap-4">
-                            {#each { length: 6 } as _, index (index)}
-                                <InputOTPSlot
-                                    {index}
-                                    class="h-14 w-9 rounded-none border-0 border-b-4 border-muted-foreground/40 bg-transparent text-2xl font-bold shadow-none first:rounded-none first:border-l-0 last:rounded-none data-[active=true]:border-[var(--taiko-accent)] data-[active=true]:ring-0 dark:bg-transparent sm:w-12 sm:text-3xl"
-                                />
-                            {/each}
-                        </InputOTPGroup>
-                    </InputOTP>
-                    <InputError message={errors.code} />
-                </div>
-
-                <Button
-                    type="submit"
-                    class="min-w-40 px-6"
-                    disabled={processing || code.length !== 6}
+            <div class="flex flex-col items-center gap-5 text-center">
+                <Label for="cabinet-code">Code</Label>
+                <InputOTP
+                    id="cabinet-code"
+                    bind:value={code}
+                    maxlength={6}
+                    disabled={processing}
+                    autofocus
+                    aria-invalid={errors.code ? 'true' : undefined}
+                    class="justify-center"
                 >
-                    {processing ? 'Logging in…' : 'Login'}
-                </Button>
+                    <InputOTPGroup class="gap-2 sm:gap-4">
+                        {#each { length: 6 } as _, index (index)}
+                            <InputOTPSlot
+                                {index}
+                                class="h-14 w-9 rounded-none border-0 border-b-4 border-muted-foreground/40 bg-transparent text-2xl font-bold shadow-none first:rounded-none first:border-l-0 last:rounded-none data-[active=true]:border-[var(--taiko-accent)] data-[active=true]:ring-0 dark:bg-transparent sm:w-12 sm:text-3xl"
+                            />
+                        {/each}
+                    </InputOTPGroup>
+                </InputOTP>
+                <InputError message={errors.code} />
+            </div>
 
-                <p class="max-w-md text-center text-sm text-muted-foreground">
-                    The code expires when the cabinet stops accepting cards or
-                    when the displayed number rotates.
-                </p>
-            {/snippet}
-        </Form>
-    {:else}
+            <Button
+                type="submit"
+                class="min-w-40 px-6"
+                disabled={processing || code.length !== 6}
+            >
+                {processing ? 'Logging in…' : 'Login'}
+            </Button>
+
+            <p class="max-w-md text-center text-sm text-muted-foreground">
+                The code expires when the cabinet stops accepting cards or when
+                the displayed number rotates.
+            </p>
+        {/snippet}
+    </Form>
+    {#if !hasUsableAccessCode}
         <div
-            class="flex flex-col items-center gap-5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-6 text-center sm:p-8"
+            class="mt-8 flex flex-col items-center gap-5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-6 text-center sm:p-8"
         >
             <div class="space-y-2">
                 <h2 class="font-semibold text-amber-800 dark:text-amber-200">

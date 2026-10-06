@@ -4,6 +4,7 @@ use App\Enums\TaikoGameVersion;
 use App\Http\Controllers\Admin\DanDojoController;
 use App\Http\Controllers\Admin\PlayerController;
 use App\Http\Controllers\Admin\SongController;
+use App\Http\Controllers\Admin\WaddamburoCabinetController;
 use App\Http\Controllers\Admin\WaddamburoChartController;
 use App\Http\Controllers\Admin\WaddamburoNoticeController;
 use App\Http\Controllers\BoardController;
@@ -71,6 +72,10 @@ Route::prefix('{taikoVersion}')
                 Route::post('waddamburo-notices', [WaddamburoNoticeController::class, 'store'])->name('waddamburo-notices.store');
                 Route::patch('waddamburo-notices/{notice}/end', [WaddamburoNoticeController::class, 'end'])->name('waddamburo-notices.end');
                 Route::delete('waddamburo-notices/{notice}', [WaddamburoNoticeController::class, 'destroy'])->name('waddamburo-notices.destroy');
+                Route::get('waddamburo-cabinets', [WaddamburoCabinetController::class, 'index'])->name('waddamburo-cabinets.index');
+                Route::post('waddamburo-cabinets', [WaddamburoCabinetController::class, 'store'])->name('waddamburo-cabinets.store');
+                Route::patch('waddamburo-cabinets/{cabinet}/revoke', [WaddamburoCabinetController::class, 'revoke'])->name('waddamburo-cabinets.revoke');
+                Route::patch('waddamburo-cabinets/{cabinet}/restore', [WaddamburoCabinetController::class, 'restore'])->name('waddamburo-cabinets.restore');
                 Route::get('dan-dojo', [DanDojoController::class, 'index'])->name('dan-dojo.index');
                 Route::post('dan-dojo/{version}/randomize', [DanDojoController::class, 'randomize'])->name('dan-dojo.randomize');
                 Route::get('status', [OperatorController::class, 'status'])->name('status');

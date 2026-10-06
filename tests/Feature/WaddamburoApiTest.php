@@ -4,6 +4,7 @@ use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Models\User;
+use App\Models\WdbCabinet;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
 use App\Services\CabinetPairingService;
@@ -12,7 +13,8 @@ use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
-    config()->set('taiko_green.zucchini_api_token_hashes', [hash('sha256', 'official-token')]);
+    // A Waddamburo cabinet an admin let in (the token's hash, as WdbCabinet::issue keeps it).
+    WdbCabinet::query()->create(['name' => 'Test cab', 'token_hash' => hash('sha256', 'official-token')]);
 });
 
 function wdb_player(string $accessCode = '30800000000000000001', string $password = 'password'): Player
@@ -333,4 +335,15 @@ it('keeps the offsets a play was made with, and takes plays from clients that do
         ->and(WdbPlay::query()->find($without['id']))->audio_offset_ms->toBeNull();
     $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [wdb_play(str_repeat('c', 64), ['input_offset_ms' => 9000])]])
         ->assertUnprocessable();
+});
+
+it('sends a sign-in code entered on the Play page on to its approval, and /link without one to Play', function (): void {
+    $player = wdb_player();
+    $userCode = $this->postJson('/api/wdb/device', ['device' => 'Waddamburo on den-pc'])->assertOk()
+        ->assertJsonPath('verification_url', url('/waddamburo/play'))->json('user_code');
+
+    $this->actingAs($player->user)->post('/green/play', ['code' => $userCode])->assertRedirect("/green/link?code={$userCode}");
+    $this->actingAs($player->user)->get("/waddamburo/play?code={$userCode}")->assertRedirect("/waddamburo/link?code={$userCode}");
+    $this->actingAs($player->user)->get('/green/link')->assertRedirect('/green/play');
+    $this->actingAs($player->user)->post('/green/play', ['code' => '000000'])->assertSessionHasErrors('code');
 });
