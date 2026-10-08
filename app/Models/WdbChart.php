@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * metadata. Unranked until an admin sets ranked_at. difficulty is the chart's own name where
  * courses are not named (osu!); the osu ids link it on osu.ppy.sh.
  */
-#[Fillable(['sha256', 'notes', 'title', 'subtitle', 'title_en', 'subtitle_en', 'source', 'course', 'level', 'difficulty',
+#[Fillable(['sha256', 'notes', 'title', 'subtitle', 'title_en', 'subtitle_en', 'source', 'course', 'level', 'roll_max', 'difficulty',
     'osu_beatmap_id', 'osu_beatmapset_id', 'ranked_at'])]
 #[Hidden(['notes'])]
 class WdbChart extends Model

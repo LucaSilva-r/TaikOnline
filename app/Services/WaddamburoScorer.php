@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\WdbChart;
 use App\Models\WdbPlay;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
@@ -33,7 +34,7 @@ class WaddamburoScorer
 
             return $summary;
         }
-        $plays->loadMissing('chart:id,notes,source');
+        $plays->loadMissing('chart:id,notes,source,roll_max');
         $plays = $plays->filter(fn (WdbPlay $play): bool => $play->chart?->notes !== null)->keyBy('id');
         if ($plays->isEmpty()) {
             return $summary;
@@ -56,6 +57,7 @@ class WaddamburoScorer
         }
 
         $changed = [];
+        $rollMax = [];
         foreach (preg_split('/\R/', trim($run->output()), flags: PREG_SPLIT_NO_EMPTY) as $line) {
             $result = json_decode($line, true);
             $play = is_array($result) ? $plays->get($result['id'] ?? null) : null;
@@ -80,8 +82,16 @@ class WaddamburoScorer
                 $summary['changes'][] = ['play' => $play->id, 'baid' => (int) $play->baid, 'from' => (int) $claimed['score'], 'to' => (int) $scored['score']];
             }
             $play->update([...$scored, 'rescored_at' => now()]);
+            // The chart's own (the same for all its plays): its drumrolls' most hits.
+            if (isset($result['roll_max']) && $play->chart->roll_max !== (int) $result['roll_max']) {
+                $rollMax[$play->wdb_chart_id] = (int) $result['roll_max'];
+            }
             $changed[(int) $play->baid] = true;
             $summary['scored']++;
+        }
+
+        foreach ($rollMax as $chartId => $max) {
+            WdbChart::query()->whereKey($chartId)->update(['roll_max' => $max]);
         }
 
         return [...$summary, 'players' => array_keys($changed)];

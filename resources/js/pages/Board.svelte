@@ -78,6 +78,9 @@
         ok_count: number;
         miss_count: number;
         combo_count: number;
+        /** Waddamburo: drumroll hits, and the chart's most (null until the server scored one of its plays). */
+        roll_count?: number;
+        roll_max?: number | null;
         counts_for_leaderboard?: boolean;
         /** Play options as tags (1.3x, Hidden, Reversed, Random, Chaos, Shin-uchi). */
         options?: string[];
@@ -1148,6 +1151,14 @@
                                     <span>Ok {play.ok_count}</span>
                                     <span>Miss {play.miss_count}</span>
                                     <span>Combo {play.combo_count}</span>
+                                    {#if play.roll_count !== undefined}
+                                        <span
+                                            >Rolls {play.roll_count}{play.roll_max !=
+                                            null
+                                                ? ` / ${play.roll_max}`
+                                                : ''}</span
+                                        >
+                                    {/if}
                                     {#each play.options ?? [] as option (option)}
                                         <span
                                             class="rounded-full border px-2 font-medium text-foreground"

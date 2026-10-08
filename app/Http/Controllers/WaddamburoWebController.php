@@ -248,6 +248,8 @@ class WaddamburoWebController extends Controller
                 'score_rank' => 0, 'good_count' => (int) $play->great,
                 'ok_count' => (int) $play->good, 'miss_count' => (int) $play->miss,
                 'combo_count' => (int) $play->max_combo,
+                // Drumroll hits beside the chart's most (null: not scored by the server yet).
+                'roll_count' => (int) $play->rolls, 'roll_max' => $play->chart->roll_max,
                 'counts_for_leaderboard' => $play->chart->ranked_at !== null,
                 'options' => WdbPlay::optionLabels((int) $play->options),
             ])->all();
