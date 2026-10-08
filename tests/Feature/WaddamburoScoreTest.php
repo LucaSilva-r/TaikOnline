@@ -20,7 +20,7 @@ function wdb_score_play(Player $player, WdbChart $chart, int $score, string $at,
         'id' => (string) Str::uuid(), 'baid' => $player->baid, 'wdb_chart_id' => $chart->id, 'mode' => 'normal',
         'course' => 3, 'score' => $score, 'great' => 100, 'good' => 0, 'miss' => 0, 'max_combo' => 100,
         'rolls' => 0, 'gauge' => 50, 'cleared' => true, 'scoring_version' => 1, 'engine_version' => 'test',
-        'played_at' => $at, 'replay' => $replay, 'audio_offset_ms' => 10, 'input_offset_ms' => -5,
+        'played_at' => $at, 'replay' => $replay, 'audio_offset_ms' => 10, 'input_offset_ms' => -5, 'rescored_at' => now(),
     ]);
 }
 

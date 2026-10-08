@@ -8,7 +8,9 @@ use App\Models\WdbCabinet;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
 use App\Services\CabinetPairingService;
+use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -179,6 +181,49 @@ it('imports chart notes only when they match the hash', function (): void {
         ->and($chart->songs()->pluck('song_key')->all())->toBe(['set:45']);
 });
 
+it('scores plays from their replays once the chart is known, keeping the rest off the boards', function (): void {
+    config(['services.waddamburo.scorer' => PHP_BINARY]); // any executable: the process is faked
+    $runs = [];
+    Process::fake(function (PendingProcess $process) use (&$runs) {
+        $runs[] = $process->command;
+        $lines = collect(explode("\n", trim((string) $process->input)))->map(fn (string $line): array => json_decode($line, true));
+
+        return Process::result($lines->map(fn (array $play): string => json_encode($play['replay'] === base64_encode('broken')
+            ? ['id' => $play['id'], 'error' => 'Unknown replay format.']
+            : ['id' => $play['id'], 'course' => 3, 'score' => 123450, 'great' => 7, 'good' => 2, 'miss' => 1, 'max_combo' => 6,
+                'rolls' => 4, 'gauge' => 30, 'cleared' => false, 'scoring_version' => 2]))->implode("\n"));
+    });
+    $player = wdb_player();
+    $token = wdb_token($player);
+    $notes = 'WDBC canonical notes';
+    $sha = hash('sha256', $notes);
+    $early = wdb_play($sha);
+
+    // The chart is not known yet: the play keeps the client's numbers and stays off the boards.
+    $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [$early]])->assertJson(['missing_charts' => [$sha]]);
+    expect($runs)->toBe([]);
+    $this->withToken($token)->getJson("/api/wdb/charts/{$sha}/scores")->assertJsonCount(0, 'scores');
+
+    // Its notes arrive: the play scores from its replay.
+    $this->withToken($token)->putJson("/api/wdb/charts/{$sha}", ['notes' => base64_encode(gzencode($notes))])->assertNoContent();
+    expect(WdbPlay::query()->findOrFail($early['id']))->score->toBe(123450)->great->toBe(7)->cleared->toBeFalse()
+        ->scoring_version->toBe(2)->rescored_at->not->toBeNull()
+        ->and($runs)->toBe([[PHP_BINARY, '--rescore']]);
+    $this->withToken($token)->getJson("/api/wdb/charts/{$sha}/scores")->assertJsonPath('scores.0.score', 123450);
+
+    // Later plays score on upload; one whose replay does not score stays off the boards.
+    $later = wdb_play($sha, ['score' => 999999]);
+    $broken = wdb_play($sha, ['score' => 999999, 'replay' => base64_encode('broken')]);
+    $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [$later, $broken]])->assertJson(['missing_charts' => []]);
+    expect(WdbPlay::query()->findOrFail($later['id'])->score)->toBe(123450)
+        ->and(WdbPlay::query()->findOrFail($broken['id'])->rescored_at)->toBeNull();
+    $this->withToken($token)->getJson("/api/wdb/charts/{$sha}/scores")->assertJsonPath('scores.0.score', 123450);
+
+    // A rules change: the command rescores every play.
+    $this->artisan('app:rescore-waddamburo-plays', ['--all' => true])->assertSuccessful();
+    expect($runs)->toHaveCount(3);
+});
+
 it('revokes the token on logout', function (): void {
     $player = wdb_player();
     $token = wdb_token($player);
@@ -262,6 +307,7 @@ it('ranks each chart by every player\'s best score, top three', function (): voi
             'baid' => $players[$index]->baid,
             'wdb_chart_id' => $chart->id,
             'replay' => 'inputs',
+            'rescored_at' => now(),
         ]);
     }
 

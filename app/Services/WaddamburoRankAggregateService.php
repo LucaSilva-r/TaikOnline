@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Waddamburo's standings, osu!-style: each player's best score per ranked chart, summed. Unranked
- * charts keep their leaderboards but never count here.
+ * charts keep their leaderboards but never count here. Only plays the server scored count.
  */
 class WaddamburoRankAggregateService
 {
@@ -31,6 +31,7 @@ class WaddamburoRankAggregateService
         return DB::table('wdb_plays')
             ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_plays.wdb_chart_id')
             ->whereRaw('(wdb_plays.options & ?) '.($shinuchi ? '<>' : '=').' 0', [WdbPlay::SHINUCHI])
+            ->whereNotNull('wdb_plays.rescored_at')
             ->when($filter !== null, $filter)
             ->groupBy('wdb_plays.baid', 'wdb_plays.wdb_chart_id')
             ->select('wdb_plays.baid', 'wdb_plays.wdb_chart_id')
@@ -56,6 +57,7 @@ class WaddamburoRankAggregateService
             ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_plays.wdb_chart_id')
             ->where('wdb_plays.baid', $player->baid)
             ->whereNotNull('wdb_charts.ranked_at')
+            ->whereNotNull('wdb_plays.rescored_at')
             ->selectRaw('COUNT(DISTINCT wdb_plays.wdb_chart_id) AS played_song_count')
             ->selectRaw('COALESCE(SUM(great), 0) AS great_total')
             ->selectRaw('COALESCE(SUM(good), 0) AS good_total')

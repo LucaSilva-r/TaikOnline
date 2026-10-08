@@ -32,7 +32,7 @@ function wdb_web_play(Player $player, WdbChart $chart, int $score, bool $cleared
         'id' => (string) Str::uuid(), 'baid' => $player->baid, 'wdb_chart_id' => $chart->id, 'mode' => 'normal',
         'course' => $chart->course, 'score' => $score, 'great' => 100, 'good' => $good, 'miss' => $miss,
         'max_combo' => 100, 'rolls' => 0, 'gauge' => 40, 'cleared' => $cleared, 'scoring_version' => 1,
-        'engine_version' => 'test', 'played_at' => now(), 'replay' => 'inputs',
+        'engine_version' => 'test', 'played_at' => now(), 'replay' => 'inputs', 'rescored_at' => now(),
     ]);
 }
 

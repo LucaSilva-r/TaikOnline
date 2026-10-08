@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'id', 'baid', 'wdb_chart_id', 'mode', 'course', 'score', 'great', 'good', 'miss', 'max_combo',
     'rolls', 'gauge', 'cleared', 'scoring_version', 'engine_version', 'played_at', 'replay', 'audio_offset_ms', 'input_offset_ms',
-    'options', 'seed', 'wdb_cabinet_id',
+    'options', 'seed', 'wdb_cabinet_id', 'rescored_at',
 ])]
 #[Hidden(['replay'])]
 class WdbPlay extends Model
@@ -56,6 +56,7 @@ class WdbPlay extends Model
         return [
             'cleared' => 'boolean',
             'played_at' => 'datetime',
+            'rescored_at' => 'datetime',
             'replay' => PostgresBytea::class,
         ];
     }

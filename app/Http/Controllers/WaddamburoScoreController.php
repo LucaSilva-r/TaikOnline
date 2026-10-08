@@ -24,7 +24,7 @@ class WaddamburoScoreController extends Controller
         'options', 'seed'];
 
     /**
-     * A chart's leaderboard: each player's best play (the earlier one on a tie), best first, and the
+     * A chart's leaderboard: each player's best play the server scored (the earlier one on a tie), best first, and the
      * asking player's own best with its place when it is further down. Unknown charts have none.
      * ?shinuchi=1: the 真打 plays' board (they score on their own scale), else the normal one.
      */
@@ -38,6 +38,7 @@ class WaddamburoScoreController extends Controller
             ->fromSub(WdbPlay::query()->select(self::COLUMNS)
                 ->selectRaw('ROW_NUMBER() OVER (PARTITION BY baid ORDER BY score DESC, played_at ASC) AS player_best')
                 ->where('wdb_chart_id', $chart->id)
+                ->whereNotNull('rescored_at')
                 ->whereRaw('(options & ?) '.($request->boolean('shinuchi') ? '<>' : '=').' 0', [WdbPlay::SHINUCHI]), 'wdb_plays')
             ->where('player_best', 1)
             ->orderByDesc('score')->orderBy('played_at');

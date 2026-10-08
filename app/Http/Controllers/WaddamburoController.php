@@ -14,7 +14,9 @@ use App\Models\WdbPlay;
 use App\Services\CabinetPairingService;
 use App\Services\WaddamburoDeviceLoginService;
 use App\Services\WaddamburoRankAggregateService;
+use App\Services\WaddamburoScorer;
 use App\Services\WaddamburoSongs;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -192,9 +194,10 @@ class WaddamburoController extends Controller
         $rankings = array_fill_keys($validated['charts'], []);
         foreach ($charts as $chartId => $sha256) {
             // ponytail: every mode and scoring version counts; filter by ranked/min_scoring_version later.
-            // Normal scores only: 真打 plays score on another scale.
+            // Normal scores only: 真打 plays score on another scale. Only plays the server scored.
             $rankings[$sha256] = WdbPlay::query()
                 ->where('wdb_chart_id', $chartId)
+                ->whereNotNull('rescored_at')
                 ->whereRaw('(options & ?) = 0', [WdbPlay::SHINUCHI])
                 ->selectRaw('baid, MAX(score) AS best')
                 ->groupBy('baid')
@@ -257,10 +260,11 @@ class WaddamburoController extends Controller
     }
 
     /**
-     * A batch of plays. Known ids are skipped (idempotent retries). The response lists the charts
-     * the server has no notes for yet, which the client then uploads.
+     * A batch of plays. Known ids are skipped (idempotent retries). New plays on charts the server has
+     * notes for are scored from their replays (the client's numbers are not kept); the response lists
+     * the charts it has no notes for yet, which the client then uploads (and those plays score then).
      */
-    public function storePlays(Request $request, WaddamburoRankAggregateService $aggregates): JsonResponse
+    public function storePlays(Request $request, WaddamburoRankAggregateService $aggregates, WaddamburoScorer $scorer): JsonResponse
     {
         $cabinet = $this->isCabinet($request);
         $validated = $request->validate([
@@ -293,6 +297,7 @@ class WaddamburoController extends Controller
 
         $accepted = [];
         $charts = [];
+        $created = new EloquentCollection;
         foreach ($validated['plays'] as $play) {
             $baid = $ownBaid ?? (int) $play['baid'];
             if ($ownBaid !== null && isset($play['baid']) && (int) $play['baid'] !== $ownBaid) {
@@ -307,7 +312,7 @@ class WaddamburoController extends Controller
             }
 
             $chart = $charts[$play['chart_sha256']] ??= WdbChart::query()->firstOrCreate(['sha256' => $play['chart_sha256']]);
-            WdbPlay::query()->firstOrCreate(['id' => $play['id']], [
+            $stored = WdbPlay::query()->firstOrCreate(['id' => $play['id']], [
                 'baid' => $baid,
                 'wdb_chart_id' => $chart->id,
                 'mode' => $play['mode'],
@@ -330,9 +335,13 @@ class WaddamburoController extends Controller
                 'seed' => $play['seed'] ?? null,
                 'wdb_cabinet_id' => $request->attributes->get(EnsureWaddamburoCabinet::CABINET_ID),
             ]);
+            if ($stored->wasRecentlyCreated) {
+                $created->push($stored);
+            }
             $accepted[] = $play['id'];
             $players[$baid] = true;
         }
+        $scorer->rescore($created);
         // The website's standings (ranked charts only) follow each upload.
         Player::query()->whereIn('baid', array_keys($players ?? []))->get()
             ->each(fn (Player $player) => $aggregates->recompute($player));
@@ -346,7 +355,7 @@ class WaddamburoController extends Controller
     }
 
     /** Imports a chart's canonical notes (gzipped, base64); the hash must match the decompressed bytes. */
-    public function storeChart(Request $request, string $sha256): Response
+    public function storeChart(Request $request, string $sha256, WaddamburoScorer $scorer, WaddamburoRankAggregateService $aggregates): Response
     {
         abort_unless(preg_match('/\A[0-9a-f]{64}\z/', $sha256) === 1, 404);
         $validated = $request->validate([
@@ -387,6 +396,9 @@ class WaddamburoController extends Controller
         }
         $chart->save();
         WaddamburoSongs::attach([['wdb_chart_id' => $chart->id, ...$validated]]);
+        // The plays that came before their chart score now.
+        $changed = $scorer->rescore($chart->plays()->whereNull('rescored_at')->get())['players'];
+        Player::query()->whereIn('baid', $changed)->get()->each(fn (Player $player) => $aggregates->recompute($player));
 
         return response()->noContent();
     }

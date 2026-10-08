@@ -28,6 +28,11 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // Waddamburo's scorer (the game binary's --rescore mode): plays are scored from their replays with it.
+    'waddamburo' => [
+        'scorer' => env('WADDAMBURO_SCORER'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

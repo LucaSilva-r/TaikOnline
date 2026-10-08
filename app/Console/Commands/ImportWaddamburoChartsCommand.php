@@ -4,7 +4,9 @@ namespace App\Console\Commands;
 
 use App\Http\Controllers\WaddamburoController;
 use App\Models\Player;
+use App\Models\WdbPlay;
 use App\Services\WaddamburoRankAggregateService;
+use App\Services\WaddamburoScorer;
 use App\Services\WaddamburoSongs;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -21,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 #[Description('Import and rank every stock and Nijiiro Waddamburo chart by hash')]
 class ImportWaddamburoChartsCommand extends Command
 {
-    public function handle(WaddamburoRankAggregateService $aggregates): int
+    public function handle(WaddamburoRankAggregateService $aggregates, WaddamburoScorer $scorer): int
     {
         $path = (string) $this->argument('file');
         $file = is_readable($path) ? fopen('compress.zlib://'.$path, 'r') : false;
@@ -97,6 +99,8 @@ class ImportWaddamburoChartsCommand extends Command
             $flush();
         }
 
+        // Plays waiting for these charts' notes score now.
+        WdbPlay::query()->whereNull('rescored_at')->chunkById(500, fn ($plays) => $scorer->rescore($plays));
         Player::query()
             ->whereIn('baid', DB::table('wdb_plays')->select('baid')->distinct())
             ->each(fn (Player $player) => $aggregates->recompute($player));
