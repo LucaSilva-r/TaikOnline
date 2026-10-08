@@ -193,14 +193,27 @@ class WaddamburoWebController extends Controller
             ->orderByDesc('best_score')
             ->get();
         $players = Player::query()->whereIn('baid', $rows->pluck('baid')->merge($shinuchi->pluck('baid')))->with('user')->get()->keyBy('baid');
-        $entries = fn (Collection $rows): array => $rows->filter(fn ($row) => $players->get($row->baid)?->user !== null)->take(20)->values()->map(function ($row, int $index) use ($players): array {
+        // Each player's best play itself (the earlier one on a tie, as the game's leaderboard), for its counts.
+        $bestPlays = fn (bool $shinuchi): Collection => WdbPlay::query()
+            ->fromSub(WdbPlay::query()->select(['baid', 'great', 'good', 'miss', 'max_combo', 'rolls'])
+                ->selectRaw('ROW_NUMBER() OVER (PARTITION BY baid ORDER BY score DESC, played_at ASC) AS player_best')
+                ->where('wdb_chart_id', $chart->id)->whereNotNull('rescored_at')
+                ->whereRaw('(options & ?) '.($shinuchi ? '<>' : '=').' 0', [WdbPlay::SHINUCHI]), 'wdb_plays')
+            ->where('player_best', 1)->get()->keyBy('baid');
+        $entries = fn (Collection $rows, Collection $plays): array => $rows->filter(fn ($row) => $players->get($row->baid)?->user !== null)->take(20)->values()->map(function ($row, int $index) use ($players, $plays, $chart): array {
             $user = $players->get($row->baid)->user;
+            $play = $plays->get($row->baid);
 
             return [
                 'rank' => $index + 1, 'user_id' => (int) $user->id,
                 'player_name' => $user->name, 'avatar' => $user->avatar,
                 'score' => (int) $row->best_score, 'score_rank' => 0,
-                'crown' => (int) $row->best_crown, 'precision' => null,
+                'crown' => (int) $row->best_crown,
+                'precision' => $play === null ? null : PlayerRankAggregateService::precision((int) $play->great, (int) $play->good, (int) $play->miss),
+                'counts' => $play === null ? null : [
+                    'good' => (int) $play->great, 'ok' => (int) $play->good, 'miss' => (int) $play->miss,
+                    'combo' => (int) $play->max_combo, 'rolls' => (int) $play->rolls, 'roll_max' => $chart->roll_max,
+                ],
             ];
         })->all();
 
@@ -213,9 +226,9 @@ class WaddamburoWebController extends Controller
             'play_count' => WdbPlay::query()->where('wdb_chart_id', $chart->id)->count(),
             'player_count' => $rows->count(),
             'crown_counts' => ['clear' => $rows->where('best_crown', 1)->count(), 'gold' => $rows->where('best_crown', 2)->count(), 'dondaful' => $rows->where('best_crown', 3)->count()],
-            'entries' => $entries($rows),
+            'entries' => $entries($rows, $bestPlays(false)),
             // 真打 plays rank on their own board (another scale).
-            'shinuchi_entries' => $entries($shinuchi),
+            'shinuchi_entries' => $entries($shinuchi, $bestPlays(true)),
         ];
     }
 

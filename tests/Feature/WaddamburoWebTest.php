@@ -50,7 +50,10 @@ it('shows Waddamburo songs, leaderboards and boards, counting only ranked charts
     $this->get("/waddamburo/songs/{$oni->songs()->value('wdb_songs.id')}")->assertSuccessful()->assertInertia(fn (Assert $page) => $page
         ->component('SongDetail')->where('song.title', 'Song')->has('difficulties', 2)
         ->where('difficulties.1.level', 4)->where('difficulties.1.entries.0.score', 900000)
-        ->where('difficulties.1.entries.0.crown', 3));
+        ->where('difficulties.1.entries.0.crown', 3)
+        // The best play's own counts (its 900000 had no Ok).
+        ->where('difficulties.1.entries.0.counts.good', 100)->where('difficulties.1.entries.0.counts.ok', 0)
+        ->where('difficulties.1.entries.0.counts.combo', 100));
 
     // Nothing is ranked yet: no standings, and the board keeps unranked plays for the owner only.
     $this->get('/waddamburo/rankings')->assertInertia(fn (Assert $page) => $page->has('entries', 0));

@@ -35,6 +35,15 @@
         score_rank: number;
         crown: number;
         precision: number | null;
+        /** Waddamburo: the best play's counts (rolls beside the chart's most, null when not known yet). */
+        counts?: {
+            good: number;
+            ok: number;
+            miss: number;
+            combo: number;
+            rolls: number;
+            roll_max: number | null;
+        } | null;
     };
 
     type Difficulty = {
@@ -447,10 +456,59 @@
                                                 </AvatarFallback>
                                             {/if}
                                         </Avatar>
-                                        <span
-                                            class="truncate text-sm font-medium hover:underline"
-                                        >
-                                            {entry.player_name}
+                                        <span class="min-w-0">
+                                            <span
+                                                class="block truncate text-sm font-medium hover:underline"
+                                            >
+                                                {entry.player_name}
+                                            </span>
+                                            {#if entry.counts}
+                                                <!-- Good / Ok / Bad in the game's colours (良 orange, 可 white, 不可 blue). -->
+                                                <span
+                                                    class="mt-0.5 flex flex-wrap gap-x-3 text-xs tabular-nums text-muted-foreground"
+                                                >
+                                                    <span
+                                                        >Good <b
+                                                            class="font-semibold text-orange-500"
+                                                            >{entry.counts
+                                                                .good}</b
+                                                        ></span
+                                                    >
+                                                    <span
+                                                        >Ok <b
+                                                            class="font-semibold text-foreground"
+                                                            >{entry.counts
+                                                                .ok}</b
+                                                        ></span
+                                                    >
+                                                    <span
+                                                        >Bad <b
+                                                            class="font-semibold text-sky-500"
+                                                            >{entry.counts
+                                                                .miss}</b
+                                                        ></span
+                                                    >
+                                                    <span
+                                                        >Combo <b
+                                                            class="font-semibold text-foreground/80"
+                                                            >{entry.counts
+                                                                .combo}</b
+                                                        ></span
+                                                    >
+                                                    <span
+                                                        >Rolls <b
+                                                            class="font-semibold text-foreground/80"
+                                                            >{entry.counts
+                                                                .rolls}{entry
+                                                                .counts
+                                                                .roll_max !=
+                                                            null
+                                                                ? ` / ${entry.counts.roll_max}`
+                                                                : ''}</b
+                                                        ></span
+                                                    >
+                                                </span>
+                                            {/if}
                                         </span>
                                     </Link>
                                     <div class="flex items-center gap-3">
