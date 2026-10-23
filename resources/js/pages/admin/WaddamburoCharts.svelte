@@ -32,6 +32,7 @@
         difficulty: string | null;
         sources: string[];
         has_notes: boolean;
+        stock: boolean;
         ranked: boolean;
         plays_count: number;
     };
@@ -44,6 +45,7 @@
         song_key: string;
         chart_count: number;
         ranked_count: number;
+        official_count: number;
         plays_count: number;
         sources: string[];
         charts: Chart[];
@@ -60,6 +62,7 @@
         q: string;
         source: string | null;
         ranked: 'all' | 'none' | 'some' | null;
+        official: 'all' | 'none' | 'some' | null;
         sort: string;
         direction: 'asc' | 'desc';
         page?: number;
@@ -77,12 +80,14 @@
     } = $props();
 
     const courses = ['Easy', 'Normal', 'Hard', 'Oni', 'Ura'];
+    // Fixed widths: the song column takes the rest (osu! difficulty names are long).
     const columns = [
-        { key: 'title', label: 'Song' },
-        { key: null, label: 'Sources' },
-        { key: null, label: 'Courses' },
-        { key: 'plays', label: 'Plays' },
-        { key: 'ranked', label: 'Ranked' },
+        { key: 'title', label: 'Song', width: '' },
+        { key: null, label: 'Sources', width: 'w-36' },
+        { key: null, label: 'Courses', width: 'w-[22%]' },
+        { key: 'plays', label: 'Plays', width: 'w-20' },
+        { key: 'official', label: 'Official', width: 'w-32' },
+        { key: 'ranked', label: 'Ranked', width: 'w-36' },
     ];
     const open = new SvelteSet<number>();
 
@@ -130,9 +135,12 @@
         <h1 class="text-xl font-semibold">Waddamburo charts</h1>
         <p class="text-sm text-muted-foreground">
             Every Waddamburo song and its charts (one per hash; stock and
-            Nijiiro share most). Leaderboards show all charts; only ranked ones
-            count towards the Waddamburo rankings. Ranking recomputes the
-            players' standings.
+            Nijiiro share most). Only ranked charts are public and count towards
+            the Waddamburo rankings; custom charts are shown only to players who
+            played them, until ranked. Official charts (from the chart import,
+            or marked here) are labelled Stock or Nijiiro and ranked; ranked
+            custom charts show as Custom. Ranking recomputes the players'
+            standings.
             {#if unlinkedCharts > 0}{unlinkedCharts} played charts have no song yet
                 (their notes were never uploaded).{/if}
         </p>
@@ -178,16 +186,30 @@
             <option value="some">Partly ranked</option>
             <option value="none">Unranked</option>
         </select>
+        <select
+            class="h-9 rounded-md border bg-background px-3 text-sm"
+            value={filters.official ?? ''}
+            onchange={(event) =>
+                visit({
+                    official: (event.currentTarget.value ||
+                        null) as Filters['official'],
+                })}
+        >
+            <option value="">Official or custom</option>
+            <option value="all">All official</option>
+            <option value="some">Partly official</option>
+            <option value="none">All custom</option>
+        </select>
         <Button type="submit" variant="secondary">Search</Button>
     </form>
 
     <div class="overflow-x-auto rounded-md border">
-        <table class="w-full text-sm">
+        <table class="w-full min-w-[56rem] table-fixed text-sm">
             <thead class="bg-muted/50 text-left">
                 <tr>
                     <th class="w-8"></th>
                     {#each columns as column (column.label)}
-                        <th class="px-3 py-2 font-medium">
+                        <th class="px-3 py-2 font-medium {column.width}">
                             {#if column.key}
                                 <button
                                     type="button"
@@ -224,9 +246,13 @@
                                     : ''}"
                             />
                         </td>
-                        <td class="max-w-0 px-3 py-2">
+                        <td class="px-3 py-2">
                             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-                            <span onclick={(event) => event.stopPropagation()}>
+                            <div
+                                class="truncate"
+                                title={song.title ?? undefined}
+                                onclick={(event) => event.stopPropagation()}
+                            >
                                 <Link
                                     href={songRoutes.show({
                                         ...taikoRouteParam(),
@@ -235,7 +261,7 @@
                                     class="font-medium hover:underline"
                                     >{song.title ?? 'Untitled'}</Link
                                 >
-                            </span>
+                            </div>
                             <div class="truncate text-xs text-muted-foreground">
                                 {[
                                     song.title_en !== song.title
@@ -248,18 +274,63 @@
                                     .join(' · ')}
                             </div>
                         </td>
-                        <td class="px-3 py-2 whitespace-nowrap">
-                            {#each song.sources as source (source)}<Badge
-                                    variant="secondary"
-                                    class="mr-1">{source}</Badge
-                                >{/each}
+                        <td class="px-3 py-2">
+                            <div class="flex flex-wrap gap-1">
+                                {#each song.sources as source (source)}<Badge
+                                        variant="secondary">{source}</Badge
+                                    >{/each}
+                            </div>
                         </td>
-                        <td class="px-3 py-2 text-muted-foreground">
+                        <td
+                            class="truncate px-3 py-2 text-muted-foreground"
+                            title={song.charts.map(courseLabel).join(', ')}
+                        >
                             {song.charts.map(courseLabel).join(', ')}
                         </td>
                         <td class="px-3 py-2 text-muted-foreground tabular-nums"
                             >{song.plays_count}</td
                         >
+                        <td
+                            class="px-3 py-2"
+                            onclick={(event) => event.stopPropagation()}
+                        >
+                            <Form
+                                {...waddamburoSongRoutes.update.form({
+                                    ...taikoRouteParam(),
+                                    song: song.id,
+                                })}
+                                options={{
+                                    preserveScroll: true,
+                                    preserveState: true,
+                                }}
+                            >
+                                {#snippet children({ processing })}
+                                    {@const all =
+                                        song.official_count ===
+                                        song.chart_count}
+                                    <input
+                                        type="hidden"
+                                        name="official"
+                                        value={all ? '0' : '1'}
+                                    />
+                                    <Button
+                                        type="submit"
+                                        size="sm"
+                                        variant={all ? 'default' : 'outline'}
+                                        disabled={processing}
+                                        title={all
+                                            ? 'Mark every chart custom (their ranking stays)'
+                                            : 'Mark every chart official (and ranked)'}
+                                    >
+                                        {all
+                                            ? 'Official'
+                                            : song.official_count > 0
+                                              ? `${song.official_count}/${song.chart_count} official`
+                                              : 'Custom'}
+                                    </Button>
+                                {/snippet}
+                            </Form>
+                        </td>
                         <td
                             class="px-3 py-2"
                             onclick={(event) => event.stopPropagation()}
@@ -305,15 +376,24 @@
                         {#each song.charts as chart (chart.id)}
                             <tr class="border-t bg-muted/20">
                                 <td></td>
-                                <td class="max-w-0 py-1.5 pr-3 pl-8">
-                                    <span class="font-medium"
-                                        >{courseLabel(chart)}</span
-                                    >{chart.level ? ` ★${chart.level}` : ''}
-                                    {#if !chart.has_notes}<Badge
-                                            variant="destructive"
-                                            class="ml-1 h-5 px-1.5 text-[10px]"
-                                            >no notes</Badge
-                                        >{/if}
+                                <td class="py-1.5 pr-3 pl-8">
+                                    <div class="flex items-center gap-1">
+                                        <span
+                                            class="truncate font-medium"
+                                            title={courseLabel(chart)}
+                                            >{courseLabel(chart)}</span
+                                        >
+                                        <span class="shrink-0"
+                                            >{chart.level
+                                                ? `★${chart.level}`
+                                                : ''}</span
+                                        >
+                                        {#if !chart.has_notes}<Badge
+                                                variant="destructive"
+                                                class="h-5 shrink-0 px-1.5 text-[10px]"
+                                                >no notes</Badge
+                                            >{/if}
+                                    </div>
                                     <div
                                         class="truncate font-mono text-xs text-muted-foreground"
                                         title={chart.sha256}
@@ -321,17 +401,54 @@
                                         {chart.sha256}
                                     </div>
                                 </td>
-                                <td class="px-3 py-1.5 whitespace-nowrap">
-                                    {#each chart.sources as source (source)}<Badge
-                                            variant="outline"
-                                            class="mr-1">{source}</Badge
-                                        >{/each}
+                                <td class="px-3 py-1.5">
+                                    <div class="flex flex-wrap gap-1">
+                                        {#each chart.sources as source (source)}<Badge
+                                                variant="outline"
+                                                >{source}</Badge
+                                            >{/each}
+                                    </div>
                                 </td>
                                 <td></td>
                                 <td
                                     class="px-3 py-1.5 text-muted-foreground tabular-nums"
                                     >{chart.plays_count}</td
                                 >
+                                <td class="px-3 py-1.5">
+                                    <Form
+                                        {...waddamburoChartRoutes.update.form({
+                                            ...taikoRouteParam(),
+                                            chart: chart.id,
+                                        })}
+                                        options={{
+                                            preserveScroll: true,
+                                            preserveState: true,
+                                        }}
+                                    >
+                                        {#snippet children({ processing })}
+                                            <input
+                                                type="hidden"
+                                                name="official"
+                                                value={chart.stock ? '0' : '1'}
+                                            />
+                                            <Button
+                                                type="submit"
+                                                size="sm"
+                                                variant={chart.stock
+                                                    ? 'default'
+                                                    : 'outline'}
+                                                disabled={processing}
+                                                title={chart.stock
+                                                    ? 'Mark custom (its ranking stays)'
+                                                    : 'Mark official (and ranked)'}
+                                            >
+                                                {chart.stock
+                                                    ? 'Official'
+                                                    : 'Custom'}
+                                            </Button>
+                                        {/snippet}
+                                    </Form>
+                                </td>
                                 <td class="px-3 py-1.5">
                                     <Form
                                         {...waddamburoChartRoutes.update.form({

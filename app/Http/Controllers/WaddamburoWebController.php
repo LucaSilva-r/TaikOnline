@@ -22,14 +22,19 @@ use Inertia\Response;
 /**
  * The Waddamburo scope of the site: the same pages as a game version (rankings, songs, song page,
  * board), fed from Waddamburo's own plays. A song is a wdb_songs row (its source's song id, see
- * WaddamburoSongs) with its charts, one per course (osu!: one per difficulty). Leaderboards show every chart; only
- * ranked charts count towards the rankings. title is the original (Japanese) title, title_en the
- * English one when the client knows it.
+ * WaddamburoSongs) with its charts, one per course (osu!: one per difficulty). Only ranked charts count towards
+ * the rankings, and the pages show a viewer only the charts WdbChart::visibleTo() lets them see (so a
+ * song of custom charts is gone for whoever never played it). title is the original (Japanese) title,
+ * title_en the English one when the client knows it.
  */
 class WaddamburoWebController extends Controller
 {
-    /** Chart sources as the client names them => label. */
-    private const SOURCES = ['Stock' => 'Stock', 'Nijiiro' => 'Nijiiro', 'OsuLazer' => 'osu!lazer', 'Tja' => 'TJA'];
+    /** Chart sources as the pages show them (see shownSource) => label. */
+    private const SOURCES = ['Stock' => 'Stock', 'Nijiiro' => 'Nijiiro', 'OsuLazer' => 'osu!lazer', 'Custom' => 'Custom'];
+
+    /** shownSource() in SQL, over a wdb_chart_song link joined to its chart. */
+    private const SHOWN_SOURCE_SQL = "CASE WHEN wdb_chart_song.source = 'OsuLazer' THEN 'OsuLazer' "
+        ."WHEN wdb_chart_song.source IN ('Stock', 'Nijiiro') AND wdb_charts.is_stock THEN wdb_chart_song.source ELSE 'Custom' END";
 
     public function rankings(WaddamburoRankAggregateService $aggregates): Response
     {
@@ -61,28 +66,32 @@ class WaddamburoWebController extends Controller
         $search = trim((string) $request->query('q', ''));
         $source = $request->query('source');
         $source = is_string($source) && array_key_exists($source, self::SOURCES) ? $source : null;
+        $visible = WdbChart::visibleTo($request->user());
         // A chart linked once per source still counts its plays once.
         $plays = fn (string $aggregate): QueryBuilder => DB::table('wdb_plays')
             ->whereIn('wdb_plays.wdb_chart_id', DB::table('wdb_chart_song')->select('wdb_chart_id')
                 ->whereColumn('wdb_chart_song.wdb_song_id', 'wdb_songs.id'))
+            ->whereIn('wdb_plays.wdb_chart_id', $visible)
             ->selectRaw($aggregate);
         $songs = WdbSong::query()
-            // Ranked songs (the imported library) and anything played.
-            ->whereHas('charts', fn (Builder $chart) => $chart->where(fn (Builder $listed) => $listed
-                ->whereNotNull('ranked_at')->orWhereHas('plays')))
+            ->whereHas('charts', fn (Builder $chart) => $chart->whereIn('wdb_charts.id', $visible))
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
                 ->whereLike('title', "%{$search}%")->orWhereLike('title_en', "%{$search}%")
                 ->orWhereLike('subtitle', "%{$search}%")->orWhereLike('subtitle_en', "%{$search}%")))
             ->when($source !== null, fn (Builder $query) => $query->whereExists(fn (QueryBuilder $link) => $link
-                ->from('wdb_chart_song')->whereColumn('wdb_chart_song.wdb_song_id', 'wdb_songs.id')->where('source', $source)))
+                ->from('wdb_chart_song')->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_chart_song.wdb_chart_id')
+                ->whereColumn('wdb_chart_song.wdb_song_id', 'wdb_songs.id')->whereIn('wdb_charts.id', $visible)
+                ->whereRaw(self::SHOWN_SOURCE_SQL.' = ?', [$source])))
             ->select('*')
             ->selectSub($plays('COUNT(*)'), 'play_count')
             ->selectSub($plays('COUNT(DISTINCT wdb_plays.baid)'), 'player_count')
             ->orderByDesc('created_at')->orderBy('id')
             ->paginate(40)
             ->withQueryString();
-        $sources = DB::table('wdb_chart_song')->whereIn('wdb_song_id', $songs->pluck('id'))->distinct()
-            ->get(['wdb_song_id', 'source'])->groupBy('wdb_song_id')->map->pluck('source');
+        $sources = DB::table('wdb_chart_song')->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_chart_song.wdb_chart_id')
+            ->whereIn('wdb_song_id', $songs->pluck('id'))->whereIn('wdb_charts.id', $visible)
+            ->selectRaw('DISTINCT wdb_chart_song.wdb_song_id, '.self::SHOWN_SOURCE_SQL.' AS source')
+            ->get()->groupBy('wdb_song_id')->map->pluck('source');
         $songs->through(fn (WdbSong $song): array => [
             'id' => $song->id,
             'song_no' => $song->id,
@@ -106,13 +115,15 @@ class WaddamburoWebController extends Controller
         ]);
     }
 
-    public function song(string $id): Response
+    public function song(Request $request, string $id): Response
     {
         $song = WdbSong::query()->findOrFail($id);
+        $visible = $song->charts()->whereIn('wdb_charts.id', WdbChart::visibleTo($request->user()))->get();
+        abort_if($visible->isEmpty(), 404);
         // One entry per chart, with every source that ships it in this song.
-        $charts = $song->charts->groupBy('id')->map(function (Collection $links): WdbChart {
+        $charts = $visible->groupBy('id')->map(function (Collection $links): WdbChart {
             $chart = $links->first();
-            $chart->setAttribute('sources', self::ordered($links->pluck('pivot.source')->all()));
+            $chart->setAttribute('sources', self::ordered($links->map(fn (WdbChart $link): string => self::shownSource($link->pivot->source, $link->is_stock))->all()));
 
             return $chart;
         })->values();
@@ -155,7 +166,7 @@ class WaddamburoWebController extends Controller
     {
         $user->load('player');
         $player = $user->player;
-        $canSeeUnranked = $request->user()?->id === $user->id || $request->user()?->isAdmin() === true;
+        $visible = WdbChart::visibleTo($request->user());
         $standings = $aggregates->standings();
         $summary = $player instanceof Player ? $standings->firstWhere('user_id', $user->id) : null;
 
@@ -163,7 +174,7 @@ class WaddamburoWebController extends Controller
             'profile' => [
                 'id' => $user->id, 'name' => $user->name, 'avatar' => $user->avatar,
                 'mydon_name' => $player?->mydon_name, 'game_version' => $this->scope(),
-                'last_played_at' => $player instanceof Player ? WdbPlay::query()->where('baid', $player->baid)->max('played_at') : null,
+                'last_played_at' => $player instanceof Player ? WdbPlay::query()->where('baid', $player->baid)->whereIn('wdb_chart_id', $visible)->max('played_at') : null,
                 'total_credit_count' => 0,
                 'don_medals' => ['earned' => 0, 'spent' => 0],
                 'katsu_medals' => ['earned' => 0, 'spent' => 0],
@@ -178,8 +189,8 @@ class WaddamburoWebController extends Controller
                 'crown_counts' => $this->crowns($summary),
             ] : $this->emptySummary(),
             'rankHistory' => PlayerRankSnapshot::query()->where('user_id', $user->id)->where('game_version', WaddamburoRankAggregateService::SCOPE)->latest('snapshot_date')->limit(90)->get()->sortBy('snapshot_date')->map(fn ($row): array => ['date' => $row->snapshot_date->toDateString(), 'rank' => (int) $row->rank, 'total_score' => (int) $row->total_score])->values()->all(),
-            'recentPlays' => $player instanceof Player ? $this->playerRecentPlays($player, $canSeeUnranked) : [],
-            'bestPerformances' => $player instanceof Player ? $this->playerBests($player, $canSeeUnranked) : [],
+            'recentPlays' => $player instanceof Player ? $this->playerRecentPlays($player, $visible) : [],
+            'bestPerformances' => $player instanceof Player ? $this->playerBests($player, $visible) : [],
             'blueBattleData' => null, 'greenGhostData' => null, 'tokkunData' => null, 'daniData' => null,
         ]);
     }
@@ -247,10 +258,11 @@ class WaddamburoWebController extends Controller
             ])->values()->all();
     }
 
-    private function playerRecentPlays(Player $player, bool $includeUnranked): array
+    /** @param  QueryBuilder  $visible  the chart ids the viewer may see (WdbChart::visibleTo) */
+    private function playerRecentPlays(Player $player, QueryBuilder $visible): array
     {
         return WdbPlay::query()->where('baid', $player->baid)->with('chart')
-            ->when(! $includeUnranked, fn (Builder $query) => $query->whereHas('chart', fn (Builder $chart) => $chart->whereNotNull('ranked_at')))
+            ->whereIn('wdb_chart_id', $visible)
             ->latest('played_at')->limit(10)->get()
             ->map(fn (WdbPlay $play): array => [
                 'song_title' => $play->chart->title ?? 'Unknown chart',
@@ -268,11 +280,12 @@ class WaddamburoWebController extends Controller
             ])->all();
     }
 
-    private function playerBests(Player $player, bool $includeUnranked): array
+    /** @param  QueryBuilder  $visible  the chart ids the viewer may see (WdbChart::visibleTo) */
+    private function playerBests(Player $player, QueryBuilder $visible): array
     {
         $rows = WaddamburoRankAggregateService::bests(fn (QueryBuilder $query) => $query
             ->where('wdb_plays.baid', $player->baid)
-            ->when(! $includeUnranked, fn (QueryBuilder $ranked) => $ranked->whereNotNull('wdb_charts.ranked_at')))
+            ->whereIn('wdb_plays.wdb_chart_id', $visible))
             ->orderByDesc('best_score')->limit(10)->get();
         $charts = WdbChart::query()->whereIn('id', $rows->pluck('wdb_chart_id'))->get()->keyBy('id');
 
@@ -307,6 +320,19 @@ class WaddamburoWebController extends Controller
             $play->cleared && $play->miss === 0 => 2,
             $play->cleared => 1,
             default => 0,
+        };
+    }
+
+    /**
+     * A chart link's source as the pages show it: Stock and Nijiiro for official charts only, osu! for
+     * osu! beatmaps (their own ranked maps), and Custom for the rest (TJA, charts added to a game install).
+     */
+    private static function shownSource(string $source, bool $isStock): string
+    {
+        return match (true) {
+            $source === 'OsuLazer' => 'OsuLazer',
+            in_array($source, ['Stock', 'Nijiiro'], true) && $isStock => $source,
+            default => 'Custom',
         };
     }
 

@@ -1,0 +1,1403 @@
+# Song ids the Taiko no Tatsujin Nijiiro cabinet had at some point (removed songs and songs
+# added after the exported version included), for app:import-waddamburo-charts --nijiiro-songs.
+# Charts of these songs are official (ranked, labelled Nijiiro) unless an unmodified export
+# ships the song, in which case only its exported charts are.
+#
+# Source: the 曲ID column of https://wikiwiki.jp/taiko-fumen/収録曲/song_no and its subpages,
+# taking every song still in the game and every サヨナラ曲 removed on or after 2020-03-24
+# (Nijiiro's launch); songs removed earlier never were on Nijiiro. Dan-dojo-only variants of
+# official songs count too. To update: add the new ids (one per line, title after a #), then
+# re-run the import with this file; known songs are left as they are.
+#
+# id       # song_no and title on the wiki as of 2026-10-23
+10jiku   # 1 てんぢく2000
+10tai    # 2 天体観測
+espera   # 3 願いはエスペラント
+dchero   # 4 ダンシング・ヒーロー(Eat You Up) (removed 18/3/15～21/2/21)
+29shok   # 5 イオシス秋の肉食祭2014
+amhero   # 6 Hero (removed 18/3/15～23/2/20)
+1pshop   # 7 Hope (removed 18/3/15～24/2/20)
+3d2op    # 8 超時空アドベンチャー
+3dsop    # 9 キミと響くハーモニー
+3pcjaz   # 10 3piece-JazzParty!
+3raclt   # 11 みらくる☆トラベル
+4396bl   # 12 夜櫻ブレヰダアズ
+6ne9om   # 13 ドキドキ胸きゅん おまつりタイム
+7iro     # 14 七彩ボタン
+ryuhim   # 15 竜と黒炎の姫君
+83noma   # 16 闇の魔法少女
+87oto    # 17 花オト裏拍子
+himyak   # 18 ひまわりの約束 (removed 15/12/10～24/11/22)
+ac2nad   # 19 Night And Day
+acex2    # 20 IN THE ZONE
+ta5ta5   # 21 Turquoise Tachometer
+aisowr   # 22 愛想笑い
+poptep   # 24 POP TEAM EPIC (removed 18/3/15～21/2/21)
+akbfly   # 25 フライングゲット
+akbftc   # 26 恋するフォーチュンクッキー
+akbhvy   # 27 ヘビーローテーション
+akbkac   # 28 Everyday、カチューシャ
+akukan   # 31 亜空間遊泳ac12.5
+alexan   # 32 アレキサンダーのテーマ
+uheart   # 33 UNDEAD HEART(怒りのWarriors)
+amanda   # 34 Amanda
+imeglo   # 35 GLORIOUS RO@D
+anayuk   # 36 Let It Go～ありのままで～
+androm   # 37 渚のアンドロメダ
+angel2   # 38 風のファンタジー
+angel3   # 39 パステル ドリーム
+angelb   # 40 My Soul,Your Beats!
+animal   # 41 グレート！アニマルカイザー!!
+anp      # 42 アンパンマンのマーチ
+warya    # 43 さよならワーリャ
+umtube   # 44 YouTubeテーマソング
+aonose   # 45 蒼の旋律
+aquari   # 46 創聖のアクエリオン (removed ～21/10/20)
+zense    # 47 前前前世
+aslt     # 48 アサルト BGM1
+aya10    # 49 サンバ アレグリーア
+bburst   # 51 くらえ！ブットバースト!!
+bforc    # 52 バーニングフォースメドレー
+bkmntu   # 53 化物月夜
+bko3     # 54 うなぎのたましいロック
+blazer   # 55 Pastel Sealane
+blrose   # 56 Blue Rose Ruin
+bnxmas   # 58 クリスマスソング (removed 17/3/15～23/1/23)
+bsdanc   # 59 僕らの世界にダンスを
+btu5ar   # 60 夜桜謝肉祭
+bugi     # 61 オフ♨ロック
+bunkas   # 62 ゆれるプリーツ実行委員
+buru2    # 63 ブルちゃんのおや2
+butou    # 64 画竜点睛
+butou3   # 65 月下美人
+butou5   # 66 百花繚乱
+butou8   # 67 百鬼夜行
+calc     # 68 Calculator
+calib    # 69 ソウルキャリバーII
+caramt   # 70 カラメルタイム☆
+carnat   # 71 和蘭撫子
+carniv   # 72 The Carnivorous Carnival
+castle   # 73 Black Rose Apostle
+catdog   # 74 白猫きゃらめる夢幻のわたあめ
+pkalol   # 75 アローラ!! (removed 17/3/15～22/1/24)
+chinas   # 76 ソードバトラーズ
+cls10    # 79 天国と地獄 序曲
+cls12r   # 80 練習曲Op.10-4
+cls7     # 81 交響曲第7番から
+clsaip   # 82 パリのアメリカ人
+clsbut   # 83 サーフサイド・サティ
+clsca    # 84 カルメン 組曲一番終曲
+clscif   # 85 へ調の協奏曲 第3楽章
+clscpr   # 86 クープランの墓
+clsdok   # 87 道化師の朝の歌
+clsgen   # 88 幻想即興曲
+clskum   # 89 熊蜂の飛行
+clsmnk   # 90 カレ・カノ・カノン
+clsmrs   # 91 火星
+clspvn   # 92 亡き王女のためのパヴァーヌ
+clsrou   # 93 「ルスランとリュドミラ」序曲
+clssum   # 94 弩蚊怒夏
+clsswn   # 95 白鳥の湖
+clstic   # 96 千鼓千鼓
+clstoc   # 97 トッカータとフーガとロック
+clsvre   # 98 おおブレネリ
+clsw     # 99 ウィリアム・テル序曲
+cna4     # 100 迅風丸
+coro3    # 101 ココロ転がせっ！
+crtsun   # 103 Sunset Runaway
+daiku    # 105 第九交響曲
+daybyd   # 106 Day by Day!
+ddkmon   # 107 駄々っ子モンスター
+ddrumt   # 108 電子ドラムの達人
+deathm   # 109 Many wow bang!
+debstp   # 110 DEBSTEP!
+den      # 111 伝説の祭り
+densfz   # 112 電車で電車でOPA!OPA!OPA! - GMT mashup -
+densgo   # 113 電車で電車でGO!GO!GO!GC! - GMT remix -
+densrr   # 114 リッジでリッジでGO!GO!GO! - GMT mashup -
+dhero2   # 115 ドラゴンボールヒーローズ ギャラクシーミッションシリーズ テーマソング
+dhero3   # 116 ドラゴンボールヒーローズ 邪悪龍ミッションシリーズ テーマソング
+dimens   # 117 DIMENSIONS
+3ti3ti   # 118 さちさちにしてあげる♪
+doncam   # 120 ドンカマ2000
+doomn    # 121 Doom Noiz
+dora4    # 122 夢をかなえてドラえもん
+batan9   # 123 全力バタンキュー (removed 17/3/15～25/1/22)
+dreamt   # 124 Dream Tide
+drsp     # 125 ドラゴンスピリットメドレー
+druag2   # 126 シンフォニック ドルアーガ
+druaga   # 127 ドルアーガの塔メドレー
+dsadvn   # 128 D's Adventure Note
+ekiben   # 131 EkiBEN2000
+eoria    # 132 地平線のエオリア
+erfanc   # 133 いーあるふぁんくらぶ
+etbond   # 134 Eternal bond
+eva      # 135 残酷な天使のテーゼ
+evievi   # 136 Evidence of evil
+fa3res   # 137 ファミレスウォーズ
+fauna    # 138 Scars of FAUNA
+fgod     # 139 dance storm
+rlnpls   # 140 +♂(プラス男子)
+flyawy   # 141 Fly away
+fmonst   # 142 ファッションモンスター
+ebika2   # 144 エビカニクス
+splsio   # 146 シオカラ節
+fujin    # 148 FUJIN Rumble
+funk     # 149 サタデー太鼓フィーバー
+furyu    # 150 冬竜 ～Toryu～
+fzone    # 151 ファンタジーゾーン OPA-OPA! - GMT remix -
+g14ki    # 152 G意識過剰
+imcagd   # 153 エンジェル ドリーム
+garakt   # 154 Garakuta Doll Play
+gashad   # 155 がしゃどくろ
+genpe    # 156 KAGEKIYO
+gerapo   # 157 ゲラゲラポーのうた
+godea2   # 159 Wings of Tomorrow(Tatsujin Mix)
+godeat   # 160 No Way Back
+gomkis   # 161 ごめんなさいのKissing You
+9renja   # 162 LUCKYSTAR (removed 17/4/26～20/3/24)
+goth     # 163 DON'T CUT
+gotmor   # 164 Got more raves?
+gumi22   # 166 にんじんにん
+gumiam   # 167 天ノ弱
+gumico   # 168 珈琲の味と
+gumidk   # 169 ドキドキ恋の予感！？
+gumijk   # 171 重金属フューギティブ
+butou9   # 173 桜花爛漫
+haruut   # 177 ハルウタ
+haryu    # 178 春竜 ～Haryu～
+hatara   # 179 はたラク2000
+hayabu   # 180 隼
+orochi   # 181 8OROCHI
+helhal   # 182 ハロー！ ハロウィン
+higgs    # 183 少女の神の粒子
+hiyam2   # 184 月影SASURAI
+hurtlb   # 186 Hurtling Boys
+ia6cho   # 187 六兆年と一夜物語
+iagera   # 190 ゲラゲラと笑うな
+iamsyn   # 191 ボクハシンセ
+idol2    # 193 スクロール・ミカ
+ignis    # 194 Ignis Danse
+ikenai   # 195 イケナイ太陽 (removed ～20/11/8)
+ikshim   # 196 夢色コースター
+imas2t   # 197 The world is all one !!
+imasop   # 198 READY!!
+imconc   # 199 お願い！シンデレラ
+imcstr   # 200 Star!!
+imshhb   # 202 Honey Heartbeat ～10 Stars Mix～
+imsjbr   # 203 自分REST@RT
+imsmtp   # 204 M@STERPIECE
+imsomn   # 205 ONLY MY NOTE
+indeni   # 207 オールナイトdeインデナイ
+inu      # 208 いぬのおまわりさん
+inuhoe   # 209 犬吠える
+invinv   # 210 インベーダーインベーダー
+irpunk   # 211 大空と太鼓の踊り
+j99      # 212 ねがいごと☆ぱずる
+jaznoc   # 213 夜想曲Op.9-2
+ji9cho   # 214 時空庁時空1課
+ji9sou   # 215 時空庁捜査2課
+gntkag   # 216 カゲロウ (removed 17/4/26～21/3/24)
+joyful   # 217 じょいふる (removed ～21/10/20)
+jubflw   # 218 FLOWER
+kaiki    # 219 トータル・エクリプス 2035
+karamr   # 220 カラ鞠の花
+karyu    # 221 夏竜 ～Karyu～
+kirby2   # 222 メタナイトの逆襲メドレー
+kecha    # 223 ケチャドン2000
+zeldsw   # 224 ゼルダの伝説　ブレス オブ ザ ワイルド　メドレー
+kim4ra   # 225 君の知らない物語 (removed ～22/7/16)
+kirame   # 226 キラメキラリ
+moana    # 227 どこまでも～How Far I’ll Go～ (removed 17/4/26～23/3/22)
+kiseki   # 228 キセキ (removed ～23/10/18)
+klwind   # 230 The Windmill Song
+dbcgen   # 231 限界突破×サバイバー (removed 19/4/26～26/3/23)
+koiama   # 232 恋音と雨空 (removed ～22/6/21)
+konant   # 233 名探偵コナン メイン・テーマ
+kuma     # 235 もりのくまさん
+kumams   # 236 くまもとサプライズ！
+kumatm   # 237 おしえて くまとも
+kuon     # 238 久遠の夜
+kuzure   # 239 鳳凰天舞無限崩れ
+kyunva   # 241 きゅんっ！ヴァンパイアガール
+laputa   # 242 君をのせて
+last2k   # 243 万戈イム－一ノ十
+linda    # 245 リンダリンダ
+4shaas   # 246 明日も
+llbkrh   # 247 僕らは今のなかで
+lov193   # 248 LOVE戦!!
+roadmv   # 249 ロードムービー (removed 17/5/31～20/4/22)
+lovtom   # 250 ラブソングはとまらないよ
+lovwhi   # 251 愛×愛ホイッスル(カレーメシ公式曲)
+lsbspd   # 252 きたさいたま200
+lukfev   # 253 ルカルカ★ナイトフィーバー
+i7hvn    # 254 Heavenly Visitor (removed 18/4/25～23/3/22)
+kekka2   # 255 シュガーソングとビターステップ
+pkmmzs   # 256 めざせポケモンマスター -20th Anniversary-
+ma2rid   # 257 MATSURI D／A
+dmjojo   # 258 未来はジョー！ジョー！ (removed 17/7/5～21/3/24)
+magdrm   # 259 The Magician's Dream
+mahojn   # 260 魔方陣 ‐サモン・デルタ‐
+mapp8b   # 261 ピコピコ マッピー
+mario2   # 262 スーパーマリオブラザーズ
+mclinn   # 263 黄ダルマ2000
+mdeth    # 264 メカデス。
+medl2k   # 265 〆ドレー2000
+mega10   # 266 ドドンガド～ン
+staytn   # 267 STAY TUNE
+memesi   # 268 女々しくて
+metalh   # 269 メタルホーク BGM1
+metro    # 270 めたるぽりす
+mggext   # 271 Extreme MGG★★★
+mggrev   # 272 ミュージック・リボルバー
+mgwrt    # 273 季曲
+mgwrt2   # 274 蓄勢
+mgwrt3   # 275 蛻変
+mgwrt4   # 276 春遊
+mgwrt5   # 277 綻放
+mgwrt7   # 278 花漾
+mhcafe   # 279 魔法の喫茶店
+mheart   # 280 マーブルハート
+miki     # 281 GO MY WAY!!
+i7daut   # 282 NO DOUBT (removed 18/5/2～23/3/22)
+mikuer   # 283 初音ミクの消失‐劇場版‐
+mikukg   # 284 カゲロウデイズ
+mikuse   # 285 千本桜
+tuku43   # 286 月読命
+mintjm   # 287 Growing Up
+mintte   # 288 mint tears
+w2myat   # 289 やってみよう (removed 17/7/5～20/6/23)
+w2mtom   # 290 ともに (removed 17/7/5～23/6/22)
+monhn4   # 291 モンスターハンター4 メドレー
+mrprof   # 293 ヘイ，ミスタープロフェッサー
+mscl1    # 294 PaPaPa Love ～マッスル喜びのテーマ～
+mscl3    # 295 負け犬返上 ～マッスル努力のテーマ～
+mscl5    # 296 筋肉のような僕ら ～マッスル愛のテーマ～
+msspln   # 297 M.S.S.Planet
+mugens   # 298 夢幻の蒼空
+mujihi   # 299 無慈悲な王
+mulber   # 300 Mulberry
+mymine   # 301 My Mine
+nanori   # 302 名乗り（天上）
+natsu    # 303 夏祭り
+necolo   # 304 NECOLOGY
+nee      # 305 ねぇ教えて
+niku2    # 306 ザストゥールの魔導書
+ninjas   # 307 忍者は最高
+ninjbb   # 308 にんじゃりばんばん
+nmsurv   # 309 ナイトメア・サバイバー
+noshou   # 310 脳漿炸裂ガール
+numu14   # 311 アルムジカac14.0V
+nycyok   # 312 よく遊びよく学べ
+obakes   # 313 おばけのお仕事
+odoru    # 314 おどるポンポコリン
+ogm10t   # 315 3Q-4U-AC00
+oka47    # 316 クルクルクロックル
+kalice   # 317 鏡の国のアリス
+opng2    # 318 虹色・夢色・太鼓色
+orion    # 319 オリオンをなぞる
+lupatr   # 320 ルパンレンジャーVSパトレンジャー (removed 18/4/18～21/3/24)
+oubu     # 321 ナックルヘッズ
+oyasik   # 322 ミーナのおやしき
+phoeni   # 323 Phoenix
+phride   # 324 Phantom Rider
+krinne   # 325 SHINY (removed 17/8/8～22/7/16)
+pr9hug   # 327 We can!! HUGっと！プリキュア (removed 18/4/18～20/3/24)
+glyzmb   # 331 シン・ゾンビ
+ponpon   # 332 PON PON PON
+ponyo    # 333 崖の上のポニョ
+postm    # 334 エレクトリック・ポストマン
+pprose   # 335 Purple Rose Fusion
+ygnarr   # 336 Infinite Rebellion
+prprs    # 337 ぷるぷるしんぷる
+psplsb   # 338 きたさいたま2000
+mario4   # 339 Jump Up, Super Star! Short Version
+puzdr4   # 340 決戦！！
+puzdra   # 341 Walking Through The Towers
+quant    # 342 想いを手に願いを込めて
+r4op     # 343 URBAN FRAGMENTS
+rainmk   # 344 RAINMAKER
+ramen    # 345 ラーメン de Yo‐Men!!
+rdrose   # 346 Red Rose Evangel
+revive   # 347 リバイバー
+rgod     # 348 らいとにんぐ ぱっしょん
+rinren   # 349 わんにゃーワールド
+dem31k   # 350 Saika
+rlnedy   # 351 EDY ‐エレクトリカルダンシングヨガ‐
+robots   # 352 ロボットロケンロー☆
+rocknh   # 353 ロックン・ハート！
+rot      # 354 さいたま2000
+rot3     # 355 またさいたま2000
+rotspd   # 356 はやさいたま2000
+rr1      # 357 Ridge Racer
+rr1fz    # 358 オパ！オパ！RACER - GMT mashup -
+rr1wlz   # 359 RIDGE RACER STEPS - GMT remix -
+rr3dan   # 360 Angel Halo
+rr3dve   # 361 Venomous
+rr42     # 362 BLUE TOPAZ
+rrs2kk   # 363 Kamikaze Remix
+rrself   # 364 RAGE v.self
+ryogen   # 365 燎原ノ舞
+ryowh    # 366 きみのあかり
+ryukis   # 367 風の国の龍と騎士
+sanpo    # 368 さんぽ
+santa    # 369 ジングルベル第765番
+senpac   # 371 旋風ノ舞【天】
+senpcs   # 372 旋風ノ舞【地】
+shingk   # 374 紅蓮の弓矢
+shinyk   # 375 Shiny Kung-fu Revival
+shohos   # 377 恋の処方箋
+shushu   # 378 ポニーテールとシュシュ
+sidrai   # 380 レイン
+siduso   # 381 嘘
+skodrg   # 383 Dragon Night
+skorpg   # 384 RPG
+skrnb    # 385 さくらんぼ
+slash    # 386 恋文2000
+smokyt   # 387 SMOKY THRILL
+so2ome   # 388 そつおめしき
+sora1x   # 389 SORA-Ⅰ アースライズ
+sora2x   # 390 SORA-Ⅱ グリーゼ581
+sora6x   # 391 SORA-Ⅵ 火ノ鳥
+soroba   # 392 十露盤2000
+souryu   # 393 双竜ノ乱
+spcsam   # 394 宇宙SAMURAI
+sqr2     # 395 junction
+sss      # 396 super star shooter
+stg0     # 397 STAGE 0.ac11
+stmic8   # 398 カナデア
+stru8b   # 399 ピコピコ ルイン
+struin   # 400 セイクリッド ルイン
+suha2k   # 401 スーハー2000
+sweep1   # 402 Rotter Tarmination
+sweep2   # 403 らんぶる乱舞
+taberu   # 404 タベルナ2000
+tank     # 405 やわらか戦車
+tdcafe   # 406 ツンデレCafeへようこそ☆
+tek3ds   # 407 Wasabi Body Blow
+tekwiu   # 408 Highschool love!
+tenyou   # 410 天妖ノ舞
+th1682   # 411 色は匂へど散りぬるを
+th7171   # 412 ナイト・オブ・ナイツ
+thbad    # 413 Bad Apple!! feat.nomico
+thchil   # 414 チルノのパーフェクトさんすう教室
+theme2   # 415 太鼓ラブ！
+therin   # 416 Help me, ERINNNNNN!!
+thgrip   # 417 Grip & Break down !! -達人Edit.-
+thgsat   # 418 幻想のサテライト
+thkero   # 419 ケロ⑨destiny
+thmura   # 420 月に叢雲華に風
+thncrd   # 421 ネクロファンタジア ～ Arr.Demetori
+thnegp   # 422 NeGa/PoSi*ラブ/コール
+thseek   # 423 Endless Seeker
+tksoda   # 424 東京ソーダ 8Bit Edit
+tktime   # 425 タイコタイム
+toabs    # 426 テイルズ オブ ジ アビス
+godray   # 427 God Ray
+tokkyo   # 428 東京特許キョ許可局局長!!
+toreve   # 429 光る闇
+totoro   # 430 となりのトトロ
+7fuku    # 431 激運！七福ハッピークルー
+ymyrp4   # 432 忘却のティルナノグ
+trance   # 433 エンジェル ドリーム
+troika   # 434 ロシア民謡メドレー
+tttank   # 435 戦え！ T3防衛隊 ～GDI mix～
+u3gino   # 436 うさぎのしっぽ
+ujopop   # 437 友情ぽっぷ
+ultgng   # 438 ウルトラマンギンガの歌
+usouso   # 440 うそうそ時
+kaidan   # 441 χ談
+vertex   # 442 VERTeX
+vrock    # 443 ユウガオノキミ
+w3at1x   # 444 テルミン狂想曲
+w3at22   # 445 オレサマパイレーツ
+wedh     # 446 ワールズエンド・ダンスホール
+whrose   # 447 White Rose Insanity
+32segw   # 448 三瀬川乱舞
+astero   # 449 Asteroid
+koi907   # 450 濃紅
+xan      # 451 Xa
+xday2k   # 452 X-DAY2000
+xjapan   # 453 紅
+yamata   # 454 ヤマタイ★ナイトパーティー
+yayoi    # 455 豊穣弥生
+inspio   # 456 INSPION
+ymck2    # 457 ダンバ・ダンバ・ディン・ダン
+ymyrp2   # 458 リスドンヴァルナの黄昏
+ymyrpg   # 459 ドン・エンガスの笛吹き
+yokait   # 460 ようかい体操第一
+yokud    # 461 よくでる2000
+yugao2   # 462 散りゆく蘭の綴る詩
+yugen    # 463 幽玄ノ乱
+bn875    # 464 高嶺の花子さん (removed 17/8/8～23/7/23)
+yw2mdl   # 465 妖怪ウォッチ2 元祖／本家／真打
+ywdddz   # 466 ダン・ダン ドゥビ・ズバー！
+ywhggp   # 467 初恋峠でゲラゲラポー
+ywmggp   # 468 祭り囃子でゲラゲラポー
+zaba     # 469 未来への鍵
+zerono   # 470 零の夜想曲
+zerora   # 471 零の狂詩曲
+zolbdl   # 472 BORDERLESS
+zolext   # 473 エキセントリックｗ
+vfshrr   # 474 シャルル
+shikou   # 477 紫煌ノ乱
+imsims   # 478 THE IDOLM@STER
+imm39    # 479 Thank You!
+imsmah   # 480 魔法をかけて！
+imsshn   # 481 shiny smile
+imc5in   # 482 GOIN'!!!
+imsmpr   # 483 待ち受けプリンス
+imsmjd   # 484 マジで…！？
+pkgtbb   # 485 ゲッタバンバン (removed ～20/3/24)
+lassen   # 487 ラッスンゴレライ
+shugkt   # 488 シューガク トラベラーズ
+ryusei   # 489 R.Y.U.S.E.I.
+wgbhfm   # 491 華振舞
+aiuta    # 492 愛唄
+ultx     # 493 ウルトラマンX
+thnlnd   # 495 郢曲／暁闇
+thnkyo   # 496 深緋の心臓 -SCARLET HEART-
+thnryo   # 497 ライコタイコディスコ
+thnnak   # 498 Ladystar Wandering
+nrdn2k   # 499 ノるどん2000
+vt1op    # 500 希望へのメロディー
+crosbl   # 501 クロス・ブルー
+invara   # 502 女帝 ～インバラトゥーラ～
+clscds   # 503 チャーリー ダッシュ！
+naraku   # 504 Abyss of hell
+72mono   # 505 ナツモノ☆
+chn96n   # 506 チェインクロニクル 通常バトルメドレー
+chn96b   # 507 チェインクロニクル 最終決戦メドレー
+pripar   # 509 ドリームパレード (removed ～20/7/23)
+bkline   # 510 ブレイクライン
+imcshn   # 511 Shine!!
+imedrv   # 512 DRIVE A LIVE
+akanos   # 513 朱の旋律
+shoto9   # 514 聖徳たいこの「日いずるまで飛鳥」
+dparad   # 515 DREAMERS' PARADISE
+llsore   # 516 それは僕たちの奇跡
+syyoak   # 517 夜明けまであと3秒
+chaost   # 518 !!!カオスタイム!!!
+siuryu   # 519 秋竜 ～Shiuryu～
+xjapa2   # 520 Silent Jealousy
+sysync   # 523 Synchronicity
+syclsn   # 524 New World
+10binz   # 525 てんびん座急行 夜を行く
+hvride   # 526 Heaven's Rider
+mnpure   # 527 マリオネットピュア
+sukatb   # 528 スカッとばあちゃんの歌 (removed ～20/6/23)
+sukatj   # 529 スカッとじゃんけん
+imymok   # 530 I my moko
+ywjdrm   # 531 人生ドラマチック (removed ～20/7/23)
+llang    # 534 Angelic Angel
+ultged   # 535 GEEDの証
+lost1g   # 536 ロストワンの号哭
+rlngig   # 537 ギガンティックO.T.N
+thflnd   # 538 最終鬼畜妹フランドール・S
+thscre   # 539 Scream out! -達人Edit.-
+thakeb   # 540 明星ロケット
+honnou   # 541 本能寺の変
+dhero4   # 542 ドラゴンボールヒーローズ ゴッドミッションシリーズ テーマソング
+imsmt5   # 543 アイ MUST GO!
+rockmw   # 544 Dr.WILY STAGE 1
+ys2op    # 545 TO MAKE THE END OF BATTLE
+4gnyub   # 546 指先からはじまる物語
+momoi    # 547 ワンダーモモーイ
+lovfan   # 548 恋幻想(Love Fantasy)
+kagu27   # 549 カグツチ
+fltlnd   # 550 KUSANAGI
+mgwrt8   # 551 蝶戀
+eatem    # 552 EAT'EM UP!
+blzvtx   # 553 BLAZING VORTEX
+butou4   # 554 黒船来航
+vt1b2x   # 555 ≠MM
+geswat   # 556 私以外私じゃないの
+pkxyz    # 557 XY&Z (removed ～23/12/13)
+allimh   # 558 オール・イン・マイハート
+toori4   # 559 トオリヨ
+cchipt   # 560 Choco Chiptune.
+kagmtm   # 561 輝きを求めて
+hkgmag   # 565 ほうかご☆マジシャン
+rinhis   # 566 凛
+adk      # 567 オーディオ de カッ！
+takamg   # 568 私立高天原学園高校・校歌
+msclht   # 569 My Muscle Heart
+gstmsk   # 570 ゴーストマスク
+snyq     # 571 承認欲Q
+pridon   # 572 Princess of Donder
+kuraim   # 573 食らいむ！まうんとぱふぇ
+starrr   # 574 SstTAarR*
+kkrobo   # 575 ココロボ
+onigir   # 576 おにぎりはどこかしら♪
+chozet   # 577 超絶技巧系少女
+sycano   # 578 カノン (シンクロニカ Remix)
+butou2   # 579 真・画竜点睛
+sqr      # 580 スポーツダイジェスドン
+yokud2   # 581 よくでる15300
+gbfkim   # 582 キミとボクのミライ
+gbfsor   # 583 ソラのミチシルベ
+izanam   # 585 黄泉のイザナミ
+puzdr6   # 586 Holding Hands
+puzdr7   # 587 Unite The Force
+gunsln   # 588 ガンスリンガーシンデレラ
+ntmntm   # 591 ネテモネテモ
+hi4kko   # 592 ひよっこファンタジー
+retoko   # 593 冷凍庫CJ ～嗚呼面太鼓ブラザーズ～
+glokey   # 594 Gloria
+asgbtb   # 595 アサガオ
+gdiver   # 596 Diver
+minau    # 598 みんながみんな英雄 (removed ～21/6/23)
+spl2md   # 601 スプラトゥーン2 メドレー
+sentoc   # 604 いつも何度でも
+rlnted   # 605 東京テディベア
+mikugr   # 606 ゴーストルール (removed ～24/6/22)
+phuman   # 607 PERFECT HUMAN
+sk7kun   # 608 おさかな毎日！さかなクン
+kirby    # 609 星のカービィメドレー
+ov969    # 610 Over Clock～開放～
+3d3op    # 611 世界はいつでもミステリー
+antoni   # 612 アントニオ
+timtrv   # 613 タイムトラベラー
+ymtgen   # 614 夢と現実の境界線
+tengu    # 615 天狗囃子
+egoego   # 616 エゴエゴアタクシ
+butou7   # 617 風雲志士
+kimpla   # 618 君のプラネット
+ultorb   # 621 オーブの祈り
+puzdx1   # 623 バトル－電光石火－
+dariub   # 624 Good-bye my earth
+wangan   # 625 Lightning Dance
+clsdnu   # 626 美しく忙しきドナウ
+rot4     # 627 まださいたま2000
+tbnito   # 628 束ね糸
+skrexh   # 629 SAKURA EXHAUST
+amatrs   # 630 天照
+gogo     # 631 シャイニング65
+march    # 632 太鼓のマーチ
+kyksmj   # 634 サイレントマジョリティー (removed ～21/8/24)
+susano   # 635 須佐之男
+confli   # 637 conflict
+thzesh   # 639 仙酌絶唱のファンタジア
+tek7fr   # 640 Abandoned Temple Final 2nd
+crkvic   # 641 VICTORIA
+rezero   # 642 Paradisus-Paradoxum (removed ～24/8/23)
+imcanz   # 644 あんずのうた
+imc2bm   # 645 華蕾夢ミル狂詩曲～魂ノ導～
+imc32b   # 646 ミツボシ☆☆★
+masakr   # 647 マサカリブレイド
+chn96t   # 648 チェインクロニクル 総力戦メドレー
+d96can   # 649 毒LOＣＡＮdy♡
+kaiden   # 650 太鼓乱舞 皆伝
+stabof   # 651 合唱スタボーフェ！
+mgwrt6   # 652 曙光
+butou6   # 653 戦国三弦
+germin   # 654 GERMINATION
+hanakp   # 657 ス・マ・イ・ル (removed ～20/9/23)
+ywyugr   # 658 ゆーがらお友達 (removed ～21/10/20)
+krexd    # 659 EXCITE (removed ～22/10/23)
+mikuaa   # 660 エイリアンエイリアン (removed ～26/10/21)
+dhero5   # 661 スーパードラゴンボールヒーローズ　テーマソング
+w2bs2x   # 662 ヒカリノカナタヘ
+nao      # 663 風雲！バチお先生
+bko22    # 664 どん子のファーストデート
+alxwtr   # 665 ワタリドリ (removed ～22/12/11)
+haiky2   # 666 ヒカリアレ
+ppap     # 668 ペンパイナッポーアッポーペン(PPAP)
+pkmnsm   # 669 「ポケットモンスター サン・ムーン」メドレー (removed ～21/10/20)
+fcmedl   # 670 ファミコンメドレー
+imclip   # 671 Tulip
+imcsml   # 672 S(mile)ING!
+nograv   # 673 No Gravity
+vt1b1x   # 674 絶望へのトッカータ
+imcnev   # 675 Never say never
+imctok   # 676 TOKIMEKIエスカレート
+so2om2   # 677 そつおめしき2ばん
+2ge8ji   # 678 恋 (removed ～26/2/18)
+japari   # 679 ようこそジャパリパークへ (removed ～23/2/20)
+thchi3   # 680 元祖！天才チルノちゃん☆
+thchi2   # 681 チルノのパーフェクトさんすう教室 ⑨周年バージョン
+thwarn   # 682 WARNING×WARNING×WARNING (removed ～23/8/23)
+foofoo   # 684 FooFooカセット
+gekikk   # 685 HARDCOREノ心得
+ri       # 686 R.I.
+59shin   # 687 黒神クロニクル
+hoslin   # 688 星屑とリニアと僕
+ska      # 689 ゴーゴー・キッチン
+uhear2   # 690 UNDEAD HEART(怒りのWarriors) (removed 段位道場用、達人譜面固定)
+rot42    # 691 まださいたま2000 (removed 段位道場用、達人譜面固定)
+bijoto   # 692 美女と野獣 (removed ～20/9/23)
+glyywk   # 693 誘惑
+glyhow   # 694 HOWEVER
+gumidp   # 695 拝啓ドッペルゲンガー
+a3mank   # 696 MANKAI☆開花宣言 (removed ～23/9/20)
+kyo9kn   # 697 極圏
+ikazu7   # 698 怒槌
+slance   # 699 Scarlet Lance
+tdm      # 700 Taiko Drum Monster
+psf1op   # 701 つながれ！ひろがれ！打ち上がれ！
+kteien   # 702 懐中庭園を持つ少女
+57mono   # 703 コナモノ☆
+ordyne   # 704 大打音
+flabo    # 705 フューチャー・ラボ
+mblood   # 706 恋はみずいろ
+immbra   # 707 Brand New Theater!
+imersn   # 709 Reason!!
+twctt    # 710 TT -Japanese ver.- (removed ～20/11/8)
+mnkesk   # 711 見たこともない景色
+krbld    # 712 Be The One (removed ～21/2/21)
+genpe2   # 713 SHOGYO MUJO
+bluert   # 714 OK I'm blue rat
+bbb      # 715 Blessed Bouquet Buskers
+kahata   # 716 彼は誰時の誘惑
+rrsam    # 717 SAMURAI ROCKET
+i7wish   # 718 WiSH VOYAGE (removed ～20/11/8)
+sora7x   # 719 SORA-Ⅶ シグナスウォール
+iwantu   # 720 哀 want U
+csmdgn   # 721 ダンガンノーツ
+jouzai   # 722 愛と浄罪の森
+medjed   # 723 秘ナルメジェドノ悲ナル憂鬱
+yoidon   # 724 よーいドン！
+konan0   # 725 零 -ZERO-
+elegy    # 726 さよならエレジー
+iaasny   # 727 アスノヨゾラ哨戒班
+mikutd   # 728 太陽系デスコ
+ynzlmn   # 729 Lemon (removed ～21/8/24)
+mikuh8   # 730 ヒバナ
+saoggo   # 731 流星 (removed ～21/7/28)
+umniji   # 732 虹
+umjoin   # 733 JOIN US
+tamlb1   # 734 スーパーD＆D ～完全にリードしてアイマイミー～
+tamlb2   # 735 D絶対！SAMURAIインザレイン
+insp29   # 736 人のお金で焼肉を食したい！
+toymat   # 737 トイマチック☆パレード!!
+jazmen   # 738 メヌエット
+teken6   # 739 KARMA(Tatsujin Mix)
+rt2wit   # 740 Where is the Target?
+sw1op    # 741 フリフリ♪ノリノリ♪
+numu10   # 742 ヌムジカac.10
+usa      # 743 U.S.A. (removed ～21/8/24)
+pk3rai   # 744 未来コネクション (removed ～23/8/23)
+clsdog   # 745 プチポチ
+mgpafe   # 746 マジカル・パフェ
+ikaika   # 747 行かないでイカロス
+behemo   # 748 Behemoth
+3dsb1x   # 749 マオウのショウタイム
+calice   # 750 CYBERgenicALICE
+shabra   # 751 シャイニング☆アブラカタブラ
+konanc   # 753 カウントダウン
+thmhrb   # 754 泡沫、哀のまほろば
+thmrs    # 755 魔理沙は大変なものを盗んでいきました
+gerber   # 756 GERBERA
+xevel    # 757 Xevel
+ourobo   # 758 ouroboros -twin stroke of the end-
+sysurf   # 759 Surf Zapping
+sei10r   # 760 青天の黎明
+etring   # 761 EterNal Ring
+tttt     # 762 Toon Town's Toys' Tune
+maru9t   # 763 まるくてはやくてすさまじいリズム
+coquet   # 764 Coquette
+nobu7g   # 765 第六天魔王
+ngzsnc   # 766 シンクロニシティ (removed ～24/10/23)
+ywtoki   # 767 時を待とう (removed ～23/9/20)
+krzio    # 768 Over “Quartzer” (removed ～21/11/22)
+pr9all   # 769 DANZEN!ふたりはプリキュア～唯一無二の光たち～ (removed ～20/9/23)
+mikudd   # 770 ダンスロボットダンス
+mikucp   # 771 カンタービレ×パッシオーネ
+kykgrs   # 772 ガラスを割れ！ (removed ～21/10/20)
+msmino   # 773 命短し恋せよ乙女
+clsh69   # 774 ハンロック
+ghnpan   # 775 パン vs ごはん！ 大決戦！
+goget    # 776 GO GET'EM!
+shgclr   # 777 カラフル
+lm7708   # 778 λ7708
+clotho   # 779 Clotho クロートー
+comona   # 780 Comona
+armage   # 781 ARMAGEΔDON
+imrmm    # 782 Marine Mirage
+imrdiv   # 783 Dive to Blue
+itadak   # 784 頂
+ycoast   # 785 ユースフルコースター
+hide4s   # 786 天下統一録
+twccp    # 787 Candy Pop (removed ～21/12/24)
+umzaso   # 790 雑草
+saibou   # 791 ミッション！ 健・康・第・イチ (removed ～21/12/24)
+railgn   # 792 only my railgun
+vfpetr   # 793 雨とペトラ
+mikuvt   # 794 バイオレンストリガー
+gumizk   # 795 残響
+pklets   # 796 ポケットモンスター Let's Go! ピカチュウ・Let's Go! イーブイ (removed ～23/12/13)
+pacmce   # 797 PAC-MAN CHAMPIONSHIP EDITION 2
+anohid   # 798 あの日出会えたキセキ
+kokiku   # 799 こ・き・く・くる・くる・くれ・こ！
+trustg   # 800 トラストゲーム
+lgmsek   # 801 世界はあなたに笑いかけている
+saoali   # 802 ADAMAS (removed ～22/1/24)
+fdive    # 803 FREEDOM DiVE↓
+altale   # 804 Altale
+pixelg   # 805 Pixel Galaxy
+im4spr   # 806 Spread the Wings!! (removed ～23/2/20)
+im4dst   # 807 ヒカリのdestination (removed ～21/2/21)
+mikuhn   # 808 ハイスペックニート
+mikuar   # 809 アルカリレットウセイ
+tor      # 810 Nesin Amatias
+manpu2   # 811 あなたとトゥラッタッタ♪
+kykamb   # 812 アンビバレント (removed ～22/3/24)
+otoppe   # 813 ウキウキオトッペ (removed ～24/3/13)
+arufw    # 814 或ル不和
+lovspc   # 815 ラヴ♡スパイス♡ライクユー!!!
+struck   # 816 星屑ストラック
+dragoo   # 817 Dragoon
+dsgame   # 818 Don't Stop the Game
+csmclr   # 819 カラフルボイス
+deadie   # 820 デッド・オア・ダイ
+isan     # 821 和有るど経りて維持・序
+tek7he   # 822 Heat Haze Shadow 2
+mmkami   # 823 もしもし神様
+evedrm   # 824 ドラマツルギー
+rock     # 825 WE WILL ROCK YOU (removed ～22/5/21)
+amphit   # 826 アムピト♢リーテー
+pr9str   # 827 キラリ☆彡スター☆トゥインクルプリキュア (removed ～21/3/24)
+roki     # 828 ロキ
+kzniii   # 829 AIAIAI (feat. 中田ヤスタカ) (removed ～22/6/21)
+gegeg2   # 831 ゲゲゲの鬼太郎
+ryusoj   # 832 騎士竜戦隊リュウソウジャー (removed ～22/6/21)
+gfish    # 833 Goldfish City
+spdoto   # 834 疾風怒濤
+whibox   # 835 What's in the box?
+yeswea   # 836 Yes we are (removed ～22/6/21)
+tadkim   # 839 ただ君に晴れ (removed ～25/6/20)
+2no92    # 840 MOIL (removed ～22/8/14)
+ywkkh    # 841 ケラケラホーのうた (removed ～22/7/16)
+kimetu   # 842 紅蓮華
+mope     # 843 もぺもぺ
+bbkkbk   # 844 B.B.K.K.B.K.K.
+dreadn   # 845 Dreadnought
+mznemo   # 846 キューティー☆デモニック☆魔人エモ!!
+gdtmt    # 847 ぐでたまテーマソング (removed ～24/9/18)
+poxeid   # 849 poxei♦DOON
+cnctcl   # 850 コネクトカラーズ
+kienbj   # 851 気焔万丈神楽
+otomus   # 852 音虫をつかまえろ！
+osirit   # 853 ププッとフムッとかいけつダンス
+yzmsct   # 854 マスカット (removed ～22/8/14)
+tabetm   # 855 タベテモタベテモ
+thclmt   # 856 Calamity Fortune
+thntak   # 857 サクラ・シークレット
+ufoswn   # 858 UFO Swingin'
+ten9nr   # 859 天泣の律
+nya3     # 860 にゃーにゃーにゃー
+evensb   # 861 ナンセンス文学
+kim69    # 862 君はロックを聴かない (removed ～22/9/22)
+i7natu   # 863 NATSU☆しようぜ！ (removed ～21/11/22)
+tecdrv   # 864 TD - 28619029byte remix -
+589him   # 865 流浪の琥珀姫
+kooryu   # 866 氷竜 ～Kooryu～
+uchubk   # 867 うちゅうひこうし冒険譚
+csmmon   # 868 モノクロボイス
+sinrab   # 869 森羅万象
+1psovt   # 870 OVER THE TOP (removed ～22/11/22)
+mikuzs   # 874 撥条少女時計
+mikugv   # 875 グラーヴェ
+a3aaa    # 876 Act! Addict! Actors! (removed ～22/12/11)
+toukem   # 877 刀剣乱舞
+caribb   # 878 Caribbean Knight
+tkroll   # 879 タイコロール
+udtymt   # 880 夢と希望
+udtmgl   # 881 MEGALOVANIA
+mikuot   # 882 乙女解剖
+ka2kam   # 883 サクリファイス (removed ～23/1/23)
+tnkai2   # 884 愛にできることはまだあるかい (removed ～25/1/22)
+ohdpre   # 885 Pretender (removed ～23/1/23)
+hello2   # 886 ハロー！どんちゃん
+7ma8ge   # 887 ナマハゲノウタ
+clsr     # 888 クラシックメドレー(ロック編)
+lactea   # 889 via lactea
+wara2k   # 890 わら得る2000
+ymyrp3   # 891 カッティアワールの宝剣
+ba9ma2   # 892 幕末維新譚
+ynzpcs   # 893 ピースサイン (removed ～23/1/23)
+umima    # 894 今
+umhmwr   # 895 HIMAWARI HAPPY
+medl22   # 896 続・〆ドレー2000
+nbox     # 897 ヒミツキチューバー
+godkno   # 898 God knows...
+2ge8jixx # 899 【双打】 恋 (removed ～26/2/18)
+souryuxx # 900 【双打】 双竜ノ乱
+rockxx   # 901 【双打】 WE WILL ROCK YOU (removed ～22/5/21)
+kumaxx   # 902 【双打】 もりのくまさん
+mggrevxx # 903 【双打】 ミュージック・リボルバー
+mggextxx # 904 【双打】 Extreme MGG★★★
+mficta   # 905 memoria ficta
+pettsn   # 906 ペットショップ大戦
+tkmdst   # 907 TOKIMEKI♡ですとろいやー！！
+rlnrtr   # 908 レトロマニア狂想曲
+mikukr   # 909 キレキャリオン
+umneko   # 910 猫サンキュー
+umkami   # 911 神様の言うとおりに
+pr9hlg   # 912 ヒーリングっど♥プリキュア Touch!! (removed ～22/3/24)
+ywging   # 913 ギンギラ銀河
+syairl   # 914 シンクロニカ・エアライン
+kgnhak   # 915 白日
+kiramj   # 916 魔進戦隊キラメイジャー (removed ～23/4/19)
+freewy   # 917 Freeway3234
+idol     # 918 エリンギのエクボ
+ai7ndz   # 919 愛なんだぜ
+godsng   # 920 ゴッドソング
+um8ga2   # 921 8月の坂
+umaba3   # 922 アバみ
+machig   # 923 まちがいさがし (removed ～23/6/22)
+mgaaot   # 924 青と夏
+byosin   # 925 秒針を噛む (removed ～26/6/23)
+mikuik   # 926 命に嫌われている。
+dogbit   # 927 Dogbite
+parous   # 928 Parousia
+wait4u   # 929 waitin' for u
+ralive   # 930 ALiVE
+pacm40   # 931 JOIN THE PAC -太鼓の達人 Ver.-
+demwis   # 932 Wish upon a shooting star
+demlev   # 933 Leviathan
+dema2m   # 934 ANiMA
+demmag   # 935 MagiCatz
+ashibe   # 936 Smile! Smile! Smile! (removed ～25/8/22)
+yorukk   # 937 夜に駆ける (removed ～26/8/19)
+zerosy   # 938 零の交響曲
+issokm   # 939 いっそこのままで
+dptfct   # 940 wonderful ROUTINE
+flyagn   # 941 Fly again!
+gnkcrt   # 942 限界クリエイター応援歌
+clscpl   # 943 クラポルポルスカ
+reiwad   # 944 令・和太鼓
+umrest   # 945 RESTART
+ummute   # 946 ミュートすればいいじゃん。
+gumids   # 947 だれかの心臓になれたなら
+thkanb   # 948 患部で止まってすぐ溶ける ～ 狂気の優曇華院
+dobfav   # 949 Favorite Days
+dobma2   # 950 Mani Mani(Prod. TAKU INOUE)
+dobbsk   # 951 アイドル狂戦士(feat.佐藤貴文)
+tetra    # 952 テトラリュトモスフォビア
+i7dscv   # 953 DiSCOVER THE FUTURE (removed ～22/9/22)
+dogma1   # 954 Central Dogma Pt.1
+kkairo   # 955 絡繰廻廊
+yrsdak   # 956 だから僕は音楽を辞めた
+a3cos    # 957 Circle of Seasons (removed ～23/10/18)
+8ka7ki   # 958 儚姫は原初に舞う
+rasens   # 959 螺旋周回軌道
+vixtor   # 960 Vixtory
+stshow   # 961 Stick Trick ShowTime!!
+kousui   # 962 香水
+umiiko   # 963 イイコ進化論(feat. O-LuHA)
+umgou    # 964 轟!!!
+chuwap   # 965 チュワパネ！ (removed ～23/11/15)
+dobhov   # 967 Hand Over (Prod. TEMPLIME)
+dobhbs   # 968 Hyper Bass (feat. Yunomi)
+dobbbl   # 969 いただきバベル (Prod. ケンモチヒデフミ)
+dobslt   # 970 Shining Lights (feat. PSYQUI)
+seiga1   # 971 星河一天
+lapaz    # 972 ラパスの虹
+ponpok   # 973 PONPOKO RHYTHM
+kimhom   # 974 炎
+yykibo   # 975 幾望の月
+ptptpk   # 976 ぺた・PETA！？パンプキン
+divdrv   # 977 Diving Drive
+nijbtn   # 978 ニジイロバトン
+20tfes   # 979 轟け！太鼓の達人
+vivivi   # 980 VIVIVIVID
+1234dk   # 981 1・2・さんしのでドンドカッカッ！
+hi4kok   # 982 ひよこ鑑定士さん
+cpyoak   # 983 YOAKE
+kamizm   # 984 カ！カ！カ！カミズモード！
+ohdshk   # 985 宿命 (removed ～24/2/20)
+rezer2   # 987 Realize (removed ～26/2/18)
+mikteo   # 988 テオ
+amatjk   # 989 あまてらすJK
+asmajo   # 990 赤と白薔薇の魔女
+kabkim   # 991 傾奇者、罷り通る！
+leciel   # 992 LECIEL GLISSANDO
+yumikk   # 993 彁
+20tftb   # 994 パラレルロリポップ
+tmbeat   # 995 テルミービート
+hanzaw   # 996 テーマ・オブ・半沢直樹 ～Main Title～ (removed ～24/2/20)
+smntwi   # 997 twinkle night (feat. somunia)
+smncon   # 998 Connected World
+dogma2   # 999 Central Dogma Pt.2
+shouyu   # 1000 しょうゆ de Show you!
+ims15t   # 1001 なんどでも笑おう
+adusse   # 1002 うっせぇわ
+nekods   # 1003 猫
+evekai   # 1004 廻廻奇譚
+m96slm   # 1005 月色Chainon (removed ～23/4/19)
+gumikg   # 1006 KING
+hadaka   # 1007 裸の心 (removed ～24/4/17)
+pr9trp   # 1009 Viva! Spark!トロピカル～ジュ！プリキュア (removed ～23/4/19)
+dondo    # 1010 どんちゃん音頭
+bokmit   # 1011 ボクらのまえに道はある
+20tvcl   # 1012 4+1のそれぞれの未来
+sqr3     # 1013 Amber Light
+20tdnc   # 1014 Hold me tight
+syyura   # 1015 ゆらめ
+turing   # 1016 チューリングラブ feat.Sou / ナナヲアカリ (removed ～24/5/23)
+umamop   # 1017 Make debut! (removed ～23/5/23)
+vfveno   # 1018 ベノム(feat.flower)
+sykake   # 1019 駆け抜けてゆく
+ssnrns   # 1020 乱数調整のリバースシンデレラ
+20tcty   # 1021 Donder Time
+weare0   # 1022 ウィーアー！
+ddudu    # 1023 DDU-DU DDU-DU
+badguy   # 1024 bad guy
+suirnk   # 1026 睡蓮花
+natsuj   # 1027 夏祭り / ジッタリン・ジン
+gunjou   # 1028 群青 (removed ～24/6/22)
+umclfp   # 1029 カラフル・パーティ
+mikvam   # 1030 ヴァンパイア
+worldn   # 1031 Hello, Worldooon!!
+emma     # 1032 Emma
+aloft    # 1033 Aloft in the wind
+thgs87   # 1034 幻想に咲いた花
+thm241   # 1035 マツヨイナイトバグ
+20tidl   # 1036 恋はドント・ダウト
+btlno1   # 1037 BATTLE NO.1
+nbwalk   # 1038 Walking with you (removed ～24/8/23)
+kobenm   # 1039 鼓舞曲「閻魔」
+timimo   # 1040 魑魅魍魎
+batimt   # 1041 †バチ!ムチ!?マッスルキングダム†
+ko9ryu   # 1042 刻竜 ～Kokuryu～
+zouoto   # 1043 憎悪と醜悪の花束
+20tanm   # 1044 大冒険タツドン
+20tbtu   # 1045 一世風靡
+ssnkjs   # 1046 怪獣少女は火を吹かない (removed ～24/9/18)
+moeyos   # 1047 燃えよサファイア
+unlmtg   # 1048 アンリミテッドゲームズ
+sstnue   # 1049 晨星ト鵺
+heljok   # 1050 Hello, Mr.JOKER
+punkbs   # 1051 punk bastards
+telesc   # 1052 仮想現実のテレスコープ
+20thei   # 1053 平等院鳳凰ドン vs 鳥獣戯カッ
+dai6kn   # 1054 第六感
+bshark   # 1055 Baby Shark（ベイビー・シャーク）
+vfgbs    # 1056 グッバイ宣言
+thusat   # 1057 ウサテイ
+ssn3rd   # 1058 大好きな太鼓の音
+adodo    # 1059 踊
+yo7yo7   # 1060 YONA YONA DANCE (removed ～24/11/22)
+siruvu   # 1061 シル・ヴ・プレジデント
+shing3   # 1062 僕の戦争
+kimakb   # 1063 明け星 (removed ～24/11/22)
+20tbc    # 1066 たいこの2000
+agentt   # 1067 Agent Hustle & Dr. Hassle
+spride   # 1068 Spectral Rider
+solstr   # 1069 Solitude Star
+bko1     # 1070 どんちゃん世界旅行
+extrap   # 1071 ex寅 Trap!!
+20t765   # 1072 The Future of the 太鼓ドラム
+stpsss   # 1073 スキスキ星人
+chdist   # 1074 以後別做朋友 The Distance of Love
+mr5sug   # 1075 Sugar (removed ～25/2/19)
+chaway   # 1076 AWAY
+mikcin   # 1077 シンデレラ
+stpstp   # 1078 ストロベリー☆プラネット！ (removed ～25/1/22)
+20tftr   # 1079 GO ON ～未来へ～
+chu2go   # 1080 業 -善なる神とこの世の悪について-
+metamt   # 1081 めためた☆ゆにば～すっ！
+bkov2    # 1082 ラブユー☆どんちゃん
+tongat   # 1083 トンガチン
+ksrain   # 1084 喫茶レイン
+arcgai   # 1085 弧
+playhi   # 1086 Player's High
+stpstr   # 1087 Streamer (removed ～25/2/19)
+adashu   # 1089 阿修羅ちゃん (removed ～25/3/23)
+dryflw   # 1090 ドライフラワー
+pr9del   # 1091 Cheers！デリシャスパーティ♡プリキュア (removed ～24/5/23)
+mikanm   # 1092 アニマル
+kamias   # 1093 Lunar Maria (removed ～23/3/22)
+crtrcs   # 1094 Racing the Storm
+clsmao   # 1095 まおぅ
+neko     # 1096 ねこくじら
+onsayg   # 1097 ON SAY GO SAY
+cosmb    # 1098 SORA-Ⅴ コズミックバード
+challe   # 1099 Challengers
+alckil   # 1100 Kill My Fortune
+kgn1zu   # 1101 一途 (removed ～25/5/23)
+mikkmp   # 1103 神っぽいな
+aragam   # 1104 Aragami
+syseka   # 1105 せかいのおと - sekai note -
+sylray   # 1106 Libera Ray
+mkirdr   # 1107 Irodoru♡Future
+clslu7   # 1108 其方、激昂
+megm2x   # 1109 女神な世界 Ⅱ
+cs3op    # 1110 きょうはたいこ曜日
+beasta   # 1111 怪物
+citrus   # 1112 CITRUS
+naniyt   # 1113 なにやってもうまくいかない (removed ～25/6/20)
+modshs   # 1114 シャイニングスター
+1pssjd   # 1115 新時代
+ohdmix   # 1116 ミックスナッツ
+pkm121   # 1117 １・２・３
+umhnmr   # 1118 はねまり体操
+kl2gtl   # 1119 GOING TO LUNATEA
+dddsst   # 1120 そして勇者は眠りにつく
+usnova   # 1121 SUPERNOVA
+krdoto   # 1122 狂瀾怒濤
+chplov   # 1123 修錬愛情 Practice Love (removed ～25/8/22)
+savagl   # 1124 Savage Love
+dmonky   # 1125 DANCE MONKEY
+tuykrb   # 1126 くらべられっ子
+justaw   # 1127 Just Awake (removed ～25/8/22)
+i7poli   # 1128 THE POLiCY (removed ～23/8/23)
+sinryu   # 1129 神竜 ～Shinryu～
+sora4x   # 1130 SORA-Ⅳ ブンパソング
+lvx      # 1131 ラブリーX
+sw2op    # 1132 まいにちがドンダフル
+alcdp    # 1133 Doppelgangers
+aleph0   # 1134 Aleph-0
+kwondo   # 1135 河内音頭 ～ふしづくし～
+holond   # 1136 ホロメン音頭
+tuydo6   # 1137 泥の分際で私だけの大切を奪おうだなんて
+koumei   # 1138 チキチキバンバン
+mikddc   # 1139 ダーリンダンス
+thsclp   # 1140 スカーレット警察のゲットーパトロール24時
+odloop   # 1141 オドループ (removed ～25/10/22)
+hol6po   # 1144 六本の薔薇と采の歌
+laches   # 1145 LΔchesis
+heira    # 1146 ヘイラ
+iflare   # 1147 Illusion Flare
+skohab   # 1148 Habit
+kfphon   # 1149 フォニイ
+kimznk   # 1150 残響散歌
+krgeat   # 1151 Trust・Last (removed ～25/11/21)
+holsmg   # 1152 Smile & Go!!
+holhom   # 1153 ほめのび
+rikka    # 1154 六華の舞
+jazamp   # 1155 アメリカンパトロール
+r4nak    # 1156 NAKED GLOW
+skaska   # 1157 リンダは今日も絶好調
+utauta   # 1158 詩謳兎揺蕩兎
+surikn   # 1159 スリケンランナー
+senval   # 1160 閃光ヴァルキュリア
+holahy   # 1161 Ahoy!! 我ら宝鐘海賊団☆
+holnnn   # 1162 ねねねねねねねね!大爆走
+ha9jit   # 1163 白日夢、霧雨に溶けて
+ucgirl   # 1164 アンチェイン・ガール！
+spcemg   # 1165 Space-Time Emergency
+rnbsky   # 1166 RAINBOW★SKY
+junbri   # 1167 Jun Bride (removed ～26/1/22)
+holovd   # 1168 オーバード
+hol168   # 1169 いろはすてっぷ！
+mknyel   # 1170 エール・エクス・マキナ！
+ks531    # 1171 共奏鼓祭
+destin   # 1172 Destination 2F29
+dobakb   # 1173 アキバ20XX
+dobbkr   # 1174 爆裂タウマゼイン (Prod. チバニャン)
+dobiam   # 1175 IAM (feat. Shogo, Tsubasa)
+dobcrs   # 1176 Crush (Prod. SHOW)
+dobgnb   # 1177 good night baby (feat. Moe Shop)
+watakw   # 1178 わたしの一番かわいいところ
+modhrj   # 1179 ハルジオン
+gdmsen   # 1180 閃光
+zenitd   # 1181 奇想天外ふしぎをどうぞ
+mksskn   # 1182 スキに理由はいらないじゃん！
+drwdrm   # 1183 ドローイン☆ドリーム！
+don4ta   # 1184 どんちゃんしたい！
+ao8rug   # 1185 鼓立あおはる学園校歌
+bukan    # 1186 Bukan Cinta Biasa
+chaini   # 1187 Love You
+chaslt   # 1188 逆戦 NI ZHAN
+a1tige   # 1189 两只老虎
+flkmio   # 1190 オー・ソレ・ミオ
+gdmsui   # 1191 祝福
+tmktsr   # 1192 トウキョウ・シャンディ・ランデヴ
+otonab   # 1193 オトナブルー
+1ps31k   # 1194 私は最強
+pr9sky   # 1195 ひろがるスカイ！プリキュア ～Hero Girls～ (removed ～25/3/23)
+kahim    # 1196 ラ・モレーナ・クモナイ
+mmaeod   # 1197 Re：End of a Dream
+brainp   # 1198 Brain Power
+ohdsub   # 1199 Subtitle
+kingja   # 1200 全力キング (removed ～26/5/20)
+haya     # 1201 ドドドドドンだフル！
+ds2bs1   # 1202 われら無敵のドコン団
+yumeut   # 1203 夢うつつカタルシス
+torays   # 1204 Back to Life
+goonya   # 1205 GO ON YA WAY(feat. 超学生)
+sycrys   # 1206 Crystal Hail
+syatoz   # 1207 AtoZ,I leave toZ
+nagoya   # 1208 名古屋ばやし
+o4noko   # 1209 アイドル
+pkmdkm   # 1210 ドキメキダイアリー
+gum41d   # 1211 酔いどれ知らず
+immrat   # 1212 Rat A Tat!!!
+surges   # 1213 Surges
+gorigr   # 1214 GORI × GORI × SafaRI
+nosfer   # 1215 Nosferatu
+mmacut   # 1216 CUT! into the FUTURE
+anochu   # 1217 ちゅ、多様性。
+kimkzn   # 1218 絆ノ奇跡
+umapyo   # 1219 うまぴょい伝説
+destr0   # 1220 Destr0yer
+garaktxx # 1221 【双打】 Garakuta Doll Play
+calibxx  # 1222 【双打】 ソウルキャリバーⅡ
+genpexx  # 1223 【双打】 KAGEKIYO
+mgwrt4xx # 1224 【双打】 春遊
+kokoo    # 1225 太鼓侍
+cna3     # 1226 拝啓、学校にて・・・
+hitabi   # 1227 23時54分、陽の旅路へのプレリュード
+kyallb   # 1228 強風オールバック(feat.歌愛ユキ)
+chronm   # 1229 Chronomia
+im4tbs   # 1230 ツバサグラビティ
+tkrcop   # 1231 RHYTHM CONNECT
+zolfla   # 1232 Fallen Angel
+dai0kn   # 1233 第ゼロ感
+mikrbh   # 1234 ラビットホール
+unwelc   # 1235 Unwelcome School (MRM REMIX)
+thchao   # 1236 !!!チルノのパーフェクトさんすうタイム!!!
+moodsw   # 1237 Mood Swing
+xjapanxx # 1238 【双打】 紅
+deathmxx # 1239 【双打】 Many wow bang!
+friere   # 1240 勇者
+aonosm   # 1241 青のすみか
+lleiei   # 1242 コットンキャンディえいえいおー！
+hitrgt   # 1243 ひとりごつ～バンドVer.～
+krgchd   # 1244 CHEMY×STORY
+megm1x   # 1245 女神な世界 Ⅰ
+niku     # 1246 デザートde焼肉（サハラ編）
+mutopi   # 1247 モノクロームユートピア
+dytats   # 1248 大勇者タツドン ～最強のマイバチ伝説～
+shmaho   # 1249 最果の魔法使い
+rkmode   # 1250 ロケットモード
+ppprht   # 1251 リヒト
+samba    # 1253 マツケンサンバII
+tensr1   # 1254 Nameless Story
+dgenya   # 1255 電脳幻夜の星言詠
+kystns   # 1256 転生〈TENSEI〉-喜与志が待つ強者-
+nj3koi   # 1257 濃紅
+nj3fly   # 1258 Fly away
+nj3fa3   # 1259 ファミレスウォーズ
+nj3cal   # 1260 CYBERgenicALICE
+nj3mnp   # 1261 マリオネットピュア
+nj3pho   # 1262 Phoenix
+nj3iss   # 1263 いっそこのままで
+nj3hei   # 1264 ヘイラ
+nj3tra   # 1265 エンジェル ドリーム
+nj3iam   # 1266 ボクハシンセ
+adshow   # 1267 唱
+kf9kra   # 1268 きゅうくらりん
+pkmhal   # 1269 ハロ
+clsbu    # 1270 交響曲第五番「運命」
+clscam   # 1271 ラ・カンパネラ
+ping     # 1272 卓球de脱臼
+tondem   # 1273 トンデ・ミテ
+fmod     # 1274 風魔モジュール6768
+seizaw   # 1275 星座わーど
+tokeru   # 1276 とける
+ksdaha   # 1277 空想打破
+chaosd   # 1278 †††カオスタイム the DARK†††
+caramj   # 1279 キャラメル・ジャンキヰ
+chjstd   # 1280 Just Dance
+chfrtl   # 1281 Fairy Tale
+chmujn   # 1282 無人の島
+chstl    # 1283 Say Something
+chystd   # 1284 Yesterday
+chsprw   # 1285 麻雀 Sparrow
+chmbfm   # 1286 開往早晨的午夜
+chwow    # 1287 WOW
+a1donk   # 1288 小毛驴
+mgadh    # 1292 ダンスホール
+1pssko   # 1293 最高到達点
+pr9won   # 1294 わんだふるぷりきゅあ！evolution!! (removed ～26/3/23)
+unpifr   # 1295 うんぴフレンズ
+saraer   # 1296 サラえる
+svgdlt   # 1297 SAVAGE DELIGHT
+msstar   # 1298 miracle shooting star
+stpdsk   # 1299 大好きになればいいんじゃない？
+stpsho   # 1300 Show Time
+stpamp   # 1301 AMPTAKxCOLORS
+bnbnja   # 1302 爆上戦隊ブンブンジャー
+hapsyn   # 1303 ハッピーシンセサイザ
+whowho   # 1304 who are you? who are you?
+kumokn   # 1305 雲の彼方の大地の風
+ds2op    # 1306 七色ハーモニー
+ds3bs2   # 1307 大多羅捌伍伍壱
+gigalo   # 1308 GIGALODOON
+nj3org   # 1309 ココドコ？多分ドッカ島！
+sygray   # 1310 Genesis Ray
+syamef   # 1311 あめふりのロンド
+tagatm   # 1312 誰我為
+cpbbbb   # 1313 Bling-Bang-Bang-Born
+haiky4   # 1314 オレンジ
+btrssc   # 1315 青春コンプレックス
+1psuus   # 1316 あーーっす！
+polars   # 1317 POLARiSNAUT
+irclok   # 1318 Irregular Clock
+operat   # 1319 オペレート・ミー
+forq     # 1320 for Q
+csabop   # 1321 響け！太鼓の達人
+3d3hex   # 1322 魔導幻想曲
+megm3x   # 1323 女神な世界 Ⅲ
+89shok   # 1324 イオシス秋の爆食祭2024
+morpho   # 1325 モルフォ
+sheesh   # 1326 SHEESH
+hai465   # 1327 はいよろこんで
+muselc   # 1328 LUNATiC CiRCUiT
+musesy   # 1329 Synthesis.
+chvsky   # 1330 海闊天空
+chmisy   # 1331 Miss You 3000
+chprin   # 1332 王妃
+chelim   # 1333 淘汰
+tensr3   # 1334 PEACEKEEPER
+tensr2   # 1335 Storyteller
+sikank   # 1336 シカ色デイズ
+zendiv   # 1337 全力Dive
+ther2k   # 1338 Help me, さいたま2000!!
+mgallc   # 1339 ライラック
+loligm   # 1341 粛聖!! ロリ神レクイエム☆
+krgavv   # 1342 Got Boost?
+melcha   # 1343 おはようメルちゃん
+mesmer   # 1344 メズマライザー
+turk     # 1345 トルコ行進曲
+lwitch   # 1346 リトルホワイトウィッチ
+mahosk   # 1347 魔法式逃走奇譚☆ミ
+stmic6   # 1348 わすれなぐさ
+chrimb   # 1349 くりんぼ！
+cruxnt   # 1350 CRUXNAUT
+jatetu   # 1351 蛇鉄
+intymr   # 1352 INTERNET YAMERO
+o4nof2   # 1353 ファタール
+amtsng   # 1354 歌劇「リコレクトブルー」
+sggame   # 1355 Singularity Game
+soulwy   # 1356 Soulway
+mikugk   # 1357 初音ミクの激唱
+ban3k2   # 1358 晩餐歌
+custkw   # 1359 かわいいだけじゃだめですか？
+aipaid   # 1360 愛包ダンスホール
+si7kow   # 1361 しなこワールド
+cpdddn   # 1362 オトノケ
+gamecg   # 1363 GAME CHANGER
+aosagi   # 1364 蒼鷺之火
+argmem   # 1365 Argent Memories
+takara   # 1366 宝の丘
+toro2k   # 1367 トロいか2000
+ankish   # 1368 ハイテンション☆暗記SHOW!
+mkndrk   # 1369 ダーク・エクス・マキナ♡
+extred   # 1370 Extreme End
+k2noko   # 1371 沓の子を打つ
+a12wng   # 1372 王老先生有块地
+chelov   # 1373 千年之恋
+chulov   # 1374 永不失聯的愛 Unbreakable Love
+chiwng   # 1375 YIN XING DE CHI BANG
+chbygo   # 1376 Those Bygone Years
+arkrad   # 1377 Radiant
+arkbtd   # 1378 Break Through the Dome
+valsqo   # 1379 Valsqotch
+oshama   # 1380 Oshama Scramble!
+min7kg   # 1381 ミンナノカキゴオリ
+jazz2    # 1382 Taiko Session
+soulst   # 1383 SoulStone -闇喰イサァカス団-
+yyhero   # 1384 YOU're your HERO
+mgaksr   # 1385 ケセラセラ
+fzipkw   # 1386 NEW KAWAII
+bblykm   # 1387 バブリー革命 ～ばんばんバブル～
+zatbok   # 1388 雑踏、僕らの街
+pr9idl   # 1389 キミとアイドルプリキュア♪ Light Up！
+tetigk   # 1390 イガク
+exrixs   # 1391 EXRiXiS
+rgfire   # 1392 RAGING FIRE
+kamase   # 1393 Ka.Ma.Se
+kumoma   # 1394 雲間を游ぐ
+sss205   # 1395 潮騒205号SSS線
+anstbs   # 1396 BRIGHTEST STARS!!
+anstlm   # 1397 LIMIT BREAK DREAMERS
+anstbn   # 1398 BRAND NEW STARS!!
+anstws   # 1399 Walk with your smile
+iwondr   # 1400 I wonder
+tetris   # 1401 テトリス
+gdmmik   # 1402 アイドル戦士(feat. 初音ミク)
+unbias   # 1403 UNBIAS
+symin7   # 1404 みんなのうた
+senkot   # 1405 閃光天舞
+sireye   # 1406 siren's eye
+umonpt   # 1407 On-Party!
+bbfigh   # 1408 倍倍FIGHT!
+llaisc   # 1409 愛♡スクリ～ム！
+gojuja   # 1410 WINNER！ゴジュウジャー！
+lightb   # 1411 Lightning Boys
+kakasi   # 1412 案山子姫 -Princess Scarecrow-
+pitchf   # 1413 ピッチフェイダ
+mgwrt9   # 1414 桂月
+kaiju    # 1415 怪獣
+imghjm   # 1417 初
+vsvigv   # 1419 vs.VIGVANGS
+hold     # 1420 今夜はホーミー
+sdgust   # 1421 SUDDEN GUST OC
+sora3x   # 1422 SORA-III ヘリオポーズ
+glccas   # 1423 ★楽園☆CASINO GALAXY！
+prster   # 1424 てらてら
+prsmjm   # 1425 モア！ジャンプ！モア！
+prscrz   # 1426 CR詠ZY
+prstdm   # 1427 トンデモワンダーズ
+prsbug   # 1428 バグ
+mgwrt9xx # 1430 【双打】 桂月
+musear   # 1431 アリア
+musecb   # 1432 CHAOTiC BATTLE
+25t1st   # 1433 Re:Play!!
+yyher2   # 1434 YOU're our HEROES
+mikmon   # 1435 モニタリング
+mikktb   # 1436 混沌ブギ
+thkmgm   # 1437 神々が恋した幻想郷
+sora8x   # 1438 SORA-VIII ネビュラトレイル
+ynzirs   # 1441 IRIS OUT
+kimzkk   # 1442 残酷な夜に輝け
+1pscar   # 1443 カーマイン
+pkgetb   # 1444 GET BACK
+krzzz    # 1445 VISIONS
+dimpy    # 1446 でぃんぴーでぃんぱー！
+ravemc   # 1447 バブル・リップ・レイヴ・マシン
+daja     # 1448 ダジャレdeオシャレ
+threvo   # 1453 THE REVO
+umaspt   # 1454 スパートシンドローマー
+mtkhap   # 1455 無敵的ハピネス！(SOS団5人Ver.)
+wkturn   # 1456 World Keeps Turning
+tu7gar   # 1457 ツナガリズム
+ds2bs3   # 1458 闇の魂
+w2bs1x   # 1459 ワルルーさまの歌を聴けぇ！
+mgaks4   # 1460 クスシキ
+mikche   # 1463 チェリーポップ
+zomeki   # 1464 ZOMEKI THUNDER
+martan   # 1465 マルトーアンフェール
+ekaki2   # 1466 どんちゃんえかき歌
+ds3bs3   # 1468 地獄の大王
+chaoz    # 1470 Rough: CHA0Z
+pr9mtt   # 1490 ハートにヒント！名探偵プリキュア！
+tetovr   # 1491 オーバーライド
+tamamo   # 1493 賜物
+anohap   # 1495 ハッピーラッキーチャッピー
+wecenc   # 1496 The Encounter Code
+weclng   # 1497 ln(guis・tics)
+wecrem   # 1498 Remnath
+wecenm   # 1499 When Enemies Collapse
+donkyo   # 1502 鈍響ライクリフド
+kassei   # 1503 活声ライクリフド
+tensr4   # 1504 レナセールセレナーデ
+tensr5   # 1505 絵空事
+ton2ka   # 1506 トンツカタンタン
+syalic   # 1507 I am not Alice.
+cs4op    # 1508 おはよう！太鼓サマー
+psp3bs   # 1509 サイクル・オブ・リバース
+kappa    # 1510 河童の皿はこんなにも
+25tsha   # 1511 シャニムニ花火
+irekoi   # 1512 恋の約束 -2025ver.-
+iresh5   # 1513 守護いスキっ！
+asbtig   # 1514 やれんのか夏！？アソビタイガー！
+krsmax   # 1515 カリスマックス
+honma    # 1516 ほんまやで☆なんでやねん☆しらんけど
+sauda    # 1517 サウダージ
+world2   # 1518 ワールドイズマイン CPK! Remix (かぐや&月見ヤチヨ ver.)
+fzip8c   # 1519 はちゃめちゃわちゃライフ！
+turisp   # 1520 釣りスピリッツ ワンダー メドレー
+usnorm   # 1522 HYPERNOVA
+nosfrm   # 1523 Vrykolakas
+operrm   # 1524 resume:story
+ebichu   # 1525 えびチリ、はじめました
+odorik   # 1526 夜の踊り子
+1pslmn   # 1527 ルミナス-Luminous
+smagic   # 1533 Sweet Sweet Magic
+3d2b1x   # 1534 Time to dine
+25tcam   # 1539 どんどこどんどこどんどこどんどこどんタスティック!!!

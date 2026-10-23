@@ -127,7 +127,7 @@
         wdb_stock: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
         wdb_nijiiro: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
         wdb_osulazer: 'bg-pink-500/15 text-pink-600 dark:text-pink-400',
-        wdb_tja: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+        wdb_custom: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
         wdb_stock_nijiiro: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
     };
 
