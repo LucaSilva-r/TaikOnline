@@ -32,6 +32,7 @@
         difficulty: string | null;
         sources: string[];
         has_notes: boolean;
+        stock: boolean;
         ranked: boolean;
         plays_count: number;
     };
@@ -44,6 +45,7 @@
         song_key: string;
         chart_count: number;
         ranked_count: number;
+        official_count: number;
         plays_count: number;
         sources: string[];
         charts: Chart[];
@@ -60,6 +62,7 @@
         q: string;
         source: string | null;
         ranked: 'all' | 'none' | 'some' | null;
+        official: 'all' | 'none' | 'some' | null;
         sort: string;
         direction: 'asc' | 'desc';
         page?: number;
@@ -82,6 +85,7 @@
         { key: null, label: 'Sources' },
         { key: null, label: 'Courses' },
         { key: 'plays', label: 'Plays' },
+        { key: 'official', label: 'Official' },
         { key: 'ranked', label: 'Ranked' },
     ];
     const open = new SvelteSet<number>();
@@ -130,9 +134,12 @@
         <h1 class="text-xl font-semibold">Waddamburo charts</h1>
         <p class="text-sm text-muted-foreground">
             Every Waddamburo song and its charts (one per hash; stock and
-            Nijiiro share most). Leaderboards show all charts; only ranked ones
-            count towards the Waddamburo rankings. Ranking recomputes the
-            players' standings.
+            Nijiiro share most). Only ranked charts are public and count towards
+            the Waddamburo rankings; custom charts are shown only to players who
+            played them, until ranked. Official charts (from the chart import,
+            or marked here) are labelled Stock or Nijiiro and ranked; ranked
+            custom charts show as Custom. Ranking recomputes the players'
+            standings.
             {#if unlinkedCharts > 0}{unlinkedCharts} played charts have no song yet
                 (their notes were never uploaded).{/if}
         </p>
@@ -177,6 +184,20 @@
             <option value="all">Fully ranked</option>
             <option value="some">Partly ranked</option>
             <option value="none">Unranked</option>
+        </select>
+        <select
+            class="h-9 rounded-md border bg-background px-3 text-sm"
+            value={filters.official ?? ''}
+            onchange={(event) =>
+                visit({
+                    official: (event.currentTarget.value ||
+                        null) as Filters['official'],
+                })}
+        >
+            <option value="">Official or custom</option>
+            <option value="all">All official</option>
+            <option value="some">Partly official</option>
+            <option value="none">All custom</option>
         </select>
         <Button type="submit" variant="secondary">Search</Button>
     </form>
@@ -276,6 +297,47 @@
                             >
                                 {#snippet children({ processing })}
                                     {@const all =
+                                        song.official_count ===
+                                        song.chart_count}
+                                    <input
+                                        type="hidden"
+                                        name="official"
+                                        value={all ? '0' : '1'}
+                                    />
+                                    <Button
+                                        type="submit"
+                                        size="sm"
+                                        variant={all ? 'default' : 'outline'}
+                                        disabled={processing}
+                                        title={all
+                                            ? 'Mark every chart custom (their ranking stays)'
+                                            : 'Mark every chart official (and ranked)'}
+                                    >
+                                        {all
+                                            ? 'Official'
+                                            : song.official_count > 0
+                                              ? `${song.official_count}/${song.chart_count} official`
+                                              : 'Custom'}
+                                    </Button>
+                                {/snippet}
+                            </Form>
+                        </td>
+                        <td
+                            class="px-3 py-2"
+                            onclick={(event) => event.stopPropagation()}
+                        >
+                            <Form
+                                {...waddamburoSongRoutes.update.form({
+                                    ...taikoRouteParam(),
+                                    song: song.id,
+                                })}
+                                options={{
+                                    preserveScroll: true,
+                                    preserveState: true,
+                                }}
+                            >
+                                {#snippet children({ processing })}
+                                    {@const all =
                                         song.ranked_count === song.chart_count}
                                     <input
                                         type="hidden"
@@ -332,6 +394,41 @@
                                     class="px-3 py-1.5 text-muted-foreground tabular-nums"
                                     >{chart.plays_count}</td
                                 >
+                                <td class="px-3 py-1.5">
+                                    <Form
+                                        {...waddamburoChartRoutes.update.form({
+                                            ...taikoRouteParam(),
+                                            chart: chart.id,
+                                        })}
+                                        options={{
+                                            preserveScroll: true,
+                                            preserveState: true,
+                                        }}
+                                    >
+                                        {#snippet children({ processing })}
+                                            <input
+                                                type="hidden"
+                                                name="official"
+                                                value={chart.stock ? '0' : '1'}
+                                            />
+                                            <Button
+                                                type="submit"
+                                                size="sm"
+                                                variant={chart.stock
+                                                    ? 'default'
+                                                    : 'outline'}
+                                                disabled={processing}
+                                                title={chart.stock
+                                                    ? 'Mark custom (its ranking stays)'
+                                                    : 'Mark official (and ranked)'}
+                                            >
+                                                {chart.stock
+                                                    ? 'Official'
+                                                    : 'Custom'}
+                                            </Button>
+                                        {/snippet}
+                                    </Form>
+                                </td>
                                 <td class="px-3 py-1.5">
                                     <Form
                                         {...waddamburoChartRoutes.update.form({

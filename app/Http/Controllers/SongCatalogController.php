@@ -88,7 +88,7 @@ class SongCatalogController extends Controller
     public function show(Request $request, string $song, WaddamburoWebController $waddamburo): Response|RedirectResponse
     {
         if ((bool) $request->attributes->get('taikoVersionIsWaddamburo', false)) {
-            return $waddamburo->song($song);
+            return $waddamburo->song($request, $song);
         }
         $version = $this->resolveVersion($request);
 
