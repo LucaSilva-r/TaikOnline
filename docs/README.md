@@ -30,6 +30,8 @@ and the code disagree, the code wins and the document should be fixed.
   costume, and last-used settings.
 - [Dan dojo](features/dan-dojo.md) — the taikojuku course catalog, its data
   format, and how to author courses without a dump.
+- [Moderation](features/moderation.md) — moderator role, sanctions and shadowbans,
+  play hiding, reports, the replay inspector (design).
 
 ### Operations
 - [Game data import](operations/game-data-import.md) — importing songs and dan
