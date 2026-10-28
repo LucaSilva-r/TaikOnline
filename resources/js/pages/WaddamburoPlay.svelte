@@ -13,6 +13,7 @@
         AvatarFallback,
         AvatarImage,
     } from '@/components/ui/avatar';
+    import ReplayPlayer, { type Replay } from '@/components/ReplayPlayer.svelte';
     import { Badge } from '@/components/ui/badge';
     import { Button, buttonVariants } from '@/components/ui/button';
     import { Skeleton } from '@/components/ui/skeleton';
@@ -74,6 +75,7 @@
         chart,
         otherPlays,
         stats,
+        replay,
         moderation,
         inspection,
     }: {
@@ -89,6 +91,7 @@
         };
         otherPlays: OtherPlay[];
         stats?: Stats;
+        replay?: Replay | null;
         moderation: Moderation | null;
         inspection?: Inspection | null;
     } = $props();
@@ -292,6 +295,16 @@
             </div>
         {/each}
     </div>
+
+    <!-- The play, as the engine judged it -->
+    <Deferred data="replay">
+        {#snippet fallback()}
+            <Skeleton class="h-[190px] rounded-lg" />
+        {/snippet}
+        {#if replay}
+            <ReplayPlayer {replay} />
+        {/if}
+    </Deferred>
 
     <!-- From the engine's timeline -->
     <Deferred data="stats">

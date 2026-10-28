@@ -136,7 +136,11 @@ the production host by hand. When the variable is unset, analysis is skipped.
   histogram, drumroll hit intervals per hand, σ / unstable rate / ghost hits / capped roll hits /
   hand balance. Staff open hidden and shadowbanned plays; others get 404.
 - Boards give staff a Moderate button (`moderationBaid` prop).
-- Not built yet: the lane view with playback and the synthesized clicks.
+- Replay player (`ReplayPlayer.svelte`, everyone): a canvas lane with the notes as the engine judged
+  them (hit notes leave, missed ones scroll on), rolls, balloons and kusudama with their hits left,
+  go-go tint, Good/Ok/Bad, combo and drumroll counters, play/pause, seek, 0.5–2× speed. It gets the
+  timeline without inputs (`replay` prop); inputs stay in the staff-only `inspection`.
+- Not built yet: synthesized clicks per input, frame stepping.
 
 ## Order
 

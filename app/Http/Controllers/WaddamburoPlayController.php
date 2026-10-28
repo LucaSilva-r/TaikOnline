@@ -84,6 +84,12 @@ class WaddamburoPlayController extends Controller
                     'hidden' => $other->hidden_at !== null,
                 ])->all(),
             'stats' => Inertia::defer(fn (): ?array => self::publicStats($play->judgementTimeline())),
+            // What the replay player draws: the notes as judged, the rolls' hits, and which drum pad each input hit
+            // (what each input hit stays with staff).
+            'replay' => Inertia::defer(fn (): ?array => ($timeline = $play->judgementTimeline()) === null ? null : [
+                ...array_intersect_key($timeline, array_flip(['duration', 'notes', 'long_notes', 'bars', 'gogo'])),
+                'inputs' => array_map(fn (array $input): array => ['t' => $input['t'], 'action' => $input['action']], $timeline['inputs'] ?? []),
+            ]),
             'moderation' => $isStaff ? [
                 'baid' => (int) $play->baid,
                 'hidden_at' => $play->hidden_at?->toIso8601String(),
