@@ -3,17 +3,20 @@
 namespace App\Models;
 
 use App\Casts\PostgresBytea;
+use App\Enums\SanctionType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 /** One Waddamburo play; the id is the client's, so re-uploads are idempotent. */
 #[Fillable([
     'id', 'baid', 'wdb_chart_id', 'mode', 'course', 'score', 'great', 'good', 'miss', 'max_combo',
     'rolls', 'gauge', 'cleared', 'scoring_version', 'engine_version', 'played_at', 'replay', 'audio_offset_ms', 'input_offset_ms',
-    'options', 'seed', 'wdb_cabinet_id', 'rescored_at',
+    'options', 'seed', 'wdb_cabinet_id', 'rescored_at', 'hidden_at', 'hidden_by', 'hidden_reason',
 ])]
 #[Hidden(['replay'])]
 class WdbPlay extends Model
@@ -51,12 +54,36 @@ class WdbPlay extends Model
         ]));
     }
 
+    /**
+     * The plays a viewer may see (null: nobody's own): never a hidden play, and a shadowbanned player's
+     * plays only by that player. Every place that shows Waddamburo scores goes through this.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeVisibleTo(Builder $query, ?int $viewerBaid): void
+    {
+        self::visibility($query, $viewerBaid);
+    }
+
+    /** {@see scopeVisibleTo()} on a plain query over wdb_plays. */
+    public static function visibility(Builder|QueryBuilder $query, ?int $viewerBaid): void
+    {
+        $query->whereNull('wdb_plays.hidden_at')->where(fn ($visible) => $visible
+            ->whereNotExists(fn (QueryBuilder $shadowban) => $shadowban->from('sanctions')
+                ->whereColumn('sanctions.baid', 'wdb_plays.baid')
+                ->where('sanctions.type', SanctionType::Shadowban->value)
+                ->whereNull('sanctions.revoked_at')
+                ->where(fn (QueryBuilder $live) => $live->whereNull('sanctions.expires_at')->orWhere('sanctions.expires_at', '>', now())))
+            ->when($viewerBaid !== null, fn ($own) => $own->orWhere('wdb_plays.baid', $viewerBaid)));
+    }
+
     protected function casts(): array
     {
         return [
             'cleared' => 'boolean',
             'played_at' => 'datetime',
             'rescored_at' => 'datetime',
+            'hidden_at' => 'datetime',
             'replay' => PostgresBytea::class,
         ];
     }

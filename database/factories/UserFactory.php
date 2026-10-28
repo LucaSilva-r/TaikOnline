@@ -59,6 +59,13 @@ class UserFactory extends Factory
         ]);
     }
 
+    public function moderator(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::Moderator,
+        ]);
+    }
+
     /**
      * Indicate that the model has two-factor authentication configured.
      */

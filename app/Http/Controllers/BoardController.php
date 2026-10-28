@@ -61,6 +61,8 @@ class BoardController extends Controller
             'greenGhostData' => $this->greenGhostData($player, $version),
             'tokkunData' => $this->tokkunData($player, $version),
             'daniData' => $this->daniData($player, $version),
+            // Staff get a way into the player's moderation page.
+            'moderationBaid' => $request->user()?->isStaff() === true ? (int) $player->baid : null,
         ]);
     }
 

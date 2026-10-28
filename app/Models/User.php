@@ -75,6 +75,12 @@ class User extends Authenticatable
         return $this->role === UserRole::Admin;
     }
 
+    /** Admins and moderators: the `moderate` gate. */
+    public function isStaff(): bool
+    {
+        return $this->role === UserRole::Admin || $this->role === UserRole::Moderator;
+    }
+
     public function hasRole(UserRole $role): bool
     {
         return $this->role === $role;

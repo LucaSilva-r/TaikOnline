@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\SanctionType;
 use App\Http\Middleware\AuthenticateWaddamburo;
 use App\Http\Middleware\EnsureWaddamburoCabinet;
 use App\Http\Middleware\ResolveTaikoVersion;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
+use App\Models\Sanction;
 use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
@@ -68,6 +70,9 @@ class WaddamburoController extends Controller
         if (! $player instanceof Player) {
             throw ValidationException::withMessages(['login' => __('Your account does not have a Banapass yet.')]);
         }
+        if (($ban = $player->activeBan()) !== null) {
+            throw ValidationException::withMessages(['login' => $ban->banMessage()]);
+        }
 
         return response()->json([
             'token' => $user->createToken($validated['device'], ['wdb'])->plainTextToken,
@@ -102,6 +107,9 @@ class WaddamburoController extends Controller
         $player = $result['user']->player;
         if (! $player instanceof Player) {
             return response()->json(['status' => 'denied', 'message' => 'The account does not have a Banapass yet.']);
+        }
+        if (($ban = $player->activeBan()) !== null) {
+            return response()->json(['status' => 'denied', 'message' => $ban->banMessage()]);
         }
 
         return response()->json([
@@ -145,7 +153,7 @@ class WaddamburoController extends Controller
         $friend = Cache::remember('wdb-friend:'.$result['command_id'], 120, function () use ($result, $request): ?array {
             $player = GameCard::query()->whereKey($result['access_code'])->first()?->player;
             $user = $player?->user;
-            if (! $player instanceof Player || ! $user instanceof User) {
+            if (! $player instanceof Player || ! $user instanceof User || $player->activeBan() !== null) {
                 return null;
             }
             $device = 'Guest session on '.($request->user()->currentAccessToken()->name ?? 'Waddamburo');
@@ -192,12 +200,14 @@ class WaddamburoController extends Controller
         ]);
         $charts = WdbChart::query()->whereIn('sha256', $validated['charts'])->pluck('sha256', 'id');
         $rankings = array_fill_keys($validated['charts'], []);
+        $viewerBaid = $this->isCabinet($request) ? null : $request->user()->player?->baid;
         foreach ($charts as $chartId => $sha256) {
             // ponytail: every mode and scoring version counts; filter by ranked/min_scoring_version later.
             // Normal scores only: 真打 plays score on another scale. Only plays the server scored.
             $rankings[$sha256] = WdbPlay::query()
                 ->where('wdb_chart_id', $chartId)
                 ->whereNotNull('rescored_at')
+                ->visibleTo($viewerBaid)
                 ->whereRaw('(options & ?) = 0', [WdbPlay::SHINUCHI])
                 ->selectRaw('baid, MAX(score) AS best')
                 ->groupBy('baid')
@@ -233,6 +243,7 @@ class WaddamburoController extends Controller
         $bests = WdbPlay::query()
             ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_plays.wdb_chart_id')
             ->where('wdb_plays.baid', $baid)
+            ->whereNull('wdb_plays.hidden_at')
             ->groupBy('wdb_charts.sha256')
             // The best normal score (真打 ones are on another scale); a crown from any play.
             ->selectRaw('wdb_charts.sha256, MAX(CASE WHEN (wdb_plays.options & '.WdbPlay::SHINUCHI.') = 0 THEN wdb_plays.score END) AS score, '
@@ -255,6 +266,9 @@ class WaddamburoController extends Controller
         $validated = $request->validate(['access_code' => ['required', 'string', 'regex:/\A[0-9]{20}\z/']]);
         $player = GameCard::query()->whereKey($validated['access_code'])->first()?->player;
         abort_unless($player instanceof Player, 404);
+        if (($ban = $player->activeBan()) !== null) {
+            return response()->json(['message' => $ban->banMessage(), 'banned' => true], 403);
+        }
 
         return response()->json($this->profile($player));
     }
@@ -306,6 +320,13 @@ class WaddamburoController extends Controller
             if ($cabinet && ! Player::query()->whereKey($baid)->exists()) {
                 continue;
             }
+            // A banned player's plays from a cabinet: taken off its queue, never kept.
+            if ($cabinet && ($bans[$baid] ??= Sanction::activeFor($baid, SanctionType::Ban) ?? false) !== false) {
+                $accepted[] = $play['id'];
+                $refused[] = ['id' => $play['id'], 'message' => $bans[$baid]->banMessage()];
+
+                continue;
+            }
             $replay = base64_decode($play['replay'], true);
             if ($replay === false) {
                 continue;
@@ -351,7 +372,7 @@ class WaddamburoController extends Controller
             ->whereNull('notes')
             ->pluck('sha256');
 
-        return response()->json(['accepted' => $accepted, 'missing_charts' => $missing]);
+        return response()->json(['accepted' => $accepted, 'missing_charts' => $missing, 'refused' => $refused ?? []]);
     }
 
     /** Imports a chart's canonical notes (gzipped, base64); the hash must match the decompressed bytes. */

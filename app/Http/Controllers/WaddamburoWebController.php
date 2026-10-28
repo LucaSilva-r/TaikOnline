@@ -38,7 +38,7 @@ class WaddamburoWebController extends Controller
 
     public function rankings(WaddamburoRankAggregateService $aggregates): Response
     {
-        $stats = $aggregates->standings()->take(100)->values();
+        $stats = $aggregates->standings($this->viewerBaid())->take(100)->values();
         $users = User::query()->whereIn('id', $stats->pluck('user_id'))->get()->keyBy('id');
 
         return Inertia::render('Rankings', [
@@ -72,6 +72,7 @@ class WaddamburoWebController extends Controller
             ->whereIn('wdb_plays.wdb_chart_id', DB::table('wdb_chart_song')->select('wdb_chart_id')
                 ->whereColumn('wdb_chart_song.wdb_song_id', 'wdb_songs.id'))
             ->whereIn('wdb_plays.wdb_chart_id', $visible)
+            ->tap(fn (QueryBuilder $query) => WdbPlay::visibility($query, $this->viewerBaid()))
             ->selectRaw($aggregate);
         $songs = WdbSong::query()
             ->whereHas('charts', fn (Builder $chart) => $chart->whereIn('wdb_charts.id', $visible))
@@ -129,7 +130,7 @@ class WaddamburoWebController extends Controller
         })->values();
         $chartIds = $charts->pluck('id');
         $songSources = self::ordered($charts->pluck('sources')->flatten()->all());
-        $plays = WdbPlay::query()->whereIn('wdb_chart_id', $chartIds);
+        $plays = WdbPlay::query()->whereIn('wdb_chart_id', $chartIds)->visibleTo($this->viewerBaid());
 
         return Inertia::render('SongDetail', [
             'gameVersion' => $this->scope(),
@@ -167,14 +168,14 @@ class WaddamburoWebController extends Controller
         $user->load('player');
         $player = $user->player;
         $visible = WdbChart::visibleTo($request->user());
-        $standings = $aggregates->standings();
+        $standings = $aggregates->standings($this->viewerBaid());
         $summary = $player instanceof Player ? $standings->firstWhere('user_id', $user->id) : null;
 
         return Inertia::render('Board', [
             'profile' => [
                 'id' => $user->id, 'name' => $user->name, 'avatar' => $user->avatar,
                 'mydon_name' => $player?->mydon_name, 'game_version' => $this->scope(),
-                'last_played_at' => $player instanceof Player ? WdbPlay::query()->where('baid', $player->baid)->whereIn('wdb_chart_id', $visible)->max('played_at') : null,
+                'last_played_at' => $player instanceof Player ? WdbPlay::query()->where('baid', $player->baid)->whereIn('wdb_chart_id', $visible)->visibleTo($this->viewerBaid())->max('played_at') : null,
                 'total_credit_count' => 0,
                 'don_medals' => ['earned' => 0, 'spent' => 0],
                 'katsu_medals' => ['earned' => 0, 'spent' => 0],
@@ -192,23 +193,26 @@ class WaddamburoWebController extends Controller
             'recentPlays' => $player instanceof Player ? $this->playerRecentPlays($player, $visible) : [],
             'bestPerformances' => $player instanceof Player ? $this->playerBests($player, $visible) : [],
             'blueBattleData' => null, 'greenGhostData' => null, 'tokkunData' => null, 'daniData' => null,
+            // Staff get a way into the player's moderation page.
+            'moderationBaid' => $request->user()?->isStaff() === true && $player instanceof Player ? (int) $player->baid : null,
         ]);
     }
 
     private function difficultyBoard(WdbChart $chart): array
     {
-        $rows = WaddamburoRankAggregateService::bests(fn (QueryBuilder $query) => $query->where('wdb_plays.wdb_chart_id', $chart->id))
+        $viewerBaid = $this->viewerBaid();
+        $rows = WaddamburoRankAggregateService::bests(fn (QueryBuilder $query) => $query->where('wdb_plays.wdb_chart_id', $chart->id), viewerBaid: $viewerBaid)
             ->orderByDesc('best_score')
             ->get();
-        $shinuchi = WaddamburoRankAggregateService::bests(fn (QueryBuilder $query) => $query->where('wdb_plays.wdb_chart_id', $chart->id), shinuchi: true)
+        $shinuchi = WaddamburoRankAggregateService::bests(fn (QueryBuilder $query) => $query->where('wdb_plays.wdb_chart_id', $chart->id), shinuchi: true, viewerBaid: $viewerBaid)
             ->orderByDesc('best_score')
             ->get();
         $players = Player::query()->whereIn('baid', $rows->pluck('baid')->merge($shinuchi->pluck('baid')))->with('user')->get()->keyBy('baid');
         // Each player's best play itself (the earlier one on a tie, as the game's leaderboard), for its counts.
         $bestPlays = fn (bool $shinuchi): Collection => WdbPlay::query()
-            ->fromSub(WdbPlay::query()->select(['baid', 'great', 'good', 'miss', 'max_combo', 'rolls'])
+            ->fromSub(WdbPlay::query()->select(['id', 'baid', 'great', 'good', 'miss', 'max_combo', 'rolls'])
                 ->selectRaw('ROW_NUMBER() OVER (PARTITION BY baid ORDER BY score DESC, played_at ASC) AS player_best')
-                ->where('wdb_chart_id', $chart->id)->whereNotNull('rescored_at')
+                ->where('wdb_chart_id', $chart->id)->whereNotNull('rescored_at')->visibleTo($viewerBaid)
                 ->whereRaw('(options & ?) '.($shinuchi ? '<>' : '=').' 0', [WdbPlay::SHINUCHI]), 'wdb_plays')
             ->where('player_best', 1)->get()->keyBy('baid');
         $entries = fn (Collection $rows, Collection $plays): array => $rows->filter(fn ($row) => $players->get($row->baid)?->user !== null)->take(20)->values()->map(function ($row, int $index) use ($players, $plays, $chart): array {
@@ -216,7 +220,7 @@ class WaddamburoWebController extends Controller
             $play = $plays->get($row->baid);
 
             return [
-                'rank' => $index + 1, 'user_id' => (int) $user->id,
+                'rank' => $index + 1, 'user_id' => (int) $user->id, 'play_id' => $play?->id,
                 'player_name' => $user->name, 'avatar' => $user->avatar,
                 'score' => (int) $row->best_score, 'score_rank' => 0,
                 'crown' => (int) $row->best_crown,
@@ -234,7 +238,7 @@ class WaddamburoWebController extends Controller
             'name' => $chart->difficulty,
             'sources' => array_map(fn (string $source): string => self::SOURCES[$source] ?? $source, $chart->sources ?? []),
             'external_url' => $chart->osuUrl(),
-            'play_count' => WdbPlay::query()->where('wdb_chart_id', $chart->id)->count(),
+            'play_count' => WdbPlay::query()->where('wdb_chart_id', $chart->id)->visibleTo($viewerBaid)->count(),
             'player_count' => $rows->count(),
             'crown_counts' => ['clear' => $rows->where('best_crown', 1)->count(), 'gold' => $rows->where('best_crown', 2)->count(), 'dondaful' => $rows->where('best_crown', 3)->count()],
             'entries' => $entries($rows, $bestPlays(false)),
@@ -245,9 +249,10 @@ class WaddamburoWebController extends Controller
 
     private function songRecentPlays(Collection $chartIds): array
     {
-        return WdbPlay::query()->whereIn('wdb_chart_id', $chartIds)->with(['player.user', 'chart'])->latest('played_at')->limit(15)->get()
+        return WdbPlay::query()->whereIn('wdb_chart_id', $chartIds)->visibleTo($this->viewerBaid())->with(['player.user', 'chart'])->latest('played_at')->limit(15)->get()
             ->filter(fn (WdbPlay $play) => $play->player?->user !== null)
             ->map(fn (WdbPlay $play): array => [
+                'play_id' => $play->id,
                 'user_id' => (int) $play->player->user_id, 'player_name' => $play->player->user->name,
                 'avatar' => $play->player->user->avatar, 'level' => (int) $play->course + 1,
                 'difficulty' => $play->chart?->difficulty,
@@ -262,9 +267,10 @@ class WaddamburoWebController extends Controller
     private function playerRecentPlays(Player $player, QueryBuilder $visible): array
     {
         return WdbPlay::query()->where('baid', $player->baid)->with('chart')
-            ->whereIn('wdb_chart_id', $visible)
+            ->whereIn('wdb_chart_id', $visible)->visibleTo($this->viewerBaid())
             ->latest('played_at')->limit(10)->get()
             ->map(fn (WdbPlay $play): array => [
+                'play_id' => $play->id,
                 'song_title' => $play->chart->title ?? 'Unknown chart',
                 'song_id' => $this->songId($play->chart), 'song_no' => (int) $play->wdb_chart_id,
                 'level' => (int) $play->course + 1, 'difficulty' => $play->chart->difficulty,
@@ -285,7 +291,7 @@ class WaddamburoWebController extends Controller
     {
         $rows = WaddamburoRankAggregateService::bests(fn (QueryBuilder $query) => $query
             ->where('wdb_plays.baid', $player->baid)
-            ->whereIn('wdb_plays.wdb_chart_id', $visible))
+            ->whereIn('wdb_plays.wdb_chart_id', $visible), viewerBaid: $this->viewerBaid())
             ->orderByDesc('best_score')->limit(10)->get();
         $charts = WdbChart::query()->whereIn('id', $rows->pluck('wdb_chart_id'))->get()->keyBy('id');
 
@@ -300,10 +306,18 @@ class WaddamburoWebController extends Controller
                 'score_rank' => 0, 'crown' => (int) $row->best_crown,
                 'counts_for_leaderboard' => $chart?->ranked_at !== null,
                 'placement' => DB::query()->fromSub(WaddamburoRankAggregateService::bests(fn (QueryBuilder $query) => $query
-                    ->where('wdb_plays.wdb_chart_id', $row->wdb_chart_id)), 'bests')
+                    ->where('wdb_plays.wdb_chart_id', $row->wdb_chart_id), viewerBaid: $this->viewerBaid()), 'bests')
                     ->where('best_score', '>', $row->best_score)->count() + 1,
             ];
         })->all();
+    }
+
+    /** The viewer's own baid: their own plays stay visible to them (WdbPlay::visibleTo). */
+    private function viewerBaid(): ?int
+    {
+        $baid = request()->user()?->player?->baid;
+
+        return $baid === null ? null : (int) $baid;
     }
 
     private function songId(WdbChart $chart): ?int

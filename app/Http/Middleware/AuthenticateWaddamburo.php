@@ -29,6 +29,11 @@ class AuthenticateWaddamburo
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
+        $ban = $user->player?->activeBan();
+        if ($ban !== null) {
+            return response()->json(['message' => $ban->banMessage(), 'banned' => true], 403);
+        }
+
         Auth::setUser($user);
 
         return $next($request);

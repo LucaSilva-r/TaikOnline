@@ -3,11 +3,13 @@
 namespace App\Providers;
 
 use App\Http\Middleware\ResolveTaikoVersion;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -29,6 +31,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        // The moderation pages (mod/): admins and moderators.
+        Gate::define('moderate', fn (User $user): bool => $user->isStaff());
     }
 
     /**

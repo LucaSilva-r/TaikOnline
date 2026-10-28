@@ -1,6 +1,6 @@
 # Moderation
 
-Status: **design** (2026-10-28), nothing implemented yet.
+Status: step 1 of **Order** built, step 2 mostly built (2026-10-28); steps 3–5 are still design.
 
 Waddamburo is open source, so the client cannot be trusted: a modified build can send any replay
 it likes. The server already rescores every play from its replay with the Waddamburo binary
@@ -94,6 +94,49 @@ play, stored on `wdb_plays`. Flagged plays enter the review queue; nothing is sa
 automatically. The analyzer is not part of this repository or the Docker image; it is mounted on
 the production host by hand. When the variable is unset, analysis is skipped.
 
+## Implementation (step 1)
+
+- `UserRole::Moderator`, `User::isStaff()`, gate `moderate` (AppServiceProvider). Moderators see only
+  the Moderation entry in the backend sidebar.
+- `sanctions`, `moderation_actions`, `wdb_plays.hidden_*`: migration `create_moderation_tables`.
+  Models `Sanction` (`active` scope, `activeFor()`, `banMessage()`), `ModerationAction`;
+  `Player::activeBan()`.
+- `ModerationService` does every write and its log entry. `canActOn()`: moderators act on non-staff
+  players only, admins on anyone but themselves. `canIssue()`: permanent bans are admin-only
+  (moderators pick a duration; shadowbans and mutes can be permanent).
+- Visibility: `WdbPlay::visibleTo()` scope (and `WdbPlay::visibility()` for plain queries). Hidden
+  plays are hidden from everyone, owner included; shadowbanned players' plays only from others.
+  `WaddamburoRankAggregateService::bests()` and `standings()` take the viewer's baid. Standings
+  filter shadowbanned players when read, so a sanction needs no recompute (and expiry needs no job);
+  hiding or restoring a play recomputes its player's aggregate.
+- Bans: Fortify login and Waddamburo login/device poll refuse with `banMessage()`;
+  `EnsureNotBanned` (web group) signs a banned user out; `AuthenticateWaddamburo` answers 403
+  `{message, banned: true}` to a banned home token; cabinet card lookup answers the same; a
+  cabinet's queued plays of a banned player are acknowledged in `accepted` (so the queue drains),
+  listed in `refused` with the message, and not stored. Card logins on the real Taiko cabinets
+  (Green/legacy protocols) are not blocked yet.
+- Pages: `mod/` (player lookup, sanctions in force, whole log for admins) and `mod/players/{baid}`
+  (issue/revoke sanctions, hide/restore plays, the player's history). Tests: `tests/Feature/ModerationTest.php`.
+
+## Implementation (step 2)
+
+- Waddamburo-public `--inspect` (branch `inspect-mode`): same stdin as `--rescore`, one JSON line per
+  play: `windows`, `duration`, `notes` (t, kind, hand, result, offset, judged_at), `long_notes`
+  (start, end, kind, required, hits), `inputs` (t, action 0–3, hit: note/strong/roll/pop/capped/none,
+  note index), `bars`, `gogo`. Times in ms. Production needs a Waddamburo release with it.
+- `WaddamburoScorer::inspect()` runs it through `WADDAMBURO_SCORER`, cached a week per play and
+  scoring version.
+- Page `{version}/plays/{id}` (`WaddamburoPlayController`, `WaddamburoPlay.svelte`), Waddamburo only.
+  Song boards, song recent plays, board recent plays and the mod player page link to it. Everyone
+  sees the result, placement, other plays on the chart, and from the timeline only mean offset,
+  early/late counts and drumroll speed (`publicStats()`). Staff also see the moderation panel
+  (hide/restore, link to the player's mod page) and the timeline plots (`PlayInspection.svelte`):
+  hit timing over the song with misses and hits on no note, Good rate over the song, offset
+  histogram, drumroll hit intervals per hand, σ / unstable rate / ghost hits / capped roll hits /
+  hand balance. Staff open hidden and shadowbanned plays; others get 404.
+- Boards give staff a Moderate button (`moderationBaid` prop).
+- Not built yet: the lane view with playback and the synthesized clicks.
+
 ## Order
 
 1. Role and gate, sanctions, play hiding, visibility scope, action log, moderation pages (player
@@ -105,6 +148,6 @@ the production host by hand. When the variable is unset, analysis is skipped.
 
 ## Open questions
 
-- Sanctions on the baid (proposed) or on the web account?
-- Can moderators issue permanent bans, or only timed ones?
+- Sanctions on the baid (proposed) or on the web account? Built on the baid.
+- Can moderators issue permanent bans, or only timed ones? Built as timed only.
 - Do moderators see the analyzer output in the inspector, or admins only?

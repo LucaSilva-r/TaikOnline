@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\SanctionType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -159,5 +160,16 @@ class Player extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** The ban in force on this player, if any. */
+    public function activeBan(): ?Sanction
+    {
+        return Sanction::activeFor((int) $this->baid, SanctionType::Ban);
+    }
+
+    public function sanctions(): HasMany
+    {
+        return $this->hasMany(Sanction::class, 'baid', 'baid');
     }
 }

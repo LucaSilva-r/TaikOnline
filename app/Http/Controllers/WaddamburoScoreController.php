@@ -34,11 +34,13 @@ class WaddamburoScoreController extends Controller
         if ($chart === null) {
             return response()->json(['scores' => [], 'mine' => null]);
         }
+        $baid = $this->baid($request);
         $bests = WdbPlay::query()
             ->fromSub(WdbPlay::query()->select(self::COLUMNS)
                 ->selectRaw('ROW_NUMBER() OVER (PARTITION BY baid ORDER BY score DESC, played_at ASC) AS player_best')
                 ->where('wdb_chart_id', $chart->id)
                 ->whereNotNull('rescored_at')
+                ->visibleTo($baid)
                 ->whereRaw('(options & ?) '.($request->boolean('shinuchi') ? '<>' : '=').' 0', [WdbPlay::SHINUCHI]), 'wdb_plays')
             ->where('player_best', 1)
             ->orderByDesc('score')->orderBy('played_at');
@@ -46,7 +48,7 @@ class WaddamburoScoreController extends Controller
         $rows = $top->map(fn (WdbPlay $play, int $index): array => $this->row($play, $index + 1))->all();
 
         $mine = null;
-        if (($baid = $this->baid($request)) !== null) {
+        if ($baid !== null) {
             $index = $top->search(fn (WdbPlay $play): bool => (int) $play->baid === $baid);
             if ($index !== false) {
                 $mine = $rows[$index];
@@ -67,7 +69,7 @@ class WaddamburoScoreController extends Controller
         $baid = $this->baid($request);
         abort_if($baid === null, 404);
         $plays = $chart === null ? collect() : WdbPlay::query()->select(self::COLUMNS)
-            ->where('wdb_chart_id', $chart->id)->where('baid', $baid)
+            ->where('wdb_chart_id', $chart->id)->where('baid', $baid)->visibleTo($baid)
             ->orderByDesc('score')->orderByDesc('played_at')->limit(100)
             ->with('player.user')->get();
 
@@ -75,10 +77,10 @@ class WaddamburoScoreController extends Controller
     }
 
     /** A play's replay (base64) and what playing it back needs. */
-    public function replay(string $id): JsonResponse
+    public function replay(Request $request, string $id): JsonResponse
     {
         abort_unless(preg_match('/\A[0-9a-f-]{36}\z/i', $id) === 1, 404);
-        $play = WdbPlay::query()->with(['chart:id,sha256', 'player.user'])->findOrFail($id);
+        $play = WdbPlay::query()->visibleTo($this->baid($request))->with(['chart:id,sha256', 'player.user'])->findOrFail($id);
 
         return response()->json([
             ...$this->row($play, null),
