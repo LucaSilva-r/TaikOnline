@@ -16,9 +16,9 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 #[Fillable([
     'id', 'baid', 'wdb_chart_id', 'mode', 'course', 'score', 'great', 'good', 'miss', 'max_combo',
     'rolls', 'gauge', 'cleared', 'scoring_version', 'engine_version', 'played_at', 'replay', 'audio_offset_ms', 'input_offset_ms',
-    'options', 'seed', 'wdb_cabinet_id', 'rescored_at', 'hidden_at', 'hidden_by', 'hidden_reason',
+    'options', 'seed', 'wdb_cabinet_id', 'rescored_at', 'hidden_at', 'hidden_by', 'hidden_reason', 'timeline',
 ])]
-#[Hidden(['replay'])]
+#[Hidden(['replay', 'timeline'])]
 class WdbPlay extends Model
 {
     use HasUuids;
@@ -85,7 +85,21 @@ class WdbPlay extends Model
             'rescored_at' => 'datetime',
             'hidden_at' => 'datetime',
             'replay' => PostgresBytea::class,
+            'timeline' => PostgresBytea::class,
         ];
+    }
+
+    /**
+     * The engine's judgement timeline (see WaddamburoScorer): every note's result and offset, every input and
+     * what it hit, the roll hits. Null until a scorer that returns it rescored the play.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function judgementTimeline(): ?array
+    {
+        $json = $this->timeline === null ? false : @gzdecode((string) $this->timeline);
+
+        return $json === false ? null : json_decode($json, true);
     }
 
     public function player(): BelongsTo

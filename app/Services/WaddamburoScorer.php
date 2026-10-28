@@ -5,14 +5,14 @@ namespace App\Services;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 
 /**
  * Scores Waddamburo plays from their replays with the game's own rules (the Waddamburo binary's
  * --rescore mode, so the server never keeps a second copy of them): the server's numbers replace
- * the client's. A rules change is a new binary plus `app:rescore-waddamburo-plays --all`.
+ * the client's, and the engine's judgement timeline is kept beside them (WdbPlay::judgementTimeline).
+ * A rules change is a new binary plus `app:rescore-waddamburo-plays --all`.
  */
 class WaddamburoScorer
 {
@@ -76,7 +76,11 @@ class WaddamburoScorer
             if ((int) $claimed['score'] !== (int) $scored['score']) {
                 $summary['changes'][] = ['play' => $play->id, 'baid' => (int) $play->baid, 'from' => (int) $claimed['score'], 'to' => (int) $scored['score']];
             }
-            $play->update([...$scored, 'rescored_at' => now()]);
+            $play->update([
+                ...$scored,
+                'rescored_at' => now(),
+                'timeline' => isset($result['timeline']) ? gzencode(json_encode($result['timeline'], JSON_THROW_ON_ERROR), 9) : null,
+            ]);
             // The chart's own (the same for all its plays): its drumrolls' most hits.
             if (isset($result['roll_max']) && $play->chart->roll_max !== (int) $result['roll_max']) {
                 $rollMax[$play->wdb_chart_id] = (int) $result['roll_max'];
@@ -90,38 +94,6 @@ class WaddamburoScorer
         }
 
         return [...$summary, 'players' => array_keys($changed)];
-    }
-
-    /**
-     * A play's whole judgement timeline as the engine plays it (the binary's --inspect mode: every note's
-     * result and offset, every input and what it hit, the roll hits), cached per play and scoring version.
-     * Null when the binary is not set, the chart has no notes yet, or the play does not play.
-     *
-     * @return array<string, mixed>|null
-     */
-    public function inspect(WdbPlay $play): ?array
-    {
-        $scorer = config('services.waddamburo.scorer');
-        if (! is_string($scorer) || $scorer === '' || ! is_executable($scorer)) {
-            return null;
-        }
-        $play->loadMissing('chart:id,notes,source');
-        if ($play->chart?->notes === null) {
-            return null;
-        }
-
-        // ponytail: one cache entry per play (~100 KB of JSON); a table when inspections get heavy use.
-        return Cache::remember("wdb-inspect:{$play->id}:{$play->scoring_version}", now()->addWeek(), function () use ($play, $scorer): ?array {
-            $run = Process::input($this->line($play, base64_encode((string) $play->chart->notes))."\n")->timeout(60)->run([$scorer, '--inspect']);
-            $result = $run->successful() ? json_decode(trim($run->output()), true) : null;
-            if (! is_array($result) || isset($result['error'])) {
-                Log::warning('Waddamburo play could not be inspected.', ['play' => $play->id, 'error' => $result['error'] ?? $run->errorOutput()]);
-
-                return null;
-            }
-
-            return $result;
-        });
     }
 
     /** One play as the binary reads it on stdin (its chart's stored notes given base64, shared across a batch). */

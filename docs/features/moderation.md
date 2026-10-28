@@ -73,9 +73,9 @@ see the history of the player they are looking at.
 Page `mod/plays/{id}` for checking a play visually (no song audio, the server does not have it).
 
 The judgement timeline comes from the engine, never from a JS reimplementation that could drift:
-Waddamburo gains an `--inspect` mode (same stdin/stdout JSON lines as `--rescore`) that returns
-every note (time, kind, result, offset) and every input (time, action, what it hit: note, roll,
-capped roll hit, nothing). The server caches the output per play and scoring version.
+`--rescore` returns it with every play's result (every note's time, kind, result and offset, and
+every input's time, action and what it hit: note, roll, capped roll hit, nothing), and the server
+keeps it on the play.
 
 The page shows:
 - a lane view with the notes and the player's hits, play/pause, seek, 0.25×–2× speed, frame steps;
@@ -120,12 +120,13 @@ the production host by hand. When the variable is unset, analysis is skipped.
 
 ## Implementation (step 2)
 
-- Waddamburo-public `--inspect` (branch `inspect-mode`): same stdin as `--rescore`, one JSON line per
-  play: `windows`, `duration`, `notes` (t, kind, hand, result, offset, judged_at), `long_notes`
+- Waddamburo-public `--rescore` (branch `inspect-mode`) returns each play's `timeline` beside its
+  result: `windows`, `duration`, `notes` (t, kind, hand, result, offset, judged_at), `long_notes`
   (start, end, kind, required, hits), `inputs` (t, action 0–3, hit: note/strong/roll/pop/capped/none,
-  note index), `bars`, `gogo`. Times in ms. Production needs a Waddamburo release with it.
-- `WaddamburoScorer::inspect()` runs it through `WADDAMBURO_SCORER`, cached a week per play and
-  scoring version.
+  note index), `bars`, `gogo`. Times in ms. Production needs a Waddamburo release with it, then
+  `app:rescore-waddamburo-plays --all` fills it in for the stored plays.
+- `WaddamburoScorer` keeps it gzipped in `wdb_plays.timeline` (~20 KB a play);
+  `WdbPlay::judgementTimeline()` reads it.
 - Page `{version}/plays/{id}` (`WaddamburoPlayController`, `WaddamburoPlay.svelte`), Waddamburo only.
   Song boards, song recent plays, board recent plays and the mod player page link to it. Everyone
   sees the result, placement, other plays on the chart, and from the timeline only mean offset,
@@ -141,7 +142,7 @@ the production host by hand. When the variable is unset, analysis is skipped.
 
 1. Role and gate, sanctions, play hiding, visibility scope, action log, moderation pages (player
    lookup, sanctions, plays).
-2. `--inspect` in Waddamburo and the replay inspector page.
+2. Judgement timeline from `--rescore` and the replay inspector page.
 3. Reports and the review queue.
 4. Analyzer hook.
 5. Mute enforcement, with forum and chat.

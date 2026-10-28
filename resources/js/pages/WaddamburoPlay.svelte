@@ -411,8 +411,9 @@
                     <PlayInspection {inspection} />
                 {:else}
                     <p class="text-sm text-muted-foreground">
-                        No timeline: the scorer binary (WADDAMBURO_SCORER) is
-                        not set, lacks --inspect, or the chart is not uploaded.
+                        No timeline yet: the play has not been rescored by a
+                        Waddamburo that keeps it (app:rescore-waddamburo-plays
+                        --all), or its chart is not uploaded.
                     </p>
                 {/if}
             </Deferred>

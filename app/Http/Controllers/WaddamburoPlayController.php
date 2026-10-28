@@ -7,7 +7,6 @@ use App\Models\WdbPlay;
 use App\Services\ModerationService;
 use App\Services\PlayerRankAggregateService;
 use App\Services\WaddamburoRankAggregateService;
-use App\Services\WaddamburoScorer;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +19,7 @@ use Inertia\Response;
  */
 class WaddamburoPlayController extends Controller
 {
-    public function show(Request $request, string $id, WaddamburoScorer $scorer): Response
+    public function show(Request $request, string $id): Response
     {
         abort_unless((bool) $request->attributes->get('taikoVersionIsWaddamburo', false), 404);
         abort_unless(preg_match('/\A[0-9a-f-]{36}\z/i', $id) === 1, 404);
@@ -84,7 +83,7 @@ class WaddamburoPlayController extends Controller
                     'played_at' => $other->played_at?->toIso8601String(),
                     'hidden' => $other->hidden_at !== null,
                 ])->all(),
-            'stats' => Inertia::defer(fn (): ?array => self::publicStats($scorer->inspect($play))),
+            'stats' => Inertia::defer(fn (): ?array => self::publicStats($play->judgementTimeline())),
             'moderation' => $isStaff ? [
                 'baid' => (int) $play->baid,
                 'hidden_at' => $play->hidden_at?->toIso8601String(),
@@ -93,7 +92,7 @@ class WaddamburoPlayController extends Controller
                 'can_act' => $play->player !== null && ModerationService::canActOn($viewer, $play->player),
             ] : null,
             // The engine's whole timeline: staff only (what reviewers look at stays with them).
-            'inspection' => $isStaff ? Inertia::defer(fn (): ?array => $scorer->inspect($play)) : null,
+            'inspection' => $isStaff ? Inertia::defer(fn (): ?array => $play->judgementTimeline()) : null,
         ]);
     }
 

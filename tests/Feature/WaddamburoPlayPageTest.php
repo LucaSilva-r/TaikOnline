@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
 use App\Services\WaddamburoSongs;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -53,16 +52,15 @@ it('links the song board\'s scores to their plays, whose page everyone sees with
 });
 
 it('shows hidden and shadowbanned plays to staff only, with the engine\'s timeline', function (): void {
-    config(['services.waddamburo.scorer' => '/bin/true']);
-    Process::fake(['*' => Process::result(json_encode([
+    $chart = play_page_chart();
+    $cheater = play_page_player();
+    $play = play_page_play($cheater, $chart, 1_000_000);
+    $play->update(['timeline' => gzencode(json_encode([
         'windows' => ['great' => 25, 'good' => 75, 'miss' => 108], 'duration' => 5000,
         'notes' => [['t' => 1000, 'kind' => 'don', 'result' => 'great', 'offset' => -4], ['t' => 1500, 'kind' => 'ka', 'result' => 'good', 'offset' => 30]],
         'long_notes' => [['start' => 2000, 'end' => 3000, 'kind' => 'roll', 'required' => 0, 'hits' => [2000, 2100, 2200]]],
         'inputs' => [], 'bars' => [], 'gogo' => [],
     ]))]);
-    $chart = play_page_chart();
-    $cheater = play_page_player();
-    $play = play_page_play($cheater, $chart, 1_000_000);
     Sanction::query()->create(['baid' => $cheater->baid, 'type' => SanctionType::Shadowban, 'reason' => 'macro']);
 
     $this->actingAs(User::factory()->create())->get("/waddamburo/plays/{$play->id}")->assertNotFound();
@@ -74,7 +72,6 @@ it('shows hidden and shadowbanned plays to staff only, with the engine\'s timeli
             ->loadDeferredProps(fn (Assert $reload) => $reload
                 ->where('inspection.notes.1.offset', 30)
                 ->where('stats', ['mean_offset' => 13, 'early' => 1, 'late' => 1, 'roll_speed' => ['average' => 10, 'peak' => 10]])));
-    Process::assertRanTimes(fn ($process) => $process->command === ['/bin/true', '--inspect'], 1);
 });
 
 it('gives staff a way from a player\'s board into their moderation page', function (): void {
