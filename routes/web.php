@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\WaddamburoNoticeController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\Green\OperatorController;
 use App\Http\Controllers\Mod\ModerationController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RankingController;
 use App\Http\Controllers\Settings\CabinetLoginController;
 use App\Http\Controllers\Settings\DeviceLinkController;
@@ -47,6 +48,7 @@ Route::prefix('{taikoVersion}')
             ->name('plays.report');
 
         Route::middleware('auth')->group(function (): void {
+            Route::post('notifications/read', [NotificationController::class, 'read'])->name('notifications.read');
             Route::get('play', [CabinetLoginController::class, 'create'])->name('play.create');
             Route::post('play', [CabinetLoginController::class, 'store'])
                 ->middleware('throttle:cabinet-login')

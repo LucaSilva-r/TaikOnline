@@ -5,6 +5,7 @@
     import type { Snippet } from 'svelte';
     import AlphaBanner from '@/components/AlphaBanner.svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
+    import NotificationBell from '@/components/NotificationBell.svelte';
     import SiteDisclaimer from '@/components/SiteDisclaimer.svelte';
     import TaikoVersionSelect from '@/components/TaikoVersionSelect.svelte';
     import {
@@ -189,6 +190,7 @@
                             Backend
                         </Link>
                     {/if}
+                    <NotificationBell />
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             {#snippet children(props)}

@@ -54,8 +54,34 @@ class HandleInertiaRequests extends Middleware
                     ->all(),
                 'allowAll' => $request->routeIs('admin.*'),
             ],
+            'notifications' => fn (): ?array => $request->user() === null ? null : [
+                'unread' => $request->user()->unreadNotifications()->count(),
+                // New ones are pushed here (Reverb, Pusher protocol); the bell reloads this prop when one arrives.
+                'realtime' => $this->realtimeUrl() === null ? null : [
+                    'url' => $this->realtimeUrl(),
+                    'channel' => 'private-'.$request->user()->receivesBroadcastNotificationsOn(),
+                ],
+                'latest' => $request->user()->notifications()->latest()->limit(15)->get()
+                    ->map(fn ($notification): array => [
+                        'id' => $notification->id,
+                        'message' => $notification->data['message'] ?? '',
+                        'severity' => $notification->data['severity'] ?? 'info',
+                        'url' => $notification->data['url'] ?? null,
+                        'read' => $notification->read_at !== null,
+                        'created_at' => $notification->created_at?->toIso8601String(),
+                    ])->all(),
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
+    }
+
+    /** Reverb's public WebSocket URL (as Waddamburo gets it), or null without one. */
+    private function realtimeUrl(): ?string
+    {
+        $key = config('broadcasting.connections.reverb.key');
+        $base = rtrim((string) config('broadcasting.connections.reverb.public_url'), '/');
+
+        return $key === null || $base === '' ? null : "{$base}/app/{$key}";
     }
 
     /**

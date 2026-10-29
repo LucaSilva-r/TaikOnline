@@ -69,7 +69,7 @@ it('reports from the play page', function (): void {
     $play = report_play($cheater);
 
     $this->actingAs($reporter->user)->get("/waddamburo/plays/{$play->id}")
-        ->assertInertia(fn (Assert $page) => $page->where('report.reported', false)->has('report.reasons', 3));
+        ->assertInertia(fn (Assert $page) => $page->where('report.reported', false)->has('report.reasons', count(PlayReportReason::cases())));
     $this->actingAs($reporter->user)->post("/waddamburo/plays/{$play->id}/report", ['reason' => 'offensive', 'comment' => 'name'])->assertRedirect();
     $this->actingAs($reporter->user)->get("/waddamburo/plays/{$play->id}")->assertInertia(fn (Assert $page) => $page->where('report.reported', true));
     $this->actingAs($cheater->user)->get("/waddamburo/plays/{$play->id}")->assertInertia(fn (Assert $page) => $page->where('report', null));
@@ -100,4 +100,36 @@ it('queues reports for moderators, who close them by dismissing, hiding the play
         ->toBe([$cheat->id => 'play_hidden', $fine->id => 'dismissed', $later->id => 'player_sanctioned'])
         ->and(ModerationAction::query()->where('action', 'dismiss_reports')->value('wdb_play_id'))->toBe($fine->id);
     $this->actingAs($moderator)->get('/waddamburo/mod/reports')->assertInertia(fn (Assert $page) => $page->has('plays', 0));
+});
+
+it('notifies staff once when a play enters the queue, and players of their sanctions but not shadowbans', function (): void {
+    [$cheater, $first, $second] = [report_player(), report_player(), report_player()];
+    $moderator = User::factory()->moderator()->create();
+    $play = report_play($cheater);
+    $moderation = app(ModerationService::class);
+
+    $moderation->report($first->user, $play, PlayReportReason::Macro, null);
+    $moderation->report($second->user, $play, PlayReportReason::Autoplay, null);
+    expect($moderator->notifications()->sole()->data)
+        ->message->toBe("{$cheater->user->name}'s play of Song was reported: Roll/balloon macro.")
+        ->url->toBe("/waddamburo/plays/{$play->id}");
+
+    $moderation->sanction($moderator, $cheater, SanctionType::Shadowban, 'macro', null, null);
+    expect($cheater->user->notifications()->count())->toBe(0)
+        ->and($first->user->notifications()->sole()->data['message'])->toBe("Thanks for your report: action was taken against {$cheater->user->name}.");
+    $other = report_play(report_player());
+    $moderation->report($first->user, $other, PlayReportReason::Autoplay, null);
+    $moderation->dismissReports($moderator, $other, null);
+    expect($first->user->notifications()->count())->toBe(2)
+        ->and($first->user->notifications()->get()->pluck('data.message'))->toContain("Your report on {$other->player->user->name} was reviewed: no action was taken.");
+    $mute = $moderation->sanction($moderator, $cheater, SanctionType::Mute, 'rude', 'Be nice.', null);
+    $moderation->revoke($moderator, $mute, null);
+    expect($cheater->user->notifications()->oldest()->pluck('data')->pluck('message')->all())
+        ->toBe(['You have been muted permanently. Be nice.', 'Your mute was lifted.']);
+
+    // The game gets the player's notices only; staff's stay on the site, where the bell marks them read.
+    $this->withToken($moderator->createToken('test', ['wdb'])->plainTextToken)->getJson('/api/wdb/notifications')->assertJsonCount(0, 'notifications');
+    $this->actingAs($moderator)->get('/waddamburo/songs')->assertInertia(fn (Assert $page) => $page->where('notifications.unread', 2));
+    $this->actingAs($moderator)->post('/waddamburo/notifications/read')->assertRedirect();
+    expect($moderator->unreadNotifications()->count())->toBe(0);
 });

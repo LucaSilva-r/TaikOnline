@@ -5,6 +5,7 @@ use App\Events\WdbNoticePosted;
 use App\Models\User;
 use App\Models\WdbNotice;
 use App\Notifications\WaddamburoNotice;
+use Illuminate\Notifications\Events\BroadcastNotificationCreated;
 use Illuminate\Support\Facades\Event;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -103,4 +104,12 @@ it('lets admins send, end and delete system notices, pushing each change', funct
 
     $this->actingAs(User::factory()->create())->post('/waddamburo/admin/waddamburo-notices', ['message' => 'x', 'severity' => 'info'])
         ->assertForbidden();
+});
+
+it('pushes a player\'s notices as "notice", the event Waddamburo and the site listen for', function (): void {
+    Event::fake([BroadcastNotificationCreated::class]);
+
+    User::factory()->create()->notify(new WaddamburoNotice('Hello'));
+
+    Event::assertDispatched(BroadcastNotificationCreated::class, fn (BroadcastNotificationCreated $event): bool => $event->broadcastAs() === 'notice');
 });

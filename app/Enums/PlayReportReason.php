@@ -4,7 +4,13 @@ namespace App\Enums;
 
 enum PlayReportReason: string
 {
-    /** Macro, autoplay, a modified client. */
+    /** The chart played by a bot. */
+    case Autoplay = 'autoplay';
+
+    /** A macro or turbo button, usually on drumrolls and balloons. */
+    case Macro = 'macro';
+
+    /** Any other cheating. */
     case Cheating = 'cheating';
 
     /** An offensive name or profile. */
@@ -15,7 +21,9 @@ enum PlayReportReason: string
     public function label(): string
     {
         return match ($this) {
-            self::Cheating => 'Cheating',
+            self::Autoplay => 'Autoplay',
+            self::Macro => 'Roll/balloon macro',
+            self::Cheating => 'Other cheating',
             self::Offensive => 'Offensive name or profile',
             self::Other => 'Other',
         };

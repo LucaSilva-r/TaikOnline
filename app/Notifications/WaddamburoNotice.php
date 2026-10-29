@@ -39,4 +39,10 @@ class WaddamburoNotice extends Notification
     {
         return 'notice';
     }
+
+    /** The pushed event's name: Waddamburo and the site's notification center listen for it. */
+    public function broadcastAs(): string
+    {
+        return 'notice';
+    }
 }
