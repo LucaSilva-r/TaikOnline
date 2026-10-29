@@ -227,6 +227,30 @@ it('scores plays from their replays once the chart is known, keeping the rest of
     expect($runs)->toHaveCount(3);
 });
 
+it('scores a chart\'s plays in batches, so the scorer\'s timelines stay small', function (): void {
+    config(['services.waddamburo.scorer' => PHP_BINARY]); // any executable: the process is faked
+    $batches = [];
+    Process::fake(function (PendingProcess $process) use (&$batches) {
+        $lines = collect(explode("\n", trim((string) $process->input)))->map(fn (string $line): array => json_decode($line, true));
+        $batches[] = $lines->count();
+
+        return Process::result($lines->map(fn (array $play): string => json_encode(['id' => $play['id'], 'course' => 3,
+            'score' => 123450, 'great' => 7, 'good' => 2, 'miss' => 1, 'max_combo' => 6, 'rolls' => 4, 'gauge' => 30,
+            'cleared' => false, 'scoring_version' => 3]))->implode("\n"));
+    });
+    $token = wdb_token(wdb_player());
+    $notes = 'WDBC canonical notes';
+    $sha = hash('sha256', $notes);
+    foreach (range(1, 3) as $upload) {
+        $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => array_map(fn (): array => wdb_play($sha), range(1, 40))])->assertOk();
+    }
+
+    $this->withToken($token)->putJson("/api/wdb/charts/{$sha}", ['notes' => base64_encode(gzencode($notes))])->assertNoContent();
+
+    expect($batches)->toBe([50, 50, 20])
+        ->and(WdbPlay::query()->whereNull('rescored_at')->count())->toBe(0);
+});
+
 it('revokes the token on logout', function (): void {
     $player = wdb_player();
     $token = wdb_token($player);

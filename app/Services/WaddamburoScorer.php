@@ -19,6 +19,9 @@ class WaddamburoScorer
     /** The numbers the scorer gives back, as wdb_plays keeps them. */
     private const RESULT = ['course', 'score', 'great', 'good', 'miss', 'max_combo', 'rolls', 'gauge', 'cleared', 'scoring_version'];
 
+    /** Plays per scorer run: each result carries its play's judgement timeline, so a run's output grows with it. */
+    private const BATCH = 50;
+
     /**
      * Rescores the plays whose chart has notes (the rest wait for their chart). Returns the players whose
      * plays scored, how many scored or failed, and every score that moved.
@@ -37,22 +40,40 @@ class WaddamburoScorer
         }
         $plays->loadMissing('chart:id,notes,source,roll_max');
         $plays = $plays->filter(fn (WdbPlay $play): bool => $play->chart?->notes !== null)->keyBy('id');
-        if ($plays->isEmpty()) {
-            return $summary;
+        $changed = [];
+        $rollMax = [];
+        foreach ($plays->chunk(self::BATCH) as $batch) {
+            $this->scoreBatch($scorer, $batch, $summary, $changed, $rollMax);
         }
 
+        foreach ($rollMax as $chartId => $max) {
+            WdbChart::query()->whereKey($chartId)->update(['roll_max' => $max]);
+        }
+
+        return [...$summary, 'players' => array_keys($changed)];
+    }
+
+    /**
+     * One scorer run over a batch, its results applied to the plays.
+     *
+     * @param  Collection<string, WdbPlay>  $plays
+     * @param  array{players: list<int>, scored: int, failed: int, changes: list<array{play: string, baid: int, from: int, to: int}>}  $summary
+     * @param  array<int, true>  $changed
+     * @param  array<int, int>  $rollMax
+     */
+    private function scoreBatch(string $scorer, Collection $plays, array &$summary, array &$changed, array &$rollMax): void
+    {
         $notes = [];
         $input = $plays->map(fn (WdbPlay $play): string => $this->line($play, $notes[$play->wdb_chart_id] ??= base64_encode((string) $play->chart->notes)))
             ->implode("\n")."\n";
         $run = Process::input($input)->timeout(600)->run([$scorer, '--rescore']);
         if ($run->failed()) {
             Log::error('Waddamburo scorer failed.', ['exit' => $run->exitCode(), 'error' => $run->errorOutput()]);
+            $summary['failed'] += $plays->count();
 
-            return [...$summary, 'failed' => $plays->count()];
+            return;
         }
 
-        $changed = [];
-        $rollMax = [];
         foreach (preg_split('/\R/', trim($run->output()), flags: PREG_SPLIT_NO_EMPTY) as $line) {
             $result = json_decode($line, true);
             $play = is_array($result) ? $plays->get($result['id'] ?? null) : null;
@@ -88,12 +109,6 @@ class WaddamburoScorer
             $changed[(int) $play->baid] = true;
             $summary['scored']++;
         }
-
-        foreach ($rollMax as $chartId => $max) {
-            WdbChart::query()->whereKey($chartId)->update(['roll_max' => $max]);
-        }
-
-        return [...$summary, 'players' => array_keys($changed)];
     }
 
     /** One play as the binary reads it on stdin (its chart's stored notes given base64, shared across a batch). */
