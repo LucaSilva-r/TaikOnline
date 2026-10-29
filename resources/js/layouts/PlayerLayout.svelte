@@ -5,6 +5,7 @@
     import type { Snippet } from 'svelte';
     import AlphaBanner from '@/components/AlphaBanner.svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
+    import NotificationBell from '@/components/NotificationBell.svelte';
     import SiteDisclaimer from '@/components/SiteDisclaimer.svelte';
     import TaikoVersionSelect from '@/components/TaikoVersionSelect.svelte';
     import {
@@ -33,6 +34,7 @@
     import { toUrl } from '@/lib/utils';
     import { community, home, login, rankings, register } from '@/routes';
     import { dashboard } from '@/routes/admin';
+    import moderation from '@/routes/mod';
     import { show as boardShow } from '@/routes/board';
     import { create as createPlay } from '@/routes/play';
     import songsRoutes from '@/routes/songs';
@@ -45,6 +47,7 @@
 
     const auth = $derived(page.props.auth);
     const isAdmin = $derived(auth?.user?.role === 'admin');
+    const isModerator = $derived(auth?.user?.role === 'moderator');
     const url = currentUrlState();
     const taikoParam = taikoRouteParam();
     let mobileMenuOpen = $state(false);
@@ -171,9 +174,13 @@
                 <TaikoVersionSelect />
 
                 {#if auth?.user}
-                    {#if isAdmin}
+                    {#if isAdmin || isModerator}
                         <Link
-                            href={toUrl(dashboard(taikoParam))}
+                            href={toUrl(
+                                isAdmin
+                                    ? dashboard(taikoParam)
+                                    : moderation.index(taikoParam),
+                            )}
                             class="{buttonVariants({
                                 variant: 'outline',
                                 size: 'sm',
@@ -183,6 +190,7 @@
                             Backend
                         </Link>
                     {/if}
+                    <NotificationBell />
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             {#snippet children(props)}

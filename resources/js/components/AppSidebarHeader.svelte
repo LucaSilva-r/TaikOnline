@@ -1,5 +1,6 @@
 <script lang="ts">
     import Breadcrumbs from '@/components/Breadcrumbs.svelte';
+    import NotificationBell from '@/components/NotificationBell.svelte';
     import TaikoVersionSelect from '@/components/TaikoVersionSelect.svelte';
     import { SidebarTrigger } from '@/components/ui/sidebar';
     import type { BreadcrumbItem } from '@/types';
@@ -20,7 +21,8 @@
             <Breadcrumbs {breadcrumbs} />
         {/if}
     </div>
-    <div class="ml-auto">
+    <div class="ml-auto flex items-center gap-2">
+        <NotificationBell />
         <TaikoVersionSelect />
     </div>
 </header>

@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PlayReportReason;
 use App\Http\Middleware\AuthenticateWaddamburo;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
+use App\Services\ModerationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Waddamburo's score lists and replays, as osu! has them: a chart's leaderboard (each player's best
@@ -34,11 +37,13 @@ class WaddamburoScoreController extends Controller
         if ($chart === null) {
             return response()->json(['scores' => [], 'mine' => null]);
         }
+        $baid = $this->baid($request);
         $bests = WdbPlay::query()
             ->fromSub(WdbPlay::query()->select(self::COLUMNS)
                 ->selectRaw('ROW_NUMBER() OVER (PARTITION BY baid ORDER BY score DESC, played_at ASC) AS player_best')
                 ->where('wdb_chart_id', $chart->id)
                 ->whereNotNull('rescored_at')
+                ->visibleTo($baid)
                 ->whereRaw('(options & ?) '.($request->boolean('shinuchi') ? '<>' : '=').' 0', [WdbPlay::SHINUCHI]), 'wdb_plays')
             ->where('player_best', 1)
             ->orderByDesc('score')->orderBy('played_at');
@@ -46,7 +51,7 @@ class WaddamburoScoreController extends Controller
         $rows = $top->map(fn (WdbPlay $play, int $index): array => $this->row($play, $index + 1))->all();
 
         $mine = null;
-        if (($baid = $this->baid($request)) !== null) {
+        if ($baid !== null) {
             $index = $top->search(fn (WdbPlay $play): bool => (int) $play->baid === $baid);
             if ($index !== false) {
                 $mine = $rows[$index];
@@ -67,7 +72,7 @@ class WaddamburoScoreController extends Controller
         $baid = $this->baid($request);
         abort_if($baid === null, 404);
         $plays = $chart === null ? collect() : WdbPlay::query()->select(self::COLUMNS)
-            ->where('wdb_chart_id', $chart->id)->where('baid', $baid)
+            ->where('wdb_chart_id', $chart->id)->where('baid', $baid)->visibleTo($baid)
             ->orderByDesc('score')->orderByDesc('played_at')->limit(100)
             ->with('player.user')->get();
 
@@ -75,10 +80,10 @@ class WaddamburoScoreController extends Controller
     }
 
     /** A play's replay (base64) and what playing it back needs. */
-    public function replay(string $id): JsonResponse
+    public function replay(Request $request, string $id): JsonResponse
     {
         abort_unless(preg_match('/\A[0-9a-f-]{36}\z/i', $id) === 1, 404);
-        $play = WdbPlay::query()->with(['chart:id,sha256', 'player.user'])->findOrFail($id);
+        $play = WdbPlay::query()->visibleTo($this->baid($request))->with(['chart:id,sha256', 'player.user'])->findOrFail($id);
 
         return response()->json([
             ...$this->row($play, null),
@@ -88,6 +93,24 @@ class WaddamburoScoreController extends Controller
             'player' => $play->player === null ? null : WaddamburoController::profile($play->player),
             'replay' => base64_encode((string) $play->replay),
         ]);
+    }
+
+    /**
+     * A logged-in player reports another player's play (watching its replay). Cabinets cannot: their
+     * players have no account on the machine. A second report of the same play changes nothing.
+     */
+    public function report(Request $request, string $id, ModerationService $moderation): JsonResponse
+    {
+        abort_if($request->attributes->get(AuthenticateWaddamburo::CABINET) === true, 403, 'Log in to report a play.');
+        abort_unless(preg_match('/\A[0-9a-f-]{36}\z/i', $id) === 1, 404);
+        $validated = $request->validate([
+            'reason' => ['nullable', Rule::enum(PlayReportReason::class)],
+            'comment' => ['nullable', 'string', 'max:500'],
+        ]);
+        $filed = $moderation->report($request->user(), WdbPlay::query()->findOrFail($id),
+            PlayReportReason::tryFrom((string) ($validated['reason'] ?? '')) ?? PlayReportReason::Cheating, $validated['comment'] ?? null);
+
+        return response()->json(['message' => $filed ? 'Thanks, the report was sent.' : 'You already reported this play.'], $filed ? 201 : 200);
     }
 
     private function chart(string $sha256): ?WdbChart

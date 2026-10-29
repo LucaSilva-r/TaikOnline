@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Link } from '@inertiajs/svelte';
+    import { Link, page } from '@inertiajs/svelte';
     import Activity from 'lucide-svelte/icons/activity';
     import Bell from 'lucide-svelte/icons/bell';
     import Gamepad2 from 'lucide-svelte/icons/gamepad-2';
@@ -7,6 +7,8 @@
     import Home from 'lucide-svelte/icons/home';
     import Disc from 'lucide-svelte/icons/disc';
     import LayoutGrid from 'lucide-svelte/icons/layout-grid';
+    import Flag from 'lucide-svelte/icons/flag';
+    import Gavel from 'lucide-svelte/icons/gavel';
     import Server from 'lucide-svelte/icons/server';
     import ShieldCheck from 'lucide-svelte/icons/shield-check';
     import Users from 'lucide-svelte/icons/users';
@@ -35,6 +37,8 @@
     import adminWaddamburoCharts from '@/routes/admin/waddamburo-charts';
     import adminWaddamburoCabinets from '@/routes/admin/waddamburo-cabinets';
     import adminWaddamburoNotices from '@/routes/admin/waddamburo-notices';
+    import moderation from '@/routes/mod';
+    import moderationReports from '@/routes/mod/reports';
     const { dashboard, recentPlays, status } = adminRoute;
     import { home } from '@/routes';
     import type { NavItem } from '@/types';
@@ -47,7 +51,13 @@
 
     const taikoParam = taikoRouteParam();
 
-    const mainNavItems: NavItem[] = [
+    const isAdmin = $derived(page.props.auth.user.role === 'admin');
+    const moderationNavItems: NavItem[] = [
+        { title: 'Moderation', href: moderation.index(taikoParam), icon: Gavel },
+        { title: 'Reports', href: moderationReports.index(taikoParam), icon: Flag },
+    ];
+
+    const adminNavItems: NavItem[] = [
         { title: 'Dashboard', href: dashboard(taikoParam), icon: LayoutGrid },
         { title: 'BAIDs', href: adminBaids.index(taikoParam), icon: Users },
         {
@@ -82,7 +92,12 @@
             href: adminPlayers.index(taikoParam),
             icon: ShieldCheck,
         },
+        ...moderationNavItems,
     ];
+    // Moderators reach the moderation pages only.
+    const mainNavItems = $derived(
+        isAdmin ? adminNavItems : moderationNavItems,
+    );
 
     const footerNavItems: NavItem[] = [
         {
@@ -101,7 +116,11 @@
                     {#snippet children(props)}
                         <Link
                             {...props}
-                            href={toUrl(dashboard(taikoParam))}
+                            href={toUrl(
+                                isAdmin
+                                    ? dashboard(taikoParam)
+                                    : moderation.index(taikoParam),
+                            )}
                             class={props.class}
                         >
                             <AppLogo />

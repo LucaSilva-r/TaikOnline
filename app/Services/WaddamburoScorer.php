@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Process;
 /**
  * Scores Waddamburo plays from their replays with the game's own rules (the Waddamburo binary's
  * --rescore mode, so the server never keeps a second copy of them): the server's numbers replace
- * the client's. A rules change is a new binary plus `app:rescore-waddamburo-plays --all`.
+ * the client's, and the engine's judgement timeline is kept beside them (WdbPlay::judgementTimeline).
+ * A rules change is a new binary plus `app:rescore-waddamburo-plays --all`.
  */
 class WaddamburoScorer
 {
@@ -41,14 +42,8 @@ class WaddamburoScorer
         }
 
         $notes = [];
-        $input = $plays->map(fn (WdbPlay $play): string => json_encode([
-            'id' => $play->id,
-            'notes' => $notes[$play->wdb_chart_id] ??= base64_encode((string) $play->chart->notes),
-            'source' => $play->chart->source,
-            'options' => (int) $play->options,
-            'seed' => $play->seed === null ? null : (int) $play->seed,
-            'replay' => base64_encode((string) $play->replay),
-        ], JSON_THROW_ON_ERROR))->implode("\n")."\n";
+        $input = $plays->map(fn (WdbPlay $play): string => $this->line($play, $notes[$play->wdb_chart_id] ??= base64_encode((string) $play->chart->notes)))
+            ->implode("\n")."\n";
         $run = Process::input($input)->timeout(600)->run([$scorer, '--rescore']);
         if ($run->failed()) {
             Log::error('Waddamburo scorer failed.', ['exit' => $run->exitCode(), 'error' => $run->errorOutput()]);
@@ -81,7 +76,11 @@ class WaddamburoScorer
             if ((int) $claimed['score'] !== (int) $scored['score']) {
                 $summary['changes'][] = ['play' => $play->id, 'baid' => (int) $play->baid, 'from' => (int) $claimed['score'], 'to' => (int) $scored['score']];
             }
-            $play->update([...$scored, 'rescored_at' => now()]);
+            $play->update([
+                ...$scored,
+                'rescored_at' => now(),
+                'timeline' => isset($result['timeline']) ? gzencode(json_encode($result['timeline'], JSON_THROW_ON_ERROR), 9) : null,
+            ]);
             // The chart's own (the same for all its plays): its drumrolls' most hits.
             if (isset($result['roll_max']) && $play->chart->roll_max !== (int) $result['roll_max']) {
                 $rollMax[$play->wdb_chart_id] = (int) $result['roll_max'];
@@ -95,5 +94,18 @@ class WaddamburoScorer
         }
 
         return [...$summary, 'players' => array_keys($changed)];
+    }
+
+    /** One play as the binary reads it on stdin (its chart's stored notes given base64, shared across a batch). */
+    private function line(WdbPlay $play, string $notes): string
+    {
+        return json_encode([
+            'id' => $play->id,
+            'notes' => $notes,
+            'source' => $play->chart->source,
+            'options' => (int) $play->options,
+            'seed' => $play->seed === null ? null : (int) $play->seed,
+            'replay' => base64_encode((string) $play->replay),
+        ], JSON_THROW_ON_ERROR);
     }
 }

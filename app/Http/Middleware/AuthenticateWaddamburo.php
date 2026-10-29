@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
@@ -11,8 +12,9 @@ use Symfony\Component\HttpFoundation\Response;
  * Waddamburo clients are either a cabinet an admin let in (its WdbCabinet token; plays name their
  * baid, learned through 6-pin pairing) or a player logged in at home (a Sanctum token with the
  * 'wdb' ability; plays belong to that user's player). Zucchini cabinets' tokens do not count.
+ * AuthenticatesRequests puts it before the rate limiters, which key on the user.
  */
-class AuthenticateWaddamburo
+class AuthenticateWaddamburo implements AuthenticatesRequests
 {
     public const CABINET = 'wdb_cabinet';
 

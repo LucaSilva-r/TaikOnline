@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\SanctionType;
 use App\Http\Middleware\AuthenticateWaddamburo;
 use App\Http\Middleware\EnsureWaddamburoCabinet;
 use App\Http\Middleware\ResolveTaikoVersion;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
+use App\Models\Sanction;
 use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
+use App\Notifications\WaddamburoNotice;
 use App\Services\CabinetPairingService;
 use App\Services\WaddamburoDeviceLoginService;
 use App\Services\WaddamburoRankAggregateService;
@@ -192,12 +195,14 @@ class WaddamburoController extends Controller
         ]);
         $charts = WdbChart::query()->whereIn('sha256', $validated['charts'])->pluck('sha256', 'id');
         $rankings = array_fill_keys($validated['charts'], []);
+        $viewerBaid = $this->isCabinet($request) ? null : $request->user()->player?->baid;
         foreach ($charts as $chartId => $sha256) {
             // ponytail: every mode and scoring version counts; filter by ranked/min_scoring_version later.
             // Normal scores only: 真打 plays score on another scale. Only plays the server scored.
             $rankings[$sha256] = WdbPlay::query()
                 ->where('wdb_chart_id', $chartId)
                 ->whereNotNull('rescored_at')
+                ->visibleTo($viewerBaid)
                 ->whereRaw('(options & ?) = 0', [WdbPlay::SHINUCHI])
                 ->selectRaw('baid, MAX(score) AS best')
                 ->groupBy('baid')
@@ -233,6 +238,7 @@ class WaddamburoController extends Controller
         $bests = WdbPlay::query()
             ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_plays.wdb_chart_id')
             ->where('wdb_plays.baid', $baid)
+            ->whereNull('wdb_plays.hidden_at')
             ->groupBy('wdb_charts.sha256')
             // The best normal score (真打 ones are on another scale); a crown from any play.
             ->selectRaw('wdb_charts.sha256, MAX(CASE WHEN (wdb_plays.options & '.WdbPlay::SHINUCHI.') = 0 THEN wdb_plays.score END) AS score, '
@@ -334,6 +340,9 @@ class WaddamburoController extends Controller
                 'options' => $play['options'] ?? 0,
                 'seed' => $play['seed'] ?? null,
                 'wdb_cabinet_id' => $request->attributes->get(EnsureWaddamburoCabinet::CABINET_ID),
+                // Played while restricted: kept (evidence), never counted, even after the ban ends.
+                ...(($banned[$baid] ??= Sanction::activeFor($baid, SanctionType::Ban) !== null)
+                    ? ['hidden_at' => now(), 'hidden_reason' => 'Played while restricted'] : []),
             ]);
             if ($stored->wasRecentlyCreated) {
                 $created->push($stored);
@@ -342,6 +351,13 @@ class WaddamburoController extends Controller
             $players[$baid] = true;
         }
         $scorer->rescore($created);
+        // Restricted players hear their new plays won't count (once per upload, in game and on the site).
+        $created->where('hidden_reason', 'Played while restricted')->groupBy('baid')->each(function (EloquentCollection $plays) use ($charts): void {
+            $title = $plays->count() === 1 ? collect($charts)->firstWhere('id', $plays->first()->wdb_chart_id)?->title : null;
+            $plays->first()->player?->user?->notify(new WaddamburoNotice(
+                ($title !== null ? "Your play of {$title}" : ($plays->count() === 1 ? 'Your play' : "Your {$plays->count()} plays"))
+                    .' will not count: your account is restricted.', 'warning', 'play_rejected'));
+        });
         // The website's standings (ranked charts only) follow each upload.
         Player::query()->whereIn('baid', array_keys($players ?? []))->get()
             ->each(fn (Player $player) => $aggregates->recompute($player));
@@ -440,8 +456,8 @@ class WaddamburoController extends Controller
             'account_name' => $player->user?->name,
             // The account's custom Don-chan (a transparent PNG), for the game's account picker.
             'avatar' => $player->user?->avatar,
-            // Name-board title and plate (0 wood, 1 rainbow, 2 gold, 3 purple).
-            'title' => $cosmetics?->title,
+            // Name-board title (RESTRICTED while banned, so every screen shows it) and plate (0 wood, 1 rainbow, 2 gold, 3 purple).
+            'title' => $player->activeBan() !== null ? 'RESTRICTED' : $cosmetics?->title,
             'title_plate' => (int) ($cosmetics?->titleplate_id ?? 0),
             'look' => [
                 'costume' => array_map(fn (int $slot): int => (int) ($cosmetics?->{"costume_{$slot}"} ?? 0), [1, 2, 3, 4, 5]),

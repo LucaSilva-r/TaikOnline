@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\SanctionType;
 use App\Models\Player;
 use App\Models\PlayerVersionStats;
+use App\Models\Sanction;
 use App\Models\WdbPlay;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -21,15 +23,16 @@ class WaddamburoRankAggregateService
     public const CROWN_SQL = 'CASE WHEN wdb_plays.cleared AND wdb_plays.miss = 0 AND wdb_plays.good = 0 THEN 3 '
         .'WHEN wdb_plays.cleared AND wdb_plays.miss = 0 THEN 2 WHEN wdb_plays.cleared THEN 1 ELSE 0 END';
 
-    /** Each (player, chart) best: score and crown, over the given plays. */
     /**
-     * Each player's best per chart. Normal plays only, or with $shinuchi only 真打 plays (they score on
-     * their own scale, so they rank apart and never count toward the site's totals).
+     * Each player's best per chart, over the plays the viewer may see (WdbPlay::visibleTo). Normal plays
+     * only, or with $shinuchi only 真打 plays (they score on their own scale, so they rank apart and never
+     * count toward the site's totals).
      */
-    public static function bests(?callable $filter = null, bool $shinuchi = false): Builder
+    public static function bests(?callable $filter = null, bool $shinuchi = false, ?int $viewerBaid = null): Builder
     {
         return DB::table('wdb_plays')
             ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_plays.wdb_chart_id')
+            ->tap(fn (Builder $query) => WdbPlay::visibility($query, $viewerBaid))
             ->whereRaw('(wdb_plays.options & ?) '.($shinuchi ? '<>' : '=').' 0', [WdbPlay::SHINUCHI])
             ->whereNotNull('wdb_plays.rescored_at')
             ->when($filter !== null, $filter)
@@ -44,7 +47,7 @@ class WaddamburoRankAggregateService
         $bests = DB::query()
             ->fromSub(self::bests(fn (Builder $query) => $query
                 ->where('wdb_plays.baid', $player->baid)
-                ->whereNotNull('wdb_charts.ranked_at')), 'bests')
+                ->whereNotNull('wdb_charts.ranked_at'), viewerBaid: (int) $player->baid), 'bests')
             ->selectRaw('COALESCE(SUM(best_score), 0) AS total_score')
             ->selectRaw('COUNT(*) AS ranked_song_count')
             ->selectRaw('SUM(CASE WHEN best_crown = 0 THEN 1 ELSE 0 END) AS none_crowns')
@@ -58,6 +61,7 @@ class WaddamburoRankAggregateService
             ->where('wdb_plays.baid', $player->baid)
             ->whereNotNull('wdb_charts.ranked_at')
             ->whereNotNull('wdb_plays.rescored_at')
+            ->tap(fn (Builder $query) => WdbPlay::visibility($query, (int) $player->baid))
             ->selectRaw('COUNT(DISTINCT wdb_plays.wdb_chart_id) AS played_song_count')
             ->selectRaw('COALESCE(SUM(great), 0) AS great_total')
             ->selectRaw('COALESCE(SUM(good), 0) AS good_total')
@@ -93,11 +97,17 @@ class WaddamburoRankAggregateService
         Player::query()->whereIn('baid', $baids)->get()->each(fn (Player $player) => $this->recompute($player));
     }
 
-    /** @return Collection<int, PlayerVersionStats> */
-    public function standings(): Collection
+    /**
+     * The standings as the viewer sees them: restricted (banned) and shadowbanned players only by themselves.
+     *
+     * @return Collection<int, PlayerVersionStats>
+     */
+    public function standings(?int $viewerBaid = null): Collection
     {
         return PlayerVersionStats::query()
             ->where('game_version', self::SCOPE)
+            ->whereNotIn('baid', Sanction::query()->active()->whereIn('type', SanctionType::hidingPlays())
+                ->when($viewerBaid !== null, fn ($others) => $others->where('baid', '<>', $viewerBaid))->select('baid'))
             ->whereNotNull('user_id')
             ->where('ranked_song_count', '>', 0)
             ->orderByDesc('total_score')

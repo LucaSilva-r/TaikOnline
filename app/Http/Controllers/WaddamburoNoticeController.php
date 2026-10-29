@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\WdbNotice;
+use App\Notifications\WaddamburoNotice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -34,14 +35,14 @@ class WaddamburoNoticeController extends Controller
         ]);
     }
 
-    /** The player's unread notices, oldest first, and the private channel their new ones arrive on. */
+    /** The player's unread Waddamburo notices (not the site-only ones, like staff's), oldest first, and the private channel their new ones arrive on. */
     public function notifications(Request $request): JsonResponse
     {
         $user = $request->user();
 
         return response()->json([
             'channel' => $user === null ? null : 'private-'.$user->receivesBroadcastNotificationsOn(),
-            'notifications' => $user === null ? [] : $user->unreadNotifications()->oldest()->limit(50)->get()
+            'notifications' => $user === null ? [] : $user->unreadNotifications()->where('type', WaddamburoNotice::class)->oldest()->limit(50)->get()
                 ->map(fn ($notification): array => [
                     'id' => $notification->id, ...$notification->data,
                     'created_at' => $notification->created_at?->toIso8601String(),

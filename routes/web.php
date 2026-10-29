@@ -9,10 +9,13 @@ use App\Http\Controllers\Admin\WaddamburoChartController;
 use App\Http\Controllers\Admin\WaddamburoNoticeController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\Green\OperatorController;
+use App\Http\Controllers\Mod\ModerationController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RankingController;
 use App\Http\Controllers\Settings\CabinetLoginController;
 use App\Http\Controllers\Settings\DeviceLinkController;
 use App\Http\Controllers\SongCatalogController;
+use App\Http\Controllers\WaddamburoPlayController;
 use App\Http\Middleware\ResolveTaikoVersion;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +23,7 @@ Route::get('/', fn () => redirect('/'.ResolveTaikoVersion::DefaultScope));
 Route::any('rankings', fn () => abort(404));
 Route::any('community', fn () => abort(404));
 Route::any('admin/{any?}', fn () => abort(404))->where('any', '.*');
+Route::any('mod/{any?}', fn () => abort(404))->where('any', '.*');
 Route::any('settings/{any?}', fn () => abort(404))->where('any', '.*');
 
 $taikoVersionPattern = collect(TaikoGameVersion::cases())
@@ -38,8 +42,13 @@ Route::prefix('{taikoVersion}')
         Route::get('songs/{song}', [SongCatalogController::class, 'show'])->name('songs.show');
         Route::inertia('community', 'Community')->name('community');
         Route::get('users/{user}/board', [BoardController::class, 'show'])->name('board.show');
+        Route::get('plays/{id}', [WaddamburoPlayController::class, 'show'])->name('plays.show');
+        Route::post('plays/{id}/report', [WaddamburoPlayController::class, 'report'])
+            ->middleware(['auth', 'throttle:play-reports'])
+            ->name('plays.report');
 
         Route::middleware('auth')->group(function (): void {
+            Route::post('notifications/read', [NotificationController::class, 'read'])->name('notifications.read');
             Route::get('play', [CabinetLoginController::class, 'create'])->name('play.create');
             Route::post('play', [CabinetLoginController::class, 'store'])
                 ->middleware('throttle:cabinet-login')
@@ -52,6 +61,17 @@ Route::prefix('{taikoVersion}')
 
         Route::middleware(['auth', 'verified'])->group(function (): void {
             Route::post('songs/{song}/favorite', [SongCatalogController::class, 'toggleFavorite'])->name('songs.favorite');
+
+            Route::middleware('can:moderate')->prefix('mod')->name('mod.')->group(function (): void {
+                Route::get('/', [ModerationController::class, 'index'])->name('index');
+                Route::get('players/{player}', [ModerationController::class, 'player'])->name('players.show');
+                Route::post('players/{player}/sanctions', [ModerationController::class, 'storeSanction'])->name('sanctions.store');
+                Route::patch('sanctions/{sanction}/revoke', [ModerationController::class, 'revokeSanction'])->name('sanctions.revoke');
+                Route::patch('plays/{play}/hide', [ModerationController::class, 'hidePlay'])->name('plays.hide');
+                Route::patch('plays/{play}/restore', [ModerationController::class, 'restorePlay'])->name('plays.restore');
+                Route::get('reports', [ModerationController::class, 'reports'])->name('reports.index');
+                Route::patch('plays/{play}/dismiss-reports', [ModerationController::class, 'dismissReports'])->name('plays.dismiss-reports');
+            });
 
             Route::middleware('admin')->prefix('admin')->name('admin.')->group(function (): void {
                 Route::inertia('/', 'admin/Dashboard')->name('dashboard');

@@ -10,6 +10,7 @@
     import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
     import { show as boardShow } from '@/routes/board';
+    import { show as playsShow } from '@/routes/plays';
     import songs from '@/routes/songs';
     import { Link, router } from '@inertiajs/svelte';
     import ArrowLeft from 'lucide-svelte/icons/arrow-left';
@@ -27,6 +28,8 @@
     type CrownCounts = { clear: number; gold: number; dondaful: number };
 
     type LeaderboardEntry = {
+        /** Waddamburo: the best play's own page (the row links there instead of the board). */
+        play_id?: string | null;
         rank: number;
         user_id: number;
         player_name: string;
@@ -63,6 +66,7 @@
     };
 
     type RecentPlay = {
+        play_id?: string;
         user_id: number;
         player_name: string;
         avatar: string | null;
@@ -144,6 +148,13 @@
 
     function boardUrl(userId: number): string {
         return toUrl(boardShow({ ...taikoParam, user: userId }));
+    }
+
+    /** A Waddamburo row opens its play; other versions' rows the player's board. */
+    function rowUrl(row: { user_id: number; play_id?: string | null }): string {
+        return row.play_id
+            ? toUrl(playsShow({ ...taikoParam, id: row.play_id }))
+            : boardUrl(row.user_id);
     }
 
     function formatDate(value: string | null): string {
@@ -436,7 +447,7 @@
                                         {entry.rank}
                                     </span>
                                     <Link
-                                        href={boardUrl(entry.user_id)}
+                                        href={rowUrl(entry)}
                                         class="flex min-w-0 items-center gap-2.5"
                                     >
                                         <Avatar class="size-8 border bg-muted">
@@ -555,7 +566,7 @@
                     {#each recentPlays as play, index (index)}
                         <div class="flex items-center gap-3 px-5 py-3">
                             <Link
-                                href={boardUrl(play.user_id)}
+                                href={rowUrl(play)}
                                 class="flex min-w-0 flex-1 items-center gap-2.5"
                             >
                                 <Avatar class="size-8 border bg-muted">

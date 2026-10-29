@@ -1,4 +1,5 @@
 <script lang="ts">
+    import AccountStanding, { type Standing } from '@/components/AccountStanding.svelte';
     import AppHead from '@/components/AppHead.svelte';
     import {
         Avatar,
@@ -10,6 +11,10 @@
     import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
     import { show as songsShow } from '@/routes/songs';
+    import { show as playsShow } from '@/routes/plays';
+    import moderationPlayers from '@/routes/mod/players';
+    import { buttonVariants } from '@/components/ui/button';
+    import Gavel from 'lucide-svelte/icons/gavel';
     import { Link } from '@inertiajs/svelte';
     import { LineChart } from 'layerchart';
     import Activity from 'lucide-svelte/icons/activity';
@@ -65,6 +70,8 @@
     };
 
     type RecentPlay = {
+        /** Waddamburo: the play's own page. */
+        play_id?: string;
         song_title: string;
         song_id: number | null;
         song_no: number;
@@ -185,6 +192,8 @@
         greenGhostData = null,
         tokkunData = null,
         daniData = null,
+        moderationBaid = null,
+        standing = null,
     }: {
         profile: Profile;
         hasPlayer: boolean;
@@ -196,6 +205,8 @@
         greenGhostData?: GreenGhostData | null;
         tokkunData?: TokkunData | null;
         daniData?: DaniData | null;
+        moderationBaid?: number | null;
+        standing?: Standing | null;
     } = $props();
 
     const taikoParam = taikoRouteParam();
@@ -295,6 +306,10 @@
 <AppHead title={`${profile.name} Board`} />
 
 <section class="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8">
+    {#if standing}
+        <AccountStanding {standing} />
+    {/if}
+
     <section class="overflow-hidden rounded-lg border bg-card">
         <div class="border-b bg-[var(--taiko-accent-soft)] px-5 py-8">
             <div class="flex flex-col gap-5 sm:flex-row sm:items-end">
@@ -333,6 +348,23 @@
                         <CalendarDays class="size-4" />
                         Last played {formatFullDate(profile.last_played_at)}
                     </div>
+                    {#if moderationBaid !== null}
+                        <Link
+                            href={toUrl(
+                                moderationPlayers.show({
+                                    ...taikoParam,
+                                    player: moderationBaid,
+                                }),
+                            )}
+                            class="{buttonVariants({
+                                variant: 'outline',
+                                size: 'sm',
+                            })} gap-2 sm:justify-self-end"
+                        >
+                            <Gavel class="size-4" />
+                            Moderate
+                        </Link>
+                    {/if}
                     <div class="font-medium">
                         {numberFormatter.format(profile.total_credit_count)}
                         credits
@@ -1115,10 +1147,12 @@
                     {#each recentPlays as play, i (`${i}-${play.song_no}-${play.level}-${play.played_at}`)}
                         <Link
                             href={toUrl(
-                                songsShow({
-                                    ...taikoParam,
-                                    song: play.song_id ?? play.song_no,
-                                }),
+                                play.play_id
+                                    ? playsShow({ ...taikoParam, id: play.play_id })
+                                    : songsShow({
+                                          ...taikoParam,
+                                          song: play.song_id ?? play.song_no,
+                                      }),
                             )}
                             class="grid gap-3 px-5 py-4 transition-colors hover:bg-muted/50 sm:grid-cols-[1fr_auto]"
                         >
