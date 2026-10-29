@@ -86,7 +86,7 @@ it('lets moderators sanction players but not staff, and leaves permanent bans to
 
     $this->actingAs(User::factory()->create())->get('/waddamburo/mod')->assertForbidden();
     $this->actingAs($moderator)->get('/waddamburo/mod?q='.$player->baid)->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('mod/Index')->has('players', 1)->where('log', null));
+        ->assertInertia(fn (Assert $page) => $page->component('mod/Index')->has('players.data', 1)->where('log', null));
 
     $this->actingAs($moderator)->post("/waddamburo/mod/players/{$staff->baid}/sanctions", ['type' => 'ban', 'reason' => 'x', 'duration_hours' => 24])
         ->assertForbidden();
@@ -160,4 +160,20 @@ it('hides and restores a play, logging both', function (): void {
         ->and(PlayerVersionStats::query()->where('baid', $player->baid)->value('total_score'))->toBe(900_000);
     $this->actingAs($moderator)->get("/waddamburo/mod/players/{$player->baid}")->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('mod/Player')->has('plays', 1)->has('log', 2)->where('canAct', true));
+});
+
+it('lists every player for moderators to jump to, paged and sortable', function (): void {
+    $moderator = User::factory()->moderator()->create();
+    $named = mod_player(User::factory()->create(['name' => 'Aaron Don']));
+    foreach (range(1, 55) as $index) {
+        mod_player();
+    }
+    Player::query()->create(['mydon_name' => 'カード']); // a cabinet card never linked to an account
+
+    $this->actingAs($moderator)->get('/waddamburo/mod')
+        ->assertInertia(fn (Assert $page) => $page->has('players.data', 50)->where('players.total', 56));
+    $this->actingAs($moderator)->get('/waddamburo/mod?sort=name&direction=asc')
+        ->assertInertia(fn (Assert $page) => $page->where('players.data.0.baid', $named->baid)->where('filters.sort', 'name'));
+    $this->actingAs($moderator)->get('/waddamburo/mod?q=aaron')
+        ->assertInertia(fn (Assert $page) => $page->has('players.data', 1)->where('players.data.0.user.name', 'Aaron Don'));
 });

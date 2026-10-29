@@ -21,10 +21,22 @@ use RuntimeException;
 
 class OperatorController extends Controller
 {
+    /** The columns the BAID list sorts by (last play: the scope's, see baids()). */
+    private const BAID_SORTS = ['baid' => 'baid', 'name' => 'mydon_name', 'plays' => 'play_results_count', 'bests' => 'song_bests_count', 'last' => null];
+
     public function baids(Request $request): Response
     {
         $isAll = (bool) $request->attributes->get('taikoVersionIsAll', false);
         $scope = (string) $request->attributes->get('taikoVersionScope');
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:255'],
+            'sort' => ['nullable', 'in:'.implode(',', array_keys(self::BAID_SORTS))],
+            'direction' => ['nullable', 'in:asc,desc'],
+        ]);
+        $search = trim((string) ($filters['q'] ?? ''));
+        $sort = $filters['sort'] ?? 'last';
+        $direction = $filters['direction'] ?? 'desc';
+        $column = self::BAID_SORTS[$sort] ?? 'latest_version_played_at';
 
         return Inertia::render('admin/Baids', [
             'players' => Player::query()
@@ -41,12 +53,18 @@ class OperatorController extends Controller
                         ->latest('played_at')
                         ->limit(1),
                 ])
-                ->latest('updated_at')
-                ->paginate(25)
-                ->through(function (Player $player) use ($isAll): array {
-                    $lastPlayedAt = $isAll
-                        ? optional($player->last_played_at)->toDateTimeString()
-                        : ($player->latest_version_played_at ? (string) $player->latest_version_played_at : null);
+                // A BAID, a name, or an access code's start.
+                ->when($search !== '', fn ($query) => $query->where(fn ($inner) => $inner
+                    ->whereLike('mydon_name', "%{$search}%")
+                    ->orWhereHas('card', fn ($card) => $card->whereLike('access_code', "{$search}%"))
+                    ->when(ctype_digit($search) && strlen($search) <= 9, fn ($baid) => $baid->orWhere('players.baid', (int) $search))))
+                ->orderByRaw("{$column} {$direction} NULLS LAST")
+                ->orderBy('players.baid')
+                ->paginate(50)
+                ->withQueryString()
+                ->through(function (Player $player): array {
+                    // The scope's latest cabinet play (players.last_played_at is never written).
+                    $lastPlayedAt = $player->latest_version_played_at ? (string) $player->latest_version_played_at : null;
 
                     return [
                         'baid' => $player->baid,
@@ -57,6 +75,7 @@ class OperatorController extends Controller
                         'song_bests_count' => $player->song_bests_count,
                     ];
                 }),
+            'filters' => ['q' => $search, 'sort' => $sort, 'direction' => $direction],
         ]);
     }
 

@@ -21,12 +21,32 @@ use RuntimeException;
 
 class PlayerController extends Controller
 {
-    public function index(): Response
+    /** The columns the list sorts by. */
+    private const SORTS = ['id' => 'id', 'name' => 'name', 'username' => 'username', 'email' => 'email', 'role' => 'role', 'created' => 'created_at'];
+
+    public function index(Request $request): Response
     {
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:255'],
+            'role' => ['nullable', Rule::enum(UserRole::class)],
+            'sort' => ['nullable', Rule::in(array_keys(self::SORTS))],
+            'direction' => ['nullable', 'in:asc,desc'],
+        ]);
+        $search = trim((string) ($filters['q'] ?? ''));
+        $sort = $filters['sort'] ?? 'id';
+        $direction = $filters['direction'] ?? 'desc';
+
         return Inertia::render('admin/Players', [
             'users' => User::query()
-                ->latest('id')
-                ->paginate(25)
+                ->addSelect(['baid' => Player::query()->select('baid')->whereColumn('players.user_id', 'users.id')->limit(1)])
+                ->when($search !== '', fn ($query) => $query->where(fn ($inner) => $inner
+                    ->whereLike('name', "%{$search}%")->orWhereLike('username', "%{$search}%")->orWhereLike('email', "%{$search}%")
+                    ->when(ctype_digit($search), fn ($id) => $id->orWhere('id', (int) $search))))
+                ->when($filters['role'] ?? null, fn ($query, string $role) => $query->where('role', $role))
+                ->orderBy(self::SORTS[$sort], $direction)
+                ->orderBy('id')
+                ->paginate(50)
+                ->withQueryString()
                 ->through(fn (User $user): array => [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -34,11 +54,13 @@ class PlayerController extends Controller
                     'email' => $user->email,
                     'role' => $user->role->value,
                     'created_at' => optional($user->created_at)->toDateTimeString(),
+                    'baid' => $user->baid === null ? null : (int) $user->baid,
                 ]),
             'roles' => collect(UserRole::cases())->map(fn (UserRole $role): array => [
                 'value' => $role->value,
                 'label' => $role->label(),
             ]),
+            'filters' => ['q' => $search, 'role' => $filters['role'] ?? null, 'sort' => $sort, 'direction' => $direction],
         ]);
     }
 

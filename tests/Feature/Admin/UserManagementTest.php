@@ -5,6 +5,7 @@ use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Inertia\Testing\AssertableInertia as Assert;
 
 test('admins can access user management', function () {
     $admin = User::factory()->admin()->create();
@@ -256,4 +257,22 @@ test('admins cannot delete themselves', function () {
         ->assertSessionHasErrors('user');
 
     expect(User::find($admin->id))->not->toBeNull();
+});
+
+test('admins search, filter and sort the player list, paged with the filters kept', function () {
+    $admin = User::factory()->admin()->create(['name' => 'Zzzz Admin']);
+    User::factory()->create(['name' => 'Alice Don', 'email' => 'alice@example.com']);
+    User::factory()->create(['name' => 'Bob Katsu', 'email' => 'bob@example.com']);
+    User::factory()->count(60)->create();
+
+    $this->actingAs($admin)->get('/green/admin/players?q=alice')
+        ->assertInertia(fn (Assert $page) => $page->component('admin/Players')
+            ->has('users.data', 1)->where('users.data.0.email', 'alice@example.com')->where('filters.q', 'alice'));
+    $this->actingAs($admin)->get('/green/admin/players?role='.UserRole::Admin->value)
+        ->assertInertia(fn (Assert $page) => $page->has('users.data', 1)->where('users.data.0.id', $admin->id));
+    $this->actingAs($admin)->get('/green/admin/players?sort=name&direction=desc')
+        ->assertInertia(fn (Assert $page) => $page->where('users.data.0.name', 'Zzzz Admin'));
+    $this->actingAs($admin)->get('/green/admin/players?sort=name&page=2')
+        ->assertInertia(fn (Assert $page) => $page->where('users.current_page', 2)->where('users.total', 63)
+            ->where('users.next_page_url', null)->where('users.prev_page_url', fn (string $url): bool => str_contains($url, 'sort=name')));
 });

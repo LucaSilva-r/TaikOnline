@@ -13,6 +13,7 @@ use App\Services\ModerationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -24,20 +25,42 @@ use Inertia\Response;
  */
 class ModerationController extends Controller
 {
+    /** The columns the player list sorts by. */
+    private const PLAYER_SORTS = ['baid' => 'players.baid', 'name' => 'users.name', 'don' => 'players.mydon_name', 'last' => 'last_play'];
+
     public function index(Request $request): Response
     {
-        $search = trim((string) $request->query('q', ''));
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:255'],
+            'sort' => ['nullable', 'in:'.implode(',', array_keys(self::PLAYER_SORTS))],
+            'direction' => ['nullable', 'in:asc,desc'],
+        ]);
+        $search = trim((string) ($filters['q'] ?? ''));
+        $sort = $filters['sort'] ?? 'last';
+        $direction = $filters['direction'] ?? 'desc';
 
         return Inertia::render('mod/Index', [
-            'filters' => ['q' => $search],
-            'players' => $search === '' ? [] : Player::query()
+            'filters' => ['q' => $search, 'sort' => $sort, 'direction' => $direction],
+            // Every registered player, to jump to (the search narrows it). A BAID without an account is a cabinet
+            // card never linked: it has no Waddamburo plays and ranks nowhere, so it is the admins' BAID list's.
+            'players' => Player::query()
+                ->whereNotNull('players.user_id')
+                ->select('players.*')
+                // The latest cabinet or Waddamburo play (players.last_played_at is never written).
+                ->selectRaw('(SELECT MAX(played_at) FROM (SELECT played_at FROM song_play_results WHERE song_play_results.baid = players.baid
+                    UNION ALL SELECT played_at FROM wdb_plays WHERE wdb_plays.baid = players.baid) AS plays) AS last_play')
+                ->leftJoin('users', 'users.id', '=', 'players.user_id')
                 ->with('user')
-                ->where(fn (Builder $query) => $query
-                    ->when(ctype_digit($search), fn (Builder $baid) => $baid->where('baid', (int) $search))
-                    ->orWhereLike('mydon_name', "%{$search}%")
-                    ->orWhereHas('user', fn (Builder $user) => $user->whereLike('name', "%{$search}%")->orWhereLike('username', "%{$search}%")))
-                ->orderBy('baid')->limit(50)->get()
-                ->map(fn (Player $player): array => $this->playerRow($player))->all(),
+                ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
+                    ->when(ctype_digit($search) && strlen($search) <= 9, fn (Builder $baid) => $baid->where('players.baid', (int) $search))
+                    ->orWhereLike('players.mydon_name', "%{$search}%")
+                    ->orWhereLike('users.name', "%{$search}%")->orWhereLike('users.username', "%{$search}%")))
+                ->orderByRaw(self::PLAYER_SORTS[$sort]." {$direction} NULLS LAST")
+                ->orderBy('players.baid')
+                ->paginate(50)
+                ->withQueryString()
+                ->through(fn (Player $player): array => [...$this->playerRow($player),
+                    'last_played_at' => $player->last_play === null ? null : Carbon::parse($player->last_play)->toIso8601String()]),
             'activeSanctions' => Sanction::query()->active()->with(['player.user', 'creator'])->latest()->limit(100)->get()
                 ->map(fn (Sanction $sanction): array => [...$this->sanction($sanction), 'player' => $this->playerRow($sanction->player)])->all(),
             // The whole log is the admins'; moderators see a player's own history on the player's page.

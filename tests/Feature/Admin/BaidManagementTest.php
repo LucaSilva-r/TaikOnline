@@ -7,6 +7,7 @@ use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use App\Models\Token;
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
 
 test('admins can delete a player and all associated data', function () {
     $admin = User::factory()->admin()->create();
@@ -198,4 +199,21 @@ test('admins can delete a single best score of a BAID', function () {
         ->assertRedirect("/green/admin/baids/{$player->baid}");
 
     expect(SongBest::query()->whereKey($best->id)->exists())->toBeFalse();
+});
+
+test('admins find a BAID by number, name or access code and sort the list', function () {
+    $admin = User::factory()->admin()->create();
+    $don = Player::query()->create(['mydon_name' => 'どんちゃん']);
+    GameCard::query()->create(['access_code' => '30800000000000000042', 'baid' => $don->baid]);
+    $katsu = Player::query()->create(['mydon_name' => 'かっちゃん']);
+    SongPlayResult::query()->create(['baid' => $katsu->baid, 'song_no' => 1, 'level' => 3]);
+
+    $this->actingAs($admin)->get('/green/admin/baids?q=どん')
+        ->assertInertia(fn (Assert $page) => $page->component('admin/Baids')->has('players.data', 1)->where('players.data.0.baid', $don->baid));
+    $this->actingAs($admin)->get('/green/admin/baids?q=308000000000')
+        ->assertInertia(fn (Assert $page) => $page->has('players.data', 1)->where('players.data.0.baid', $don->baid));
+    $this->actingAs($admin)->get("/green/admin/baids?q={$katsu->baid}")
+        ->assertInertia(fn (Assert $page) => $page->where('players.data.0.baid', $katsu->baid));
+    $this->actingAs($admin)->get('/green/admin/baids?sort=plays&direction=desc')
+        ->assertInertia(fn (Assert $page) => $page->where('players.data.0.baid', $katsu->baid)->where('filters.sort', 'plays'));
 });
