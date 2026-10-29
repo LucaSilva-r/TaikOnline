@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PlayReportReason;
+use App\Models\PlayReport;
 use App\Models\Sanction;
 use App\Models\WdbPlay;
 use App\Services\ModerationService;
 use App\Services\PlayerRankAggregateService;
 use App\Services\WaddamburoRankAggregateService;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -90,16 +94,38 @@ class WaddamburoPlayController extends Controller
                 ...array_intersect_key($timeline, array_flip(['duration', 'notes', 'long_notes', 'bars', 'gogo'])),
                 'inputs' => array_map(fn (array $input): array => ['t' => $input['t'], 'action' => $input['action']], $timeline['inputs'] ?? []),
             ]),
+            // Logged-in players report other players' plays (once each).
+            'report' => $viewerBaid === null || $viewerBaid === (int) $play->baid ? null : [
+                'reasons' => collect(PlayReportReason::cases())->map(fn (PlayReportReason $reason): array => ['value' => $reason->value, 'label' => $reason->label()])->all(),
+                'reported' => PlayReport::query()->where('wdb_play_id', $play->id)->where('reporter_id', $viewer->id)->exists(),
+            ],
             'moderation' => $isStaff ? [
                 'baid' => (int) $play->baid,
                 'hidden_at' => $play->hidden_at?->toIso8601String(),
                 'hidden_reason' => $play->hidden_reason,
                 'sanctions' => Sanction::query()->active()->where('baid', $play->baid)->pluck('type')->map->value->unique()->values()->all(),
                 'can_act' => $play->player !== null && ModerationService::canActOn($viewer, $play->player),
+                'open_reports' => PlayReport::query()->open()->where('wdb_play_id', $play->id)->count(),
             ] : null,
             // The engine's whole timeline: staff only (what reviewers look at stays with them).
             'inspection' => $isStaff ? Inertia::defer(fn (): ?array => $play->judgementTimeline()) : null,
         ]);
+    }
+
+    /** A logged-in player reports a play from its page (the game reports from a watched replay). */
+    public function report(Request $request, string $id, ModerationService $moderation): RedirectResponse
+    {
+        abort_unless((bool) $request->attributes->get('taikoVersionIsWaddamburo', false), 404);
+        abort_unless(preg_match('/\A[0-9a-f-]{36}\z/i', $id) === 1, 404);
+        $validated = $request->validate([
+            'reason' => ['required', Rule::enum(PlayReportReason::class)],
+            'comment' => ['nullable', 'string', 'max:500'],
+        ]);
+        $filed = $moderation->report($request->user(), WdbPlay::query()->findOrFail($id),
+            PlayReportReason::from($validated['reason']), $validated['comment'] ?? null);
+        Inertia::flash('toast', ['type' => 'success', 'message' => $filed ? __('Thanks, the report was sent.') : __('You already reported this play.')]);
+
+        return back();
     }
 
     /**

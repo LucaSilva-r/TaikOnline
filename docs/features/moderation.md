@@ -1,6 +1,6 @@
 # Moderation
 
-Status: step 1 of **Order** built, step 2 mostly built (2026-10-28); steps 3–5 are still design.
+Status: steps 1–3 of **Order** built (2026-10-28); steps 4–5 are still design.
 
 Waddamburo is open source, so the client cannot be trusted: a modified build can send any replay
 it likes. The server already rescores every play from its replay with the Waddamburo binary
@@ -141,6 +141,24 @@ the production host by hand. When the variable is unset, analysis is skipped.
   go-go tint, Good/Ok/Bad, combo and drumroll counters, play/pause, seek, 0.5–2× speed. It gets the
   timeline without inputs (`replay` prop); inputs stay in the staff-only `inspection`.
 - Not built yet: synthesized clicks per input, frame stepping.
+
+## Implementation (step 3)
+
+- `play_reports` (`PlayReport`): play, reporter (user), reason (`PlayReportReason`: cheating,
+  offensive, other), comment, resolution. One per play and reporter (unique), never deleted.
+- Filed through `ModerationService::report()`: refused for the reporter's own plays (422), plays
+  they cannot see (404), reporters without a Banapass, and reporters under a `report_block`
+  sanction (403). Rate limit `play-reports`: 5 per 10 minutes and 20 a day per account.
+- Game: `POST api/wdb/plays/{id}/report` (home tokens only; cabinets get 403). Waddamburo-public
+  branch `play-reports`: a downloaded replay of another player, watched by a logged-in player, has
+  "Report player" in its pause menu (reason cheating); the server's answer shows as a notice.
+- Website: the play page has a report form (reason and comment) for logged-in players.
+- Queue `mod/reports`: open reports by play, most reported first, each reporter with how many
+  reports they filed and how many were dismissed. Closed by dismissing (`dismiss_reports`, logged),
+  hiding the play (`play_hidden`) or a ban/shadowban of the player (`player_sanctioned`, all their
+  plays' reports). Reporters in bad faith get a `report_block` sanction from their player page.
+- `AuthenticateWaddamburo` implements `AuthenticatesRequests` so it runs before the rate limiters
+  (before, a limiter keyed on the user saw none).
 
 ## Order
 

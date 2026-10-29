@@ -42,6 +42,9 @@ Route::prefix('{taikoVersion}')
         Route::inertia('community', 'Community')->name('community');
         Route::get('users/{user}/board', [BoardController::class, 'show'])->name('board.show');
         Route::get('plays/{id}', [WaddamburoPlayController::class, 'show'])->name('plays.show');
+        Route::post('plays/{id}/report', [WaddamburoPlayController::class, 'report'])
+            ->middleware(['auth', 'throttle:play-reports'])
+            ->name('plays.report');
 
         Route::middleware('auth')->group(function (): void {
             Route::get('play', [CabinetLoginController::class, 'create'])->name('play.create');
@@ -64,6 +67,8 @@ Route::prefix('{taikoVersion}')
                 Route::patch('sanctions/{sanction}/revoke', [ModerationController::class, 'revokeSanction'])->name('sanctions.revoke');
                 Route::patch('plays/{play}/hide', [ModerationController::class, 'hidePlay'])->name('plays.hide');
                 Route::patch('plays/{play}/restore', [ModerationController::class, 'restorePlay'])->name('plays.restore');
+                Route::get('reports', [ModerationController::class, 'reports'])->name('reports.index');
+                Route::patch('plays/{play}/dismiss-reports', [ModerationController::class, 'dismissReports'])->name('plays.dismiss-reports');
             });
 
             Route::middleware('admin')->prefix('admin')->name('admin.')->group(function (): void {

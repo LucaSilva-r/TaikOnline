@@ -50,6 +50,7 @@
         played_at: string | null;
         hidden_at: string | null;
         hidden_reason: string | null;
+        open_reports: number;
     };
     type LogRow = {
         id: number;
@@ -368,6 +369,13 @@
                                     )}
                                     class="underline">{play.chart}</Link
                                 >
+                                {#if play.open_reports > 0}
+                                    <Badge
+                                        variant="secondary"
+                                        class="border-0 bg-red-500/15 text-red-600 dark:text-red-400"
+                                        >{play.open_reports} report{play.open_reports === 1 ? '' : 's'}</Badge
+                                    >
+                                {/if}
                                 <span class="text-xs text-muted-foreground"
                                     >{play.difficulty ??
                                         courses[play.course] ??

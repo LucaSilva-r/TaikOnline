@@ -7,6 +7,7 @@
     import Home from 'lucide-svelte/icons/home';
     import Disc from 'lucide-svelte/icons/disc';
     import LayoutGrid from 'lucide-svelte/icons/layout-grid';
+    import Flag from 'lucide-svelte/icons/flag';
     import Gavel from 'lucide-svelte/icons/gavel';
     import Server from 'lucide-svelte/icons/server';
     import ShieldCheck from 'lucide-svelte/icons/shield-check';
@@ -37,6 +38,7 @@
     import adminWaddamburoCabinets from '@/routes/admin/waddamburo-cabinets';
     import adminWaddamburoNotices from '@/routes/admin/waddamburo-notices';
     import moderation from '@/routes/mod';
+    import moderationReports from '@/routes/mod/reports';
     const { dashboard, recentPlays, status } = adminRoute;
     import { home } from '@/routes';
     import type { NavItem } from '@/types';
@@ -50,11 +52,10 @@
     const taikoParam = taikoRouteParam();
 
     const isAdmin = $derived(page.props.auth.user.role === 'admin');
-    const moderationNavItem: NavItem = {
-        title: 'Moderation',
-        href: moderation.index(taikoParam),
-        icon: Gavel,
-    };
+    const moderationNavItems: NavItem[] = [
+        { title: 'Moderation', href: moderation.index(taikoParam), icon: Gavel },
+        { title: 'Reports', href: moderationReports.index(taikoParam), icon: Flag },
+    ];
 
     const adminNavItems: NavItem[] = [
         { title: 'Dashboard', href: dashboard(taikoParam), icon: LayoutGrid },
@@ -91,11 +92,11 @@
             href: adminPlayers.index(taikoParam),
             icon: ShieldCheck,
         },
-        moderationNavItem,
+        ...moderationNavItems,
     ];
     // Moderators reach the moderation pages only.
     const mainNavItems = $derived(
-        isAdmin ? adminNavItems : [moderationNavItem],
+        isAdmin ? adminNavItems : moderationNavItems,
     );
 
     const footerNavItems: NavItem[] = [

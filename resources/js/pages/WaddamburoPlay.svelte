@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { Deferred, Link, router } from '@inertiajs/svelte';
+    import { Deferred, Form, Link, router } from '@inertiajs/svelte';
+    import Flag from 'lucide-svelte/icons/flag';
     import ArrowLeft from 'lucide-svelte/icons/arrow-left';
     import Crown from 'lucide-svelte/icons/crown';
     import ExternalLink from 'lucide-svelte/icons/external-link';
@@ -23,7 +24,8 @@
     import { show as boardShow } from '@/routes/board';
     import moderationPlayers from '@/routes/mod/players';
     import moderationPlays from '@/routes/mod/plays';
-    import { show as playsShow } from '@/routes/plays';
+    import { report as reportPlay, show as playsShow } from '@/routes/plays';
+    import InputError from '@/components/InputError.svelte';
     import songs from '@/routes/songs';
 
     type Play = {
@@ -67,6 +69,7 @@
         hidden_reason: string | null;
         sanctions: string[];
         can_act: boolean;
+        open_reports: number;
     };
 
     let {
@@ -76,6 +79,7 @@
         otherPlays,
         stats,
         replay,
+        report,
         moderation,
         inspection,
     }: {
@@ -92,6 +96,10 @@
         otherPlays: OtherPlay[];
         stats?: Stats;
         replay?: Replay | null;
+        report: {
+            reasons: { value: string; label: string }[];
+            reported: boolean;
+        } | null;
         moderation: Moderation | null;
         inspection?: Inspection | null;
     } = $props();
@@ -138,6 +146,19 @@
 
     function signed(value: number): string {
         return `${value > 0 ? '+' : ''}${value}`;
+    }
+
+    let reporting = $state(false);
+
+    function dismissReports() {
+        const reason = prompt('Dismiss the open reports on this play? Reason (optional):');
+        if (reason !== null) {
+            router.patch(
+                moderationPlays.dismissReports({ ...taikoParam, play: play.id }).url,
+                { reason },
+                { preserveScroll: true },
+            );
+        }
     }
 
     function hide() {
@@ -266,6 +287,60 @@
         {/if}
     </div>
 
+    {#if report}
+        {#if report.reported}
+            <p class="flex items-center gap-2 text-sm text-muted-foreground">
+                <Flag class="size-4" /> You reported this play. Thanks.
+            </p>
+        {:else if !reporting}
+            <Button
+                variant="ghost"
+                size="sm"
+                class="w-fit gap-2 text-muted-foreground"
+                onclick={() => (reporting = true)}
+            >
+                <Flag class="size-4" /> Report this play
+            </Button>
+        {:else}
+            <Form
+                {...reportPlay.form({ ...taikoParam, id: play.id })}
+                class="flex max-w-xl flex-col gap-3 rounded-lg border bg-card p-4"
+                options={{ preserveScroll: true }}
+                onSuccess={() => (reporting = false)}
+            >
+                {#snippet children({ errors, processing })}
+                    <div class="font-medium">Report this play</div>
+                    <select
+                        name="reason"
+                        class="h-9 rounded-md border bg-background px-2 text-sm"
+                        aria-label="Reason"
+                    >
+                        {#each report.reasons as reason (reason.value)}
+                            <option value={reason.value}>{reason.label}</option>
+                        {/each}
+                    </select>
+                    <textarea
+                        name="comment"
+                        maxlength={500}
+                        rows={2}
+                        placeholder="What did you notice? (optional)"
+                        class="rounded-md border bg-background px-2 py-1 text-sm"
+                    ></textarea>
+                    <InputError message={errors.reason ?? errors.comment} />
+                    <div class="flex gap-2">
+                        <Button type="submit" size="sm" disabled={processing}>Send report</Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onclick={() => (reporting = false)}>Cancel</Button
+                        >
+                    </div>
+                {/snippet}
+            </Form>
+        {/if}
+    {/if}
+
     {#if !play.scored}
         <p class="text-sm text-muted-foreground">
             The server has not scored this play from its replay yet (its chart
@@ -376,6 +451,13 @@
                         >hidden {formatDate(moderation.hidden_at)}</Badge
                     >
                 {/if}
+                {#if moderation.open_reports > 0}
+                    <Badge
+                        variant="secondary"
+                        class="border-0 bg-red-500/15 text-red-600 dark:text-red-400"
+                        >{moderation.open_reports} open report{moderation.open_reports === 1 ? '' : 's'}</Badge
+                    >
+                {/if}
                 {#each moderation.sanctions as sanction (sanction)}
                     <Badge
                         variant="secondary"
@@ -397,6 +479,11 @@
                         })}>Player · sanctions</Link
                     >
                     {#if moderation.can_act}
+                        {#if moderation.open_reports > 0}
+                            <Button size="sm" variant="outline" onclick={dismissReports}
+                                >Dismiss reports</Button
+                            >
+                        {/if}
                         {#if moderation.hidden_at}
                             <Button size="sm" variant="outline" onclick={restore}
                                 >Restore play</Button

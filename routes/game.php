@@ -40,6 +40,7 @@ Route::middleware(['wdb.auth', 'throttle:wdb'])->prefix('api/wdb')->group(functi
     Route::get('charts/{sha256}/scores', [WaddamburoScoreController::class, 'scores']);
     Route::get('charts/{sha256}/scores/mine', [WaddamburoScoreController::class, 'mine']);
     Route::get('plays/{id}/replay', [WaddamburoScoreController::class, 'replay']);
+    Route::post('plays/{id}/report', [WaddamburoScoreController::class, 'report'])->middleware('throttle:play-reports');
     Route::get('notifications', [WaddamburoNoticeController::class, 'notifications']);
     Route::post('notifications/read', [WaddamburoNoticeController::class, 'read']);
     // Private channel subscriptions (Pusher auth) for Waddamburo tokens.

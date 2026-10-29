@@ -53,6 +53,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('wdb-login', fn (Request $request): Limit => Limit::perMinute(10)->by($request->ip()));
         RateLimiter::for('wdb-device-poll', fn (Request $request): Limit => Limit::perMinute(40)->by($request->ip()));
         RateLimiter::for('wdb', fn (Request $request): Limit => Limit::perMinute(120)->by($request->bearerToken() ?? $request->ip()));
+        // Reports of plays (game and website): a few at a time, a handful a day, per account.
+        RateLimiter::for('play-reports', fn (Request $request): array => [
+            Limit::perMinutes(10, 5)->by('play-reports:'.$request->user()?->id),
+            Limit::perDay(20)->by('play-reports-day:'.$request->user()?->id),
+        ]);
         RateLimiter::for('cabinet-login', fn (Request $request): array => [
             Limit::perMinute(10)->by('user:'.$request->user()?->id),
             Limit::perMinute(60)->by('ip:'.$request->ip()),

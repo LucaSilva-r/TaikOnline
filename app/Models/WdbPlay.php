@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 
 /** One Waddamburo play; the id is the client's, so re-uploads are idempotent. */
@@ -105,6 +106,11 @@ class WdbPlay extends Model
     public function player(): BelongsTo
     {
         return $this->belongsTo(Player::class, 'baid', 'baid');
+    }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(PlayReport::class);
     }
 
     public function chart(): BelongsTo

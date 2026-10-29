@@ -13,12 +13,16 @@ enum SanctionType: string
     /** Stored now, enforced once forum and chat exist. */
     case Mute = 'mute';
 
+    /** Their reports of plays are refused (a player who reports in bad faith). */
+    case ReportBlock = 'report_block';
+
     public function label(): string
     {
         return match ($this) {
             self::Ban => 'Ban',
             self::Shadowban => 'Shadowban',
             self::Mute => 'Mute',
+            self::ReportBlock => 'Report block',
         };
     }
 }

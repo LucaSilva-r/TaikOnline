@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PlayReportReason;
 use App\Http\Middleware\AuthenticateWaddamburo;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
+use App\Services\ModerationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Waddamburo's score lists and replays, as osu! has them: a chart's leaderboard (each player's best
@@ -90,6 +93,24 @@ class WaddamburoScoreController extends Controller
             'player' => $play->player === null ? null : WaddamburoController::profile($play->player),
             'replay' => base64_encode((string) $play->replay),
         ]);
+    }
+
+    /**
+     * A logged-in player reports another player's play (watching its replay). Cabinets cannot: their
+     * players have no account on the machine. A second report of the same play changes nothing.
+     */
+    public function report(Request $request, string $id, ModerationService $moderation): JsonResponse
+    {
+        abort_if($request->attributes->get(AuthenticateWaddamburo::CABINET) === true, 403, 'Log in to report a play.');
+        abort_unless(preg_match('/\A[0-9a-f-]{36}\z/i', $id) === 1, 404);
+        $validated = $request->validate([
+            'reason' => ['nullable', Rule::enum(PlayReportReason::class)],
+            'comment' => ['nullable', 'string', 'max:500'],
+        ]);
+        $filed = $moderation->report($request->user(), WdbPlay::query()->findOrFail($id),
+            PlayReportReason::tryFrom((string) ($validated['reason'] ?? '')) ?? PlayReportReason::Cheating, $validated['comment'] ?? null);
+
+        return response()->json(['message' => $filed ? 'Thanks, the report was sent.' : 'You already reported this play.'], $filed ? 201 : 200);
     }
 
     private function chart(string $sha256): ?WdbChart
