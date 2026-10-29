@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
@@ -55,11 +54,6 @@ class FortifyServiceProvider extends ServiceProvider
                 ->first();
 
             if ($user && Hash::check($request->input('password'), $user->password)) {
-                $ban = $user->player?->activeBan();
-                if ($ban !== null) {
-                    throw ValidationException::withMessages([Fortify::username() => $ban->banMessage()]);
-                }
-
                 return $user;
             }
 

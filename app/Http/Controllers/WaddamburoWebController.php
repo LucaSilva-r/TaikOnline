@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Player;
 use App\Models\PlayerRankSnapshot;
 use App\Models\PlayerVersionStats;
+use App\Models\Sanction;
 use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
@@ -195,6 +196,7 @@ class WaddamburoWebController extends Controller
             'blueBattleData' => null, 'greenGhostData' => null, 'tokkunData' => null, 'daniData' => null,
             // Staff get a way into the player's moderation page.
             'moderationBaid' => $request->user()?->isStaff() === true && $player instanceof Player ? (int) $player->baid : null,
+            'standing' => Sanction::standingFor($user, $request->user()),
         ]);
     }
 

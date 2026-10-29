@@ -72,7 +72,7 @@ class WdbPlay extends Model
         $query->whereNull('wdb_plays.hidden_at')->where(fn ($visible) => $visible
             ->whereNotExists(fn (QueryBuilder $shadowban) => $shadowban->from('sanctions')
                 ->whereColumn('sanctions.baid', 'wdb_plays.baid')
-                ->where('sanctions.type', SanctionType::Shadowban->value)
+                ->whereIn('sanctions.type', SanctionType::hidingPlays())
                 ->whereNull('sanctions.revoked_at')
                 ->where(fn (QueryBuilder $live) => $live->whereNull('sanctions.expires_at')->orWhere('sanctions.expires_at', '>', now())))
             ->when($viewerBaid !== null, fn ($own) => $own->orWhere('wdb_plays.baid', $viewerBaid)));

@@ -36,7 +36,8 @@ type is unrevoked and unexpired.
 
 - **Shadowban**: uploads are accepted and the player sees their plays as usual, including their
   own leaderboard position. Everyone else sees nothing.
-- **Ban**: uploads are refused with a clear message; web and cabinet logins are blocked.
+- **Ban** (a restriction): the player still logs in and plays, and is told (name board, board banner,
+  notice). Their plays are hidden from everyone else, those made while banned never count.
 - **Mute**: stored now, enforced when forum and chat exist. A web user maps to their baid.
 
 ## Hiding plays
@@ -109,12 +110,16 @@ the production host by hand. When the variable is unset, analysis is skipped.
   `WaddamburoRankAggregateService::bests()` and `standings()` take the viewer's baid. Standings
   filter shadowbanned players when read, so a sanction needs no recompute (and expiry needs no job);
   hiding or restoring a play recomputes its player's aggregate.
-- Bans: Fortify login and Waddamburo login/device poll refuse with `banMessage()`;
-  `EnsureNotBanned` (web group) signs a banned user out; `AuthenticateWaddamburo` answers 403
-  `{message, banned: true}` to a banned home token; cabinet card lookup answers the same; a
-  cabinet's queued plays of a banned player are acknowledged in `accepted` (so the queue drains),
-  listed in `refused` with the message, and not stored. Card logins on the real Taiko cabinets
-  (Green/legacy protocols) are not blocked yet.
+- Bans are restrictions (after osu!): nothing logs the player out or refuses them. Logins (site,
+  game, cabinet card) work; plays uploaded while banned are stored with `hidden_at` and
+  `hidden_reason` "Played while restricted" (kept as evidence, never counted, even after the ban), and the
+  player gets a `play_rejected` notice per upload ("Your play of X will not count: ...");
+  their other plays and standings are hidden from everyone else like a shadowban's
+  (`SanctionType::hidingPlays()`); their board 404s for others but staff; they cannot report. The
+  profile payload's `title` is `RESTRICTED` while banned, so the game's name board shows it on
+  every screen, saved accounts included (the client refreshes profiles at launch, each credit,
+  and when a `sanction` notice arrives). Their own board shows a banner and an "Account standing"
+  list (`Sanction::standingFor()`: every sanction but shadowbans, with the note to the player).
 - Pages: `mod/` (player lookup, sanctions in force, whole log for admins) and `mod/players/{baid}`
   (issue/revoke sanctions, hide/restore plays, the player's history). Tests: `tests/Feature/ModerationTest.php`.
 
@@ -144,19 +149,34 @@ the production host by hand. When the variable is unset, analysis is skipped.
 
 ## Implementation (step 3)
 
-- `play_reports` (`PlayReport`): play, reporter (user), reason (`PlayReportReason`: cheating,
-  offensive, other), comment, resolution. One per play and reporter (unique), never deleted.
+- `play_reports` (`PlayReport`): play, reporter (user), reason (`PlayReportReason`: autoplay,
+  macro, cheating (other cheating), offensive, other), comment, resolution. One per play and reporter (unique), never deleted.
 - Filed through `ModerationService::report()`: refused for the reporter's own plays (422), plays
   they cannot see (404), reporters without a Banapass, and reporters under a `report_block`
   sanction (403). Rate limit `play-reports`: 5 per 10 minutes and 20 a day per account.
 - Game: `POST api/wdb/plays/{id}/report` (home tokens only; cabinets get 403). Waddamburo-public
   branch `play-reports`: a downloaded replay of another player, watched by a logged-in player, has
-  "Report player" in its pause menu (reason cheating); the server's answer shows as a notice.
+  "Report player" in its pause menu, which opens a page of cheating reasons (autoplay, roll/balloon
+  macro, other cheating; a modified chart is moot, the server rescores the chart the game sent); the server's answer shows as a notice.
 - Website: the play page has a report form (reason and comment) for logged-in players.
 - Queue `mod/reports`: open reports by play, most reported first, each reporter with how many
   reports they filed and how many were dismissed. Closed by dismissing (`dismiss_reports`, logged),
   hiding the play (`play_hidden`) or a ban/shadowban of the player (`player_sanctioned`, all their
   plays' reports). Reporters in bad faith get a `report_block` sanction from their player page.
+- Notifications (Laravel database notifications): staff get `PlayReported` when a play enters the
+  queue (its first open report), linking to the play page. A sanctioned player gets a
+  `WaddamburoNotice` (kind `sanction`, shown in game and on the site) when sanctioned and when it
+  is lifted; never for a shadowban. Reporters get one `WaddamburoNotice` (kind
+  `report_resolved`) per decision closing their reports: dismissed, play removed, or "action was
+  taken" against the player (the sanction is not named). `api/wdb/notifications` returns `WaddamburoNotice`s only.
+- Notification center: a bell in both headers (`NotificationBell.svelte`), fed by the shared
+  `notifications` prop (unread count, latest 15, Reverb URL and the user's private channel);
+  `POST {version}/notifications/read` marks the given ids, or all, read. The bell subscribes the
+  channel (`resources/js/lib/realtime.ts`, a minimal Pusher-protocol client, no Echo) and on a push
+  shows a toast and reloads the prop. Events: `notice` (`WaddamburoNotice`, game and site) and
+  `site-notice` (`PlayReported`, site only; the game ignores it). Notifications must set
+  `broadcastAs()`: Laravel's default event name is the `BroadcastNotificationCreated` class, which
+  the game never matched (personal notices only arrived with the backlog before this).
 - `AuthenticateWaddamburo` implements `AuthenticatesRequests` so it runs before the rate limiters
   (before, a limiter keyed on the user saw none).
 

@@ -6,6 +6,7 @@ use App\Enums\TaikoGameVersion;
 use App\Models\Player;
 use App\Models\PlayerDanProgress;
 use App\Models\PlayerRankSnapshot;
+use App\Models\Sanction;
 use App\Models\Song;
 use App\Models\SongBest;
 use App\Models\SongPlayResult;
@@ -21,6 +22,10 @@ class BoardController extends Controller
 {
     public function show(Request $request, User $user, PlayerRankAggregateService $rankAggregates, WaddamburoWebController $waddamburo): Response
     {
+        // A restricted player's board is theirs (and staff's) only.
+        $viewer = $request->user();
+        abort_if($user->player?->activeBan() !== null && ! $user->is($viewer) && $viewer?->isStaff() !== true, 404);
+
         if ((bool) $request->attributes->get('taikoVersionIsWaddamburo', false)) {
             return $waddamburo->board($request, $user, app(WaddamburoRankAggregateService::class));
         }
@@ -44,6 +49,7 @@ class BoardController extends Controller
                 'greenGhostData' => null,
                 'tokkunData' => null,
                 'daniData' => null,
+                'standing' => null,
             ]);
         }
 
@@ -63,6 +69,7 @@ class BoardController extends Controller
             'daniData' => $this->daniData($player, $version),
             // Staff get a way into the player's moderation page.
             'moderationBaid' => $request->user()?->isStaff() === true ? (int) $player->baid : null,
+            'standing' => Sanction::standingFor($user, $request->user()),
         ]);
     }
 

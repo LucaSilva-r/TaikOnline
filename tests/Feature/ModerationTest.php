@@ -107,22 +107,42 @@ it('lets moderators sanction players but not staff, and leaves permanent bans to
     expect($ban->fresh()->isActive())->toBeFalse()->and($ban->fresh()->revoked_by)->toBe($moderator->id);
 });
 
-it('refuses a banned player\'s uploads and logins, and lets them back once the ban expires', function (): void {
+it('restricts a banned player: still logged in and playing, but unseen, uncounted and told why', function (): void {
+    $chart = mod_chart();
     $player = mod_player(User::factory()->create(['username' => 'cheater', 'password' => 'password']));
+    $viewer = mod_player();
+    $before = mod_play($player, $chart, 900_000);
     $token = $player->user->createToken('test', ['wdb'])->plainTextToken;
     $ban = Sanction::query()->create(['baid' => $player->baid, 'type' => SanctionType::Ban, 'reason' => 'macro',
         'note_to_player' => 'Appeal on Discord.', 'expires_at' => now()->addDay()]);
 
-    $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => []])->assertForbidden()
-        ->assertJsonPath('banned', true)->assertJson(fn ($json) => $json->where('message', fn (string $message) => str_contains($message, 'Appeal on Discord.'))->etc());
-    $this->postJson('/api/wdb/login', ['login' => 'cheater', 'password' => 'password', 'device' => 'pc'])->assertJsonValidationErrors('login');
-    $this->post('/login', ['email' => 'cheater', 'password' => 'password'])->assertSessionHasErrors('email');
-    $this->assertGuest();
-    $this->actingAs($player->user)->get('/waddamburo/play')->assertRedirect('/login');
-    $this->assertGuest();
+    // Logins and the game keep working; every screen shows the restriction on the name board.
+    $this->postJson('/api/wdb/login', ['login' => 'cheater', 'password' => 'password', 'device' => 'pc'])->assertOk();
+    $this->post('/login', ['email' => 'cheater', 'password' => 'password'])->assertSessionHasNoErrors();
+    $this->withToken($token)->getJson('/api/wdb/me')->assertOk()->assertJsonPath('title', 'RESTRICTED');
+
+    // A play while restricted is kept but hidden for good.
+    $id = (string) Str::uuid();
+    $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [[
+        'id' => $id, 'chart_sha256' => $chart->sha256, 'mode' => 'normal', 'course' => 3, 'score' => 1_000_000,
+        'great' => 100, 'good' => 0, 'miss' => 0, 'max_combo' => 100, 'rolls' => 0, 'gauge' => 50, 'cleared' => true,
+        'scoring_version' => 1, 'engine_version' => 'test', 'played_at' => now()->toIso8601String(), 'replay' => base64_encode('inputs'),
+    ]]])->assertOk()->assertJsonPath('accepted', [$id]);
+    expect(WdbPlay::query()->find($id))->hidden_reason->toBe('Played while restricted');
+    expect($player->user->notifications()->sole()->data['message'])->toBe('Your play of Song will not count: your account is restricted.');
+
+    // Others see neither their plays nor their board; they see both, with their standing.
+    expect(WdbPlay::query()->visibleTo($viewer->baid)->whereKey($before->id)->exists())->toBeFalse()
+        ->and(WdbPlay::query()->visibleTo($player->baid)->whereKey($before->id)->exists())->toBeTrue();
+    $this->actingAs($viewer->user)->get("/waddamburo/users/{$player->user_id}/board")->assertNotFound();
+    $this->actingAs($player->user)->get("/waddamburo/users/{$player->user_id}/board")
+        ->assertInertia(fn (Assert $page) => $page->where('standing.0.label', 'Restriction')->where('standing.0.note', 'Appeal on Discord.')->where('standing.0.active', true));
+    $this->actingAs($viewer->user)->get("/waddamburo/users/{$viewer->user_id}/board")->assertInertia(fn (Assert $page) => $page->where('standing', []));
 
     $ban->update(['expires_at' => now()->subMinute()]);
-    $this->withToken($token)->getJson('/api/wdb/me')->assertOk();
+    $this->withToken($token)->getJson('/api/wdb/me')->assertJsonPath('title', null);
+    expect(WdbPlay::query()->visibleTo($viewer->baid)->whereKey($before->id)->exists())->toBeTrue()
+        ->and(WdbPlay::query()->visibleTo($viewer->baid)->whereKey($id)->exists())->toBeFalse();
 });
 
 it('hides and restores a play, logging both', function (): void {

@@ -13,6 +13,7 @@ use App\Models\Sanction;
 use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
+use App\Notifications\WaddamburoNotice;
 use App\Services\CabinetPairingService;
 use App\Services\WaddamburoDeviceLoginService;
 use App\Services\WaddamburoRankAggregateService;
@@ -70,9 +71,6 @@ class WaddamburoController extends Controller
         if (! $player instanceof Player) {
             throw ValidationException::withMessages(['login' => __('Your account does not have a Banapass yet.')]);
         }
-        if (($ban = $player->activeBan()) !== null) {
-            throw ValidationException::withMessages(['login' => $ban->banMessage()]);
-        }
 
         return response()->json([
             'token' => $user->createToken($validated['device'], ['wdb'])->plainTextToken,
@@ -107,9 +105,6 @@ class WaddamburoController extends Controller
         $player = $result['user']->player;
         if (! $player instanceof Player) {
             return response()->json(['status' => 'denied', 'message' => 'The account does not have a Banapass yet.']);
-        }
-        if (($ban = $player->activeBan()) !== null) {
-            return response()->json(['status' => 'denied', 'message' => $ban->banMessage()]);
         }
 
         return response()->json([
@@ -153,7 +148,7 @@ class WaddamburoController extends Controller
         $friend = Cache::remember('wdb-friend:'.$result['command_id'], 120, function () use ($result, $request): ?array {
             $player = GameCard::query()->whereKey($result['access_code'])->first()?->player;
             $user = $player?->user;
-            if (! $player instanceof Player || ! $user instanceof User || $player->activeBan() !== null) {
+            if (! $player instanceof Player || ! $user instanceof User) {
                 return null;
             }
             $device = 'Guest session on '.($request->user()->currentAccessToken()->name ?? 'Waddamburo');
@@ -266,9 +261,6 @@ class WaddamburoController extends Controller
         $validated = $request->validate(['access_code' => ['required', 'string', 'regex:/\A[0-9]{20}\z/']]);
         $player = GameCard::query()->whereKey($validated['access_code'])->first()?->player;
         abort_unless($player instanceof Player, 404);
-        if (($ban = $player->activeBan()) !== null) {
-            return response()->json(['message' => $ban->banMessage(), 'banned' => true], 403);
-        }
 
         return response()->json($this->profile($player));
     }
@@ -320,13 +312,6 @@ class WaddamburoController extends Controller
             if ($cabinet && ! Player::query()->whereKey($baid)->exists()) {
                 continue;
             }
-            // A banned player's plays from a cabinet: taken off its queue, never kept.
-            if ($cabinet && ($bans[$baid] ??= Sanction::activeFor($baid, SanctionType::Ban) ?? false) !== false) {
-                $accepted[] = $play['id'];
-                $refused[] = ['id' => $play['id'], 'message' => $bans[$baid]->banMessage()];
-
-                continue;
-            }
             $replay = base64_decode($play['replay'], true);
             if ($replay === false) {
                 continue;
@@ -355,6 +340,9 @@ class WaddamburoController extends Controller
                 'options' => $play['options'] ?? 0,
                 'seed' => $play['seed'] ?? null,
                 'wdb_cabinet_id' => $request->attributes->get(EnsureWaddamburoCabinet::CABINET_ID),
+                // Played while restricted: kept (evidence), never counted, even after the ban ends.
+                ...(($banned[$baid] ??= Sanction::activeFor($baid, SanctionType::Ban) !== null)
+                    ? ['hidden_at' => now(), 'hidden_reason' => 'Played while restricted'] : []),
             ]);
             if ($stored->wasRecentlyCreated) {
                 $created->push($stored);
@@ -363,6 +351,13 @@ class WaddamburoController extends Controller
             $players[$baid] = true;
         }
         $scorer->rescore($created);
+        // Restricted players hear their new plays won't count (once per upload, in game and on the site).
+        $created->where('hidden_reason', 'Played while restricted')->groupBy('baid')->each(function (EloquentCollection $plays) use ($charts): void {
+            $title = $plays->count() === 1 ? collect($charts)->firstWhere('id', $plays->first()->wdb_chart_id)?->title : null;
+            $plays->first()->player?->user?->notify(new WaddamburoNotice(
+                ($title !== null ? "Your play of {$title}" : ($plays->count() === 1 ? 'Your play' : "Your {$plays->count()} plays"))
+                    .' will not count: your account is restricted.', 'warning', 'play_rejected'));
+        });
         // The website's standings (ranked charts only) follow each upload.
         Player::query()->whereIn('baid', array_keys($players ?? []))->get()
             ->each(fn (Player $player) => $aggregates->recompute($player));
@@ -372,7 +367,7 @@ class WaddamburoController extends Controller
             ->whereNull('notes')
             ->pluck('sha256');
 
-        return response()->json(['accepted' => $accepted, 'missing_charts' => $missing, 'refused' => $refused ?? []]);
+        return response()->json(['accepted' => $accepted, 'missing_charts' => $missing]);
     }
 
     /** Imports a chart's canonical notes (gzipped, base64); the hash must match the decompressed bytes. */
@@ -461,8 +456,8 @@ class WaddamburoController extends Controller
             'account_name' => $player->user?->name,
             // The account's custom Don-chan (a transparent PNG), for the game's account picker.
             'avatar' => $player->user?->avatar,
-            // Name-board title and plate (0 wood, 1 rainbow, 2 gold, 3 purple).
-            'title' => $cosmetics?->title,
+            // Name-board title (RESTRICTED while banned, so every screen shows it) and plate (0 wood, 1 rainbow, 2 gold, 3 purple).
+            'title' => $player->activeBan() !== null ? 'RESTRICTED' : $cosmetics?->title,
             'title_plate' => (int) ($cosmetics?->titleplate_id ?? 0),
             'look' => [
                 'costume' => array_map(fn (int $slot): int => (int) ($cosmetics?->{"costume_{$slot}"} ?? 0), [1, 2, 3, 4, 5]),

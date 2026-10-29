@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Middleware\AuthenticateWaddamburo;
-use App\Http\Middleware\EnsureNotBanned;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureWaddamburoCabinet;
 use App\Http\Middleware\EnsureZucchiniApiToken;
@@ -39,7 +38,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             HandleAppearance::class,
-            EnsureNotBanned::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);

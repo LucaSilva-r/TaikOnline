@@ -1,4 +1,5 @@
 <script lang="ts">
+    import AccountStanding, { type Standing } from '@/components/AccountStanding.svelte';
     import AppHead from '@/components/AppHead.svelte';
     import {
         Avatar,
@@ -192,6 +193,7 @@
         tokkunData = null,
         daniData = null,
         moderationBaid = null,
+        standing = null,
     }: {
         profile: Profile;
         hasPlayer: boolean;
@@ -204,6 +206,7 @@
         tokkunData?: TokkunData | null;
         daniData?: DaniData | null;
         moderationBaid?: number | null;
+        standing?: Standing | null;
     } = $props();
 
     const taikoParam = taikoRouteParam();
@@ -303,6 +306,10 @@
 <AppHead title={`${profile.name} Board`} />
 
 <section class="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8">
+    {#if standing}
+        <AccountStanding {standing} />
+    {/if}
+
     <section class="overflow-hidden rounded-lg border bg-card">
         <div class="border-b bg-[var(--taiko-accent-soft)] px-5 py-8">
             <div class="flex flex-col gap-5 sm:flex-row sm:items-end">

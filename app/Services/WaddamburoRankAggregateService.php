@@ -98,7 +98,7 @@ class WaddamburoRankAggregateService
     }
 
     /**
-     * The standings as the viewer sees them: shadowbanned players only by themselves.
+     * The standings as the viewer sees them: restricted (banned) and shadowbanned players only by themselves.
      *
      * @return Collection<int, PlayerVersionStats>
      */
@@ -106,7 +106,7 @@ class WaddamburoRankAggregateService
     {
         return PlayerVersionStats::query()
             ->where('game_version', self::SCOPE)
-            ->whereNotIn('baid', Sanction::query()->active()->where('type', SanctionType::Shadowban)
+            ->whereNotIn('baid', Sanction::query()->active()->whereIn('type', SanctionType::hidingPlays())
                 ->when($viewerBaid !== null, fn ($others) => $others->where('baid', '<>', $viewerBaid))->select('baid'))
             ->whereNotNull('user_id')
             ->where('ranked_song_count', '>', 0)

@@ -42,12 +42,37 @@ class Sanction extends Model
         return $this->revoked_at === null && ($this->expires_at === null || $this->expires_at->isFuture());
     }
 
+    /**
+     * The account standing a player sees on their own board: their sanctions, newest first, never a
+     * shadowban. Null for anyone else.
+     *
+     * @return list<array{id: int, type: string, label: string, note: ?string, created_at: ?string, expires_at: ?string, revoked_at: ?string, active: bool}>|null
+     */
+    public static function standingFor(User $owner, ?User $viewer): ?array
+    {
+        if ($viewer === null || ! $owner->is($viewer) || $owner->player === null) {
+            return null;
+        }
+
+        return self::query()->where('baid', $owner->player->baid)->where('type', '<>', SanctionType::Shadowban)->latest('id')->get()
+            ->map(fn (self $sanction): array => [
+                'id' => $sanction->id,
+                'type' => $sanction->type->value,
+                'label' => $sanction->type === SanctionType::Ban ? 'Restriction' : $sanction->type->label(),
+                'note' => $sanction->note_to_player,
+                'created_at' => $sanction->created_at?->toIso8601String(),
+                'expires_at' => $sanction->expires_at?->toIso8601String(),
+                'revoked_at' => $sanction->revoked_at?->toIso8601String(),
+                'active' => $sanction->isActive(),
+            ])->all();
+    }
+
     /** What a banned player is told: until when, and the staff's note to them. */
     public function banMessage(): string
     {
         $until = $this->expires_at === null ? 'permanently' : 'until '.$this->expires_at->utc()->toDayDateTimeString().' UTC';
 
-        return trim("Your account is banned {$until}. ".($this->note_to_player ?? ''));
+        return trim("Your account is restricted {$until}: your plays don't count and other players can't see them. ".($this->note_to_player ?? ''));
     }
 
     public function player(): BelongsTo
