@@ -14,7 +14,9 @@
         AvatarFallback,
         AvatarImage,
     } from '@/components/ui/avatar';
-    import ReplayPlayer, { type Replay } from '@/components/ReplayPlayer.svelte';
+    import ReplayPlayer, {
+        type Replay,
+    } from '@/components/ReplayPlayer.svelte';
     import { Badge } from '@/components/ui/badge';
     import { Button, buttonVariants } from '@/components/ui/button';
     import { Skeleton } from '@/components/ui/skeleton';
@@ -104,6 +106,9 @@
         inspection?: Inspection | null;
     } = $props();
 
+    // The replay's playhead, shared with the staff charts (they follow it and seek it).
+    let replayTime = $state(0);
+
     const taikoParam = taikoRouteParam();
     const numberFormatter = new Intl.NumberFormat('en-US');
     const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -151,10 +156,13 @@
     let reporting = $state(false);
 
     function dismissReports() {
-        const reason = prompt('Dismiss the open reports on this play? Reason (optional):');
+        const reason = prompt(
+            'Dismiss the open reports on this play? Reason (optional):',
+        );
         if (reason !== null) {
             router.patch(
-                moderationPlays.dismissReports({ ...taikoParam, play: play.id }).url,
+                moderationPlays.dismissReports({ ...taikoParam, play: play.id })
+                    .url,
                 { reason },
                 { preserveScroll: true },
             );
@@ -201,9 +209,7 @@
     <div
         class="relative overflow-hidden rounded-xl border bg-gradient-to-br from-[var(--taiko-accent-soft)] via-card to-card px-6 py-7"
     >
-        <div
-            class="relative flex flex-col gap-5 sm:flex-row sm:items-center"
-        >
+        <div class="relative flex flex-col gap-5 sm:flex-row sm:items-center">
             <svelte:element
                 this={player.user_id !== null ? 'a' : 'div'}
                 href={player.user_id !== null
@@ -328,7 +334,9 @@
                     ></textarea>
                     <InputError message={errors.reason ?? errors.comment} />
                     <div class="flex gap-2">
-                        <Button type="submit" size="sm" disabled={processing}>Send report</Button>
+                        <Button type="submit" size="sm" disabled={processing}
+                            >Send report</Button
+                        >
                         <Button
                             type="button"
                             size="sm"
@@ -350,14 +358,7 @@
 
     <!-- Counts -->
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        {#each [
-            { label: 'Good', value: play.great, class: 'text-orange-500' },
-            { label: 'Ok', value: play.good, class: '' },
-            { label: 'Bad', value: play.miss, class: 'text-sky-500' },
-            { label: 'Max combo', value: play.max_combo, class: '' },
-            { label: 'Drumroll', value: play.roll_max !== null ? `${play.rolls} / ${play.roll_max}` : play.rolls, class: '' },
-            { label: 'Soul gauge', value: `${play.gauge}${play.cleared ? ' · cleared' : ''}`, class: '' },
-        ] as stat (stat.label)}
+        {#each [{ label: 'Good', value: play.great, class: 'text-orange-500' }, { label: 'Ok', value: play.good, class: '' }, { label: 'Bad', value: play.miss, class: 'text-sky-500' }, { label: 'Max combo', value: play.max_combo, class: '' }, { label: 'Drumroll', value: play.roll_max !== null ? `${play.rolls} / ${play.roll_max}` : play.rolls, class: '' }, { label: 'Soul gauge', value: `${play.gauge}${play.cleared ? ' · cleared' : ''}`, class: '' }] as stat (stat.label)}
             <div class="rounded-lg border bg-card p-4">
                 <div class="text-sm text-muted-foreground">{stat.label}</div>
                 <div
@@ -371,15 +372,22 @@
         {/each}
     </div>
 
-    <!-- The play, as the engine judged it -->
-    <Deferred data="replay">
-        {#snippet fallback()}
-            <Skeleton class="h-[190px] rounded-lg" />
-        {/snippet}
-        {#if replay}
-            <ReplayPlayer {replay} />
-        {/if}
-    </Deferred>
+    <!-- The play, as the engine judged it. For staff it stays at the top of the screen, so the lane and
+         its time stay in view beside the charts below. -->
+    <div
+        class={moderation
+            ? 'sticky top-0 z-40 -my-2 border-b bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80'
+            : ''}
+    >
+        <Deferred data="replay">
+            {#snippet fallback()}
+                <Skeleton class="h-[190px] rounded-lg" />
+            {/snippet}
+            {#if replay}
+                <ReplayPlayer {replay} bind:time={replayTime} />
+            {/if}
+        </Deferred>
+    </div>
 
     <!-- From the engine's timeline -->
     <Deferred data="stats">
@@ -455,7 +463,10 @@
                     <Badge
                         variant="secondary"
                         class="border-0 bg-red-500/15 text-red-600 dark:text-red-400"
-                        >{moderation.open_reports} open report{moderation.open_reports === 1 ? '' : 's'}</Badge
+                        >{moderation.open_reports} open report{moderation.open_reports ===
+                        1
+                            ? ''
+                            : 's'}</Badge
                     >
                 {/if}
                 {#each moderation.sanctions as sanction (sanction)}
@@ -480,13 +491,17 @@
                     >
                     {#if moderation.can_act}
                         {#if moderation.open_reports > 0}
-                            <Button size="sm" variant="outline" onclick={dismissReports}
-                                >Dismiss reports</Button
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onclick={dismissReports}>Dismiss reports</Button
                             >
                         {/if}
                         {#if moderation.hidden_at}
-                            <Button size="sm" variant="outline" onclick={restore}
-                                >Restore play</Button
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onclick={restore}>Restore play</Button
                             >
                         {:else}
                             <Button
@@ -508,7 +523,15 @@
                     <Skeleton class="h-64 rounded-lg" />
                 {/snippet}
                 {#if inspection}
-                    <PlayInspection {inspection} />
+                    <PlayInspection
+                        {inspection}
+                        bind:time={
+                            () => (replay ? replayTime : null),
+                            (value) => {
+                                if (value !== null) replayTime = value;
+                            }
+                        }
+                    />
                 {:else}
                     <p class="text-sm text-muted-foreground">
                         No timeline yet: the play has not been rescored by a

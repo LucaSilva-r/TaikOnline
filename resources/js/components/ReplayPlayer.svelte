@@ -29,7 +29,9 @@
     import { onMount } from 'svelte';
     import { Button } from '@/components/ui/button';
 
-    let { replay }: { replay: Replay } = $props();
+    // time: the playhead (ms), bindable so the page's charts follow it and seek it.
+    let { replay, time = $bindable(0) }: { replay: Replay; time?: number } =
+        $props();
 
     // A plain lane, drawn on a canvas: notes scroll to the judgement circle and leave when the engine judged them.
     const laneHeight = 120;
@@ -50,7 +52,8 @@
         miss: '#5b8def',
     };
     const resultLabels = { great: 'Good', good: 'Ok', miss: 'Bad' } as const;
-    const rates = [0.5, 1, 1.5, 2];
+    // As Waddamburo's own replay offers them (ReviewClock.Speeds): down to a twentieth, for rolls.
+    const rates = [0.05, 0.1, 0.25, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5, 2];
 
     const start = $derived(
         Math.min(
@@ -62,8 +65,14 @@
     const judgements = $derived.by(() => {
         let combo = 0;
         return replay.notes
-            .filter((note) => note.result !== undefined && note.judged_at !== undefined)
-            .map((note) => ({ at: note.judged_at as number, result: note.result as 'great' | 'good' | 'miss' }))
+            .filter(
+                (note) =>
+                    note.result !== undefined && note.judged_at !== undefined,
+            )
+            .map((note) => ({
+                at: note.judged_at as number,
+                result: note.result as 'great' | 'good' | 'miss',
+            }))
             .sort((a, b) => a.at - b.at)
             .map((judgement) => {
                 combo = judgement.result === 'miss' ? 0 : combo + 1;
@@ -79,7 +88,6 @@
 
     let canvas: HTMLCanvasElement | undefined = $state();
     let container: HTMLDivElement | undefined = $state();
-    let time = $state(0);
     let playing = $state(false);
     let rate = $state(1);
     let canvasWidth = $state(800);
@@ -134,10 +142,12 @@
         context.setTransform(ratio, 0, 0, ratio, 0, 0);
         const middle = laneHeight / 2;
         const x = (at: number): number => judgeX + (at - time) * pixelsPerMs;
-        const visible = (from: number, to: number): boolean => x(to) > -60 && x(from) < width + 60;
+        const visible = (from: number, to: number): boolean =>
+            x(to) > -60 && x(from) < width + 60;
 
         // Lane, tinted during go-go time.
-        const gogo = replay.gogo.filter((point) => point.t <= time).at(-1)?.on ?? false;
+        const gogo =
+            replay.gogo.filter((point) => point.t <= time).at(-1)?.on ?? false;
         context.fillStyle = gogo ? colors.gogo : colors.lane;
         context.fillRect(0, 0, width, laneHeight);
         context.strokeStyle = colors.bar;
@@ -169,10 +179,19 @@
             const radius = big ? 28 : 18;
             const hits = countUntil(note.hits, time);
             if (note.kind === 'roll' || note.kind === 'big_roll') {
-                const from = Math.max(x(note.start), time >= note.start ? judgeX : -Infinity);
+                const from = Math.max(
+                    x(note.start),
+                    time >= note.start ? judgeX : -Infinity,
+                );
                 context.fillStyle = colors.roll;
                 context.beginPath();
-                context.roundRect(from - radius, middle - radius, Math.max(0, x(note.end) - from) + radius * 2, radius * 2, radius);
+                context.roundRect(
+                    from - radius,
+                    middle - radius,
+                    Math.max(0, x(note.end) - from) + radius * 2,
+                    radius * 2,
+                    radius,
+                );
                 context.fill();
             } else {
                 // A balloon waits at the judgement circle until it pops or its time is up.
@@ -180,7 +199,10 @@
                 if (popped && time > note.start) {
                     continue;
                 }
-                const at = time >= note.start && time <= note.end ? judgeX : x(note.start);
+                const at =
+                    time >= note.start && time <= note.end
+                        ? judgeX
+                        : x(note.start);
                 context.fillStyle = colors.balloon;
                 context.beginPath();
                 context.arc(at, middle, radius, 0, Math.PI * 2);
@@ -189,7 +211,11 @@
                     context.fillStyle = '#ffffff';
                     context.font = 'bold 14px sans-serif';
                     context.textAlign = 'center';
-                    context.fillText(String(Math.max(0, note.required - hits)), at, middle + 5);
+                    context.fillText(
+                        String(Math.max(0, note.required - hits)),
+                        at,
+                        middle + 5,
+                    );
                 }
             }
         }
@@ -200,13 +226,16 @@
             if (!visible(note.t, note.t)) {
                 continue;
             }
-            const judged = note.judged_at !== undefined && note.judged_at <= time;
+            const judged =
+                note.judged_at !== undefined && note.judged_at <= time;
             if (judged && note.result !== 'miss') {
                 continue;
             }
             const big = note.kind === 'big_don' || note.kind === 'big_ka';
             context.globalAlpha = judged ? 0.35 : 1;
-            context.fillStyle = note.kind.endsWith('don') ? colors.don : colors.ka;
+            context.fillStyle = note.kind.endsWith('don')
+                ? colors.don
+                : colors.ka;
             context.strokeStyle = '#ffffff';
             context.lineWidth = 3;
             context.beginPath();
@@ -220,14 +249,29 @@
         context.fillStyle = '#161616';
         context.fillRect(0, 0, judgeX - 40, laneHeight);
         const lit = [false, false, false, false];
-        for (let index = countUntil(inputTimes, time) - 1; index >= 0 && replay.inputs[index].t > time - 110; index--) {
+        for (
+            let index = countUntil(inputTimes, time) - 1;
+            index >= 0 && replay.inputs[index].t > time - 110;
+            index--
+        ) {
             lit[replay.inputs[index].action] = true;
         }
-        const pad = (left: boolean, radius: number, color: string, on: boolean): void => {
+        const pad = (
+            left: boolean,
+            radius: number,
+            color: string,
+            on: boolean,
+        ): void => {
             context.fillStyle = on ? color : '#3a3a3a';
             context.beginPath();
             context.moveTo(drumX, middle);
-            context.arc(drumX, middle, radius, left ? Math.PI / 2 : -Math.PI / 2, left ? Math.PI * 1.5 : Math.PI / 2);
+            context.arc(
+                drumX,
+                middle,
+                radius,
+                left ? Math.PI / 2 : -Math.PI / 2,
+                left ? Math.PI * 1.5 : Math.PI / 2,
+            );
             context.closePath();
             context.fill();
         };
@@ -265,7 +309,10 @@
         let previous = performance.now();
         let frame = requestAnimationFrame(function tick(now) {
             if (playing) {
-                time = Math.min(replay.duration, time + (now - previous) * rate);
+                time = Math.min(
+                    replay.duration,
+                    time + (now - previous) * rate,
+                );
                 if (time >= replay.duration) {
                     playing = false;
                 }
@@ -281,6 +328,22 @@
         };
     });
 
+    // Space plays or pauses from anywhere on the page, unless a field or a button has the keyboard.
+    function spaceKey(event: KeyboardEvent): void {
+        const target = event.target as HTMLElement | null;
+        if (
+            event.code !== 'Space' ||
+            event.repeat ||
+            target?.closest(
+                'input, textarea, select, button, [contenteditable="true"], [role="button"]',
+            )
+        ) {
+            return;
+        }
+        event.preventDefault();
+        toggle();
+    }
+
     function toggle(): void {
         if (time >= replay.duration) {
             time = start;
@@ -290,9 +353,13 @@
 
     function clock(at: number): string {
         const total = Math.max(0, at / 1000);
-        return `${Math.floor(total / 60)}:${Math.floor(total % 60).toString().padStart(2, '0')}`;
+        return `${Math.floor(total / 60)}:${Math.floor(total % 60)
+            .toString()
+            .padStart(2, '0')}`;
     }
 </script>
+
+<svelte:window onkeydown={spaceKey} />
 
 <div class="flex flex-col gap-3">
     <div bind:this={container} class="overflow-hidden rounded-lg border">
@@ -306,7 +373,12 @@
     </div>
 
     <div class="flex flex-wrap items-center gap-3">
-        <Button size="sm" variant="outline" onclick={toggle} aria-label={playing ? 'Pause' : 'Play'}>
+        <Button
+            size="sm"
+            variant="outline"
+            onclick={toggle}
+            aria-label={playing ? 'Pause' : 'Play'}
+        >
             {#if playing}
                 <Pause class="size-4" />
             {:else}
