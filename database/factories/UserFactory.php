@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -56,6 +57,7 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'role' => UserRole::Admin,
+            ...$this->confirmedTwoFactor(),
         ]);
     }
 
@@ -63,6 +65,7 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'role' => UserRole::Moderator,
+            ...$this->confirmedTwoFactor(),
         ]);
     }
 
@@ -71,10 +74,20 @@ class UserFactory extends Factory
      */
     public function withTwoFactor(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn (array $attributes) => $this->confirmedTwoFactor());
+    }
+
+    /**
+     * Confirmed two-factor authentication (staff need it for the staff pages).
+     *
+     * @return array{two_factor_secret: string, two_factor_recovery_codes: string, two_factor_confirmed_at: Carbon}
+     */
+    private function confirmedTwoFactor(): array
+    {
+        return [
             'two_factor_secret' => encrypt('secret'),
             'two_factor_recovery_codes' => encrypt(json_encode(['recovery-code-1'])),
             'two_factor_confirmed_at' => now(),
-        ]);
+        ];
     }
 }

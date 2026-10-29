@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AuthenticateWaddamburo;
+use App\Http\Middleware\EnsureStaffHasTwoFactor;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureWaddamburoCabinet;
 use App\Http\Middleware\EnsureZucchiniApiToken;
@@ -44,6 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => EnsureUserIsAdmin::class,
+            'staff.2fa' => EnsureStaffHasTwoFactor::class,
             'taiko.version' => ResolveTaikoVersion::class,
             'zucchini.token' => EnsureZucchiniApiToken::class,
             'wdb.cabinet' => EnsureWaddamburoCabinet::class,

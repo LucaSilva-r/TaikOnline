@@ -177,3 +177,19 @@ it('lists every player for moderators to jump to, paged and sortable', function 
     $this->actingAs($moderator)->get('/waddamburo/mod?q=aaron')
         ->assertInertia(fn (Assert $page) => $page->has('players.data', 1)->where('players.data.0.user.name', 'Aaron Don'));
 });
+
+it('sends staff without two-factor authentication to their security settings', function (): void {
+    $withoutTwoFactor = ['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null];
+    $moderator = User::factory()->moderator()->create($withoutTwoFactor);
+    $admin = User::factory()->admin()->create($withoutTwoFactor);
+    $player = mod_player();
+
+    $this->actingAs($moderator)->get('/waddamburo/mod')->assertRedirect('/waddamburo/settings/security');
+    $this->actingAs($moderator)->post("/waddamburo/mod/players/{$player->baid}/sanctions", ['type' => 'shadowban', 'reason' => 'x'])
+        ->assertRedirect('/waddamburo/settings/security');
+    $this->actingAs($admin)->get('/green/admin/players')->assertRedirect('/green/settings/security');
+    $this->actingAs($admin)->get('/green/settings/security')->assertRedirect(route('password.confirm')); // reachable: it asks for the password first
+    expect($player->sanctions()->count())->toBe(0);
+
+    $this->actingAs(User::factory()->moderator()->create())->get('/waddamburo/mod')->assertOk();
+});

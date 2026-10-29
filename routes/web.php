@@ -62,7 +62,7 @@ Route::prefix('{taikoVersion}')
         Route::middleware(['auth', 'verified'])->group(function (): void {
             Route::post('songs/{song}/favorite', [SongCatalogController::class, 'toggleFavorite'])->name('songs.favorite');
 
-            Route::middleware('can:moderate')->prefix('mod')->name('mod.')->group(function (): void {
+            Route::middleware(['can:moderate', 'staff.2fa'])->prefix('mod')->name('mod.')->group(function (): void {
                 Route::get('/', [ModerationController::class, 'index'])->name('index');
                 Route::get('players/{player}', [ModerationController::class, 'player'])->name('players.show');
                 Route::post('players/{player}/sanctions', [ModerationController::class, 'storeSanction'])->name('sanctions.store');
@@ -73,7 +73,7 @@ Route::prefix('{taikoVersion}')
                 Route::patch('plays/{play}/dismiss-reports', [ModerationController::class, 'dismissReports'])->name('plays.dismiss-reports');
             });
 
-            Route::middleware('admin')->prefix('admin')->name('admin.')->group(function (): void {
+            Route::middleware(['admin', 'staff.2fa'])->prefix('admin')->name('admin.')->group(function (): void {
                 Route::inertia('/', 'admin/Dashboard')->name('dashboard');
 
                 Route::get('baids', [OperatorController::class, 'baids'])->name('baids.index');
