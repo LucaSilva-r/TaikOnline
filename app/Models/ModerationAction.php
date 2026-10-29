@@ -21,4 +21,9 @@ class ModerationAction extends Model
     {
         return $this->belongsTo(Sanction::class);
     }
+
+    public function play(): BelongsTo
+    {
+        return $this->belongsTo(WdbPlay::class, 'wdb_play_id');
+    }
 }

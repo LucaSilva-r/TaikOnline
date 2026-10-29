@@ -159,7 +159,9 @@ it('hides and restores a play, logging both', function (): void {
         ->and(ModerationAction::query()->where('wdb_play_id', $play->id)->orderBy('id')->pluck('action')->all())->toBe(['hide_play', 'restore_play'])
         ->and(PlayerVersionStats::query()->where('baid', $player->baid)->value('total_score'))->toBe(900_000);
     $this->actingAs($moderator)->get("/waddamburo/mod/players/{$player->baid}")->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('mod/Player')->has('plays', 1)->has('log', 2)->where('canAct', true));
+        ->assertInertia(fn (Assert $page) => $page->component('mod/Player')->has('plays.data', 1)->has('log', 2)->where('canAct', true)
+            // The log names the play each action was about.
+            ->where('log.0.play.chart', 'Song')->where('log.0.play.score', 900_000));
 });
 
 it('lists every player for moderators to jump to, paged and sortable', function (): void {
@@ -192,4 +194,73 @@ it('sends staff without two-factor authentication to their security settings', f
     expect($player->sanctions()->count())->toBe(0);
 
     $this->actingAs(User::factory()->moderator()->create())->get('/waddamburo/mod')->assertOk();
+});
+
+it('shows moderators each play\'s rolls against the chart\'s most and its fastest sustained drumming', function (): void {
+    $moderator = User::factory()->moderator()->create();
+    $player = mod_player();
+    $chart = mod_chart();
+    $chart->update(['roll_max' => 60]);
+    $play = mod_play($player, $chart, 900000);
+    // A 1 s roll: 20 scored hits every 50 ms alternating left and right Don, 5 more on the Ka capped (the
+    // same 1/60 s as a scored one: they show mashing, not speed); then a 5-hit balloon burst (too short to count).
+    $inputs = [...array_map(fn (int $hit): array => ['t' => 1000 + 50 * $hit, 'action' => $hit % 2, 'hit' => 'roll'], range(0, 19)),
+        ...array_map(fn (int $hit): array => ['t' => 1001 + 50 * $hit, 'action' => 2, 'hit' => 'capped'], range(0, 4)),
+        ...array_map(fn (int $hit): array => ['t' => 3000 + 5 * $hit, 'action' => 0, 'hit' => 'roll'], range(0, 4))];
+    $speed = WdbPlay::rollSpeed(['inputs' => $inputs, 'long_notes' => [
+        ['start' => 1000, 'end' => 2000, 'kind' => 'roll', 'required' => 0, 'hits' => []],
+        ['start' => 3000, 'end' => 3500, 'kind' => 'balloon', 'required' => 5, 'hits' => []],
+    ]]);
+    // Each Don pad held 10 a second, evenly (every 100 ms).
+    expect($speed)->toBe(['roll_hits' => 30, 'roll_peak_rate' => 20.0, 'roll_pad_peak_rate' => 10.0, 'roll_steady_rate' => 10.0]);
+    $play->update(['rolls' => 20, ...$speed]);
+
+    $this->actingAs($moderator)->get("/waddamburo/mod/players/{$player->baid}")
+        ->assertInertia(fn (Assert $page) => $page->where('plays.data.0.rolls', 20)->where('plays.data.0.roll_max', 60)
+            ->where('plays.data.0.roll_peak_rate', 20)->where('plays.data.0.roll_pad_peak_rate', 10)->where('plays.data.0.roll_steady_rate', 10)->where('plays.data.0.roll_hits', 30));
+
+    // A macro on one pad at 40 a second is even; a player mashing that fast is not.
+    $macro = array_map(fn (int $hit): array => ['t' => 1000 + 25 * $hit, 'action' => 0, 'hit' => $hit % 3 === 0 ? 'roll' : 'capped'], range(0, 39));
+    $mash = array_map(fn (int $hit): array => ['t' => 1000 + 25 * $hit + ($hit % 2 === 0 ? 0 : 20), 'action' => 0, 'hit' => 'roll'], range(0, 39));
+    $roll = [['start' => 1000, 'end' => 2000, 'kind' => 'roll', 'required' => 0, 'hits' => []]];
+    expect(WdbPlay::rollSpeed(['inputs' => $macro, 'long_notes' => $roll])['roll_steady_rate'])->toBe(40.0)
+        ->and(WdbPlay::rollSpeed(['inputs' => $mash, 'long_notes' => $roll])['roll_steady_rate'])->toBeNull();
+});
+
+it('recomputes the plays\' roll speeds from their stored timelines', function (): void {
+    $chart = mod_chart();
+    $play = mod_play(mod_player(), $chart, 900000);
+    $inputs = array_map(fn (int $hit): array => ['t' => 1000 + 50 * $hit, 'action' => $hit % 2, 'hit' => 'roll'], range(0, 19));
+    $play->update(['timeline' => gzencode(json_encode(['inputs' => $inputs,
+        'long_notes' => [['start' => 1000, 'end' => 2000, 'kind' => 'roll', 'required' => 0, 'hits' => []]]]))]);
+    $untimed = mod_play(mod_player(), $chart, 800000);
+
+    $this->artisan('app:recompute-roll-speed')->assertSuccessful();
+
+    expect($play->fresh())->roll_hits->toBe(20)->roll_peak_rate->toBe(20.0)->roll_pad_peak_rate->toBe(10.0)->roll_steady_rate->toBe(10.0)
+        ->and($untimed->fresh()->roll_hits)->toBeNull();
+});
+
+it('pages a player\'s plays for moderators, filtered and sorted', function (): void {
+    $moderator = User::factory()->moderator()->create();
+    $player = mod_player();
+    $chart = mod_chart();
+    foreach (range(1, 55) as $index) {
+        mod_play($player, $chart, 800_000 + $index)->update(['played_at' => now()->subMinutes($index)]);
+    }
+    $macro = mod_play($player, $chart, 700_000);
+    $macro->update(['played_at' => now()->subDays(3), 'roll_pad_peak_rate' => 60, 'roll_steady_rate' => 40]);
+    $steadyOnly = mod_play($player, $chart, 600_000);
+    $steadyOnly->update(['played_at' => now()->subDays(4), 'roll_pad_peak_rate' => 12, 'roll_steady_rate' => 16]);
+    mod_play($player, $chart, 500_000)->update(['played_at' => now()->subDays(5), 'roll_pad_peak_rate' => 19, 'roll_steady_rate' => 14]);
+    $url = "/waddamburo/mod/players/{$player->baid}";
+
+    $this->actingAs($moderator)->get($url)->assertInertia(fn (Assert $page) => $page
+        ->has('plays.data', 50)->where('plays.total', 58)->where('plays.data.0.score', 800_001)->where('rollLimits.pad', 20));
+    $this->actingAs($moderator)->get("{$url}?show=flagged")->assertInertia(fn (Assert $page) => $page
+        ->has('plays.data', 2)->where('plays.data.0.id', $macro->id)->where('plays.data.1.id', $steadyOnly->id)->where('playFilters.show', 'flagged'));
+    $this->actingAs($moderator)->get("{$url}?sort=steady")->assertInertia(fn (Assert $page) => $page->where('plays.data.0.id', $macro->id));
+    $this->actingAs($moderator)->get("{$url}?sort=oldest&page=2")->assertInertia(fn (Assert $page) => $page
+        ->where('plays.current_page', 2)->where('plays.data.7.score', 800_001));
+    $this->actingAs($moderator)->get("{$url}?q=nothing")->assertInertia(fn (Assert $page) => $page->has('plays.data', 0));
 });

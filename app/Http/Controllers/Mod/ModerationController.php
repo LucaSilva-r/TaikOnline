@@ -51,9 +51,10 @@ class ModerationController extends Controller
                     UNION ALL SELECT played_at FROM wdb_plays WHERE wdb_plays.baid = players.baid) AS plays) AS last_play')
                 ->leftJoin('users', 'users.id', '=', 'players.user_id')
                 ->with('user')
-                ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
-                    ->when(ctype_digit($search) && strlen($search) <= 9, fn (Builder $baid) => $baid->where('players.baid', (int) $search))
-                    ->orWhereLike('players.mydon_name', "%{$search}%")
+                // A number is a BAID; anything else a name, username or Don-chan name.
+                ->when($search !== '' && ctype_digit($search), fn (Builder $query) => $query->where('players.baid', strlen($search) <= 9 ? (int) $search : 0))
+                ->when($search !== '' && ! ctype_digit($search), fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
+                    ->whereLike('players.mydon_name', "%{$search}%")
                     ->orWhereLike('users.name', "%{$search}%")->orWhereLike('users.username', "%{$search}%")))
                 ->orderByRaw(self::PLAYER_SORTS[$sort]." {$direction} NULLS LAST")
                 ->orderBy('players.baid')
@@ -65,14 +66,27 @@ class ModerationController extends Controller
                 ->map(fn (Sanction $sanction): array => [...$this->sanction($sanction), 'player' => $this->playerRow($sanction->player)])->all(),
             // The whole log is the admins'; moderators see a player's own history on the player's page.
             'log' => $request->user()->isAdmin()
-                ? ModerationAction::query()->with('actor')->latest('id')->limit(100)->get()->map(fn (ModerationAction $action): array => $this->action($action))->all()
+                ? ModerationAction::query()->with(['actor', 'play.chart:id,title,title_en,difficulty'])->latest('id')->limit(100)->get()->map(fn (ModerationAction $action): array => $this->action($action))->all()
                 : null,
         ]);
     }
 
+    /** How the player page lists the plays. */
+    private const PLAY_SORTS = [
+        'newest' => 'played_at DESC', 'oldest' => 'played_at ASC', 'score' => 'score DESC',
+        'pad' => 'roll_pad_peak_rate DESC', 'steady' => 'roll_steady_rate DESC',
+    ];
+
     public function player(Request $request, Player $player): Response
     {
         $player->load('user');
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:255'],
+            'show' => ['nullable', 'in:all,hidden,reported,flagged'],
+            'sort' => ['nullable', 'in:'.implode(',', array_keys(self::PLAY_SORTS))],
+        ]);
+        $show = $filters['show'] ?? 'all';
+        $sort = $filters['sort'] ?? 'newest';
 
         return Inertia::render('mod/Player', [
             'player' => $this->playerRow($player),
@@ -81,10 +95,19 @@ class ModerationController extends Controller
             'sanctionTypes' => collect(SanctionType::cases())->map(fn (SanctionType $type): array => ['value' => $type->value, 'label' => $type->label()])->all(),
             'sanctions' => $player->sanctions()->with(['creator', 'revoker'])->latest('id')->get()
                 ->map(fn (Sanction $sanction): array => $this->sanction($sanction))->all(),
-            'plays' => WdbPlay::query()->where('baid', $player->baid)->with('chart:id,title,title_en,difficulty,course')
+            'plays' => WdbPlay::query()->where('baid', $player->baid)->with('chart:id,title,title_en,difficulty,course,roll_max')
                 ->withCount(['reports as open_reports' => fn (Builder $reports) => $reports->open()])
-                ->latest('played_at')->limit(100)->get()
-                ->map(fn (WdbPlay $play): array => [
+                ->when($filters['q'] ?? null, fn (Builder $query, string $search) => $query->whereHas('chart', fn (Builder $chart) => $chart
+                    ->whereLike('title', "%{$search}%")->orWhereLike('title_en', "%{$search}%")))
+                ->when($show === 'hidden', fn (Builder $query) => $query->whereNotNull('hidden_at'))
+                ->when($show === 'reported', fn (Builder $query) => $query->whereHas('reports', fn (Builder $reports) => $reports->open()))
+                ->when($show === 'flagged', fn (Builder $query) => $query->where(fn (Builder $flagged) => $flagged
+                    ->where('roll_pad_peak_rate', '>=', WdbPlay::SUSPICIOUS_PAD_RATE)->orWhere('roll_steady_rate', '>=', WdbPlay::SUSPICIOUS_STEADY_RATE)))
+                ->orderByRaw(self::PLAY_SORTS[$sort].' NULLS LAST')
+                ->orderByDesc('played_at')
+                ->paginate(50)
+                ->withQueryString()
+                ->through(fn (WdbPlay $play): array => [
                     'id' => $play->id,
                     'chart' => $play->chart?->title_en ?? $play->chart?->title ?? 'Unknown chart',
                     'difficulty' => $play->chart?->difficulty,
@@ -93,13 +116,21 @@ class ModerationController extends Controller
                     'great' => (int) $play->great,
                     'good' => (int) $play->good,
                     'miss' => (int) $play->miss,
+                    'rolls' => (int) $play->rolls,
+                    'roll_max' => $play->chart?->roll_max,
+                    'roll_hits' => $play->roll_hits,
+                    'roll_peak_rate' => $play->roll_peak_rate,
+                    'roll_pad_peak_rate' => $play->roll_pad_peak_rate,
+                    'roll_steady_rate' => $play->roll_steady_rate,
                     'options' => WdbPlay::optionLabels((int) $play->options),
                     'played_at' => $play->played_at?->toIso8601String(),
                     'hidden_at' => $play->hidden_at?->toIso8601String(),
                     'hidden_reason' => $play->hidden_reason,
                     'open_reports' => (int) $play->open_reports,
-                ])->all(),
-            'log' => ModerationAction::query()->where('baid', $player->baid)->with('actor')->latest('id')->limit(100)->get()
+                ]),
+            'playFilters' => ['q' => $filters['q'] ?? '', 'show' => $show, 'sort' => $sort],
+            'rollLimits' => ['pad' => WdbPlay::SUSPICIOUS_PAD_RATE, 'steady' => WdbPlay::SUSPICIOUS_STEADY_RATE],
+            'log' => ModerationAction::query()->where('baid', $player->baid)->with(['actor', 'play.chart:id,title,title_en,difficulty'])->latest('id')->limit(100)->get()
                 ->map(fn (ModerationAction $action): array => $this->action($action))->all(),
         ]);
     }
@@ -248,6 +279,12 @@ class ModerationController extends Controller
             'action' => $action->action,
             'baid' => $action->baid,
             'wdb_play_id' => $action->wdb_play_id,
+            // Which play (its chart and difficulty) a play action was about.
+            'play' => $action->play === null ? null : [
+                'chart' => $action->play->chart?->title_en ?? $action->play->chart?->title ?? 'Unknown chart',
+                'difficulty' => $action->play->chart?->difficulty ?? (['Easy', 'Normal', 'Hard', 'Oni', 'Ura'][(int) $action->play->course] ?? null),
+                'score' => (int) $action->play->score,
+            ],
             'reason' => $action->reason,
             'created_at' => $action->created_at?->toIso8601String(),
         ];

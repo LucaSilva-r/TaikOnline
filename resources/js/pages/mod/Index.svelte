@@ -22,6 +22,7 @@
     import { toUrl } from '@/lib/utils';
     import { show as boardShow } from '@/routes/board';
     import moderation from '@/routes/mod';
+    import { show as playsShow } from '@/routes/plays';
     import moderationPlayers from '@/routes/mod/players';
 
     type PlayerRow = {
@@ -58,6 +59,11 @@
         wdb_play_id: string | null;
         reason: string | null;
         created_at: string | null;
+        play: {
+            chart: string;
+            difficulty: string | null;
+            score: number;
+        } | null;
     };
 
     let {
@@ -350,7 +356,28 @@
                                     >{date(entry.created_at)}</td
                                 >
                                 <td class="px-3 py-2">{entry.actor ?? '—'}</td>
-                                <td class="px-3 py-2">{entry.action}</td>
+                                <td class="px-3 py-2">
+                                    {entry.action}
+                                    {#if entry.play && entry.wdb_play_id}
+                                        <div class="text-xs">
+                                            <Link
+                                                href={toUrl(
+                                                    playsShow({
+                                                        taikoVersion:
+                                                            'waddamburo',
+                                                        id: entry.wdb_play_id,
+                                                    }),
+                                                )}
+                                                class="underline"
+                                                >{entry.play.chart}</Link
+                                            >
+                                            <span class="text-muted-foreground"
+                                                >{entry.play.difficulty ?? ''} · {entry
+                                                    .play.score}</span
+                                            >
+                                        </div>
+                                    {/if}
+                                </td>
                                 <td class="px-3 py-2 tabular-nums">
                                     {#if entry.baid !== null}
                                         <Link

@@ -101,6 +101,8 @@ class WaddamburoScorer
                 ...$scored,
                 'rescored_at' => now(),
                 'timeline' => isset($result['timeline']) ? gzencode(json_encode($result['timeline'], JSON_THROW_ON_ERROR), 9) : null,
+                // For moderators: how fast it drummed on rolls and balloons (raw hits, capped ones too).
+                ...(isset($result['timeline']) ? WdbPlay::rollSpeed($result['timeline']) : ['roll_hits' => null, 'roll_peak_rate' => null, 'roll_pad_peak_rate' => null, 'roll_steady_rate' => null]),
             ]);
             // The chart's own (the same for all its plays): its drumrolls' most hits.
             if (isset($result['roll_max']) && $play->chart->roll_max !== (int) $result['roll_max']) {

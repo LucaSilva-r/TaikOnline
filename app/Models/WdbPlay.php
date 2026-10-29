@@ -12,12 +12,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Collection;
 
 /** One Waddamburo play; the id is the client's, so re-uploads are idempotent. */
 #[Fillable([
     'id', 'baid', 'wdb_chart_id', 'mode', 'course', 'score', 'great', 'good', 'miss', 'max_combo',
     'rolls', 'gauge', 'cleared', 'scoring_version', 'engine_version', 'played_at', 'replay', 'audio_offset_ms', 'input_offset_ms',
     'options', 'seed', 'wdb_cabinet_id', 'rescored_at', 'hidden_at', 'hidden_by', 'hidden_reason', 'timeline',
+    'roll_hits', 'roll_peak_rate', 'roll_pad_peak_rate', 'roll_steady_rate',
 ])]
 #[Hidden(['replay', 'timeline'])]
 class WdbPlay extends Model
@@ -26,6 +28,12 @@ class WdbPlay extends Model
 
     /** The 真打 option's bit in {@see $options}: those plays score on their own scale (their own board). */
     public const SHINUCHI = 2;
+
+    /** Roll speeds moderators are shown in amber and can list (see rollSpeed): scored hits on one pad a second. */
+    public const SUSPICIOUS_PAD_RATE = 20;
+
+    /** The same for one pad drummed with even gaps, a macro's mark. */
+    public const SUSPICIOUS_STEADY_RATE = 15;
 
     /** Nijiiro's speeds, as Waddamburo keeps their index from bit 9 of {@see $options}. */
     private const SPEEDS = ['1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9', '2.0', '2.5', '3.0', '3.5', '4.0'];
@@ -85,6 +93,10 @@ class WdbPlay extends Model
             'played_at' => 'datetime',
             'rescored_at' => 'datetime',
             'hidden_at' => 'datetime',
+            'roll_hits' => 'integer',
+            'roll_peak_rate' => 'float',
+            'roll_pad_peak_rate' => 'float',
+            'roll_steady_rate' => 'float',
             'replay' => PostgresBytea::class,
             'timeline' => PostgresBytea::class,
         ];
@@ -101,6 +113,50 @@ class WdbPlay extends Model
         $json = $this->timeline === null ? false : @gzdecode((string) $this->timeline);
 
         return $json === false ? null : json_decode($json, true);
+    }
+
+    /**
+     * How a play drummed on rolls, balloons and kusudama, from its judgement timeline's inputs (the replay
+     * keeps every hit the drum's debounce let through). Per long note, over stretches of at least 10 hits
+     * (a short burst says nothing):
+     * - roll_peak_rate: the hits that scored (one per 1/60 s at most, so mashing several keys does not
+     *   inflate it) over the time from the first to the last, the fastest roll (the play page's figure);
+     * - roll_pad_peak_rate: the same on any one pad (Don or Ka, left or right): a hand alternating with the
+     *   other stays near 10 a second, keyboard mashers too;
+     * - roll_steady_rate: the fastest one pad was drummed with even gaps (their deviation under a fifth of
+     *   their mean), from every hit: players drum evenly only at a hand's pace, mashing faster is uneven, and
+     *   a macro is even at any speed.
+     * roll_hits counts every hit on them, capped ones too. Stored on the play when it is scored.
+     *
+     * @param  array<string, mixed>  $timeline
+     * @return array{roll_hits: int, roll_peak_rate: float|null, roll_pad_peak_rate: float|null, roll_steady_rate: float|null}
+     */
+    public static function rollSpeed(array $timeline): array
+    {
+        $inputs = collect($timeline['inputs'] ?? [])->whereIn('hit', ['roll', 'pop', 'capped']);
+        $times = fn (Collection $hits): Collection => $hits->pluck('t')->values();
+        $rate = fn (Collection $times): ?float => $times->count() >= 10 && $times->last() > $times->first()
+            ? ($times->count() - 1) * 1000 / ($times->last() - $times->first()) : null;
+        [$peak, $padPeak, $steady] = [null, null, null];
+        foreach ($timeline['long_notes'] ?? [] as $note) {
+            $hits = $inputs->filter(fn (array $input): bool => $input['t'] >= $note['start'] && $input['t'] <= $note['end']);
+            $scored = $hits->whereIn('hit', ['roll', 'pop']);
+            $peak = max($peak, $rate($times($scored)));
+            foreach ($scored->groupBy('action') as $pad) {
+                $padPeak = max($padPeak, $rate($times($pad)));
+            }
+            foreach ($hits->groupBy('action') as $pad) {
+                $gaps = $times($pad)->sliding(2)->map(fn (Collection $pair): float => (float) ($pair->last() - $pair->first()));
+                if ($gaps->count() >= 9 && ($mean = $gaps->avg()) > 0
+                    && sqrt($gaps->map(fn (float $gap): float => ($gap - $mean) ** 2)->avg()) < $mean / 5) {
+                    $steady = max($steady, 1000 / $mean);
+                }
+            }
+        }
+        $round = fn (?float $value): ?float => $value === null ? null : round($value, 1);
+
+        return ['roll_hits' => $inputs->count(), 'roll_peak_rate' => $round($peak),
+            'roll_pad_peak_rate' => $round($padPeak), 'roll_steady_rate' => $round($steady)];
     }
 
     public function player(): BelongsTo

@@ -210,6 +210,7 @@ it('scores plays from their replays once the chart is known, keeping the rest of
     expect(WdbPlay::query()->findOrFail($early['id']))->score->toBe(123450)->great->toBe(7)->cleared->toBeFalse()
         ->scoring_version->toBe(3)->rescored_at->not->toBeNull()
         ->and(WdbPlay::query()->findOrFail($early['id'])->judgementTimeline())->toBe(['notes' => [['t' => 1000, 'kind' => 'don', 'result' => 'great', 'offset' => -3]]])
+        ->and(WdbPlay::query()->findOrFail($early['id']))->roll_hits->toBe(0)->roll_peak_rate->toBeNull()->roll_pad_peak_rate->toBeNull()->roll_steady_rate->toBeNull()
         ->and(WdbChart::query()->where('sha256', $sha)->value('roll_max'))->toBe(90)
         ->and($runs)->toBe([[PHP_BINARY, '--rescore']]);
     $this->withToken($token)->getJson("/api/wdb/charts/{$sha}/scores")->assertJsonPath('scores.0.score', 123450);
