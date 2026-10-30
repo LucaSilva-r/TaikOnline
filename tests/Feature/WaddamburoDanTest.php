@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\WdbChart;
 use App\Models\WdbDanCourse;
+use App\Services\WaddamburoSongs;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -42,6 +44,17 @@ function dan_xml(string $firstSong = 'umzaso', int $goldHits = 460, string $end 
         XML);
 
     return $path;
+}
+
+/** A chart linked to a song as the given source, as the chart import does. */
+function dan_chart(string $songKey, int $course, string $source = 'Stock', bool $stock = true, bool $legacy = false): string
+{
+    $sha256 = hash('sha256', $songKey.$course.$source.($stock ? 's' : '').($legacy ? 'l' : ''));
+    $chart = WdbChart::query()->create(['sha256' => $sha256, 'source' => $source, 'course' => $course, 'is_stock' => $stock,
+        'legacy_at' => $legacy ? now() : null]);
+    WaddamburoSongs::attach([['wdb_chart_id' => $chart->id, 'source' => $source, 'song_key' => $songKey, 'title' => 'Title '.$songKey]]);
+
+    return $sha256;
 }
 
 it('imports a series with its requirements', function (): void {
@@ -99,4 +112,20 @@ it('changes a course hash only when its songs or requirements change', function 
     expect($hash())->toBe($first);
     $import(dan_xml(goldHits: 440));
     expect($hash())->not->toBe($first);
+});
+
+it('serves official stock charts only, without logging in', function (): void {
+    dan_import('green', dan_xml())->assertSuccessful();
+    $official = dan_chart('umzaso', 0);
+    dan_chart('umzaso', 1); // another course of the song
+    dan_chart('umzaso', 0, 'Nijiiro'); // the Nijiiro version
+    dan_chart('umzaso', 0, 'Stock', stock: false); // not official
+    dan_chart('umzaso', 0, 'Stock', legacy: true); // an old reading of a branched chart
+
+    $series = $this->getJson('api/wdb/dan')->assertOk()->json('series');
+
+    expect($series)->toHaveCount(1)
+        ->and($series[0]['id'])->toBe('green')
+        ->and($series[0]['courses'][0]['songs'][0])->toMatchArray(['song_key' => 'umzaso', 'course' => 0, 'charts' => [$official]])
+        ->and($series[0]['courses'][0]['songs'][1]['charts'])->toBe([]);
 });

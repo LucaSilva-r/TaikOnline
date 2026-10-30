@@ -4,6 +4,7 @@ use App\Http\Controllers\Green\AllNetController;
 use App\Http\Controllers\Green\GameProtocolController;
 use App\Http\Controllers\Green\VsInterfaceController;
 use App\Http\Controllers\WaddamburoController;
+use App\Http\Controllers\WaddamburoDanController;
 use App\Http\Controllers\WaddamburoNoticeController;
 use App\Http\Controllers\WaddamburoScoreController;
 use App\Http\Controllers\ZucchiniCardController;
@@ -35,6 +36,7 @@ Route::post('api/wdb/device', [WaddamburoController::class, 'startDevice'])->mid
 Route::post('api/wdb/device/token', [WaddamburoController::class, 'pollDevice'])->middleware('throttle:wdb-device-poll');
 Route::get('api/wdb/realtime', [WaddamburoNoticeController::class, 'realtime'])->middleware('throttle:wdb');
 Route::get('api/wdb/notices', [WaddamburoNoticeController::class, 'notices'])->middleware('throttle:wdb');
+Route::get('api/wdb/dan', [WaddamburoDanController::class, 'catalogue'])->middleware('throttle:wdb');
 Route::middleware(['wdb.auth', 'throttle:wdb'])->prefix('api/wdb')->group(function (): void {
     Route::delete('login', [WaddamburoController::class, 'logout']);
     Route::get('charts/{sha256}/scores', [WaddamburoScoreController::class, 'scores']);
