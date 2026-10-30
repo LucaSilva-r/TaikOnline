@@ -2,8 +2,12 @@
 
 use App\Models\WdbChart;
 use App\Models\WdbDanCourse;
+use App\Models\WdbDanPlay;
 use App\Services\WaddamburoSongs;
+use Illuminate\Process\PendingProcess;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Process;
 
 beforeEach(function (): void {
     $this->dataFolder = (string) Str::uuid();
@@ -128,4 +132,78 @@ it('serves official stock charts only, without logging in', function (): void {
         ->and($series[0]['id'])->toBe('green')
         ->and($series[0]['courses'][0]['songs'][0])->toMatchArray(['song_key' => 'umzaso', 'course' => 0, 'charts' => [$official]])
         ->and($series[0]['courses'][0]['songs'][1]['charts'])->toBe([]);
+});
+
+/** A course with three songs, each with a stock chart the game would send, and a play of it. */
+function dan_played_course(): array
+{
+    $course = WdbDanCourse::query()->create(['series' => 'green', 'level' => 7, 'name' => '五級', 'content_hash' => str_repeat('c', 64),
+        'requirements' => [['type' => 'bads', 'red' => [55], 'gold' => [44]]]]);
+    $songs = [];
+    foreach (['a', 'b', 'c'] as $position => $key) {
+        $notes = "notes {$key}";
+        $chart = WdbChart::query()->create(['sha256' => hash('sha256', $notes), 'notes' => $notes, 'source' => 'Stock', 'course' => 3, 'is_stock' => true]);
+        $song = DB::table('wdb_songs')->insertGetId(['family' => WaddamburoSongs::family('Stock'), 'song_key' => $key, 'title' => $key, 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('wdb_chart_song')->insert(['wdb_chart_id' => $chart->id, 'wdb_song_id' => $song, 'source' => 'Stock']);
+        $course->songs()->create(['position' => $position, 'song_key' => $key, 'course' => 3, 'notes' => 100]);
+        $songs[] = ['sha256' => $chart->sha256, 'replay' => base64_encode("replay {$key}")];
+    }
+
+    return [$course, $songs];
+}
+
+function dan_play(WdbDanCourse $course, array $songs, array $over = []): array
+{
+    return [...['id' => (string) Str::uuid(), 'course_hash' => $course->content_hash, 'result_level' => 2, 'score' => 999999, 'great' => 300, 'good' => 0,
+        'miss' => 0, 'max_combo' => 300, 'rolls' => 0, 'gauge_percent' => 100, 'songs_played' => 3, 'scoring_version' => 4, 'engine_version' => 'test',
+        'played_at' => now()->toIso8601String(), 'songs' => $songs], ...$over];
+}
+
+it('keeps the numbers the server scores from a dan play, not the ones sent', function (): void {
+    config(['services.waddamburo.scorer' => PHP_BINARY]); // any executable: the process is faked
+    $sent = null;
+    Process::fake(function (PendingProcess $process) use (&$sent) {
+        $sent = json_decode(trim((string) $process->input), true);
+
+        return Process::result(json_encode(['id' => $sent['id'], 'result_level' => 0, 'score' => 1000, 'great' => 10, 'good' => 2, 'miss' => 60,
+            'max_combo' => 9, 'rolls' => 3, 'gauge_percent' => 51, 'songs_played' => 2, 'scoring_version' => 4,
+            'songs' => [['great' => 5, 'good' => 1, 'miss' => 50, 'rolls' => 1], ['great' => 5, 'good' => 1, 'miss' => 10, 'rolls' => 2], ['great' => 0, 'good' => 0, 'miss' => 0, 'rolls' => 0]]]));
+    });
+    [$course, $songs] = dan_played_course();
+    $player = wdb_player();
+    $play = dan_play($course, $songs);
+
+    $this->withToken(wdb_token($player))->postJson('/api/wdb/dan/plays', ['plays' => [$play]])
+        ->assertOk()->assertJson(['accepted' => [$play['id']]]);
+
+    $stored = WdbDanPlay::query()->with('songs')->findOrFail($play['id']);
+    expect($stored->result_level)->toBe(0)
+        ->and($stored->score)->toBe(1000)
+        ->and($stored->songs_played)->toBe(2)
+        ->and($stored->rescored_at)->not->toBeNull()
+        ->and($stored->songs->pluck('miss')->all())->toBe([50, 10, 0])
+        ->and($sent['requirements'][0]['type'])->toBe('bads')
+        ->and($sent['songs'][1]['note_count'])->toBe(100)
+        ->and(base64_decode($sent['songs'][1]['replay']))->toBe('replay b');
+});
+
+it('refuses a dan play on a chart that is not the course\'s', function (): void {
+    [$course, $songs] = dan_played_course();
+    $songs[1]['sha256'] = str_repeat('f', 64);
+    $play = dan_play($course, $songs);
+
+    $this->withToken(wdb_token(wdb_player()))->postJson('/api/wdb/dan/plays', ['plays' => [$play]])
+        ->assertOk()->assertJson(['accepted' => []]);
+
+    expect(WdbDanPlay::query()->count())->toBe(0);
+});
+
+it('keeps a dan play uncounted until it is scored', function (): void {
+    config(['services.waddamburo.scorer' => '']);
+    [$course, $songs] = dan_played_course();
+    $play = dan_play($course, $songs);
+
+    $this->withToken(wdb_token(wdb_player()))->postJson('/api/wdb/dan/plays', ['plays' => [$play]])->assertOk();
+
+    expect(WdbDanPlay::query()->findOrFail($play['id'])->rescored_at)->toBeNull();
 });

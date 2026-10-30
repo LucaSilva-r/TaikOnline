@@ -8,6 +8,8 @@ use App\Models\PlayerVersionStats;
 use App\Models\Sanction;
 use App\Models\User;
 use App\Models\WdbChart;
+use App\Models\WdbDanCourse;
+use App\Models\WdbDanPlay;
 use App\Models\WdbPlay;
 use App\Models\WdbSong;
 use App\Services\PlayerRankAggregateService;
@@ -193,6 +195,7 @@ class WaddamburoWebController extends Controller
             'bestPerformances' => $player instanceof Player ? $this->playerBests($player, $visible) : [],
             'blueBattleData' => null, 'greenGhostData' => null, 'tokkunData' => null, 'daniData' => null,
             // Staff get a way into the player's moderation page.
+            'danProgress' => $player instanceof Player ? $this->danProgress($player) : [],
             'moderationBaid' => $request->user()?->isStaff() === true && $player instanceof Player ? (int) $player->baid : null,
             'standing' => Sanction::standingFor($user, $request->user()),
         ]);
@@ -308,6 +311,40 @@ class WaddamburoWebController extends Controller
                 'counts_for_leaderboard' => $play->chart->ranked_at !== null,
                 'options' => WdbPlay::optionLabels((int) $play->options),
             ])->all();
+    }
+
+    /**
+     * Each dan series as the board shows it, from the plays the server has scored: how many of its courses the
+     * player passed and got gold on, and the best on each course played. A course in several series counts in each.
+     *
+     * @return list<array{id: string, name: string, total: int, passed: int, gold: int, courses: list<array{level: int, name: string, best: int|null}>}>
+     */
+    private function danProgress(Player $player): array
+    {
+        $bests = WdbDanPlay::query()->where('baid', $player->baid)->whereNotNull('rescored_at')->whereNull('hidden_at')
+            ->groupBy('content_hash')->selectRaw('content_hash, MAX(result_level) AS best')->pluck('best', 'content_hash');
+        if ($bests->isEmpty()) {
+            return [];
+        }
+        $courses = WdbDanCourse::query()->orderBy('level')->get(['series', 'level', 'name', 'content_hash'])->groupBy('series');
+        $progress = [];
+        foreach (WdbDanCourse::SERIES as $id => $name) {
+            $series = $courses->get($id);
+            if ($series === null || ! $series->contains(fn (WdbDanCourse $course): bool => $bests->has($course->content_hash))) {
+                continue;
+            }
+            $best = fn (WdbDanCourse $course): ?int => $bests->has($course->content_hash) ? (int) $bests[$course->content_hash] : null;
+            $progress[] = [
+                'id' => $id,
+                'name' => $name,
+                'total' => $series->count(),
+                'passed' => $series->filter(fn (WdbDanCourse $course): bool => ($best($course) ?? 0) >= WdbDanPlay::RED)->count(),
+                'gold' => $series->filter(fn (WdbDanCourse $course): bool => $best($course) === WdbDanPlay::GOLD)->count(),
+                'courses' => $series->map(fn (WdbDanCourse $course): array => ['level' => $course->level, 'name' => $course->name, 'best' => $best($course)])->values()->all(),
+            ];
+        }
+
+        return $progress;
     }
 
     /** @param  QueryBuilder  $visible  the chart ids the viewer may see (WdbChart::visibleTo) */
