@@ -18,13 +18,17 @@ use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Imports the official charts (from the client's --export-charts, run on unmodified Green and Nijiiro
- * installs only: whatever an export holds is marked stock and ranked) as gzipped JSON lines, each the
+ * Imports the charts of the client's --export-charts (run on unmodified Green and Nijiiro installs) as
+ * gzipped JSON lines, each the
  * import PUT api/wdb/charts/{sha256} takes plus its sha256. Known charts keep their notes and metadata,
- * fill in metadata they lack (English titles), and are marked stock and ranked. --nijiiro-songs adds the
+ * fill in metadata they lack (English titles). Green charts are marked stock and ranked; Nijiiro ones only for
+ * the song ids --nijiiro-songs lists (an install may hold community songs: the rest come in custom and
+ * unranked, unless the same chart is also official; no list, no Nijiiro chart official). It also adds the
  * songs Nijiiro shipped outside the exported install (removed ones, later ones; the repo keeps them in
  * database/data/nijiiro-song-ids.txt): every chart of those song ids the exports lack is marked stock
- * and ranked too (an exported song's other charts stay custom). --unrank-custom then unranks every
+ * and ranked too (an exported song's other charts stay custom), and the list is enforced: a stock chart only
+ * Nijiiro songs off the list ship (no Green, no listed song) is made custom and unranked, its plays kept
+ * (earlier imports took whole community installs). --unrank-custom then unranks every
  * chart not marked stock, admin-ranked ones too (their scores stay, out of the standings), after a
  * confirmation that --force skips. A line's legacy_sha256 names the chart older clients played in its place
  * (a 譜面分岐 chart read as its normal route): that chart is marked legacy and unranked, its plays kept apart.
@@ -57,6 +61,8 @@ class ImportWaddamburoChartsCommand extends Command
             return self::FAILURE;
         }
         $songIds = array_filter(array_map(fn (string $line): string => trim(explode('#', $line, 2)[0]), $songIds));
+        $listed = array_flip($songIds);
+        $official = 0;
         $now = now();
         $imported = 0;
         $skipped = 0;
@@ -70,7 +76,8 @@ class ImportWaddamburoChartsCommand extends Command
             DB::table('wdb_charts')->upsert(array_values($rows), ['sha256'], [
                 'notes' => $keep('notes'), 'title' => $keep('title'), 'subtitle' => $keep('subtitle'),
                 'source' => $keep('source'), 'course' => $keep('course'), 'level' => $keep('level'),
-                'is_stock' => DB::raw('true'),
+                // Official by any line (a Green chart a community song also ships stays official).
+                'is_stock' => DB::raw('wdb_charts.is_stock OR excluded.is_stock'),
                 // A legacy chart stays unranked (an older export can still list it).
                 'ranked_at' => DB::raw('CASE WHEN wdb_charts.legacy_at IS NULL THEN COALESCE(wdb_charts.ranked_at, excluded.ranked_at) END'),
                 ...collect(WaddamburoController::LATER_METADATA)->mapWithKeys(fn (string $column): array => [
@@ -88,7 +95,7 @@ class ImportWaddamburoChartsCommand extends Command
         };
 
         foreach ($files as $file) {
-            $this->importLines($file, $rows, $links, $legacy, $imported, $skipped, $now, $flush);
+            $this->importLines($file, $rows, $links, $legacy, $listed, $imported, $official, $skipped, $now, $flush);
             fclose($file);
         }
         if ($rows !== []) {
@@ -105,6 +112,16 @@ class ImportWaddamburoChartsCommand extends Command
                         ->where('family', WaddamburoSongs::family('Nijiiro'))->whereIn('song_key', $chunk)));
             $songCharts += $charts()->update(['is_stock' => true]);
             $charts()->whereNull('ranked_at')->whereNull('legacy_at')->update(['ranked_at' => $now]);
+        }
+        $offList = 0;
+        if ($songsPath !== null) {
+            $nijiiro = fn (bool $listed) => DB::table('wdb_chart_song')->select('wdb_chart_id')->where('source', 'Nijiiro')
+                ->whereIn('wdb_song_id', DB::table('wdb_songs')->select('id')->where('family', WaddamburoSongs::family('Nijiiro'))
+                    ->when($listed, fn ($songs) => $songs->whereIn('song_key', $songIds), fn ($songs) => $songs->whereNotIn('song_key', $songIds)));
+            $offList = WdbChart::query()->where('is_stock', true)
+                ->whereIn('id', $nijiiro(false))->whereNotIn('id', $nijiiro(true))
+                ->whereNotIn('id', DB::table('wdb_chart_song')->select('wdb_chart_id')->where('source', 'Stock'))
+                ->update(['is_stock' => false, 'ranked_at' => null]);
         }
         $legacyCharts = 0;
         foreach (array_chunk(array_keys($legacy), 1000) as $chunk) {
@@ -127,12 +144,13 @@ class ImportWaddamburoChartsCommand extends Command
             ->whereIn('baid', DB::table('wdb_plays')->select('baid')->distinct())
             ->each(fn (Player $player) => $aggregates->recompute($player));
 
-        $this->info("Imported and ranked {$imported} charts ({$skipped} invalid lines skipped).");
+        $this->info("Imported {$imported} charts, {$official} official and ranked ({$skipped} invalid lines skipped).");
         if ($legacyCharts > 0) {
             $this->info("Marked {$legacyCharts} charts legacy (older clients' reading of a branched chart).");
         }
         if ($songsPath !== null) {
             $this->info("Ranked {$songCharts} charts of ".count($listedSongs).' Nijiiro song ids the exports lack.');
+            $this->info("Made {$offList} charts of Nijiiro songs off the list custom and unranked.");
         }
         if ($this->option('unrank-custom')) {
             $this->info("Unranked {$unranked} charts that are not stock.");
@@ -148,8 +166,9 @@ class ImportWaddamburoChartsCommand extends Command
      * @param  array<string, array<string, mixed>>  $rows
      * @param  list<array<string, mixed>>  $links
      * @param  array<string, true>  $legacy  the legacy_sha256 values seen
+     * @param  array<string, int>  $listed  the official Nijiiro song ids (keys)
      */
-    private function importLines($file, array &$rows, array &$links, array &$legacy, int &$imported, int &$skipped, CarbonInterface $now, Closure $flush): void
+    private function importLines($file, array &$rows, array &$links, array &$legacy, array $listed, int &$imported, int &$official, int &$skipped, CarbonInterface $now, Closure $flush): void
     {
         while (($line = fgets($file)) !== false) {
             if (trim($line) === '') {
@@ -170,6 +189,9 @@ class ImportWaddamburoChartsCommand extends Command
                 $legacy[$old] = true;
             }
 
+            $isOfficial = ($chart['source'] ?? '') !== 'Nijiiro' || isset($listed[(string) ($chart['song_key'] ?? '')]);
+            $isOfficial = $isOfficial || ($rows[$sha256]['is_stock'] ?? false);
+            $official += $isOfficial ? 1 : 0;
             // Keyed by hash: Postgres refuses an upsert touching the same row twice.
             $rows[$sha256] = [
                 'sha256' => $sha256,
@@ -177,7 +199,7 @@ class ImportWaddamburoChartsCommand extends Command
                 'title' => isset($chart['title']) ? mb_substr((string) $chart['title'], 0, 255) : null,
                 'subtitle' => isset($chart['subtitle']) ? mb_substr((string) $chart['subtitle'], 0, 255) : null,
                 'source' => isset($chart['source']) ? mb_substr((string) $chart['source'], 0, 255) : null,
-                'is_stock' => true,
+                'is_stock' => $isOfficial,
                 'course' => isset($chart['course']) ? (int) $chart['course'] : null,
                 'level' => isset($chart['level']) ? (int) $chart['level'] : null,
                 'title_en' => isset($chart['title_en']) ? mb_substr((string) $chart['title_en'], 0, 255) : null,
@@ -185,7 +207,7 @@ class ImportWaddamburoChartsCommand extends Command
                 'difficulty' => isset($chart['difficulty']) ? mb_substr((string) $chart['difficulty'], 0, 255) : null,
                 'osu_beatmap_id' => isset($chart['osu_beatmap_id']) && (int) $chart['osu_beatmap_id'] > 0 ? (int) $chart['osu_beatmap_id'] : null,
                 'osu_beatmapset_id' => isset($chart['osu_beatmapset_id']) && (int) $chart['osu_beatmapset_id'] > 0 ? (int) $chart['osu_beatmapset_id'] : null,
-                'ranked_at' => $now,
+                'ranked_at' => $isOfficial ? $now : null,
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
