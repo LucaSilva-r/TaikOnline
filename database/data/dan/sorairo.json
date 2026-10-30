@@ -1,0 +1,716 @@
+[
+    {
+        "level": 1,
+        "name": "初級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    60
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    60
+                ],
+                "gold": [
+                    15
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "wizard",
+                "course": 0,
+                "notes": 49
+            },
+            {
+                "song_key": "wego",
+                "course": 0,
+                "notes": 141
+            },
+            {
+                "song_key": "m96srb",
+                "course": 0,
+                "notes": 153
+            }
+        ]
+    },
+    {
+        "level": 2,
+        "name": "４級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    70
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    350
+                ],
+                "gold": [
+                    175
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    80
+                ],
+                "gold": [
+                    20
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "fmonst",
+                "course": 1,
+                "notes": 136
+            },
+            {
+                "song_key": "skrnb",
+                "course": 1,
+                "notes": 143
+            },
+            {
+                "song_key": "mikuse",
+                "course": 1,
+                "notes": 400
+            }
+        ]
+    },
+    {
+        "level": 3,
+        "name": "３級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    70
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    80
+                ],
+                "gold": [
+                    20
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "sidvip",
+                "course": 1,
+                "notes": 148
+            },
+            {
+                "song_key": "lov193",
+                "course": 1,
+                "notes": 221
+            },
+            {
+                "song_key": "akb10t",
+                "course": 2,
+                "notes": 313
+            }
+        ]
+    },
+    {
+        "level": 4,
+        "name": "２級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    80
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    500
+                ],
+                "gold": [
+                    250
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    25
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "10tai",
+                "course": 2,
+                "notes": 268
+            },
+            {
+                "song_key": "joyful",
+                "course": 2,
+                "notes": 310
+            },
+            {
+                "song_key": "natsu",
+                "course": 2,
+                "notes": 389
+            }
+        ]
+    },
+    {
+        "level": 5,
+        "name": "１級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    80
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    80
+                ],
+                "gold": [
+                    20
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "memesi",
+                "course": 2,
+                "notes": 244
+            },
+            {
+                "song_key": "eva",
+                "course": 2,
+                "notes": 267
+            },
+            {
+                "song_key": "rot",
+                "course": 2,
+                "notes": 489
+            }
+        ]
+    },
+    {
+        "level": 6,
+        "name": "初段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    80
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    500
+                ],
+                "gold": [
+                    250
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    25
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "ponpon",
+                "course": 3,
+                "notes": 407
+            },
+            {
+                "song_key": "blurb",
+                "course": 3,
+                "notes": 342
+            },
+            {
+                "song_key": "opng2",
+                "course": 3,
+                "notes": 390
+            }
+        ]
+    },
+    {
+        "level": 7,
+        "name": "二段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    90
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    80
+                ],
+                "gold": [
+                    20
+                ]
+            },
+            {
+                "type": "score",
+                "red": [
+                    1600000
+                ],
+                "gold": [
+                    2500000
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "mikute",
+                "course": 3,
+                "notes": 388
+            },
+            {
+                "song_key": "lion",
+                "course": 3,
+                "notes": 370
+            },
+            {
+                "song_key": "mujihi",
+                "course": 3,
+                "notes": 443
+            }
+        ]
+    },
+    {
+        "level": 8,
+        "name": "三段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    90
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    350
+                ],
+                "gold": [
+                    200
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    80
+                ],
+                "gold": [
+                    20
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "tougen",
+                "course": 3,
+                "notes": 404
+            },
+            {
+                "song_key": "m96ikz",
+                "course": 3,
+                "notes": 496
+            },
+            {
+                "song_key": "whrose",
+                "course": 3,
+                "notes": 494
+            }
+        ]
+    },
+    {
+        "level": 9,
+        "name": "四段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    60
+                ],
+                "gold": [
+                    20
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "hiyam2",
+                "course": 3,
+                "notes": 580
+            },
+            {
+                "song_key": "rgod",
+                "course": 3,
+                "notes": 577
+            },
+            {
+                "song_key": "mikuse",
+                "course": 3,
+                "notes": 1000
+            }
+        ]
+    },
+    {
+        "level": 10,
+        "name": "五段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    95
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    50
+                ],
+                "gold": [
+                    20
+                ]
+            },
+            {
+                "type": "score",
+                "red": [
+                    2300000
+                ],
+                "gold": [
+                    2900000
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "spcsam",
+                "course": 3,
+                "notes": 765
+            },
+            {
+                "song_key": "angel3",
+                "course": 3,
+                "notes": 765
+            },
+            {
+                "song_key": "xjapan",
+                "course": 3,
+                "notes": 999
+            }
+        ]
+    },
+    {
+        "level": 11,
+        "name": "六段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    380
+                ],
+                "gold": [
+                    150
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    40
+                ],
+                "gold": [
+                    10
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "metro",
+                "course": 3,
+                "notes": 594
+            },
+            {
+                "song_key": "kmbaby",
+                "course": 3,
+                "notes": 596
+            },
+            {
+                "song_key": "rdrose",
+                "course": 3,
+                "notes": 765
+            }
+        ]
+    },
+    {
+        "level": 12,
+        "name": "七段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    300
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    40
+                ],
+                "gold": [
+                    10
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "tank",
+                "course": 3,
+                "notes": 889
+            },
+            {
+                "song_key": "sqr2",
+                "course": 3,
+                "notes": 604
+            },
+            {
+                "song_key": "mintte",
+                "course": 3,
+                "notes": 765
+            }
+        ]
+    },
+    {
+        "level": 13,
+        "name": "八段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    240
+                ],
+                "gold": [
+                    80
+                ]
+            },
+            {
+                "type": "score",
+                "red": [
+                    3300000
+                ],
+                "gold": [
+                    3600000
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "punish",
+                "course": 3,
+                "notes": 999
+            },
+            {
+                "song_key": "tktime",
+                "course": 3,
+                "notes": 876
+            },
+            {
+                "song_key": "mggrev",
+                "course": 3,
+                "notes": 777
+            }
+        ]
+    },
+    {
+        "level": 14,
+        "name": "九段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    30
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    20
+                ],
+                "gold": [
+                    1
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "cls12r",
+                "course": 3,
+                "notes": 948
+            },
+            {
+                "song_key": "castle",
+                "course": 3,
+                "notes": 915
+            },
+            {
+                "song_key": "psplsb",
+                "course": 3,
+                "notes": 802
+            }
+        ]
+    },
+    {
+        "level": 15,
+        "name": "十段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    30
+                ],
+                "gold": [
+                    10
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    10
+                ],
+                "gold": [
+                    1
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "doomn",
+                "course": 3,
+                "notes": 961
+            },
+            {
+                "song_key": "ryogen",
+                "course": 3,
+                "notes": 822
+            },
+            {
+                "song_key": "last2k",
+                "course": 3,
+                "notes": 999
+            }
+        ]
+    }
+]

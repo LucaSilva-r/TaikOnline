@@ -1,0 +1,243 @@
+[
+    {
+        "level": 1,
+        "name": "先鋒",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    80
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    101
+                ],
+                "gold": [
+                    1
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "linda",
+                "course": 3,
+                "notes": 377
+            },
+            {
+                "song_key": "siduso",
+                "course": 3,
+                "notes": 419
+            },
+            {
+                "song_key": "natsu",
+                "course": 3,
+                "notes": 488
+            }
+        ]
+    },
+    {
+        "level": 2,
+        "name": "次鋒",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    80
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    81
+                ],
+                "gold": [
+                    1
+                ]
+            },
+            {
+                "type": "score",
+                "red": [
+                    1200000
+                ],
+                "gold": [
+                    2400000
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "calib",
+                "course": 3,
+                "notes": 471
+            },
+            {
+                "song_key": "aya10",
+                "course": 3,
+                "notes": 619
+            },
+            {
+                "song_key": "mdeth",
+                "course": 3,
+                "notes": 483
+            }
+        ]
+    },
+    {
+        "level": 3,
+        "name": "中堅",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    90
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    351
+                ],
+                "gold": [
+                    51
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    51
+                ],
+                "gold": [
+                    1
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "vrock",
+                "course": 3,
+                "notes": 480
+            },
+            {
+                "song_key": "stmic8",
+                "course": 3,
+                "notes": 643
+            },
+            {
+                "song_key": "goth",
+                "course": 3,
+                "notes": 704
+            }
+        ]
+    },
+    {
+        "level": 4,
+        "name": "副将",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    301
+                ],
+                "gold": [
+                    51
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    31
+                ],
+                "gold": [
+                    1
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "blrose",
+                "course": 3,
+                "notes": 765
+            },
+            {
+                "song_key": "hiyam2",
+                "course": 3,
+                "notes": 765
+            },
+            {
+                "song_key": "aonose",
+                "course": 3,
+                "notes": 933
+            }
+        ]
+    },
+    {
+        "level": 5,
+        "name": "大将",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    101
+                ],
+                "gold": [
+                    31
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    31
+                ],
+                "gold": [
+                    1
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "tktime",
+                "course": 3,
+                "notes": 876
+            },
+            {
+                "song_key": "ryogen",
+                "course": 3,
+                "notes": 822
+            },
+            {
+                "song_key": "psplsb",
+                "course": 3,
+                "notes": 802
+            }
+        ]
+    }
+]

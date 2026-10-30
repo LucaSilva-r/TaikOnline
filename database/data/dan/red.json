@@ -1,0 +1,1830 @@
+[
+    {
+        "level": 1,
+        "name": "初級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    90
+                ],
+                "gold": [
+                    97
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    400
+                ],
+                "gold": [
+                    450
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "akb365",
+                "course": 0,
+                "notes": 99
+            },
+            {
+                "song_key": "skrnb",
+                "course": 0,
+                "notes": 114
+            },
+            {
+                "song_key": "geswat",
+                "course": 0,
+                "notes": 118
+            }
+        ]
+    },
+    {
+        "level": 2,
+        "name": "十級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    91
+                ],
+                "gold": [
+                    97
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    590
+                ],
+                "gold": [
+                    630
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "stline",
+                "course": 1,
+                "notes": 68
+            },
+            {
+                "song_key": "minau",
+                "course": 1,
+                "notes": 97
+            },
+            {
+                "song_key": "kim100",
+                "course": 1,
+                "notes": 108
+            }
+        ]
+    },
+    {
+        "level": 3,
+        "name": "九級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    92
+                ],
+                "gold": [
+                    97
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    620
+                ],
+                "gold": [
+                    660
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "himyak",
+                "course": 1,
+                "notes": 140
+            },
+            {
+                "song_key": "hslove",
+                "course": 1,
+                "notes": 150
+            },
+            {
+                "song_key": "lovtom",
+                "course": 1,
+                "notes": 202
+            }
+        ]
+    },
+    {
+        "level": 4,
+        "name": "八級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    92
+                ],
+                "gold": [
+                    97
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    720
+                ],
+                "gold": [
+                    750
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "skoant",
+                "course": 1,
+                "notes": 161
+            },
+            {
+                "song_key": "kekka2",
+                "course": 1,
+                "notes": 169
+            },
+            {
+                "song_key": "f2naru",
+                "course": 1,
+                "notes": 175
+            }
+        ]
+    },
+    {
+        "level": 5,
+        "name": "七級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    93
+                ],
+                "gold": [
+                    98
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    760
+                ],
+                "gold": [
+                    790
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "llang",
+                "course": 1,
+                "notes": 170
+            },
+            {
+                "song_key": "ansa23",
+                "course": 1,
+                "notes": 140
+            },
+            {
+                "song_key": "llsore",
+                "course": 1,
+                "notes": 158
+            }
+        ]
+    },
+    {
+        "level": 6,
+        "name": "六級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    94
+                ],
+                "gold": [
+                    98
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    810
+                ],
+                "gold": [
+                    835
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "lukfev",
+                "course": 1,
+                "notes": 229
+            },
+            {
+                "song_key": "mikugr",
+                "course": 1,
+                "notes": 188
+            },
+            {
+                "song_key": "iachil",
+                "course": 1,
+                "notes": 158
+            }
+        ]
+    },
+    {
+        "level": 7,
+        "name": "五級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    94
+                ],
+                "gold": [
+                    98
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    445
+                ],
+                "gold": [
+                    545
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    1140
+                ],
+                "gold": [
+                    1210
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "attaka",
+                "course": 2,
+                "notes": 277
+            },
+            {
+                "song_key": "phuman",
+                "course": 2,
+                "notes": 235
+            },
+            {
+                "song_key": "lassen",
+                "course": 2,
+                "notes": 366
+            }
+        ]
+    },
+    {
+        "level": 8,
+        "name": "四級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    95
+                ],
+                "gold": [
+                    99
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    530
+                ],
+                "gold": [
+                    635
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    1260
+                ],
+                "gold": [
+                    1395
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "th1682",
+                "course": 2,
+                "notes": 177
+            },
+            {
+                "song_key": "thbad",
+                "course": 2,
+                "notes": 417
+            },
+            {
+                "song_key": "thakeb",
+                "course": 2,
+                "notes": 368
+            }
+        ]
+    },
+    {
+        "level": 9,
+        "name": "三級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    95
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    635
+                ],
+                "gold": [
+                    755
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    1140
+                ],
+                "gold": [
+                    1175
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "5tiusa",
+                "course": 2,
+                "notes": 302
+            },
+            {
+                "song_key": "umaru",
+                "course": 2,
+                "notes": 297
+            },
+            {
+                "song_key": "kirame",
+                "course": 2,
+                "notes": 475
+            }
+        ]
+    },
+    {
+        "level": 10,
+        "name": "二級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    95
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    860
+                ],
+                "gold": [
+                    1000
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    1690
+                ],
+                "gold": [
+                    1810
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "helhal",
+                "course": 2,
+                "notes": 387
+            },
+            {
+                "song_key": "lost1g",
+                "course": 2,
+                "notes": 501
+            },
+            {
+                "song_key": "msspln",
+                "course": 2,
+                "notes": 461
+            }
+        ]
+    },
+    {
+        "level": 11,
+        "name": "一級",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    96
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    940
+                ],
+                "gold": [
+                    1085
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    1540
+                ],
+                "gold": [
+                    1585
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "ov969",
+                "course": 2,
+                "notes": 324
+            },
+            {
+                "song_key": "fauna",
+                "course": 2,
+                "notes": 573
+            },
+            {
+                "song_key": "10binz",
+                "course": 2,
+                "notes": 488
+            }
+        ]
+    },
+    {
+        "level": 12,
+        "name": "初段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    96
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "combo",
+                "red": [
+                    500
+                ],
+                "gold": [
+                    1200
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    1690
+                ],
+                "gold": [
+                    1710
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "natsu",
+                "course": 3,
+                "notes": 488
+            },
+            {
+                "song_key": "konant",
+                "course": 3,
+                "notes": 386
+            },
+            {
+                "song_key": "vrock",
+                "course": 3,
+                "notes": 480
+            }
+        ]
+    },
+    {
+        "level": 13,
+        "name": "二段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    96
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "combo",
+                "red": [
+                    550
+                ],
+                "gold": [
+                    1250
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    2170
+                ],
+                "gold": [
+                    2200
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "timtrv",
+                "course": 3,
+                "notes": 489
+            },
+            {
+                "song_key": "duduwa",
+                "course": 3,
+                "notes": 358
+            },
+            {
+                "song_key": "den",
+                "course": 3,
+                "notes": 777
+            }
+        ]
+    },
+    {
+        "level": 14,
+        "name": "三段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    97
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "combo",
+                "red": [
+                    600
+                ],
+                "gold": [
+                    1300
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    1750
+                ],
+                "gold": [
+                    1770
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "kimpla",
+                "course": 3,
+                "notes": 450
+            },
+            {
+                "song_key": "ys2op",
+                "course": 3,
+                "notes": 602
+            },
+            {
+                "song_key": "bugi",
+                "course": 3,
+                "notes": 594
+            }
+        ]
+    },
+    {
+        "level": 15,
+        "name": "四段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    97
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "combo",
+                "red": [
+                    650
+                ],
+                "gold": [
+                    1350
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    1820
+                ],
+                "gold": [
+                    1850
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "yayoi",
+                "course": 3,
+                "notes": 441
+            },
+            {
+                "song_key": "clsbut",
+                "course": 3,
+                "notes": 781
+            },
+            {
+                "song_key": "jaznoc",
+                "course": 3,
+                "notes": 500
+            }
+        ]
+    },
+    {
+        "level": 16,
+        "name": "五段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    98
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "combo",
+                "red": [
+                    700
+                ],
+                "gold": [
+                    1400
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    2120
+                ],
+                "gold": [
+                    2150
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "sycano",
+                "course": 3,
+                "notes": 543
+            },
+            {
+                "song_key": "sweep2",
+                "course": 3,
+                "notes": 625
+            },
+            {
+                "song_key": "iamsyn",
+                "course": 3,
+                "notes": 612
+            }
+        ]
+    },
+    {
+        "level": 17,
+        "name": "六段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    98
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    1530
+                ],
+                "gold": [
+                    1730
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    10
+                ],
+                "gold": [
+                    5
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "tdcafe",
+                "course": 3,
+                "notes": 555
+            },
+            {
+                "song_key": "usouso",
+                "course": 3,
+                "notes": 657
+            },
+            {
+                "song_key": "bkmntu",
+                "course": 3,
+                "notes": 677
+            }
+        ]
+    },
+    {
+        "level": 18,
+        "name": "七段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    98
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    1780
+                ],
+                "gold": [
+                    1980
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    10
+                ],
+                "gold": [
+                    5
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "xan",
+                "course": 3,
+                "notes": 675
+            },
+            {
+                "song_key": "gashad",
+                "course": 3,
+                "notes": 614
+            },
+            {
+                "song_key": "rlnted",
+                "course": 3,
+                "notes": 797
+            }
+        ]
+    },
+    {
+        "level": 19,
+        "name": "八段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    99
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    2030
+                ],
+                "gold": [
+                    2200
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    10
+                ],
+                "gold": [
+                    5
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "garakt",
+                "course": 3,
+                "notes": 750
+            },
+            {
+                "song_key": "tengu",
+                "course": 3,
+                "notes": 734
+            },
+            {
+                "song_key": "karyu",
+                "course": 4,
+                "notes": 800
+            }
+        ]
+    },
+    {
+        "level": 20,
+        "name": "九段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    99
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    2450
+                ],
+                "gold": [
+                    2610
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    10
+                ],
+                "gold": [
+                    5
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "83noma",
+                "course": 3,
+                "notes": 1158
+            },
+            {
+                "song_key": "syclsn",
+                "course": 3,
+                "notes": 725
+            },
+            {
+                "song_key": "pridon",
+                "course": 3,
+                "notes": 765
+            }
+        ]
+    },
+    {
+        "level": 21,
+        "name": "十段",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    50
+                ],
+                "gold": [
+                    20
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    8
+                ],
+                "gold": [
+                    3
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "akanos",
+                "course": 3,
+                "notes": 902
+            },
+            {
+                "song_key": "ignis",
+                "course": 3,
+                "notes": 818
+            },
+            {
+                "song_key": "so2ome",
+                "course": 3,
+                "notes": 797
+            }
+        ]
+    },
+    {
+        "level": 22,
+        "name": "玄人",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    40
+                ],
+                "gold": [
+                    15
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    8
+                ],
+                "gold": [
+                    2
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "amatrs",
+                "course": 3,
+                "notes": 858
+            },
+            {
+                "song_key": "vertex",
+                "course": 3,
+                "notes": 806
+            },
+            {
+                "song_key": "gstmsk",
+                "course": 3,
+                "notes": 899
+            }
+        ]
+    },
+    {
+        "level": 23,
+        "name": "名人",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    20
+                ],
+                "gold": [
+                    7
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    7
+                ],
+                "gold": [
+                    2
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "gotmor",
+                "course": 4,
+                "notes": 824
+            },
+            {
+                "song_key": "siuryu",
+                "course": 4,
+                "notes": 1045
+            },
+            {
+                "song_key": "jubflw",
+                "course": 4,
+                "notes": 873
+            }
+        ]
+    },
+    {
+        "level": 24,
+        "name": "超人",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    15
+                ],
+                "gold": [
+                    5
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    5
+                ],
+                "gold": [
+                    2
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "blzvtx",
+                "course": 4,
+                "notes": 1208
+            },
+            {
+                "song_key": "clsdnu",
+                "course": 4,
+                "notes": 1038
+            },
+            {
+                "song_key": "retoko",
+                "course": 3,
+                "notes": 787
+            }
+        ]
+    },
+    {
+        "level": 25,
+        "name": "達人",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    8
+                ],
+                "gold": [
+                    1
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    3
+                ],
+                "gold": [
+                    1
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "souryu",
+                "course": 3,
+                "notes": 970
+            },
+            {
+                "song_key": "vt1b2x",
+                "course": 3,
+                "notes": 1290
+            },
+            {
+                "song_key": "yugen",
+                "course": 3,
+                "notes": 1262
+            }
+        ]
+    },
+    {
+        "level": 101,
+        "name": "挑戦！ナムコオリジナル１",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    96
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    970
+                ],
+                "gold": [
+                    1130
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    1500
+                ],
+                "gold": [
+                    1580
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "trance",
+                "course": 2,
+                "notes": 526
+            },
+            {
+                "song_key": "sweep2",
+                "course": 2,
+                "notes": 481
+            },
+            {
+                "song_key": "so2ome",
+                "course": 2,
+                "notes": 442
+            }
+        ]
+    },
+    {
+        "level": 102,
+        "name": "太鼓チームからの挑戦！１",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    98
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    2350
+                ],
+                "gold": [
+                    2420
+                ]
+            },
+            {
+                "type": "rolls",
+                "red": [
+                    175
+                ],
+                "gold": [
+                    200
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "skoant",
+                "course": 4,
+                "notes": 600
+            },
+            {
+                "song_key": "thscre",
+                "course": 3,
+                "notes": 792
+            },
+            {
+                "song_key": "takamg",
+                "course": 3,
+                "notes": 829
+            }
+        ]
+    },
+    {
+        "level": 103,
+        "name": "太鼓チームからの挑戦！２",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    2450
+                ],
+                "gold": [
+                    2600
+                ]
+            },
+            {
+                "type": "rolls",
+                "red": [
+                    250
+                ],
+                "gold": [
+                    300
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "izanam",
+                "course": 3,
+                "notes": 876
+            },
+            {
+                "song_key": "stru8b",
+                "course": 3,
+                "notes": 876
+            },
+            {
+                "song_key": "castle",
+                "course": 3,
+                "notes": 876
+            }
+        ]
+    },
+    {
+        "level": 104,
+        "name": "太鼓チームからの挑戦！３",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    98
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    70
+                ],
+                "gold": [
+                    30
+                ]
+            },
+            {
+                "type": "score",
+                "red": [
+                    2372000
+                ],
+                "gold": [
+                    2820000
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "toreve",
+                "course": 3,
+                "notes": 387
+            },
+            {
+                "song_key": "syyoak",
+                "course": 3,
+                "notes": 814
+            },
+            {
+                "song_key": "w2bs2x",
+                "course": 3,
+                "notes": 797
+            }
+        ]
+    },
+    {
+        "level": 105,
+        "name": "挑戦！３５００コンボ！！",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "combo",
+                "red": [
+                    3500
+                ],
+                "gold": [
+                    3567
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "punish",
+                "course": 3,
+                "notes": 999
+            },
+            {
+                "song_key": "thncrd",
+                "course": 3,
+                "notes": 1160
+            },
+            {
+                "song_key": "xjapa2",
+                "course": 4,
+                "notes": 1408
+            }
+        ]
+    },
+    {
+        "level": 106,
+        "name": "復活！カツドン大将",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    30
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    30
+                ],
+                "gold": [
+                    1
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "tktime",
+                "course": 4,
+                "notes": 876
+            },
+            {
+                "song_key": "ryogen",
+                "course": 3,
+                "notes": 822
+            },
+            {
+                "song_key": "psplsb",
+                "course": 3,
+                "notes": 802
+            }
+        ]
+    },
+    {
+        "level": 107,
+        "name": "挑戦！ナムコオリジナル２",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    97
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    425
+                ],
+                "gold": [
+                    285
+                ]
+            },
+            {
+                "type": "combo",
+                "red": [
+                    500
+                ],
+                "gold": [
+                    1200
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "carniv",
+                "course": 2,
+                "notes": 460
+            },
+            {
+                "song_key": "3dsop",
+                "course": 3,
+                "notes": 466
+            },
+            {
+                "song_key": "w3at1x",
+                "course": 3,
+                "notes": 401
+            }
+        ]
+    },
+    {
+        "level": 108,
+        "name": "太鼓チームからの挑戦！４",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    99
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    1970
+                ],
+                "gold": [
+                    2065
+                ]
+            },
+            {
+                "type": "oks",
+                "red": [
+                    300
+                ],
+                "gold": [
+                    220
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "godea2",
+                "course": 3,
+                "notes": 765
+            },
+            {
+                "song_key": "imshhb",
+                "course": 3,
+                "notes": 765
+            },
+            {
+                "song_key": "rr3dve",
+                "course": 3,
+                "notes": 765
+            }
+        ]
+    },
+    {
+        "level": 109,
+        "name": "太鼓チームからの挑戦！５",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    2560
+                ],
+                "gold": [
+                    2610
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    10
+                ],
+                "gold": [
+                    3
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "tktime",
+                "course": 4,
+                "notes": 876
+            },
+            {
+                "song_key": "pprose",
+                "course": 3,
+                "notes": 876
+            },
+            {
+                "song_key": "mega10",
+                "course": 4,
+                "notes": 876
+            }
+        ]
+    },
+    {
+        "level": 110,
+        "name": "挑戦！ナムコオリジナル３",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    97
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "combo",
+                "red": [
+                    600
+                ],
+                "gold": [
+                    1300
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    1630
+                ],
+                "gold": [
+                    1645
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "ddkmon",
+                "course": 3,
+                "notes": 557
+            },
+            {
+                "song_key": "zaba",
+                "course": 3,
+                "notes": 468
+            },
+            {
+                "song_key": "ramen",
+                "course": 3,
+                "notes": 487
+            }
+        ]
+    },
+    {
+        "level": 111,
+        "name": "太鼓チームからの挑戦！６",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    23
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "combo",
+                "red": [
+                    230
+                ],
+                "gold": [
+                    1230
+                ]
+            },
+            {
+                "type": "hits",
+                "red": [
+                    2323
+                ],
+                "gold": [
+                    2323
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "bko2",
+                "course": 4,
+                "notes": 808
+            },
+            {
+                "song_key": "imc2bm",
+                "course": 3,
+                "notes": 765
+            },
+            {
+                "song_key": "vt1b1x",
+                "course": 3,
+                "notes": 881
+            }
+        ]
+    },
+    {
+        "level": 112,
+        "name": "太鼓チームからの挑戦！７",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "goods",
+                "red": [
+                    2110
+                ],
+                "gold": [
+                    2250
+                ]
+            },
+            {
+                "type": "bads",
+                "red": [
+                    10
+                ],
+                "gold": [
+                    5
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "fgod",
+                "course": 4,
+                "notes": 765
+            },
+            {
+                "song_key": "aya10",
+                "course": 4,
+                "notes": 765
+            },
+            {
+                "song_key": "rgod",
+                "course": 4,
+                "notes": 765
+            }
+        ]
+    },
+    {
+        "level": 113,
+        "name": "挑戦！３３３万点！！",
+        "requirements": [
+            {
+                "type": "soul_gauge",
+                "red": [
+                    100
+                ],
+                "gold": [
+                    100
+                ]
+            },
+            {
+                "type": "score",
+                "red": [
+                    3330000
+                ],
+                "gold": [
+                    3430000
+                ]
+            }
+        ],
+        "songs": [
+            {
+                "song_key": "clskum",
+                "course": 3,
+                "notes": 630
+            },
+            {
+                "song_key": "clstoc",
+                "course": 3,
+                "notes": 804
+            },
+            {
+                "song_key": "clstic",
+                "course": 3,
+                "notes": 776
+            }
+        ]
+    }
+]
