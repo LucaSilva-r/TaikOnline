@@ -28,7 +28,7 @@ RUN mkdir -p storage/app/private storage/app/public storage/framework/cache/data
 # `php artisan app:rescore-waddamburo-plays --all`.
 FROM debian:bookworm-slim AS waddamburo
 
-ARG WADDAMBURO_VERSION=v0.18.0
+ARG WADDAMBURO_VERSION=v0.19.0
 
 ADD https://github.com/LucaSilva-r/Waddamburo-public/releases/download/${WADDAMBURO_VERSION}/Waddamburo-x86_64.AppImage /tmp/Waddamburo.AppImage
 # Extracted: a container has no FUSE to mount the AppImage.
