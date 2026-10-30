@@ -7,6 +7,8 @@
             kind: 'don' | 'ka' | 'big_don' | 'big_ka';
             result?: 'great' | 'good' | 'miss';
             judged_at?: number;
+            /** 譜面分岐: the route the note belongs to (absent: every route). */
+            branch?: Route;
         }[];
         long_notes: {
             start: number;
@@ -14,12 +16,20 @@
             kind: 'roll' | 'big_roll' | 'balloon' | 'kusudama';
             required: number;
             hits: number[];
+            branch?: Route;
         }[];
         bars: number[];
         gogo: { t: number; on: boolean }[];
+        /**
+         * 譜面分岐 charts: each check (t, its yellow bar line, a measure before start, where the route it
+         * picked begins). Absent for charts without branches.
+         */
+        branches?: { t: number; start: number; route: Route }[];
         /** The drum pad each input hit: 0 left Don, 1 right Don, 2 left Ka, 3 right Ka. */
         inputs: { t: number; action: number }[];
     };
+
+    export type Route = 'normal' | 'expert' | 'master';
 </script>
 
 <script lang="ts">
@@ -41,6 +51,10 @@
     const colors = {
         lane: '#232323',
         gogo: '#3a2414',
+        // The game's lane under each route: 玄人 blue-grey, 達人 purple.
+        expert: '#22344a',
+        master: '#3d2448',
+        check: '#f5d300',
         bar: '#5a5a5a',
         don: '#e8452c',
         ka: '#4aa3c8',
@@ -52,6 +66,40 @@
         miss: '#5b8def',
     };
     const resultLabels = { great: 'Good', good: 'Ok', miss: 'Bad' } as const;
+    const routeLabels = {
+        normal: 'Normal 普通',
+        expert: 'Expert 玄人',
+        master: 'Master 達人',
+    } as const;
+    const checkTimes = $derived(
+        new Set((replay.branches ?? []).map((check) => check.t)),
+    );
+
+    /** The route the last check at or before now picked (what the lane shows). */
+    function currentRoute(now: number): Route {
+        return (
+            (replay.branches ?? []).findLast((check) => check.t <= now)
+                ?.route ?? 'normal'
+        );
+    }
+
+    /** The route played at chart time at, as known at now (a section not checked yet follows the route being played). */
+    function routeAt(at: number, now: number): Route {
+        return (
+            (replay.branches ?? []).findLast(
+                (check) => check.t <= now && check.start <= at,
+            )?.route ?? 'normal'
+        );
+    }
+
+    /** Whether a note of route branch shows at now (off-route notes are neither judged nor drawn). */
+    function onRoute(
+        branch: Route | undefined,
+        at: number,
+        now: number,
+    ): boolean {
+        return branch === undefined || branch === routeAt(at, now);
+    }
     // As Waddamburo's own replay offers them (ReviewClock.Speeds): down to a twentieth, for rolls.
     const rates = [0.05, 0.1, 0.25, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5, 2];
 
@@ -145,20 +193,35 @@
         const visible = (from: number, to: number): boolean =>
             x(to) > -60 && x(from) < width + 60;
 
-        // Lane, tinted during go-go time.
+        // Lane, coloured by the 譜面分岐 route and tinted during go-go time.
         const gogo =
             replay.gogo.filter((point) => point.t <= time).at(-1)?.on ?? false;
-        context.fillStyle = gogo ? colors.gogo : colors.lane;
+        const route = currentRoute(time);
+        context.fillStyle = route === 'normal' ? colors.lane : colors[route];
         context.fillRect(0, 0, width, laneHeight);
-        context.strokeStyle = colors.bar;
-        context.lineWidth = 1;
+        if (gogo) {
+            context.globalAlpha = route === 'normal' ? 1 : 0.5;
+            context.fillStyle = colors.gogo;
+            context.fillRect(0, 0, width, laneHeight);
+            context.globalAlpha = 1;
+        }
+        // Bar lines; a branch check's is yellow.
         for (const bar of replay.bars) {
             if (visible(bar, bar)) {
+                const check = checkTimes.has(bar);
+                context.strokeStyle = check ? colors.check : colors.bar;
+                context.lineWidth = check ? 3 : 1;
                 context.beginPath();
                 context.moveTo(x(bar), 8);
                 context.lineTo(x(bar), laneHeight - 8);
                 context.stroke();
             }
+        }
+        if (replay.branches) {
+            context.fillStyle = route === 'normal' ? '#9a9a9a' : '#ffffff';
+            context.font = 'bold 13px sans-serif';
+            context.textAlign = 'right';
+            context.fillText(routeLabels[route], width - 10, 18);
         }
 
         // Judgement circle.
@@ -172,7 +235,11 @@
 
         // Rolls and balloons.
         for (const note of replay.long_notes) {
-            if (!visible(note.start, note.end) || note.end < time - 300) {
+            if (
+                !visible(note.start, note.end) ||
+                note.end < time - 300 ||
+                !onRoute(note.branch, note.start, time)
+            ) {
                 continue;
             }
             const big = note.kind === 'big_roll' || note.kind === 'kusudama';
@@ -223,7 +290,10 @@
         // Notes, latest first so earlier ones draw on top; a hit note leaves the lane, a missed one scrolls on.
         for (let index = replay.notes.length - 1; index >= 0; index--) {
             const note = replay.notes[index];
-            if (!visible(note.t, note.t)) {
+            if (
+                !visible(note.t, note.t) ||
+                !onRoute(note.branch, note.t, time)
+            ) {
                 continue;
             }
             const judged =

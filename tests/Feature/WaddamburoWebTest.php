@@ -351,3 +351,37 @@ it('lets admins mark charts and songs official, which ranks them, or custom, whi
     $this->actingAs($admin)->patch("/waddamburo/admin/waddamburo-charts/{$oni->id}", [])->assertSessionHasErrors(['ranked', 'official']);
     $this->actingAs($player->user)->patch("/waddamburo/admin/waddamburo-charts/{$oni->id}", ['official' => true])->assertForbidden();
 });
+
+it('marks the charts a branched chart replaces legacy, unranked for good, their plays shown under the new chart', function (): void {
+    $player = wdb_web_player();
+    // What older clients uploaded and an earlier import ranked: the 譜面分岐 chart read as its normal route.
+    $oldNotes = 'WDBC normal route';
+    $old = wdb_web_chart(['sha256' => hash('sha256', $oldNotes), 'notes' => gzencode($oldNotes), 'title' => '十露盤２０００',
+        'source' => 'Stock', 'course' => 3, 'is_stock' => true, 'ranked_at' => now()], 'soroba');
+    wdb_web_play($player, $old, 990000);
+    $newNotes = 'WDBC with BRCH';
+    $line = fn (string $notes, ?string $legacy): string => json_encode(array_filter([
+        'sha256' => hash('sha256', $notes), 'legacy_sha256' => $legacy, 'notes' => base64_encode(gzencode($notes)),
+        'title' => '十露盤２０００', 'song_key' => 'soroba', 'source' => 'Stock', 'course' => 3, 'level' => 9,
+    ]));
+    $export = tempnam(sys_get_temp_dir(), 'wdb');
+    file_put_contents($export, gzencode($line($newNotes, $old->sha256)."\n"));
+
+    $this->artisan('app:import-waddamburo-charts', ['files' => [$export]])
+        ->expectsOutput('Marked 1 charts legacy (older clients\' reading of a branched chart).')->assertSuccessful();
+
+    $new = WdbChart::query()->where('sha256', hash('sha256', $newNotes))->firstOrFail();
+    expect($old->fresh())->legacy_at->not->toBeNull()->ranked_at->toBeNull()
+        ->and($new->ranked_at)->not->toBeNull();
+    // An older export listing the legacy chart again does not rank it back.
+    file_put_contents($export, gzencode($line($oldNotes, null)."\n"));
+    $this->artisan('app:import-waddamburo-charts', ['files' => [$export]])->assertSuccessful();
+    expect($old->fresh()->ranked_at)->toBeNull();
+
+    // The new chart's board, its legacy one folded under it; out of the rankings.
+    auth()->logout();
+    $this->get("/waddamburo/songs/{$new->songs()->value('wdb_songs.id')}")->assertInertia(fn (Assert $page) => $page
+        ->has('difficulties', 1)->where('difficulties.0.id', $new->id)->has('difficulties.0.entries', 0)
+        ->where('difficulties.0.legacy.0.id', $old->id)->where('difficulties.0.legacy.0.entries.0.score', 990000));
+    $this->get('/waddamburo/rankings')->assertInertia(fn (Assert $page) => $page->has('entries', 0));
+});

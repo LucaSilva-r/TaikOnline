@@ -63,6 +63,10 @@
         entries: LeaderboardEntry[];
         /** The 真打 (Shin-uchi) plays' board: their own scale, ranked apart. */
         shinuchi_entries?: LeaderboardEntry[];
+        /** Boards of the legacy charts this one replaced (played before Waddamburo read it right). */
+        legacy?: Difficulty[];
+        /** A legacy chart with no current chart of its course. */
+        is_legacy?: boolean;
     };
 
     type RecentPlay = {
@@ -122,6 +126,13 @@
 
     // Per difficulty: the Shin-uchi board shown instead of the normal one.
     let shinuchiBoards = $state<Record<string, boolean>>({});
+
+    function legacyPlayers(difficulty: Difficulty): number {
+        return (difficulty.legacy ?? []).reduce(
+            (total, old) => total + old.player_count,
+            0,
+        );
+    }
 
     function boardKey(difficulty: Difficulty): string {
         return String(difficulty.id ?? difficulty.level);
@@ -207,6 +218,96 @@
     }
 </script>
 
+{#snippet entryRows(entries: LeaderboardEntry[])}
+    {#each entries as entry (entry.user_id)}
+        <div
+            class="grid grid-cols-[2.5rem_1fr_auto] items-center gap-3 px-5 py-2.5 transition-colors hover:bg-muted/30"
+        >
+            <span
+                class="text-sm font-semibold tabular-nums text-muted-foreground"
+            >
+                {entry.rank}
+            </span>
+            <Link
+                href={rowUrl(entry)}
+                class="flex min-w-0 items-center gap-2.5"
+            >
+                <Avatar class="size-8 border bg-muted">
+                    {#if entry.avatar}
+                        <AvatarImage
+                            src={entry.avatar}
+                            alt={entry.player_name}
+                            class="object-cover"
+                        />
+                    {:else}
+                        <AvatarFallback class="text-[10px] font-semibold">
+                            {getInitials(entry.player_name)}
+                        </AvatarFallback>
+                    {/if}
+                </Avatar>
+                <span class="min-w-0">
+                    <span
+                        class="block truncate text-sm font-medium hover:underline"
+                    >
+                        {entry.player_name}
+                    </span>
+                    {#if entry.counts}
+                        <!-- Good / Ok / Bad in the game's colours (良 orange, 可 white, 不可 blue). -->
+                        <span
+                            class="mt-0.5 flex flex-wrap gap-x-3 text-xs tabular-nums text-muted-foreground"
+                        >
+                            <span
+                                >Good <b class="font-semibold text-orange-500"
+                                    >{entry.counts.good}</b
+                                ></span
+                            >
+                            <span
+                                >Ok <b class="font-semibold text-foreground"
+                                    >{entry.counts.ok}</b
+                                ></span
+                            >
+                            <span
+                                >Bad <b class="font-semibold text-sky-500"
+                                    >{entry.counts.miss}</b
+                                ></span
+                            >
+                            <span
+                                >Combo <b
+                                    class="font-semibold text-foreground/80"
+                                    >{entry.counts.combo}</b
+                                ></span
+                            >
+                            <span
+                                >Rolls <b
+                                    class="font-semibold text-foreground/80"
+                                    >{entry.counts.rolls}{entry.counts
+                                        .roll_max != null
+                                        ? ` / ${entry.counts.roll_max}`
+                                        : ''}</b
+                                ></span
+                            >
+                        </span>
+                    {/if}
+                </span>
+            </Link>
+            <div class="flex items-center gap-3">
+                <span
+                    class="hidden w-16 text-right text-sm tabular-nums text-muted-foreground sm:block"
+                    title="Precision"
+                >
+                    {formatPrecision(entry.precision)}
+                </span>
+                <Crown
+                    class="size-4 {crownClass(entry.crown)}"
+                    aria-label={crownLabel(entry.crown)}
+                />
+                <span class="w-20 text-right font-semibold tabular-nums">
+                    {numberFormatter.format(entry.score)}
+                </span>
+            </div>
+        </div>
+    {/each}
+{/snippet}
 <AppHead title={song.title} />
 
 <section class="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8">
@@ -368,6 +469,14 @@
                                         >{difficulty.sources.join(' · ')} only</Badge
                                     >
                                 {/if}
+                                {#if difficulty.is_legacy}
+                                    <Badge
+                                        variant="outline"
+                                        class="text-xs"
+                                        title="Played before branching (normal route only), unranked"
+                                        >Legacy</Badge
+                                    >
+                                {/if}
                                 {#if difficulty.external_url}
                                     <a
                                         href={difficulty.external_url}
@@ -437,115 +546,28 @@
                         </div>
 
                         <div class="divide-y">
-                            {#each shinuchiBoards[boardKey(difficulty)] ? (difficulty.shinuchi_entries ?? []) : difficulty.entries as entry (entry.user_id)}
-                                <div
-                                    class="grid grid-cols-[2.5rem_1fr_auto] items-center gap-3 px-5 py-2.5 transition-colors hover:bg-muted/30"
-                                >
-                                    <span
-                                        class="text-sm font-semibold tabular-nums text-muted-foreground"
-                                    >
-                                        {entry.rank}
-                                    </span>
-                                    <Link
-                                        href={rowUrl(entry)}
-                                        class="flex min-w-0 items-center gap-2.5"
-                                    >
-                                        <Avatar class="size-8 border bg-muted">
-                                            {#if entry.avatar}
-                                                <AvatarImage
-                                                    src={entry.avatar}
-                                                    alt={entry.player_name}
-                                                    class="object-cover"
-                                                />
-                                            {:else}
-                                                <AvatarFallback
-                                                    class="text-[10px] font-semibold"
-                                                >
-                                                    {getInitials(
-                                                        entry.player_name,
-                                                    )}
-                                                </AvatarFallback>
-                                            {/if}
-                                        </Avatar>
-                                        <span class="min-w-0">
-                                            <span
-                                                class="block truncate text-sm font-medium hover:underline"
-                                            >
-                                                {entry.player_name}
-                                            </span>
-                                            {#if entry.counts}
-                                                <!-- Good / Ok / Bad in the game's colours (良 orange, 可 white, 不可 blue). -->
-                                                <span
-                                                    class="mt-0.5 flex flex-wrap gap-x-3 text-xs tabular-nums text-muted-foreground"
-                                                >
-                                                    <span
-                                                        >Good <b
-                                                            class="font-semibold text-orange-500"
-                                                            >{entry.counts
-                                                                .good}</b
-                                                        ></span
-                                                    >
-                                                    <span
-                                                        >Ok <b
-                                                            class="font-semibold text-foreground"
-                                                            >{entry.counts
-                                                                .ok}</b
-                                                        ></span
-                                                    >
-                                                    <span
-                                                        >Bad <b
-                                                            class="font-semibold text-sky-500"
-                                                            >{entry.counts
-                                                                .miss}</b
-                                                        ></span
-                                                    >
-                                                    <span
-                                                        >Combo <b
-                                                            class="font-semibold text-foreground/80"
-                                                            >{entry.counts
-                                                                .combo}</b
-                                                        ></span
-                                                    >
-                                                    <span
-                                                        >Rolls <b
-                                                            class="font-semibold text-foreground/80"
-                                                            >{entry.counts
-                                                                .rolls}{entry
-                                                                .counts
-                                                                .roll_max !=
-                                                            null
-                                                                ? ` / ${entry.counts.roll_max}`
-                                                                : ''}</b
-                                                        ></span
-                                                    >
-                                                </span>
-                                            {/if}
-                                        </span>
-                                    </Link>
-                                    <div class="flex items-center gap-3">
-                                        <span
-                                            class="hidden w-16 text-right text-sm tabular-nums text-muted-foreground sm:block"
-                                            title="Precision"
-                                        >
-                                            {formatPrecision(entry.precision)}
-                                        </span>
-                                        <Crown
-                                            class="size-4 {crownClass(
-                                                entry.crown,
-                                            )}"
-                                            aria-label={crownLabel(entry.crown)}
-                                        />
-                                        <span
-                                            class="w-20 text-right font-semibold tabular-nums"
-                                        >
-                                            {numberFormatter.format(
-                                                entry.score,
-                                            )}
-                                        </span>
-                                    </div>
-                                </div>
-                            {/each}
+                            {@render entryRows(
+                                shinuchiBoards[boardKey(difficulty)]
+                                    ? (difficulty.shinuchi_entries ?? [])
+                                    : difficulty.entries,
+                            )}
                         </div>
+                        {#if (difficulty.legacy?.length ?? 0) > 0}
+                            <!-- Plays from before Waddamburo read this chart right (e.g. 譜面分岐 as its normal route): kept, unranked. -->
+                            <details class="border-t">
+                                <summary
+                                    class="cursor-pointer px-5 py-3 text-sm text-muted-foreground hover:text-foreground"
+                                >
+                                    Legacy scores · {legacyPlayers(difficulty)} players,
+                                    played before branching (normal route only), unranked
+                                </summary>
+                                {#each difficulty.legacy ?? [] as old (old.id)}
+                                    <div class="divide-y border-t opacity-80">
+                                        {@render entryRows(old.entries)}
+                                    </div>
+                                {/each}
+                            </details>
+                        {/if}
                     </section>
                 {/each}
             {/if}

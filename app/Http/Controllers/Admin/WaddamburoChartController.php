@@ -161,7 +161,7 @@ class WaddamburoChartController extends Controller
         }
         $ranked = $changes['ranked'] ?? (($changes['official'] ?? false) ? true : null);
         if ($ranked === true) {
-            (clone $charts)->whereNull('ranked_at')->update(['ranked_at' => now()]);
+            (clone $charts)->whereNull('ranked_at')->whereNull('legacy_at')->update(['ranked_at' => now()]);
         } elseif ($ranked === false) {
             (clone $charts)->update(['ranked_at' => null]);
         }

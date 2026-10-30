@@ -152,9 +152,7 @@ class WaddamburoWebController extends Controller
                 'first_played_at' => (clone $plays)->min('played_at'),
                 'last_played_at' => (clone $plays)->max('played_at'),
             ],
-            'difficulties' => $charts->sortBy(fn (WdbChart $chart): array => [
-                $chart->course, array_search($chart->sources[0] ?? '', array_keys(self::SOURCES), true), $chart->id,
-            ])->map(fn (WdbChart $chart): array => $this->difficultyBoard($chart))->values()->all(),
+            'difficulties' => $this->difficultyBoards($charts),
             'recentPlays' => $this->songRecentPlays($chartIds),
             'isFavorite' => false,
             'favoritesSupported' => false,
@@ -198,6 +196,30 @@ class WaddamburoWebController extends Controller
             'moderationBaid' => $request->user()?->isStaff() === true && $player instanceof Player ? (int) $player->baid : null,
             'standing' => Sanction::standingFor($user, $request->user()),
         ]);
+    }
+
+    /**
+     * The song's boards by course. A legacy chart's (played before Waddamburo read the chart right, e.g. a
+     * 譜面分岐 chart as its normal route) goes under the first current chart of its course as `legacy`; one
+     * whose course has none stands alone, marked legacy.
+     */
+    private function difficultyBoards(Collection $charts): array
+    {
+        $sorted = $charts->sortBy(fn (WdbChart $chart): array => [
+            $chart->course, array_search($chart->sources[0] ?? '', array_keys(self::SOURCES), true), $chart->id,
+        ]);
+        [$legacy, $current] = $sorted->partition(fn (WdbChart $chart): bool => $chart->legacy_at !== null);
+        $hosts = $current->unique('course')->keyBy('course');
+        $boards = $current->map(fn (WdbChart $chart): array => [
+            ...$this->difficultyBoard($chart),
+            'legacy' => $hosts->get($chart->course)?->is($chart)
+                ? $legacy->where('course', $chart->course)->map(fn (WdbChart $old): array => $this->difficultyBoard($old))->values()->all()
+                : [],
+        ]);
+        $orphans = $legacy->reject(fn (WdbChart $chart): bool => $hosts->has($chart->course))
+            ->map(fn (WdbChart $chart): array => [...$this->difficultyBoard($chart), 'is_legacy' => true]);
+
+        return $boards->concat($orphans)->sortBy('level')->values()->all();
     }
 
     private function difficultyBoard(WdbChart $chart): array

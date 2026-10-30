@@ -10,6 +10,7 @@
             result?: 'great' | 'good' | 'miss';
             offset?: number;
             judged_at?: number;
+            branch?: string;
         }[];
         long_notes: {
             start: number;
@@ -17,7 +18,10 @@
             kind: string;
             required: number;
             hits: number[];
+            branch?: string;
         }[];
+        /** 譜面分岐 charts: each check's yellow bar line, where its route begins and the route picked. */
+        branches?: { t: number; start: number; route: string }[];
         /** action: 0 left Don, 1 right Don, 2 left Ka, 3 right Ka. */
         inputs: {
             t: number;
@@ -60,11 +64,22 @@
     };
 
     const notes = $derived(inspection.notes);
+    // Rolls and balloons on the routes played (a 譜面分岐 chart lists every route's).
+    const longNotes = $derived(
+        inspection.long_notes.filter(
+            (note) =>
+                note.branch === undefined ||
+                note.branch ===
+                    ((inspection.branches ?? []).findLast(
+                        (check) => check.start <= note.start,
+                    )?.route ?? 'normal'),
+        ),
+    );
     const first = $derived(notes.length > 0 ? notes[0].t : 0);
     const last = $derived(
         Math.max(
             notes.length > 0 ? notes[notes.length - 1].t : 0,
-            ...inspection.long_notes.map((note) => note.end),
+            ...longNotes.map((note) => note.end),
         ),
     );
     const hits = $derived(
@@ -162,7 +177,7 @@
         const previous = new Map<number, number>();
         let rollEnd = -Infinity;
         for (const input of rollInputs) {
-            const roll = inspection.long_notes.find(
+            const roll = longNotes.find(
                 (note) =>
                     input.t >= note.start - 50 && input.t <= note.end + 50,
             );
@@ -222,7 +237,7 @@
             null,
         );
     const rolls = $derived(
-        inspection.long_notes.map((note, index) => {
+        longNotes.map((note, index) => {
             const onIt = rollInputs.filter(
                 (input) => input.t >= note.start && input.t <= note.end,
             );
@@ -577,7 +592,7 @@
                 rx="3"
                 class="fill-muted"
             />
-            {#each inspection.long_notes as note, index (index)}
+            {#each longNotes as note, index (index)}
                 <rect
                     x={overviewX(note.start)}
                     y="8"
@@ -939,7 +954,7 @@
                 />
                 {@render axis()}
                 <g clip-path="url(#plot-rolls)">
-                    {#each inspection.long_notes.filter((note) => inView(note.start) || inView(note.end)) as note, index (index)}
+                    {#each longNotes.filter((note) => inView(note.start) || inView(note.end)) as note, index (index)}
                         <rect
                             x={x(note.start)}
                             y={pad.top}

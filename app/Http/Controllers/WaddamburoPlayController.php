@@ -91,7 +91,7 @@ class WaddamburoPlayController extends Controller
             // What the replay player draws: the notes as judged, the rolls' hits, and which drum pad each input hit
             // (what each input hit stays with staff).
             'replay' => Inertia::defer(fn (): ?array => ($timeline = $play->judgementTimeline()) === null ? null : [
-                ...array_intersect_key($timeline, array_flip(['duration', 'notes', 'long_notes', 'bars', 'gogo'])),
+                ...array_intersect_key($timeline, array_flip(['duration', 'notes', 'long_notes', 'bars', 'gogo', 'branches'])),
                 'inputs' => array_map(fn (array $input): array => ['t' => $input['t'], 'action' => $input['action']], $timeline['inputs'] ?? []),
             ]),
             // Logged-in players report other players' plays (once each).

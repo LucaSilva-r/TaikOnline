@@ -26,7 +26,8 @@ use Illuminate\Support\Facades\DB;
  * database/data/nijiiro-song-ids.txt): every chart of those song ids the exports lack is marked stock
  * and ranked too (an exported song's other charts stay custom). --unrank-custom then unranks every
  * chart not marked stock, admin-ranked ones too (their scores stay, out of the standings), after a
- * confirmation that --force skips.
+ * confirmation that --force skips. A line's legacy_sha256 names the chart older clients played in its place
+ * (a 譜面分岐 chart read as its normal route): that chart is marked legacy and unranked, its plays kept apart.
  */
 #[Signature('app:import-waddamburo-charts
     {files* : The files written by Waddamburo --export-charts=FILE on unmodified installs}
@@ -62,6 +63,7 @@ class ImportWaddamburoChartsCommand extends Command
         $rows = [];
         $links = [];
         $exportedSongs = [];
+        $legacy = [];
         $flush = function () use (&$rows, &$links, &$exportedSongs): void {
             $keep = fn (string $column): Expression => DB::raw(
                 "CASE WHEN wdb_charts.notes IS NULL THEN excluded.{$column} ELSE wdb_charts.{$column} END");
@@ -69,7 +71,8 @@ class ImportWaddamburoChartsCommand extends Command
                 'notes' => $keep('notes'), 'title' => $keep('title'), 'subtitle' => $keep('subtitle'),
                 'source' => $keep('source'), 'course' => $keep('course'), 'level' => $keep('level'),
                 'is_stock' => DB::raw('true'),
-                'ranked_at' => DB::raw('COALESCE(wdb_charts.ranked_at, excluded.ranked_at)'),
+                // A legacy chart stays unranked (an older export can still list it).
+                'ranked_at' => DB::raw('CASE WHEN wdb_charts.legacy_at IS NULL THEN COALESCE(wdb_charts.ranked_at, excluded.ranked_at) END'),
                 ...collect(WaddamburoController::LATER_METADATA)->mapWithKeys(fn (string $column): array => [
                     $column => DB::raw("COALESCE(wdb_charts.{$column}, excluded.{$column})")])->all(),
                 'updated_at' => DB::raw('excluded.updated_at'),
@@ -85,7 +88,7 @@ class ImportWaddamburoChartsCommand extends Command
         };
 
         foreach ($files as $file) {
-            $this->importLines($file, $rows, $links, $imported, $skipped, $now, $flush);
+            $this->importLines($file, $rows, $links, $legacy, $imported, $skipped, $now, $flush);
             fclose($file);
         }
         if ($rows !== []) {
@@ -101,7 +104,12 @@ class ImportWaddamburoChartsCommand extends Command
                     ->whereIn('wdb_song_id', DB::table('wdb_songs')->select('id')
                         ->where('family', WaddamburoSongs::family('Nijiiro'))->whereIn('song_key', $chunk)));
             $songCharts += $charts()->update(['is_stock' => true]);
-            $charts()->whereNull('ranked_at')->update(['ranked_at' => $now]);
+            $charts()->whereNull('ranked_at')->whereNull('legacy_at')->update(['ranked_at' => $now]);
+        }
+        $legacyCharts = 0;
+        foreach (array_chunk(array_keys($legacy), 1000) as $chunk) {
+            $legacyCharts += WdbChart::query()->whereIn('sha256', $chunk)->whereNull('legacy_at')
+                ->update(['legacy_at' => $now, 'ranked_at' => null]);
         }
         $unranked = 0;
         if ($this->option('unrank-custom')) {
@@ -120,6 +128,9 @@ class ImportWaddamburoChartsCommand extends Command
             ->each(fn (Player $player) => $aggregates->recompute($player));
 
         $this->info("Imported and ranked {$imported} charts ({$skipped} invalid lines skipped).");
+        if ($legacyCharts > 0) {
+            $this->info("Marked {$legacyCharts} charts legacy (older clients' reading of a branched chart).");
+        }
         if ($songsPath !== null) {
             $this->info("Ranked {$songCharts} charts of ".count($listedSongs).' Nijiiro song ids the exports lack.');
         }
@@ -136,8 +147,9 @@ class ImportWaddamburoChartsCommand extends Command
      * @param  resource  $file
      * @param  array<string, array<string, mixed>>  $rows
      * @param  list<array<string, mixed>>  $links
+     * @param  array<string, true>  $legacy  the legacy_sha256 values seen
      */
-    private function importLines($file, array &$rows, array &$links, int &$imported, int &$skipped, CarbonInterface $now, Closure $flush): void
+    private function importLines($file, array &$rows, array &$links, array &$legacy, int &$imported, int &$skipped, CarbonInterface $now, Closure $flush): void
     {
         while (($line = fgets($file)) !== false) {
             if (trim($line) === '') {
@@ -151,6 +163,11 @@ class ImportWaddamburoChartsCommand extends Command
                 $skipped++;
 
                 continue;
+            }
+
+            $old = (string) ($chart['legacy_sha256'] ?? '');
+            if (preg_match('/\A[0-9a-f]{64}\z/', $old) === 1 && $old !== $sha256) {
+                $legacy[$old] = true;
             }
 
             // Keyed by hash: Postgres refuses an upsert touching the same row twice.

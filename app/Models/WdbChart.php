@@ -14,11 +14,12 @@ use Illuminate\Support\Facades\DB;
 /**
  * A Waddamburo chart: its canonical parsed notes (gzipped, never served back) and display
  * metadata. is_stock marks the official charts (unmodified Green and Nijiiro, and songs the Nijiiro
- * cabinet had at some point; see ImportWaddamburoChartsCommand), which are ranked; any other chart is unranked until an admin sets ranked_at. difficulty is the chart's
+ * cabinet had at some point; see ImportWaddamburoChartsCommand), which are ranked; any other chart is unranked until an admin sets ranked_at. A legacy chart
+ * (legacy_at) is one older clients played wrong (a 譜面分岐 chart as its normal route): unranked for good, its plays shown apart. difficulty is the chart's
  * own name where courses are not named (osu!); the osu ids link it on osu.ppy.sh.
  */
 #[Fillable(['sha256', 'notes', 'title', 'subtitle', 'title_en', 'subtitle_en', 'source', 'is_stock', 'course', 'level', 'roll_max', 'difficulty',
-    'osu_beatmap_id', 'osu_beatmapset_id', 'ranked_at'])]
+    'osu_beatmap_id', 'osu_beatmapset_id', 'ranked_at', 'legacy_at'])]
 #[Hidden(['notes'])]
 class WdbChart extends Model
 {
@@ -28,6 +29,7 @@ class WdbChart extends Model
             'notes' => PostgresBytea::class,
             'is_stock' => 'boolean',
             'ranked_at' => 'datetime',
+            'legacy_at' => 'datetime',
         ];
     }
 
@@ -35,6 +37,7 @@ class WdbChart extends Model
      * The ids of the charts the website shows a viewer: ranked charts to everyone, and the unranked
      * (custom) ones only to players who played them, with everyone's scores on them; admins see every
      * played chart. Custom charts belong to their communities, so nobody browses ones they never played.
+     * Legacy charts are official charts gone unranked: everyone still sees them (under their replacement).
      */
     public static function visibleTo(?User $viewer): Builder
     {
@@ -42,6 +45,7 @@ class WdbChart extends Model
 
         return DB::table('wdb_charts')->select('wdb_charts.id')->where(fn (Builder $visible) => $visible
             ->whereNotNull('wdb_charts.ranked_at')
+            ->orWhereNotNull('wdb_charts.legacy_at')
             ->when($viewer?->isAdmin() === true || $baid !== null, fn (Builder $played) => $played
                 ->orWhereExists(fn (Builder $plays) => $plays->from('wdb_plays')
                     ->whereColumn('wdb_plays.wdb_chart_id', 'wdb_charts.id')
