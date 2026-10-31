@@ -332,3 +332,14 @@ it('culls failed plays and runs, but keeps those staff hid or players reported',
     $this->artisan('app:cull-failed-waddamburo-plays')->assertSuccessful();
     expect(WdbDanPlay::query()->pluck('id')->sort()->values()->all())->toBe(collect([$passed->id, $hidden->id])->sort()->values()->all());
 });
+
+it('lists a player\'s dan runs on their moderation page', function (): void {
+    [$course] = dan_played_course();
+    $player = wdb_player();
+    $run = WdbDanPlay::query()->create(['baid' => $player->baid, 'content_hash' => $course->content_hash, 'result_level' => 1,
+        'score' => 1, 'great' => 1, 'good' => 0, 'miss' => 0, 'max_combo' => 1, 'rolls' => 0, 'gauge_percent' => 1, 'songs_played' => 3, 'scoring_version' => 4,
+        'engine_version' => 'test', 'played_at' => now()]);
+
+    $this->actingAs(\App\Models\User::factory()->moderator()->create())->get("/waddamburo/mod/players/{$player->baid}")->assertSuccessful()
+        ->assertInertia(fn ($page) => $page->component('mod/Player')->where('danRuns.0.id', $run->id)->where('danRuns.0.result_level', 1));
+});

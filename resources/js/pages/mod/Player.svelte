@@ -22,6 +22,7 @@
     import { Label } from '@/components/ui/label';
     import { taikoRouteParam } from '@/lib/taiko-version';
     import moderationPlayers from '@/routes/mod/players';
+    import moderationRuns from '@/routes/mod/dan-plays';
     import moderationPlays from '@/routes/mod/plays';
     import moderationSanctions from '@/routes/mod/sanctions';
     import { show as danPlayShow } from '@/routes/dan-plays';
@@ -69,6 +70,22 @@
         hidden_reason: string | null;
         open_reports: number;
     };
+    type DanRun = {
+        id: string;
+        course: string;
+        result_level: number;
+        score: number;
+        great: number;
+        good: number;
+        miss: number;
+        max_combo: number;
+        gauge_percent: number;
+        played_at: string | null;
+        hidden_at: string | null;
+        hidden_reason: string | null;
+        open_reports: number;
+    };
+
     type PlayFilters = {
         q: string;
         show: 'all' | 'hidden' | 'reported' | 'flagged';
@@ -97,6 +114,7 @@
         sanctionTypes,
         sanctions,
         plays,
+        danRuns,
         playFilters,
         rollLimits,
         log,
@@ -115,6 +133,7 @@
         canBanPermanently: boolean;
         sanctionTypes: { value: string; label: string }[];
         sanctions: Sanction[];
+        danRuns: DanRun[];
         plays: {
             data: Play[];
             current_page: number;
@@ -212,6 +231,28 @@
             { reason },
             { preserveScroll: true },
         );
+    }
+
+    function hideRun(run: DanRun) {
+        const reason = prompt('Hide this run from every board. Reason:');
+        if (reason) {
+            router.patch(
+                moderationRuns.hide({ ...taikoParam, play: run.id }).url,
+                { reason },
+                { preserveScroll: true },
+            );
+        }
+    }
+
+    function restoreRun(run: DanRun) {
+        const reason = prompt('Restore this run? Reason (optional):');
+        if (reason !== null) {
+            router.patch(
+                moderationRuns.restore({ ...taikoParam, play: run.id }).url,
+                { reason },
+                { preserveScroll: true },
+            );
+        }
     }
 
     function restore(play: Play) {
@@ -607,6 +648,58 @@
                         >{/if}
                 </div>
             {/if}
+        </div>
+    </section>
+
+    <section class="flex flex-col gap-2">
+        <h2 class="font-medium">Dan runs</h2>
+        <div class="overflow-x-auto rounded-md border">
+            <table class="w-full text-sm">
+                <thead class="bg-muted/50 text-left">
+                    <tr>
+                        <th class="px-3 py-2 font-medium">Played</th>
+                        <th class="px-3 py-2 font-medium">Course</th>
+                        <th class="px-3 py-2 font-medium">Result</th>
+                        <th class="px-3 py-2 font-medium">Score</th>
+                        <th class="px-3 py-2 font-medium">Great / Good / Miss</th>
+                        <th class="px-3 py-2 font-medium">Max combo</th>
+                        <th class="px-3 py-2 font-medium">Gauge</th>
+                        <th class="px-3 py-2"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#each danRuns as run (run.id)}
+                        <tr class="border-t {run.hidden_at ? 'text-muted-foreground' : ''}">
+                            <td class="px-3 py-2 whitespace-nowrap">{date(run.played_at)}</td>
+                            <td class="px-3 py-2">
+                                <Link href={toUrl(danPlayShow({ taikoVersion: 'waddamburo', id: run.id }))} class="underline">{run.course}</Link>
+                                {#if run.open_reports > 0}
+                                    <Badge variant="secondary" class="border-0 bg-red-500/15 text-red-600 dark:text-red-400">{run.open_reports} report{run.open_reports === 1 ? '' : 's'}</Badge>
+                                {/if}
+                                {#if run.hidden_at}
+                                    <div class="text-xs">Hidden {date(run.hidden_at)}: {run.hidden_reason}</div>
+                                {/if}
+                            </td>
+                            <td class="px-3 py-2">{run.result_level === 2 ? 'Gold' : run.result_level === 1 ? 'Red' : 'Failed'}</td>
+                            <td class="px-3 py-2 tabular-nums">{run.score}</td>
+                            <td class="px-3 py-2 tabular-nums">{run.great} / {run.good} / {run.miss}</td>
+                            <td class="px-3 py-2 tabular-nums">{run.max_combo}</td>
+                            <td class="px-3 py-2 tabular-nums">{run.gauge_percent}%</td>
+                            <td class="px-3 py-2 text-right">
+                                {#if canAct}
+                                    {#if run.hidden_at}
+                                        <Button size="sm" variant="outline" onclick={() => restoreRun(run)}>Restore</Button>
+                                    {:else}
+                                        <Button size="sm" variant="destructive" onclick={() => hideRun(run)}>Hide</Button>
+                                    {/if}
+                                {/if}
+                            </td>
+                        </tr>
+                    {:else}
+                        <tr><td colspan="8" class="px-3 py-6 text-center text-muted-foreground">No dan runs.</td></tr>
+                    {/each}
+                </tbody>
+            </table>
         </div>
     </section>
 

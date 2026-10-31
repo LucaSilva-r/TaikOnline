@@ -131,11 +131,42 @@ class ModerationController extends Controller
                     'hidden_reason' => $play->hidden_reason,
                     'open_reports' => (int) $play->open_reports,
                 ]),
+            // ponytail: the latest 100 unpaged, a player's passed runs stay few; page it like plays if that stops holding.
+            'danRuns' => $this->danRunRows($player),
             'playFilters' => ['q' => $filters['q'] ?? '', 'show' => $show, 'sort' => $sort],
             'rollLimits' => ['pad' => WdbPlay::SUSPICIOUS_PAD_RATE, 'steady' => WdbPlay::SUSPICIOUS_STEADY_RATE],
             'log' => ModerationAction::query()->where('baid', $player->baid)->with(['actor', 'danRun', 'play.chart:id,title,title_en,difficulty'])->latest('id')->limit(100)->get()
                 ->map(fn (ModerationAction $action): array => $this->action($action))->all(),
         ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function danRunRows(Player $player): array
+    {
+        $runs = WdbDanPlay::query()->where('baid', $player->baid)
+            ->withCount(['reports as open_reports' => fn (Builder $reports) => $reports->open()])
+            ->latest('played_at')->limit(100)->get();
+        $courses = WdbDanCourse::query()->whereIn('content_hash', $runs->pluck('content_hash')->unique())->get()->keyBy('content_hash');
+
+        return $runs->map(function (WdbDanPlay $run) use ($courses): array {
+            $name = $courses->get($run->content_hash)?->name;
+
+            return [
+                'id' => $run->id,
+                'course' => $name === null ? 'Unknown course' : (WdbDanCourse::RANK_LABELS[$name] ?? WdbDanCourse::challengeTitle($name)),
+                'result_level' => (int) $run->result_level,
+                'score' => (int) $run->score,
+                'great' => (int) $run->great,
+                'good' => (int) $run->good,
+                'miss' => (int) $run->miss,
+                'max_combo' => (int) $run->max_combo,
+                'gauge_percent' => (int) $run->gauge_percent,
+                'played_at' => $run->played_at?->toIso8601String(),
+                'hidden_at' => $run->hidden_at?->toIso8601String(),
+                'hidden_reason' => $run->hidden_reason,
+                'open_reports' => (int) $run->open_reports,
+            ];
+        })->all();
     }
 
     /**
