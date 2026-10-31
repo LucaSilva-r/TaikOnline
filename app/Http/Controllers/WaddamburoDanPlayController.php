@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PlayReportReason;
+use App\Models\Sanction;
 use App\Models\WdbDanCourse;
 use App\Models\WdbDanPlay;
 use App\Models\WdbDanPlayReport;
@@ -94,6 +95,8 @@ class WaddamburoDanPlayController extends Controller
                 'baid' => (int) $play->baid,
                 'hidden_at' => $play->hidden_at?->toIso8601String(),
                 'hidden_reason' => $play->hidden_reason,
+                'sanctions' => Sanction::query()->active()->where('baid', $play->baid)->pluck('type')->map->value->unique()->values()->all(),
+                'can_act' => $play->player !== null && ModerationService::canActOn($viewer, $play->player),
                 'open_reports' => WdbDanPlayReport::query()->open()->where('wdb_dan_play_id', $play->id)->count(),
             ] : null,
         ]);
