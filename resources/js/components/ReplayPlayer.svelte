@@ -25,6 +25,8 @@
          * picked begins). Absent for charts without branches.
          */
         branches?: { t: number; start: number; route: Route }[];
+        /** TJA charts whose routes have their own bar lines or Go-Go: each route's, replacing bars and gogo. */
+        routes?: Record<Route, { bars: number[]; gogo: { t: number; on: boolean }[] }>;
         /** The drum pad each input hit: 0 left Don, 1 right Don, 2 left Ka, 3 right Ka. */
         inputs: { t: number; action: number }[];
     };
@@ -100,6 +102,16 @@
     ): boolean {
         return branch === undefined || branch === routeAt(at, now);
     }
+    // The bar lines with the route each belongs to (null: every route).
+    const barLines = $derived.by((): [Route | null, number][] => {
+        const routes = replay.routes;
+
+        return routes
+            ? (['normal', 'expert', 'master'] as const).flatMap((route) =>
+                  routes[route].bars.map((bar): [Route, number] => [route, bar]),
+              )
+            : replay.bars.map((bar): [null, number] => [null, bar]);
+    });
     // As Waddamburo's own replay offers them (ReviewClock.Speeds): down to a twentieth, for rolls.
     const rates = [0.05, 0.1, 0.25, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5, 2];
 
@@ -194,9 +206,11 @@
             x(to) > -60 && x(from) < width + 60;
 
         // Lane, coloured by the 譜面分岐 route and tinted during go-go time.
-        const gogo =
-            replay.gogo.filter((point) => point.t <= time).at(-1)?.on ?? false;
         const route = currentRoute(time);
+        const gogo =
+            (replay.routes?.[route].gogo ?? replay.gogo)
+                .filter((point) => point.t <= time)
+                .at(-1)?.on ?? false;
         context.fillStyle = route === 'normal' ? colors.lane : colors[route];
         context.fillRect(0, 0, width, laneHeight);
         if (gogo) {
@@ -206,8 +220,11 @@
             context.globalAlpha = 1;
         }
         // Bar lines; a branch check's is yellow.
-        for (const bar of replay.bars) {
-            if (visible(bar, bar)) {
+        for (const [barRoute, bar] of barLines) {
+            if (
+                visible(bar, bar) &&
+                (barRoute === null || barRoute === routeAt(bar, time))
+            ) {
                 const check = checkTimes.has(bar);
                 context.strokeStyle = check ? colors.check : colors.bar;
                 context.lineWidth = check ? 3 : 1;

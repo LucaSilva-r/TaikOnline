@@ -77,7 +77,7 @@ class WaddamburoDanPlayController extends Controller
                 $timeline = self::decoded($song->timeline);
 
                 return $timeline === null ? null : [
-                    ...array_intersect_key($timeline, array_flip(['duration', 'notes', 'long_notes', 'bars', 'gogo', 'branches'])),
+                    ...array_intersect_key($timeline, array_flip(['duration', 'notes', 'long_notes', 'bars', 'gogo', 'branches', 'routes'])),
                     'inputs' => array_map(fn (array $input): array => ['t' => $input['t'], 'action' => $input['action']], $timeline['inputs'] ?? []),
                 ];
             })->values()->all()),
