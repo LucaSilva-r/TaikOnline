@@ -1754,3 +1754,5 @@ id1437   # 1437 神々が恋した幻想郷 (same song as thkmgm, renamed by EGT
 id1443   # 1443 カーマイン (same song as 1pscar, renamed by EGTS)
 id1444   # 1444 GET BACK (same song as pkgetb, renamed by EGTS)
 id1440   # 1440 Daddy's Style -今夜はダディダディ- (added after the list was taken, on the 2026 dan dojo)
+id1344   # 1344 メズマライザー (same song as mesmer; EGTS's mesmer is its fan-made version, song number 20069)
+id1360   # 1360 愛包ダンスホール (EGTS's copy under the song's number; hhpai is its fan-made version)

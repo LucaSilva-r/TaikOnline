@@ -223,21 +223,14 @@ custom 52dd929ab63a4eb21f6c634fdd0f9317481fab0aa3819fdb26b6aa68ee34b613 # Bukan 
 custom 664775f8442c073f3f20926f6dc191cf731c55e551c1f7104ed4ec1c4a078de8 # スカーレット警察のゲットーパトロール24時 iz4kp2 course 1
 custom 8064ee469af14109178920ef2430a83b5f4a8df565c07c441b0d5fad7227da1c # きょうはたいこ曜日 ji39k3 course 1
 custom db42a2edec439793cf7bb5f093dc085a87c79048b281c389e0db6e8ff7cb6828 # Jun Bride rn9uc6 course 2
-# EGTS's fan-made charts of songs that were on Nijiiro (chart_credits.txt):
+# EGTS's fan-made versions (chart_credits.txt 【EGTS】) of songs that were on Nijiiro: mesmer reuses the official id
+# under song number 20069. Oshama Scramble! has only the one copy, credited to a fan charter; asked the EGTS team.
 custom 04b7db4ad4e52511b98188283000aa5eb1fd22ef1e0a5944dce312f8d5e19a12 # Oshama Scramble! oshama course 2
-custom 208e68b6c96aa6600305fa12777d1a9cfa28d2db0d92f870b56b6a6ca4b5804c # オーバーライド tetovr course 2
 custom 287978f712859f10ec04abe6a0079f5246d9bc3a71cef8f4749f854b251e46e7 # Oshama Scramble! oshama course 0
 custom 39f416eb5ce4e0d44e923945d6e2b5189bd667b12dbe4d88c2500f2998692739 # Oshama Scramble! oshama course 1
-custom 661382435ff9a974980032d1d134063619dca6b5d6371403e59cec132c5d3c7e # オーバーライド tetovr course 1
-custom 6bedd0ac2f22275df2374d8e88aaf9371343242d69b47cb56f702273de788042 # バグ prsbug course 3
-custom 705eb373f466f1afadb18b3129e151507da5ad8a6e13400e885a1597fc4fbce4 # 混沌ブギ mikktb course 2
-custom 75b6000fe8d07f06beb046ca342aa38f2772d9caae2c9da5a7a01364d33a260f # バグ prsbug course 0
-custom 859cad972515b8fca512354cb4d772bb02632c07a0cdd1edaa8aa3aedb8e7f69 # オーバーライド tetovr course 0
-custom 8e4a1b6bc1fa4d490ba618eb5f1cca672ced8c29376cd6b640cf21bd152e794d # バグ prsbug course 1
 custom 9592b0514b4eab46877e169ee9c7d3741d6d23322a8a84ebcf24b3b8f9f15611 # Oshama Scramble! oshama course 4
-custom 9d8a4c70cc6afc435b4e17727a2fc317a2300e713f58fa1c21a5e59a812cba75 # 混沌ブギ mikktb course 0
 custom a1c502c6c79f8fa5fb07e8d252856aae2c61ebbbd9872c46c83882355f651e08 # Oshama Scramble! oshama course 3
-custom b80e0716f56a61328f8823a4983e14af652dbd59f245fde97548388ebfd6d644 # オーバーライド tetovr course 3
-custom bdd46826f90236c96a05125580d18c6c597c899c285d6a04af47e2c8e78c8f9d # 混沌ブギ mikktb course 1
-custom be5816ba8d33ffee544395419f19301f2f6fb0f6417c0ec93cfc6fca0fd03469 # バグ prsbug course 2
-custom e89afe866b0d1d79b5ea5ece7882afbee2e005d903f384637486e306da971449 # 混沌ブギ mikktb course 3
+custom d38322dd72810189bb69c6eae33329bdf11020222f0fbd3602039fbef4dc7b80 # 【EGTS】メズマライザー mesmer course 0
+custom 503e40f0fa386142bfc6bd385702eed80e34c829c425529bbdd383280dffe5a2 # 【EGTS】メズマライザー mesmer course 1
+custom 73865cfb64b3a98a49571954d5cfb90ab5fee5c89490b95b82bdf039e9b4599e # 【EGTS】メズマライザー mesmer course 2
+custom 37f568da1fcad6f1227d3ed49141e2ba34ebf14799c6eda21dc00724ec3f3215 # 【EGTS】メズマライザー mesmer course 3
