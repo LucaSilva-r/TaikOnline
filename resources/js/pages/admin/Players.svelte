@@ -130,7 +130,7 @@
         <Button type="submit" variant="secondary">Search</Button>
     </form>
 
-    <div class="overflow-hidden rounded-md border">
+    <div class="overflow-x-auto rounded-md border">
         <table class="w-full text-sm">
             <thead class="bg-muted/50 text-left">
                 <tr>

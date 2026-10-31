@@ -1029,7 +1029,7 @@
         {/if}
         {#if rolls.length > 0}
             <!-- Every roll and balloon: click one to zoom the charts (and move the replay) there. -->
-            <div class="max-h-72 overflow-y-auto rounded-md border">
+            <div class="max-h-72 overflow-auto rounded-md border">
                 <table class="w-full text-xs tabular-nums">
                     <thead class="sticky top-0 bg-muted text-left">
                         <tr>

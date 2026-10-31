@@ -61,7 +61,7 @@
 
     <div class="flex flex-col gap-6">
         {#each versions as version (version.value)}
-            <div class="overflow-hidden rounded-md border">
+            <div class="overflow-x-auto rounded-md border">
                 <div
                     class="flex items-center justify-between gap-4 border-b bg-muted/50 px-4 py-2"
                 >

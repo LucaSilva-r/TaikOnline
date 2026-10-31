@@ -331,7 +331,7 @@
         </section>
     {/if}
 
-    <section class="rounded-lg border bg-card p-4">
+    <section class="overflow-x-auto rounded-lg border bg-card p-4">
         <h2 class="font-semibold">Songs</h2>
         <table class="mt-2 w-full text-sm tabular-nums">
             <thead class="text-left text-muted-foreground">

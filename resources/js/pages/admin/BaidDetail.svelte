@@ -95,7 +95,7 @@
     </section>
 
     <div class="grid gap-4 lg:grid-cols-2">
-        <section class="rounded-md border">
+        <section class="min-w-0 overflow-x-auto rounded-md border">
             <div class="border-b px-3 py-2 font-medium">Recent Plays</div>
             <table class="w-full text-sm">
                 <tbody>
@@ -134,7 +134,7 @@
             </table>
         </section>
 
-        <section class="rounded-md border">
+        <section class="min-w-0 overflow-x-auto rounded-md border">
             <div class="border-b px-3 py-2 font-medium">Best Scores</div>
             <table class="w-full text-sm">
                 <tbody>

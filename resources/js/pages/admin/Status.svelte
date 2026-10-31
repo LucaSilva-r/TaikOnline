@@ -44,7 +44,7 @@
         </div>
     </section>
 
-    <section class="rounded-md border">
+    <section class="overflow-x-auto rounded-md border">
         <div class="border-b px-3 py-2 font-medium">Game Data</div>
         <table class="w-full text-sm">
             <tbody>
