@@ -2,6 +2,7 @@
 
 use App\Enums\PlayReportReason;
 use App\Http\Controllers\WaddamburoWebController;
+use App\Models\ModerationAction;
 use App\Models\WdbChart;
 use App\Models\WdbDanCourse;
 use App\Models\WdbDanPlay;
@@ -291,4 +292,17 @@ it('files one report per player on a dan run, and none on their own', function (
         ->and($moderation->reportDan($reporter, $play, PlayReportReason::cases()[0], null))->toBeFalse();
     expect(fn () => $moderation->reportDan($player->user, $play, PlayReportReason::cases()[0], null))
         ->toThrow(HttpException::class);
+});
+
+it('logs what staff do to a dan run, naming the run', function (): void {
+    [$course] = dan_played_course();
+    $player = wdb_player();
+    $play = WdbDanPlay::query()->create(['baid' => $player->baid, 'content_hash' => $course->content_hash, 'result_level' => 1, 'score' => 1, 'great' => 1, 'good' => 0, 'miss' => 0,
+        'max_combo' => 1, 'rolls' => 0, 'gauge_percent' => 100, 'songs_played' => 3, 'scoring_version' => 4, 'engine_version' => '', 'played_at' => now(), 'rescored_at' => now()]);
+    $moderator = wdb_player('30800000000000000002')->user;
+
+    app(ModerationService::class)->hideDan($moderator, $play, 'cheated');
+
+    expect($play->fresh()->hidden_reason)->toBe('cheated')
+        ->and(ModerationAction::query()->where('action', 'hide_dan_play')->value('wdb_dan_play_id'))->toBe($play->id);
 });

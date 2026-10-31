@@ -69,7 +69,7 @@ class ModerationController extends Controller
                 ->map(fn (Sanction $sanction): array => [...$this->sanction($sanction), 'player' => $this->playerRow($sanction->player)])->all(),
             // The whole log is the admins'; moderators see a player's own history on the player's page.
             'log' => $request->user()->isAdmin()
-                ? ModerationAction::query()->with(['actor', 'play.chart:id,title,title_en,difficulty'])->latest('id')->limit(100)->get()->map(fn (ModerationAction $action): array => $this->action($action))->all()
+                ? ModerationAction::query()->with(['actor', 'danRun', 'play.chart:id,title,title_en,difficulty'])->latest('id')->limit(100)->get()->map(fn (ModerationAction $action): array => $this->action($action))->all()
                 : null,
         ]);
     }
@@ -133,7 +133,7 @@ class ModerationController extends Controller
                 ]),
             'playFilters' => ['q' => $filters['q'] ?? '', 'show' => $show, 'sort' => $sort],
             'rollLimits' => ['pad' => WdbPlay::SUSPICIOUS_PAD_RATE, 'steady' => WdbPlay::SUSPICIOUS_STEADY_RATE],
-            'log' => ModerationAction::query()->where('baid', $player->baid)->with(['actor', 'play.chart:id,title,title_en,difficulty'])->latest('id')->limit(100)->get()
+            'log' => ModerationAction::query()->where('baid', $player->baid)->with(['actor', 'danRun', 'play.chart:id,title,title_en,difficulty'])->latest('id')->limit(100)->get()
                 ->map(fn (ModerationAction $action): array => $this->action($action))->all(),
         ]);
     }
@@ -332,6 +332,7 @@ class ModerationController extends Controller
             'action' => $action->action,
             'baid' => $action->baid,
             'wdb_play_id' => $action->wdb_play_id,
+            'dan_run' => $action->wdb_dan_play_id === null ? null : ['id' => $action->wdb_dan_play_id, 'course' => $action->danRun === null ? 'Deleted run' : (WdbDanCourse::query()->where('content_hash', $action->danRun->content_hash)->value('name') ?? 'Unknown course')],
             // Which play (its chart and difficulty) a play action was about.
             'play' => $action->play === null ? null : [
                 'chart' => $action->play->chart?->title_en ?? $action->play->chart?->title ?? 'Unknown chart',

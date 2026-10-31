@@ -1,8 +1,10 @@
 <script lang="ts">
     import { Deferred, Form, Link, router } from '@inertiajs/svelte';
+    import { tick } from 'svelte';
     import Flag from 'lucide-svelte/icons/flag';
     import AppHead from '@/components/AppHead.svelte';
     import InputError from '@/components/InputError.svelte';
+    import PlayInspection, { type Inspection } from '@/components/PlayInspection.svelte';
     import ReplayPlayer, { type Replay } from '@/components/ReplayPlayer.svelte';
     import { Badge } from '@/components/ui/badge';
     import { Button } from '@/components/ui/button';
@@ -14,6 +16,12 @@
     import moderationRuns from '@/routes/mod/dan-plays';
 
     type Requirement = { type: string; red: number[]; gold: number[] };
+    type Stats = {
+        mean_offset: number | null;
+        early: number;
+        late: number;
+        roll_speed: { average: number; peak: number } | null;
+    } | null;
     // Song, ms, gauge %, goods, oks, bads, combo, rolls, score.
     type Row = [number, number, number, number, number, number, number, number, number];
 
@@ -24,6 +32,8 @@
         songs,
         progress = null,
         replays = null,
+        stats = null,
+        inspections = null,
         report = null,
         moderation = null,
     }: {
@@ -41,11 +51,13 @@
             played_at: string | null;
             scored: boolean;
         };
-        course: { name: string; label: string; requirements: Requirement[]; series: string[] };
+        course: { name: string; label: string; notes: number; requirements: Requirement[]; series: string[] };
         player: { user_id: number | null; name: string; avatar: string | null };
         songs: { title: string; course: number | null; level: number | null; great: number; good: number; miss: number; rolls: number }[];
         progress?: Row[] | null;
         replays?: (Replay | null)[] | null;
+        stats?: Stats[] | null;
+        inspections?: (Inspection | null)[] | null;
         report?: { reasons: { value: string; label: string }[]; reported: boolean } | null;
         moderation?: { baid: number; hidden_at: string | null; hidden_reason: string | null; open_reports: number } | null;
     } = $props();
@@ -103,10 +115,32 @@
         }[type] ?? 0;
     }
 
-    // Where a limit broke in the run: the moment worth checking, whatever is being watched.
-    function brokenAt(requirement: Requirement): Row | null {
-        return limit(requirement.type) ? (rows.find((row) => value(requirement.type, row) >= requirement.red[0]) ?? null) : null;
+    // Goods and combo fail once the notes left cannot reach them, as the scorer decides: the others only at the end.
+    function brokenBy(requirement: Requirement, row: Row): boolean {
+        const current = value(requirement.type, row);
+        if (limit(requirement.type)) {
+            return current >= requirement.red[0];
+        }
+        if (requirement.type === 'goods' || requirement.type === 'combo') {
+            const left = Math.max(course.notes - row[3] - row[4] - row[5], 0);
+            return current + left < requirement.red[0];
+        }
+        return false;
     }
+
+    // Where a requirement broke in the run: the moment worth checking, whatever is being watched.
+    function brokenAt(requirement: Requirement): Row | null {
+        return rows.find((row) => brokenBy(requirement, row)) ?? null;
+    }
+
+    // The player remounts on a song change and starts at 0: the seek waits for it.
+    async function seek(row: Row): Promise<void> {
+        song = row[0];
+        await tick();
+        time = row[1];
+    }
+
+    const signed = (value: number): string => `${value > 0 ? '+' : ''}${value}`;
 
     const clock = (ms: number): string => `${Math.floor(ms / 60000)}:${String(Math.floor(Math.max(ms, 0) / 1000) % 60).padStart(2, '0')}`;
 
@@ -188,7 +222,7 @@
                     {@const current = value(requirement.type, now)}
                     {@const target = requirement.red[0]}
                     {@const gold = requirement.gold[0]}
-                    {@const broken = limit(requirement.type) && current >= target}
+                    {@const broken = now !== null && brokenBy(requirement, now)}
                     {@const met = !limit(requirement.type) && current >= target}
                     {@const breach = brokenAt(requirement)}
                     <li>
@@ -214,10 +248,7 @@
                             <button
                                 type="button"
                                 class="mt-1 text-xs text-destructive underline"
-                                onclick={() => {
-                                    song = breach[0];
-                                    time = breach[1];
-                                }}
+                                onclick={() => seek(breach)}
                             >
                                 Broke in song {breach[0] + 1} at {clock(breach[1])}
                             </button>
@@ -230,6 +261,23 @@
             {/if}
         </Deferred>
     </section>
+
+    <Deferred data="stats">
+        {#snippet fallback()}
+            <Skeleton class="h-[86px] rounded-lg" />
+        {/snippet}
+        {#if stats?.[song]}
+            {@const shown = stats[song]!}
+            <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {#each [['Average timing', shown.mean_offset === null ? '—' : `${signed(shown.mean_offset)} ms`], ['Early / late hits', `${shown.early} / ${shown.late}`], ['Drumroll speed', shown.roll_speed ? `${shown.roll_speed.average} hits/s` : '—'], ['Fastest drumroll', shown.roll_speed ? `${shown.roll_speed.peak} hits/s` : '—']] as [label, figure] (label)}
+                    <div class="rounded-lg border bg-card p-4">
+                        <div class="text-sm text-muted-foreground">{label}</div>
+                        <div class="mt-1 text-2xl font-semibold tabular-nums">{figure}</div>
+                    </div>
+                {/each}
+            </div>
+        {/if}
+    </Deferred>
 
     <section class="rounded-lg border bg-card p-4">
         <h2 class="font-semibold">Songs</h2>
@@ -295,6 +343,18 @@
                 <span>{moderation.open_reports} open report{moderation.open_reports === 1 ? '' : 's'}</span>
                 <Button variant="outline" size="sm" onclick={() => ask('Dismiss the open reports? Reason (optional):', 'dismissReports')}>Dismiss</Button>
             {/if}
+            <Deferred data="inspections">
+                {#snippet fallback()}
+                    <Skeleton class="h-64 w-full rounded-lg" />
+                {/snippet}
+                {#if inspections?.[song]}
+                    <div class="w-full">
+                        {#key song}
+                            <PlayInspection inspection={inspections[song]!} bind:time />
+                        {/key}
+                    </div>
+                {/if}
+            </Deferred>
         </section>
     {/if}
 </div>

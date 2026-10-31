@@ -50,6 +50,8 @@ class WaddamburoDanPlayController extends Controller
                 'name' => $course->name,
                 'label' => WdbDanCourse::RANK_LABELS[$course->name] ?? WdbDanCourse::challengeTitle($course->name),
                 'requirements' => $course->requirements,
+                // What a Goods or combo requirement can still reach, as the scorer works it out.
+                'notes' => (int) $course->songs()->sum('notes'),
                 'series' => WdbDanCourse::query()->where('content_hash', $play->content_hash)->pluck('series')
                     ->map(fn (string $series): string => WdbDanCourse::SERIES[$series] ?? $series)->values(),
             ],
@@ -78,6 +80,12 @@ class WaddamburoDanPlayController extends Controller
                     'inputs' => array_map(fn (array $input): array => ['t' => $input['t'], 'action' => $input['action']], $timeline['inputs'] ?? []),
                 ];
             })->values()->all()),
+            // What everyone sees of each song's timeline, as on a song play's page.
+            'stats' => Inertia::defer(fn (): array => $play->songs
+                ->map(fn ($song): ?array => WaddamburoPlayController::publicStats(self::decoded($song->timeline)))->values()->all()),
+            // The engine's whole timeline: staff only (what reviewers look at stays with them).
+            'inspections' => $isStaff ? Inertia::defer(fn (): array => $play->songs
+                ->map(fn ($song): ?array => self::decoded($song->timeline))->values()->all()) : null,
             'report' => $viewerBaid === null || $viewerBaid === (int) $play->baid ? null : [
                 'reasons' => collect(PlayReportReason::cases())->map(fn (PlayReportReason $reason): array => ['value' => $reason->value, 'label' => $reason->label()])->all(),
                 'reported' => WdbDanPlayReport::query()->where('wdb_dan_play_id', $play->id)->where('reporter_id', $viewer->id)->exists(),

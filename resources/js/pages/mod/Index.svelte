@@ -22,6 +22,7 @@
     import { toUrl } from '@/lib/utils';
     import { show as boardShow } from '@/routes/board';
     import moderation from '@/routes/mod';
+    import { show as danPlayShow } from '@/routes/dan-plays';
     import { show as playsShow } from '@/routes/plays';
     import moderationPlayers from '@/routes/mod/players';
 
@@ -57,6 +58,7 @@
         action: string;
         baid: number | null;
         wdb_play_id: string | null;
+        dan_run: { id: string; course: string } | null;
         reason: string | null;
         created_at: string | null;
         play: {
@@ -358,6 +360,11 @@
                                 <td class="px-3 py-2">{entry.actor ?? '—'}</td>
                                 <td class="px-3 py-2">
                                     {entry.action}
+                                    {#if entry.dan_run}
+                                        <div class="text-xs">
+                                            <Link href={toUrl(danPlayShow({ taikoVersion: 'waddamburo', id: entry.dan_run.id }))} class="underline">{entry.dan_run.course}</Link>
+                                        </div>
+                                    {/if}
                                     {#if entry.play && entry.wdb_play_id}
                                         <div class="text-xs">
                                             <Link

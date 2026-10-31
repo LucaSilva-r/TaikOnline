@@ -170,7 +170,7 @@ class ModerationService
     {
         DB::transaction(function () use ($actor, $play, $reason): void {
             $play->update(['hidden_at' => now(), 'hidden_by' => $actor->id, 'hidden_reason' => $reason]);
-            $this->log($actor, 'hide_dan_play', (int) $play->baid, reason: $reason);
+            $this->log($actor, 'hide_dan_play', (int) $play->baid, reason: $reason, danRun: $play);
             $this->resolveDan($actor, $play, PlayReport::PLAY_HIDDEN);
         });
     }
@@ -179,7 +179,7 @@ class ModerationService
     {
         DB::transaction(function () use ($actor, $play, $reason): void {
             $play->update(['hidden_at' => null, 'hidden_by' => null, 'hidden_reason' => null]);
-            $this->log($actor, 'restore_dan_play', (int) $play->baid, reason: $reason);
+            $this->log($actor, 'restore_dan_play', (int) $play->baid, reason: $reason, danRun: $play);
         });
     }
 
@@ -188,7 +188,7 @@ class ModerationService
     {
         DB::transaction(function () use ($actor, $play, $reason): void {
             if ($this->resolveDan($actor, $play, PlayReport::DISMISSED) > 0) {
-                $this->log($actor, 'dismiss_dan_reports', (int) $play->baid, reason: $reason);
+                $this->log($actor, 'dismiss_dan_reports', (int) $play->baid, reason: $reason, danRun: $play);
             }
         });
     }
@@ -251,13 +251,14 @@ class ModerationService
         }
     }
 
-    private function log(User $actor, string $action, int $baid, ?WdbPlay $play = null, ?string $reason = null, ?Sanction $sanction = null): void
+    private function log(User $actor, string $action, int $baid, ?WdbPlay $play = null, ?string $reason = null, ?Sanction $sanction = null, ?WdbDanPlay $danRun = null): void
     {
         ModerationAction::query()->create([
             'actor_id' => $actor->id,
             'action' => $action,
             'baid' => $baid,
             'wdb_play_id' => $play?->id,
+            'wdb_dan_play_id' => $danRun?->id,
             'sanction_id' => $sanction?->id,
             'reason' => $reason,
         ]);

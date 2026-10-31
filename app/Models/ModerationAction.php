@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /** One moderation write (see ModerationService): who did what to which player or play, and why. */
-#[Fillable(['actor_id', 'action', 'baid', 'wdb_play_id', 'sanction_id', 'play_report_id', 'reason'])]
+#[Fillable(['actor_id', 'action', 'baid', 'wdb_play_id', 'wdb_dan_play_id', 'sanction_id', 'play_report_id', 'reason'])]
 class ModerationAction extends Model
 {
     public const UPDATED_AT = null;
@@ -25,5 +25,10 @@ class ModerationAction extends Model
     public function play(): BelongsTo
     {
         return $this->belongsTo(WdbPlay::class, 'wdb_play_id');
+    }
+
+    public function danRun(): BelongsTo
+    {
+        return $this->belongsTo(WdbDanPlay::class, 'wdb_dan_play_id');
     }
 }

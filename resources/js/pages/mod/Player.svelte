@@ -24,6 +24,7 @@
     import moderationPlayers from '@/routes/mod/players';
     import moderationPlays from '@/routes/mod/plays';
     import moderationSanctions from '@/routes/mod/sanctions';
+    import { show as danPlayShow } from '@/routes/dan-plays';
     import { show as playsShow } from '@/routes/plays';
     import { toUrl } from '@/lib/utils';
 
@@ -79,6 +80,7 @@
         actor: string | null;
         action: string;
         wdb_play_id: string | null;
+        dan_run: { id: string; course: string } | null;
         play: {
             chart: string;
             difficulty: string | null;
@@ -629,6 +631,11 @@
                             <td class="px-3 py-2">{entry.actor ?? '—'}</td>
                             <td class="px-3 py-2">
                                 {entry.action}
+                                {#if entry.dan_run}
+                                    <div class="text-xs">
+                                        <Link href={toUrl(danPlayShow({ taikoVersion: 'waddamburo', id: entry.dan_run.id }))} class="underline">{entry.dan_run.course}</Link>
+                                    </div>
+                                {/if}
                                 {#if entry.play && entry.wdb_play_id}
                                     <div class="text-xs">
                                         <Link
