@@ -24,17 +24,17 @@
         ],
         "songs": [
             {
-                "song_key": "id1327",
+                "song_key": "taikowiki-1327",
                 "course": 1,
                 "notes": 202
             },
             {
-                "song_key": "id1336",
+                "song_key": "taikowiki-1336",
                 "course": 1,
                 "notes": 174
             },
             {
-                "song_key": "id1339",
+                "song_key": "taikowiki-1339",
                 "course": 1,
                 "notes": 138
             }
@@ -79,12 +79,12 @@
                 "notes": 234
             },
             {
-                "song_key": "id1309",
+                "song_key": "taikowiki-1309",
                 "course": 1,
                 "notes": 252
             },
             {
-                "song_key": "id1313",
+                "song_key": "taikowiki-1313",
                 "course": 1,
                 "notes": 229
             }
@@ -124,17 +124,17 @@
         ],
         "songs": [
             {
-                "song_key": "id1293",
+                "song_key": "taikowiki-1293",
                 "course": 2,
                 "notes": 227
             },
             {
-                "song_key": "ksdaha",
+                "song_key": "taikowiki-1277",
                 "course": 2,
                 "notes": 294
             },
             {
-                "song_key": "id1353",
+                "song_key": "taikowiki-1353",
                 "course": 2,
                 "notes": 274
             }
@@ -174,7 +174,7 @@
         ],
         "songs": [
             {
-                "song_key": "kyallb",
+                "song_key": "taikowiki-1228",
                 "course": 2,
                 "notes": 413
             },
@@ -184,7 +184,7 @@
                 "notes": 316
             },
             {
-                "song_key": "id1304",
+                "song_key": "taikowiki-1304",
                 "course": 2,
                 "notes": 444
             }
@@ -224,7 +224,7 @@
         ],
         "songs": [
             {
-                "song_key": "adsho2",
+                "song_key": "taikowiki-1267",
                 "course": 2,
                 "notes": 312
             },
@@ -411,7 +411,7 @@
                 "notes": 594
             },
             {
-                "song_key": "mkc4h3",
+                "song_key": "smncon",
                 "course": 3,
                 "notes": 729
             }
@@ -470,7 +470,7 @@
                 "notes": 588
             },
             {
-                "song_key": "id1256",
+                "song_key": "taikowiki-1256",
                 "course": 3,
                 "notes": 611
             }
@@ -519,7 +519,7 @@
         ],
         "songs": [
             {
-                "song_key": "id1307",
+                "song_key": "taikowiki-1307",
                 "course": 3,
                 "notes": 616
             },
@@ -713,7 +713,7 @@
                 "notes": 834
             },
             {
-                "song_key": "sycrys",
+                "song_key": "taikowiki-1206",
                 "course": 3,
                 "notes": 817
             },
@@ -848,7 +848,7 @@
                 "notes": 748
             },
             {
-                "song_key": "id1383",
+                "song_key": "taikowiki-1383",
                 "course": 3,
                 "notes": 1079
             }
@@ -911,7 +911,7 @@
                 "notes": 888
             },
             {
-                "song_key": "id1412",
+                "song_key": "taikowiki-1412",
                 "course": 4,
                 "notes": 987
             }
@@ -964,7 +964,7 @@
         ],
         "songs": [
             {
-                "song_key": "id1255",
+                "song_key": "taikowiki-1255",
                 "course": 3,
                 "notes": 901
             },
@@ -974,7 +974,7 @@
                 "notes": 1138
             },
             {
-                "song_key": "id1413",
+                "song_key": "taikowiki-1413",
                 "course": 4,
                 "notes": 866
             }
@@ -1037,7 +1037,7 @@
                 "notes": 877
             },
             {
-                "song_key": "id1411",
+                "song_key": "taikowiki-1411",
                 "course": 4,
                 "notes": 1030
             }
@@ -1090,7 +1090,7 @@
         ],
         "songs": [
             {
-                "song_key": "id1317",
+                "song_key": "taikowiki-1317",
                 "course": 3,
                 "notes": 1234
             },
@@ -1100,7 +1100,7 @@
                 "notes": 1074
             },
             {
-                "song_key": "id1419",
+                "song_key": "taikowiki-1419",
                 "course": 4,
                 "notes": 1438
             }

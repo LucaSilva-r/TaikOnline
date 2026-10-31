@@ -21,23 +21,18 @@ use Illuminate\Support\Facades\DB;
  * Imports the charts of the client's --export-charts (run on unmodified Green and Nijiiro installs) as
  * gzipped JSON lines, each the
  * import PUT api/wdb/charts/{sha256} takes plus its sha256. Known charts keep their notes and metadata,
- * fill in metadata they lack (English titles). Green charts are marked stock and ranked; Nijiiro ones only for
- * the song ids --nijiiro-songs lists (an install may hold community songs: the rest come in custom and
- * unranked, unless the same chart is also official; no list, no Nijiiro chart official). It also adds the
- * songs Nijiiro shipped outside the exported install (removed ones, later ones; the repo keeps them in
- * database/data/nijiiro-song-ids.txt): every chart of those song ids the exports lack is marked stock
- * and ranked too (an exported song's other charts stay custom), and the list is enforced: a stock chart only
- * Nijiiro songs off the list ship (no Green, no listed song) is made custom and unranked, its plays kept
- * (earlier imports took whole community installs). --unrank-custom then unranks every
- * chart not marked stock, admin-ranked ones too (their scores stay, out of the standings), after a
- * confirmation that --force skips. A line's legacy_sha256 names the chart older clients played in its place
- * (a 譜面分岐 chart read as its normal route): that chart is marked legacy and unranked, its plays kept apart.
- * --chart-rules then overrides single charts: "retire <sha256>" as legacy, "custom <sha256>" as not official.
+ * fill in metadata they lack (English titles). Green charts are marked stock and ranked. Nijiiro ones only with
+ * --nijiiro-dumps, which says the files are exports of unmodified Nijiiro dumps (JPN08 and JPN39 so far): their
+ * charts become official and ranked, and every other Nijiiro chart custom and unranked, its plays kept. Repacks ship
+ * other games' and fan-made charts, so what they contain proves nothing. A chart Green also ships stays official, but
+ * only as Green's unless a dump has it. --unrank-custom then unranks every chart not marked stock, admin-ranked ones
+ * too (their scores stay, out of the standings), after a confirmation that --force skips. A line's legacy_sha256 names
+ * the chart older clients played in its place (a 譜面分岐 chart read as its normal route): that chart is marked legacy
+ * and unranked, its plays kept apart.
  */
 #[Signature('app:import-waddamburo-charts
     {files* : The files written by Waddamburo --export-charts=FILE on unmodified installs}
-    {--nijiiro-songs= : A file of song ids (one per line, # comments) that were on the Nijiiro cabinet at some point}
-    {--chart-rules= : A file of single charts to retire or make custom (one per line, # comments)}
+    {--nijiiro-dumps : The files are exports of unmodified Nijiiro dumps: only their Nijiiro charts are official}
     {--unrank-custom : Unrank every chart that is not stock, including ones an admin ranked}
     {--force : Unrank without asking}')]
 #[Description('Import, mark stock and rank the official Waddamburo charts by hash')]
@@ -55,33 +50,8 @@ class ImportWaddamburoChartsCommand extends Command
             }
             $files[] = $file;
         }
-        $songsPath = $this->option('nijiiro-songs');
-        $songIds = $songsPath === null ? [] : (is_readable($songsPath) ? file($songsPath, FILE_IGNORE_NEW_LINES) : false);
-        if ($songIds === false) {
-            $this->error("Cannot read {$songsPath}.");
-
-            return self::FAILURE;
-        }
-        $songIds = array_filter(array_map(fn (string $line): string => trim(explode('#', $line, 2)[0]), $songIds));
-        $rulesPath = $this->option('chart-rules');
-        $ruleLines = $rulesPath === null ? [] : (is_readable($rulesPath) ? file($rulesPath, FILE_IGNORE_NEW_LINES) : false);
-        if ($ruleLines === false) {
-            $this->error("Cannot read {$rulesPath}.");
-
-            return self::FAILURE;
-        }
-        $rules = ['retire' => [], 'custom' => []];
-        foreach ($ruleLines as $line) {
-            $rule = preg_split('/\s+/', trim(explode('#', $line, 2)[0]));
-            if (count($rule) === 2 && isset($rules[$rule[0]]) && preg_match('/\A[0-9a-f]{64}\z/', $rule[1]) === 1) {
-                $rules[$rule[0]][] = $rule[1];
-            } elseif ($rule !== ['']) {
-                $this->error("Bad chart rule: {$line}");
-
-                return self::FAILURE;
-            }
-        }
-        $listed = array_flip($songIds);
+        $dumps = (bool) $this->option('nijiiro-dumps');
+        $dumped = [];
         $official = 0;
         $now = now();
         $imported = 0;
@@ -115,53 +85,29 @@ class ImportWaddamburoChartsCommand extends Command
         };
 
         foreach ($files as $file) {
-            $this->importLines($file, $rows, $links, $legacy, $listed, $imported, $official, $skipped, $now, $flush);
+            $this->importLines($file, $rows, $links, $legacy, $dumps, $dumped, $imported, $official, $skipped, $now, $flush);
             fclose($file);
         }
         if ($rows !== []) {
             $flush();
         }
-        $songCharts = 0;
-        // A song the exports ship is judged by its exact charts; the list only adds songs they lack.
-        $listedSongs = array_values(array_filter(array_unique($songIds),
-            fn (string $songId): bool => ! isset($exportedSongs[$songId])));
-        foreach (array_chunk($listedSongs, 1000) as $chunk) {
-            $charts = fn () => WdbChart::query()
-                ->whereIn('id', DB::table('wdb_chart_song')->select('wdb_chart_id')
-                    ->whereIn('wdb_song_id', DB::table('wdb_songs')->select('id')
-                        ->where('family', WaddamburoSongs::family('Nijiiro'))->whereIn('song_key', $chunk)));
-            $songCharts += $charts()->update(['is_stock' => true]);
-            $charts()->whereNull('ranked_at')->whereNull('legacy_at')->update(['ranked_at' => $now]);
-        }
-        $offList = 0;
+        $madeCustom = 0;
         $greenOnly = 0;
-        if ($songsPath !== null) {
-            $nijiiro = fn (bool $listed) => DB::table('wdb_chart_song')->select('wdb_chart_id')->where('source', 'Nijiiro')
-                ->whereIn('wdb_song_id', DB::table('wdb_songs')->select('id')->where('family', WaddamburoSongs::family('Nijiiro'))
-                    ->when($listed, fn ($songs) => $songs->whereIn('song_key', $songIds), fn ($songs) => $songs->whereNotIn('song_key', $songIds)));
-            $offList = WdbChart::query()->where('is_stock', true)
-                ->whereIn('id', $nijiiro(false))->whereNotIn('id', $nijiiro(true))
-                ->whereNotIn('id', DB::table('wdb_chart_song')->select('wdb_chart_id')->where('source', 'Stock'))
-                ->update(['is_stock' => false, 'ranked_at' => null]);
-            // A Green chart a Nijiiro repack also ships, of a song Nijiiro never had, is Green's alone.
-            $greenOnly = DB::table('wdb_chart_song')->where('source', 'Nijiiro')
-                ->whereIn('wdb_song_id', DB::table('wdb_songs')->select('id')->where('family', WaddamburoSongs::family('Nijiiro'))->whereNotIn('song_key', $songIds))
-                ->whereIn('wdb_chart_id', DB::table('wdb_chart_song')->select('wdb_chart_id')->where('source', 'Stock'))
-                ->delete();
+        if ($dumps) {
+            $links = fn (string $source) => DB::table('wdb_chart_song')->select('wdb_chart_id')->where('source', $source);
+            // The Nijiiro charts no dump has: custom, or Green's alone when Green ships them.
+            WdbChart::query()->whereIn('id', $links('Nijiiro'))->select(['id', 'sha256'])->chunkById(1000, function ($charts) use ($dumped, &$madeCustom, &$greenOnly, $links): void {
+                $others = $charts->reject(fn (WdbChart $chart): bool => isset($dumped[$chart->sha256]))->pluck('id');
+                $madeCustom += WdbChart::query()->whereIn('id', $others)->whereNotIn('id', $links('Stock'))
+                    ->update(['is_stock' => false, 'ranked_at' => null]);
+                $greenOnly += DB::table('wdb_chart_song')->where('source', 'Nijiiro')->whereIn('wdb_chart_id', $others)
+                    ->whereIn('wdb_chart_id', $links('Stock'))->delete();
+            });
         }
         $legacyCharts = 0;
         foreach (array_chunk(array_keys($legacy), 1000) as $chunk) {
             $legacyCharts += WdbChart::query()->whereIn('sha256', $chunk)->whereNull('legacy_at')
                 ->update(['legacy_at' => $now, 'ranked_at' => null]);
-        }
-        $retired = 0;
-        foreach (array_chunk($rules['retire'], 1000) as $chunk) {
-            $retired += WdbChart::query()->whereIn('sha256', $chunk)->whereNull('legacy_at')
-                ->update(['legacy_at' => $now, 'ranked_at' => null]);
-        }
-        $madeCustom = 0;
-        foreach (array_chunk($rules['custom'], 1000) as $chunk) {
-            $madeCustom += WdbChart::query()->whereIn('sha256', $chunk)->update(['is_stock' => false, 'ranked_at' => null]);
         }
         $unranked = 0;
         if ($this->option('unrank-custom')) {
@@ -183,13 +129,8 @@ class ImportWaddamburoChartsCommand extends Command
         if ($legacyCharts > 0) {
             $this->info("Marked {$legacyCharts} charts legacy (older clients' reading of a branched chart).");
         }
-        if ($songsPath !== null) {
-            $this->info("Ranked {$songCharts} charts of ".count($listedSongs).' Nijiiro song ids the exports lack.');
-            $this->info("Made {$offList} charts of Nijiiro songs off the list custom and unranked.");
-            $this->info("Marked {$greenOnly} charts of songs off the list as Green's only.");
-        }
-        if ($rulesPath !== null) {
-            $this->info("Chart rules: retired {$retired}, made {$madeCustom} custom.");
+        if ($dumps) {
+            $this->info('Nijiiro dumps: '.count($dumped)." charts official, {$madeCustom} others made custom, {$greenOnly} marked as Green's only.");
         }
         if ($this->option('unrank-custom')) {
             $this->info("Unranked {$unranked} charts that are not stock.");
@@ -207,7 +148,7 @@ class ImportWaddamburoChartsCommand extends Command
      * @param  array<string, true>  $legacy  the legacy_sha256 values seen
      * @param  array<string, int>  $listed  the official Nijiiro song ids (keys)
      */
-    private function importLines($file, array &$rows, array &$links, array &$legacy, array $listed, int &$imported, int &$official, int &$skipped, CarbonInterface $now, Closure $flush): void
+    private function importLines($file, array &$rows, array &$links, array &$legacy, bool $dumps, array &$dumped, int &$imported, int &$official, int &$skipped, CarbonInterface $now, Closure $flush): void
     {
         while (($line = fgets($file)) !== false) {
             if (trim($line) === '') {
@@ -228,7 +169,10 @@ class ImportWaddamburoChartsCommand extends Command
                 $legacy[$old] = true;
             }
 
-            $isOfficial = ($chart['source'] ?? '') !== 'Nijiiro' || isset($listed[(string) ($chart['song_key'] ?? '')]);
+            $isOfficial = ($chart['source'] ?? '') !== 'Nijiiro' || $dumps;
+            if ($dumps && ($chart['source'] ?? '') === 'Nijiiro') {
+                $dumped[$sha256] = true;
+            }
             $isOfficial = $isOfficial || ($rows[$sha256]['is_stock'] ?? false);
             $official += $isOfficial ? 1 : 0;
             // Keyed by hash: Postgres refuses an upsert touching the same row twice.

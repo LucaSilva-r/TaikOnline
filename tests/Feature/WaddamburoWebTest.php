@@ -255,80 +255,53 @@ it('shows custom charts only to the players who played them, with everyone\'s sc
     $this->get("/waddamburo/songs/{$community}")->assertSuccessful();
 });
 
-it('ranks the official charts and the Nijiiro song ids, unranking every other chart but keeping its plays', function (): void {
+it('makes only the charts of the Nijiiro dumps official, keeping every other chart\'s plays', function (): void {
     $player = wdb_web_player();
-    $notes = 'WDBC official notes';
-    $official = wdb_web_chart(['sha256' => hash('sha256', $notes), 'title' => 'Official', 'source' => 'Nijiiro', 'course' => 3, 'ranked_at' => now()], 'offic');
-    // Ranked by an earlier import from a modded install.
-    $custom = wdb_web_chart(['sha256' => str_repeat('a', 64), 'title' => 'Community', 'source' => 'Nijiiro', 'course' => 3, 'ranked_at' => now()], 'commun');
-    // A song Nijiiro had before the exported version, a console song, and a TJA under the same id.
-    $removed = wdb_web_chart(['sha256' => str_repeat('b', 64), 'title' => 'Removed', 'source' => 'Nijiiro', 'course' => 3], 'removd');
-    // A difficulty a modded install added to an exported song.
-    $added = wdb_web_chart(['sha256' => str_repeat('e', 64), 'title' => 'Official', 'source' => 'Nijiiro', 'course' => 4, 'ranked_at' => now()], 'offic');
-    $console = wdb_web_chart(['sha256' => str_repeat('c', 64), 'title' => 'Console', 'source' => 'Nijiiro', 'course' => 3, 'ranked_at' => now()], 'wiiold');
-    $tja = wdb_web_chart(['sha256' => str_repeat('d', 64), 'title' => 'Removed', 'source' => 'Tja', 'course' => 3], 'removd');
-    wdb_web_play($player, $official, 800000);
-    wdb_web_play($player, $custom, 900000);
-    wdb_web_play($player, $removed, 700000);
-    $songs = tempnam(sys_get_temp_dir(), 'wdb');
-    file_put_contents($songs, "# official songs\nremovd   # 99 Removed (removed 20/4/1～22/1/1)\noffic\n\n");
-    $export = tempnam(sys_get_temp_dir(), 'wdb');
-    file_put_contents($export, gzencode(json_encode(['sha256' => $official->sha256, 'notes' => base64_encode(gzencode($notes)),
-        'title' => 'Official', 'song_key' => 'offic', 'source' => 'Nijiiro', 'course' => 3, 'level' => 9])."\n"));
+    $notes = fn (string $name): string => 'WDBC '.$name;
+    $sha = fn (string $name): string => hash('sha256', $notes($name));
+    $line = fn (string $name, string $source, string $key): string => json_encode(['sha256' => $sha($name),
+        'notes' => base64_encode(gzencode($notes($name))), 'title' => $name, 'song_key' => $key, 'source' => $source, 'course' => 3, 'level' => 9]);
+    // An earlier import from a repack made these official: its own chart of a stock song, and a Green chart it ships.
+    $repack = wdb_web_chart(['sha256' => str_repeat('a', 64), 'title' => 'Repack', 'source' => 'Nijiiro', 'course' => 3, 'is_stock' => true, 'ranked_at' => now()], 'stock1');
+    wdb_web_play($player, $repack, 700000);
+    $green = wdb_web_chart(['sha256' => str_repeat('b', 64), 'title' => 'Old', 'source' => 'Stock', 'course' => 3, 'is_stock' => true, 'ranked_at' => now()], 'oldsng');
+    WaddamburoSongs::attach([['wdb_chart_id' => $green->id, 'song_key' => 'oldsng', 'source' => 'Nijiiro', 'title' => 'Old']]);
+    $file = function (array $lines): string {
+        $export = tempnam(sys_get_temp_dir(), 'wdb');
+        file_put_contents($export, gzencode(implode("\n", $lines)."\n"));
 
-    $this->artisan('app:import-waddamburo-charts', ['files' => [$export], '--nijiiro-songs' => $songs, '--unrank-custom' => true])
-        ->expectsConfirmation('Unrank 3 ranked charts that are not official, including any an admin ranked by hand?', 'yes')
-        ->expectsOutput('Ranked 1 charts of 1 Nijiiro song ids the exports lack.')
-        ->expectsOutput('Unranked 3 charts that are not stock.')->assertSuccessful();
+        return $export;
+    };
+    $old = $file([$line('in08', 'Nijiiro', 'removd')]);
+    $new = $file([$line('in39', 'Nijiiro', 'stock1'), $line('both', 'Stock', 'bothsg'), $line('both', 'Nijiiro', 'bothsg')]);
 
-    expect($official->fresh())->is_stock->toBeTrue()->ranked_at->not->toBeNull()
-        ->and($removed->fresh())->is_stock->toBeTrue()->ranked_at->not->toBeNull()
-        ->and($custom->fresh())->is_stock->toBeFalse()->ranked_at->toBeNull()
-        ->and($console->fresh())->is_stock->toBeFalse()->ranked_at->toBeNull()
-        ->and($added->fresh())->is_stock->toBeFalse()->ranked_at->toBeNull()
-        ->and($tja->fresh())->is_stock->toBeFalse()->ranked_at->toBeNull()
-        ->and($custom->plays()->count())->toBe(1);
-    $this->get('/waddamburo/rankings')->assertInertia(fn (Assert $page) => $page->where('entries.0.total_score', 1500000));
-});
+    $this->artisan('app:import-waddamburo-charts', ['files' => [$old, $new], '--nijiiro-dumps' => true])
+        ->expectsOutput("Nijiiro dumps: 3 charts official, 1 others made custom, 1 marked as Green's only.")->assertSuccessful();
 
-it('applies chart rules after the import: retired charts stay apart, custom ones lose their official mark', function (): void {
-    $retired = wdb_web_chart(['sha256' => str_repeat('a', 64), 'title' => 'Old', 'source' => 'Nijiiro', 'course' => 3, 'ranked_at' => now(), 'is_stock' => true], 'songa');
-    $fan = wdb_web_chart(['sha256' => str_repeat('b', 64), 'title' => 'Fan', 'source' => 'Nijiiro', 'course' => 3, 'ranked_at' => now(), 'is_stock' => true], 'songb');
-    $kept = wdb_web_chart(['sha256' => str_repeat('c', 64), 'title' => 'Kept', 'source' => 'Nijiiro', 'course' => 3, 'ranked_at' => now(), 'is_stock' => true], 'songc');
-    $songs = tempnam(sys_get_temp_dir(), 'wdb');
-    file_put_contents($songs, "songa\nsongb\nsongc\n");
-    $rules = tempnam(sys_get_temp_dir(), 'wdb');
-    file_put_contents($rules, "# why\nretire {$retired->sha256} # Old\n\ncustom {$fan->sha256}\n");
-    $export = tempnam(sys_get_temp_dir(), 'wdb');
-    file_put_contents($export, gzencode(''));
-
-    $this->artisan('app:import-waddamburo-charts', ['files' => [$export], '--nijiiro-songs' => $songs, '--chart-rules' => $rules])
-        ->expectsOutput('Chart rules: retired 1, made 1 custom.')->assertSuccessful();
-
-    expect($retired->fresh())->legacy_at->not->toBeNull()->ranked_at->toBeNull()
-        ->and($fan->fresh())->is_stock->toBeFalse()->ranked_at->toBeNull()
-        ->and($kept->fresh())->is_stock->toBeTrue()->ranked_at->not->toBeNull();
-
-    file_put_contents($rules, "retire nonsense\n");
-    $this->artisan('app:import-waddamburo-charts', ['files' => [$export], '--chart-rules' => $rules])->assertFailed();
-});
-
-it('shows a Green chart a repack also ships as Green only when Nijiiro never had the song', function (): void {
-    $green = wdb_web_chart(['sha256' => str_repeat('a', 64), 'title' => 'Old Song', 'source' => 'Stock', 'course' => 3, 'is_stock' => true, 'ranked_at' => now()], 'oldsng');
-    WaddamburoSongs::attach([['wdb_chart_id' => $green->id, 'song_key' => 'oldsng', 'source' => 'Nijiiro', 'title' => 'Old Song']]);
-    $both = wdb_web_chart(['sha256' => str_repeat('b', 64), 'title' => 'Both', 'source' => 'Stock', 'course' => 3, 'is_stock' => true, 'ranked_at' => now()], 'bothsg');
-    WaddamburoSongs::attach([['wdb_chart_id' => $both->id, 'song_key' => 'bothsg', 'source' => 'Nijiiro', 'title' => 'Both']]);
-    $songs = tempnam(sys_get_temp_dir(), 'wdb');
-    file_put_contents($songs, "bothsg\n");
-    $export = tempnam(sys_get_temp_dir(), 'wdb');
-    file_put_contents($export, gzencode(''));
-
-    $this->artisan('app:import-waddamburo-charts', ['files' => [$export], '--nijiiro-songs' => $songs])
-        ->expectsOutput("Marked 1 charts of songs off the list as Green's only.")->assertSuccessful();
-
+    $chart = fn (string $name): WdbChart => WdbChart::query()->where('sha256', $sha($name))->firstOrFail();
     $sources = fn (WdbChart $chart) => DB::table('wdb_chart_song')->where('wdb_chart_id', $chart->id)->pluck('source')->sort()->values()->all();
-    expect($sources($green))->toBe(['Stock'])->and($sources($both))->toBe(['Nijiiro', 'Stock'])
-        ->and($green->fresh())->is_stock->toBeTrue()->ranked_at->not->toBeNull();
+    foreach (['in08', 'in39', 'both'] as $official) {
+        expect($chart($official))->is_stock->toBeTrue()->ranked_at->not->toBeNull();
+    }
+    expect($repack->fresh())->is_stock->toBeFalse()->ranked_at->toBeNull()
+        ->and($repack->plays()->count())->toBe(1)
+        ->and($green->fresh())->is_stock->toBeTrue()->ranked_at->not->toBeNull()
+        ->and($sources($green))->toBe(['Stock'])
+        ->and($sources($chart('both')))->toBe(['Nijiiro', 'Stock']);
+});
+
+it('leaves Nijiiro charts alone without --nijiiro-dumps, whose lines are then not official', function (): void {
+    $kept = wdb_web_chart(['sha256' => str_repeat('a', 64), 'title' => 'Kept', 'source' => 'Nijiiro', 'course' => 3, 'is_stock' => true, 'ranked_at' => now()], 'kept');
+    $notes = 'WDBC plain';
+    $export = tempnam(sys_get_temp_dir(), 'wdb');
+    file_put_contents($export, gzencode(json_encode(['sha256' => hash('sha256', $notes), 'notes' => base64_encode(gzencode($notes)),
+        'title' => 'Plain', 'song_key' => 'plain', 'source' => 'Nijiiro', 'course' => 3])."\n"));
+
+    $this->artisan('app:import-waddamburo-charts', ['files' => [$export]])
+        ->expectsOutput('Imported 1 charts, 0 official and ranked (0 invalid lines skipped).')->assertSuccessful();
+
+    expect($kept->fresh())->is_stock->toBeTrue()->ranked_at->not->toBeNull()
+        ->and(WdbChart::query()->where('sha256', hash('sha256', $notes))->sole())->is_stock->toBeFalse()->ranked_at->toBeNull();
 });
 
 it('refuses a chart export it cannot read', function (): void {
@@ -424,35 +397,4 @@ it('marks the charts a branched chart replaces legacy, unranked for good, their 
         ->has('difficulties', 1)->where('difficulties.0.id', $new->id)->has('difficulties.0.entries', 0)
         ->where('difficulties.0.legacy.0.id', $old->id)->where('difficulties.0.legacy.0.entries.0.score', 990000));
     $this->get('/waddamburo/rankings')->assertInertia(fn (Assert $page) => $page->has('entries', 0));
-});
-
-it('takes a whole Nijiiro install, ranking only the listed songs and unranking listed-off charts earlier imports ranked', function (): void {
-    $player = wdb_web_player();
-    // Ranked by an earlier import of a whole community install, with a play on it.
-    $leftover = wdb_web_chart(['sha256' => str_repeat('f', 64), 'title' => 'Fan song', 'source' => 'Nijiiro', 'course' => 3,
-        'is_stock' => true, 'ranked_at' => now()], 'fansng');
-    wdb_web_play($player, $leftover, 900000);
-    $line = fn (string $notes, string $source, string $key): string => json_encode(['sha256' => hash('sha256', $notes),
-        'notes' => base64_encode(gzencode($notes)), 'title' => $key, 'song_key' => $key, 'source' => $source, 'course' => 3]);
-    $export = tempnam(sys_get_temp_dir(), 'wdb');
-    file_put_contents($export, gzencode(implode("\n", [
-        $line('listed', 'Nijiiro', 'offic'),
-        $line('community', 'Nijiiro', 'commun'),
-        // A Green chart a community song also ships: official through Green.
-        $line('green', 'Stock', 'green'), $line('green', 'Nijiiro', 'copy'),
-    ])."\n"));
-    $songs = tempnam(sys_get_temp_dir(), 'wdb');
-    file_put_contents($songs, "offic\n");
-
-    $this->artisan('app:import-waddamburo-charts', ['files' => [$export], '--nijiiro-songs' => $songs])
-        ->expectsOutput('Imported 4 charts, 3 official and ranked (0 invalid lines skipped).')
-        ->expectsOutput('Made 1 charts of Nijiiro songs off the list custom and unranked.')->assertSuccessful();
-
-    $chart = fn (string $notes): WdbChart => WdbChart::query()->where('sha256', hash('sha256', $notes))->firstOrFail();
-    expect($chart('listed'))->is_stock->toBeTrue()->ranked_at->not->toBeNull()
-        ->and($chart('community'))->is_stock->toBeFalse()->ranked_at->toBeNull()
-        ->and($chart('community')->songs()->value('song_key'))->toBe('commun') // still filed, notes kept
-        ->and($chart('green'))->is_stock->toBeTrue()->ranked_at->not->toBeNull()
-        ->and($leftover->fresh())->is_stock->toBeFalse()->ranked_at->toBeNull()
-        ->and($leftover->plays()->count())->toBe(1);
 });
