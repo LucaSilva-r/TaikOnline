@@ -101,6 +101,12 @@ class WaddamburoDanController extends Controller
             if ($cabinet && ! Player::query()->whereKey($baid)->exists()) {
                 continue;
             }
+            // Failed runs aren't kept: accepted, so a client still sending them stops.
+            if ((int) $play['result_level'] === 0) {
+                $accepted[] = $play['id'];
+
+                continue;
+            }
             $course = WdbDanCourse::query()->with('songs')->where('content_hash', $play['course_hash'])->first();
             if ($course === null || $course->songs->count() !== 3) {
                 continue;

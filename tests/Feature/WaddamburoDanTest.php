@@ -306,3 +306,29 @@ it('logs what staff do to a dan run, naming the run', function (): void {
     expect($play->fresh()->hidden_reason)->toBe('cheated')
         ->and(ModerationAction::query()->where('action', 'hide_dan_play')->value('wdb_dan_play_id'))->toBe($play->id);
 });
+
+it('accepts a failed dan run without keeping it', function (): void {
+    [$course, $songs] = dan_played_course();
+    $failed = dan_play($course, $songs, ['result_level' => 0]);
+
+    $this->withToken(wdb_token(wdb_player()))->postJson('/api/wdb/dan/plays', ['plays' => [$failed]])
+        ->assertSuccessful()->assertJsonPath('accepted', [$failed['id']]);
+
+    expect(WdbDanPlay::query()->count())->toBe(0);
+});
+
+it('culls failed plays and runs, but keeps those staff hid or players reported', function (): void {
+    $player = wdb_player();
+    $run = fn (int $level, array $over = []) => WdbDanPlay::query()->create(['baid' => $player->baid, 'content_hash' => str_repeat('e', 64), 'result_level' => $level,
+        'score' => 1, 'great' => 1, 'good' => 0, 'miss' => 0, 'max_combo' => 1, 'rolls' => 0, 'gauge_percent' => 1, 'songs_played' => 1, 'scoring_version' => 4,
+        'engine_version' => 'test', 'played_at' => now(), ...$over]);
+    $passed = $run(1);
+    $failed = $run(0);
+    $hidden = $run(0, ['hidden_at' => now(), 'hidden_reason' => 'evidence']);
+
+    $this->artisan('app:cull-failed-waddamburo-plays --dry-run')->assertSuccessful();
+    expect(WdbDanPlay::query()->count())->toBe(3);
+
+    $this->artisan('app:cull-failed-waddamburo-plays')->assertSuccessful();
+    expect(WdbDanPlay::query()->pluck('id')->sort()->values()->all())->toBe(collect([$passed->id, $hidden->id])->sort()->values()->all());
+});

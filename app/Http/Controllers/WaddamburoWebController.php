@@ -321,10 +321,10 @@ class WaddamburoWebController extends Controller
      */
     private function danProgress(Player $player): array
     {
-        $bests = WdbDanPlay::query()->where('baid', $player->baid)->whereNotNull('rescored_at')->whereNull('hidden_at')
+        $bests = WdbDanPlay::query()->where('baid', $player->baid)->whereNotNull('rescored_at')->whereNull('hidden_at')->where('result_level', '>', 0)
             ->groupBy('content_hash')->selectRaw('content_hash, MAX(result_level) AS best')->pluck('best', 'content_hash');
         // The run a course links to: the player's best.
-        $runs = WdbDanPlay::query()->where('baid', $player->baid)->whereNotNull('rescored_at')->whereNull('hidden_at')
+        $runs = WdbDanPlay::query()->where('baid', $player->baid)->whereNotNull('rescored_at')->whereNull('hidden_at')->where('result_level', '>', 0)
             ->orderBy('result_level')->orderBy('score')->pluck('id', 'content_hash');
         $courses = WdbDanCourse::query()->orderBy('level')->get(['series', 'level', 'name', 'content_hash'])->groupBy('series');
         $progress = [];

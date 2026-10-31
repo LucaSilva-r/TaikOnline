@@ -316,6 +316,12 @@ class WaddamburoController extends Controller
             if ($replay === false) {
                 continue;
             }
+            // Failed plays aren't kept: accepted, so a client still sending them stops.
+            if (! filter_var($play['cleared'], FILTER_VALIDATE_BOOLEAN)) {
+                $accepted[] = $play['id'];
+
+                continue;
+            }
 
             $chart = $charts[$play['chart_sha256']] ??= WdbChart::query()->firstOrCreate(['sha256' => $play['chart_sha256']]);
             $stored = WdbPlay::query()->firstOrCreate(['id' => $play['id']], [

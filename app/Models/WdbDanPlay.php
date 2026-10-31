@@ -56,6 +56,11 @@ class WdbDanPlay extends Model
     }
 
     /** @return HasMany<WdbDanPlaySong, $this> */
+    public function reports(): HasMany
+    {
+        return $this->hasMany(WdbDanPlayReport::class);
+    }
+
     public function songs(): HasMany
     {
         return $this->hasMany(WdbDanPlaySong::class)->orderBy('position');

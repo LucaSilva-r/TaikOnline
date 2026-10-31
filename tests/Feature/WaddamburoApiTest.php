@@ -421,3 +421,12 @@ it('sends a sign-in code entered on the Play page on to its approval, and /link 
     $this->actingAs($player->user)->get('/green/link')->assertRedirect('/green/play');
     $this->actingAs($player->user)->post('/green/play', ['code' => '000000'])->assertSessionHasErrors('code');
 });
+
+it('accepts a failed play without keeping it', function (): void {
+    $failed = wdb_play(str_repeat('a', 64), ['cleared' => false]);
+
+    $this->withToken(wdb_token(wdb_player()))->postJson('/api/wdb/plays', ['plays' => [$failed]])
+        ->assertOk()->assertJsonPath('accepted', [$failed['id']]);
+
+    expect(WdbPlay::query()->count())->toBe(0);
+});
