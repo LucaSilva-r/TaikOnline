@@ -32,10 +32,12 @@ use Illuminate\Support\Facades\DB;
  * chart not marked stock, admin-ranked ones too (their scores stay, out of the standings), after a
  * confirmation that --force skips. A line's legacy_sha256 names the chart older clients played in its place
  * (a 譜面分岐 chart read as its normal route): that chart is marked legacy and unranked, its plays kept apart.
+ * --chart-rules then overrides single charts: "retire <sha256>" as legacy, "custom <sha256>" as not official.
  */
 #[Signature('app:import-waddamburo-charts
     {files* : The files written by Waddamburo --export-charts=FILE on unmodified installs}
     {--nijiiro-songs= : A file of song ids (one per line, # comments) that were on the Nijiiro cabinet at some point}
+    {--chart-rules= : A file of single charts to retire or make custom (one per line, # comments)}
     {--unrank-custom : Unrank every chart that is not stock, including ones an admin ranked}
     {--force : Unrank without asking}')]
 #[Description('Import, mark stock and rank the official Waddamburo charts by hash')]
@@ -61,6 +63,24 @@ class ImportWaddamburoChartsCommand extends Command
             return self::FAILURE;
         }
         $songIds = array_filter(array_map(fn (string $line): string => trim(explode('#', $line, 2)[0]), $songIds));
+        $rulesPath = $this->option('chart-rules');
+        $ruleLines = $rulesPath === null ? [] : (is_readable($rulesPath) ? file($rulesPath, FILE_IGNORE_NEW_LINES) : false);
+        if ($ruleLines === false) {
+            $this->error("Cannot read {$rulesPath}.");
+
+            return self::FAILURE;
+        }
+        $rules = ['retire' => [], 'custom' => []];
+        foreach ($ruleLines as $line) {
+            $rule = preg_split('/\s+/', trim(explode('#', $line, 2)[0]));
+            if (count($rule) === 2 && isset($rules[$rule[0]]) && preg_match('/\A[0-9a-f]{64}\z/', $rule[1]) === 1) {
+                $rules[$rule[0]][] = $rule[1];
+            } elseif ($rule !== ['']) {
+                $this->error("Bad chart rule: {$line}");
+
+                return self::FAILURE;
+            }
+        }
         $listed = array_flip($songIds);
         $official = 0;
         $now = now();
@@ -128,6 +148,15 @@ class ImportWaddamburoChartsCommand extends Command
             $legacyCharts += WdbChart::query()->whereIn('sha256', $chunk)->whereNull('legacy_at')
                 ->update(['legacy_at' => $now, 'ranked_at' => null]);
         }
+        $retired = 0;
+        foreach (array_chunk($rules['retire'], 1000) as $chunk) {
+            $retired += WdbChart::query()->whereIn('sha256', $chunk)->whereNull('legacy_at')
+                ->update(['legacy_at' => $now, 'ranked_at' => null]);
+        }
+        $madeCustom = 0;
+        foreach (array_chunk($rules['custom'], 1000) as $chunk) {
+            $madeCustom += WdbChart::query()->whereIn('sha256', $chunk)->update(['is_stock' => false, 'ranked_at' => null]);
+        }
         $unranked = 0;
         if ($this->option('unrank-custom')) {
             $custom = fn () => WdbChart::query()->where('is_stock', false)->whereNotNull('ranked_at');
@@ -151,6 +180,9 @@ class ImportWaddamburoChartsCommand extends Command
         if ($songsPath !== null) {
             $this->info("Ranked {$songCharts} charts of ".count($listedSongs).' Nijiiro song ids the exports lack.');
             $this->info("Made {$offList} charts of Nijiiro songs off the list custom and unranked.");
+        }
+        if ($rulesPath !== null) {
+            $this->info("Chart rules: retired {$retired}, made {$madeCustom} custom.");
         }
         if ($this->option('unrank-custom')) {
             $this->info("Unranked {$unranked} charts that are not stock.");

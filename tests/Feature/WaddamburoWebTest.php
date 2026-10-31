@@ -291,6 +291,28 @@ it('ranks the official charts and the Nijiiro song ids, unranking every other ch
     $this->get('/waddamburo/rankings')->assertInertia(fn (Assert $page) => $page->where('entries.0.total_score', 1500000));
 });
 
+it('applies chart rules after the import: retired charts stay apart, custom ones lose their official mark', function (): void {
+    $retired = wdb_web_chart(['sha256' => str_repeat('a', 64), 'title' => 'Old', 'source' => 'Nijiiro', 'course' => 3, 'ranked_at' => now(), 'is_stock' => true], 'songa');
+    $fan = wdb_web_chart(['sha256' => str_repeat('b', 64), 'title' => 'Fan', 'source' => 'Nijiiro', 'course' => 3, 'ranked_at' => now(), 'is_stock' => true], 'songb');
+    $kept = wdb_web_chart(['sha256' => str_repeat('c', 64), 'title' => 'Kept', 'source' => 'Nijiiro', 'course' => 3, 'ranked_at' => now(), 'is_stock' => true], 'songc');
+    $songs = tempnam(sys_get_temp_dir(), 'wdb');
+    file_put_contents($songs, "songa\nsongb\nsongc\n");
+    $rules = tempnam(sys_get_temp_dir(), 'wdb');
+    file_put_contents($rules, "# why\nretire {$retired->sha256} # Old\n\ncustom {$fan->sha256}\n");
+    $export = tempnam(sys_get_temp_dir(), 'wdb');
+    file_put_contents($export, gzencode(''));
+
+    $this->artisan('app:import-waddamburo-charts', ['files' => [$export], '--nijiiro-songs' => $songs, '--chart-rules' => $rules])
+        ->expectsOutput('Chart rules: retired 1, made 1 custom.')->assertSuccessful();
+
+    expect($retired->fresh())->legacy_at->not->toBeNull()->ranked_at->toBeNull()
+        ->and($fan->fresh())->is_stock->toBeFalse()->ranked_at->toBeNull()
+        ->and($kept->fresh())->is_stock->toBeTrue()->ranked_at->not->toBeNull();
+
+    file_put_contents($rules, "retire nonsense\n");
+    $this->artisan('app:import-waddamburo-charts', ['files' => [$export], '--chart-rules' => $rules])->assertFailed();
+});
+
 it('refuses a chart export it cannot read', function (): void {
     $this->artisan('app:import-waddamburo-charts', ['files' => ['/nonexistent/export.jsonl.gz']])
         ->expectsOutput('Cannot read /nonexistent/export.jsonl.gz.')->assertFailed();
