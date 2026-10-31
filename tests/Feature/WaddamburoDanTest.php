@@ -343,3 +343,16 @@ it('lists a player\'s dan runs on their moderation page', function (): void {
     $this->actingAs(\App\Models\User::factory()->moderator()->create())->get("/waddamburo/mod/players/{$player->baid}")->assertSuccessful()
         ->assertInertia(fn ($page) => $page->component('mod/Player')->where('danRuns.0.id', $run->id)->where('danRuns.0.result_level', 1));
 });
+
+it('leaves the Nijiiro series out when asked', function (): void {
+    $folder = storage_path('framework/testing/dan-'.Str::uuid());
+    File::ensureDirectoryExists($folder);
+    $course = fn (string $song): string => json_encode([['level' => 7, 'name' => '五級', 'requirements' => [],
+        'songs' => [['song_key' => $song, 'course' => 3, 'notes' => 100]]]]);
+    File::put("{$folder}/green.json", $course('greensong'));
+    File::put("{$folder}/nijiiro-2025.json", $course('nijiirosong'));
+
+    $this->artisan('app:import-waddamburo-dan', ['--data' => $folder, '--without-nijiiro' => true])->assertSuccessful();
+
+    expect(WdbDanCourse::query()->pluck('series')->all())->toBe(['green']);
+});
