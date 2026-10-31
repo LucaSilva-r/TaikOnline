@@ -333,6 +333,7 @@ class WaddamburoWebController extends Controller
                 'level' => $course->level,
                 'name' => $course->name,
                 'label' => WdbDanCourse::RANK_LABELS[$course->name] ?? null,
+                'title' => WdbDanCourse::challengeTitle($course->name),
                 'best' => $bests->has($course->content_hash) ? (int) $bests[$course->content_hash] : null,
             ])->values();
             $ranks = $rows->whereNotNull('label');

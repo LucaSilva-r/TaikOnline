@@ -6,6 +6,7 @@
         level: number;
         name: string;
         label: string | null;
+        title: string;
         best: number | null;
     };
     export type DanSeries = {
@@ -110,8 +111,8 @@
             <ul class="mt-2 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
                 {#each challenges as course (course.level)}
                     <li
-                        title={stateOf(course.best)}
-                        class="truncate rounded border px-2 py-1 text-xs {course.best === 2
+                        title="{course.name}: {stateOf(course.best)}"
+                        class="rounded border px-2 py-1 {course.best === 2
                             ? 'border-yellow-500 bg-yellow-500/20'
                             : course.best === 1
                               ? 'border-primary bg-primary/15'
@@ -119,7 +120,8 @@
                                 ? 'border-dashed'
                                 : 'opacity-50'}"
                     >
-                        {course.name}
+                        <span class="block truncate text-sm font-medium">{course.title}</span>
+                        <span class="block truncate text-2xs text-muted-foreground">{course.name}</span>
                     </li>
                 {/each}
             </ul>

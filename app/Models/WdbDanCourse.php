@@ -28,6 +28,39 @@ class WdbDanCourse extends Model
         '先鋒' => 'Senpo', '次鋒' => 'Jiho', '中堅' => 'Chuken', '副将' => 'Fukusho', '大将' => 'Taisho',
     ];
 
+    /** The parts challenge names are made of, longest first, in English. */
+    private const CHALLENGE_WORDS = [
+        '太鼓チームからの挑戦！' => 'Taiko Team Challenge ',
+        '第3回天下一音ゲ祭の巻' => '3rd Tenkaichi Otogesai',
+        'チャレンジ！グリーン外伝' => 'Green Gaiden ',
+        // The name spells 外伝 in pieces, as the course's own art does.
+        'タトイ云-一ノ十' => 'Secret Gaiden ',
+        'ドンダフルコンボ！！' => 'Donderful Combo',
+        'ナムコオリジナル' => 'Namco Original ',
+        '世界大会2016予選' => 'World Tournament 2016 Qualifier ',
+        '世界大会2016エリア' => 'World Tournament 2016 Area ',
+        '世界大会2016決勝' => 'World Tournament 2016 Final',
+        '世界大会2016EX' => 'World Tournament 2016 EX ',
+        '334万点！！' => '3.34 Million Points',
+        '333万点！！' => '3.33 Million Points',
+        '3500コンボ！！' => '3500 Combo',
+        '1400連打！！' => '1400 Rolls',
+        '【裏】' => ' (Ura)',
+        '挑戦！' => '',
+        '復活！' => 'Revival: ',
+        'モモイロ' => 'Momoiro ', 'ソライロ' => 'Sorairo ', 'カツドン' => 'Katsu-Don ', 'キミドリ' => 'Kimidori ', 'ムラサキ' => 'Murasaki ',
+        'ホワイト' => 'White ', 'レッド' => 'Red ', 'イエロー' => 'Yellow ', 'ブルー' => 'Blue ',
+        '十段' => '10 Dan', '達人' => 'Tatsujin', '大将' => 'Taisho',
+    ];
+
+    /** A challenge course's name in English; digits and circled numbers come through as plain digits. */
+    public static function challengeTitle(string $name): string
+    {
+        $plain = strtr(mb_convert_kana($name, 'rn'), ['①' => '1', '②' => '2', '③' => '3', '④' => '4', '⑤' => '5', '⑥' => '6', '－' => '-']);
+
+        return trim(strtr($plain, self::CHALLENGE_WORDS));
+    }
+
     public const SERIES = [
         'green' => 'Green',
         'blue' => 'Blue',

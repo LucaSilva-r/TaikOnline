@@ -229,3 +229,33 @@ it('shows every series on the board, with ranks and challenges apart', function 
         ->and($green['challenges_total'])->toBe(1)
         ->and($green['challenges_passed'])->toBe(0);
 });
+
+it('translates every challenge course name', function (string $name, string $title): void {
+    expect(WdbDanCourse::challengeTitle($name))->toBe($title);
+})->with([
+    ['復活！カツドン大将', 'Revival: Katsu-Don Taisho'],
+    ['復活！モモイロ十段', 'Revival: Momoiro 10 Dan'],
+    ['チャレンジ！グリーン外伝③', 'Green Gaiden 3'],
+    ['挑戦！３３４万点！！', '3.34 Million Points'],
+    ['挑戦！ドンダフルコンボ！！', 'Donderful Combo'],
+    ['太鼓チームからの挑戦！２', 'Taiko Team Challenge 2'],
+    ['太鼓チームからの挑戦！①', 'Taiko Team Challenge 1'],
+    ['タトイ云－一ノ十②', 'Secret Gaiden 2'],
+    ['挑戦！ナムコオリジナル３', 'Namco Original 3'],
+    ['挑戦！３５００コンボ！！', '3500 Combo'],
+    ['挑戦！第３回天下一音ゲ祭の巻【裏】', '3rd Tenkaichi Otogesai (Ura)'],
+    ['挑戦！世界大会2016エリア②', 'World Tournament 2016 Area 2'],
+    ['挑戦！世界大会2016決勝', 'World Tournament 2016 Final'],
+    ['挑戦！世界大会2016ＥＸ①', 'World Tournament 2016 EX 1'],
+    ['挑戦！１４００連打！！', '1400 Rolls'],
+]);
+
+it('leaves no Japanese in any challenge title', function (): void {
+    $names = collect(File::glob(database_path('data/dan/*.json')))
+        ->flatMap(fn (string $file) => collect(json_decode(File::get($file), true))->where('level', '>', 25)->pluck('name'))->unique();
+
+    expect($names)->not->toBeEmpty();
+    foreach ($names as $name) {
+        expect(WdbDanCourse::challengeTitle($name))->not->toMatch('/[\x{3040}-\x{30ff}\x{4e00}-\x{9fff}！]/u');
+    }
+});
