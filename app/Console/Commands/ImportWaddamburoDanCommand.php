@@ -20,8 +20,7 @@ use SimpleXMLElement;
 #[Signature('app:import-waddamburo-dan
     {series? : The series a musicmedleyinfo.xml holds, to rewrite its data file}
     {file? : That musicmedleyinfo.xml}
-    {--data= : The data folder (default database/data/dan)}
-    {--without-nijiiro : Leave out the Nijiiro series, whose charts may not be imported yet}')]
+    {--data= : The data folder (default database/data/dan)}')]
 #[Description('Load the Waddamburo dan dojo courses, optionally rewriting one series from a game file')]
 class ImportWaddamburoDanCommand extends Command
 {
@@ -61,7 +60,7 @@ class ImportWaddamburoDanCommand extends Command
 
         foreach (array_keys(WdbDanCourse::SERIES) as $id) {
             $path = "{$folder}/{$id}.json";
-            if (is_file($path) && ! ($this->option('without-nijiiro') && WdbDanCourse::isNijiiro($id))) {
+            if (is_file($path)) {
                 try {
                     $count = $this->load($id, json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR));
                 } catch (JsonException $exception) {

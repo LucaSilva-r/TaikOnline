@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\DanDojoController;
 use App\Http\Controllers\Admin\PlayerController;
 use App\Http\Controllers\Admin\SongController;
 use App\Http\Controllers\Admin\WaddamburoCabinetController;
+use App\Http\Controllers\Admin\WaddamburoDanController as AdminWaddamburoDanController;
 use App\Http\Controllers\Admin\WaddamburoChartController;
 use App\Http\Controllers\Admin\WaddamburoNoticeController;
 use App\Http\Controllers\BoardController;
@@ -103,6 +104,8 @@ Route::prefix('{taikoVersion}')
                 Route::post('waddamburo-cabinets', [WaddamburoCabinetController::class, 'store'])->name('waddamburo-cabinets.store');
                 Route::patch('waddamburo-cabinets/{cabinet}/revoke', [WaddamburoCabinetController::class, 'revoke'])->name('waddamburo-cabinets.revoke');
                 Route::patch('waddamburo-cabinets/{cabinet}/restore', [WaddamburoCabinetController::class, 'restore'])->name('waddamburo-cabinets.restore');
+                Route::get('waddamburo-dan', [AdminWaddamburoDanController::class, 'index'])->name('waddamburo-dan.index');
+                Route::patch('waddamburo-dan/{series}', [AdminWaddamburoDanController::class, 'update'])->name('waddamburo-dan.update');
                 Route::get('dan-dojo', [DanDojoController::class, 'index'])->name('dan-dojo.index');
                 Route::post('dan-dojo/{version}/randomize', [DanDojoController::class, 'randomize'])->name('dan-dojo.randomize');
                 Route::get('status', [OperatorController::class, 'status'])->name('status');

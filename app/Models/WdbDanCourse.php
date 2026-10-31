@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Services\WaddamburoSongs;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -85,6 +88,31 @@ class WdbDanCourse extends Model
     public static function isNijiiro(string $series): bool
     {
         return str_starts_with($series, 'nijiiro-');
+    }
+
+    /**
+     * The series an admin stopped serving: the game does not get them and their plays are refused.
+     *
+     * @return list<string>
+     */
+    public static function disabledSeries(): array
+    {
+        return DB::table('wdb_dan_disabled_series')->pluck('series')->all();
+    }
+
+    /** The official charts of these songs from this series' source, by song key and course. */
+    public static function officialCharts(Collection $songKeys, string $series): Collection
+    {
+        return DB::table('wdb_chart_song')
+            ->join('wdb_songs', 'wdb_songs.id', '=', 'wdb_chart_song.wdb_song_id')
+            ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_chart_song.wdb_chart_id')
+            ->where('wdb_chart_song.source', self::isNijiiro($series) ? 'Nijiiro' : 'Stock')
+            ->where('wdb_songs.family', WaddamburoSongs::family('Stock'))
+            ->whereIn('wdb_songs.song_key', $songKeys)
+            ->where('wdb_charts.is_stock', true)
+            ->whereNull('wdb_charts.legacy_at')
+            ->get(['wdb_songs.song_key', 'wdb_charts.course', 'wdb_charts.sha256'])
+            ->groupBy(fn (object $chart): string => $chart->song_key."\0".$chart->course);
     }
 
     protected function casts(): array

@@ -29,13 +29,14 @@ class WaddamburoDanController extends Controller
         $songKeys = $courses->flatten(1)->flatMap(fn (WdbDanCourse $course) => $course->songs->pluck('song_key'))->unique();
         $songs = DB::table('wdb_songs')->where('family', WaddamburoSongs::family('Stock'))
             ->whereIn('song_key', $songKeys)->pluck('title', 'song_key');
-        $charts = ['Stock' => $this->charts($songKeys, 'Stock'), 'Nijiiro' => $this->charts($songKeys, 'Nijiiro')];
+        $disabled = WdbDanCourse::disabledSeries();
 
         $series = [];
         foreach (WdbDanCourse::SERIES as $id => $name) {
-            if (! $courses->has($id)) {
+            if (! $courses->has($id) || in_array($id, $disabled, true)) {
                 continue;
             }
+            $charts = WdbDanCourse::officialCharts($songKeys, $id);
             $series[] = [
                 'id' => $id,
                 'name' => $name,
@@ -50,7 +51,7 @@ class WaddamburoDanController extends Controller
                         'course' => $song->course,
                         'title' => $songs[$song->song_key] ?? null,
                         'notes' => $song->notes,
-                        'charts' => ($charts[WdbDanCourse::isNijiiro($id) ? 'Nijiiro' : 'Stock'][$song->song_key."\0".$song->course] ?? collect())->pluck('sha256')->values(),
+                        'charts' => ($charts[$song->song_key."\0".$song->course] ?? collect())->pluck('sha256')->values(),
                     ])->values(),
                 ])->values(),
             ];
@@ -108,11 +109,12 @@ class WaddamburoDanController extends Controller
 
                 continue;
             }
-            $course = WdbDanCourse::query()->with('songs')->where('content_hash', $play['course_hash'])->first();
+            $course = WdbDanCourse::query()->with('songs')->where('content_hash', $play['course_hash'])
+                ->whereNotIn('series', WdbDanCourse::disabledSeries())->first();
             if ($course === null || $course->songs->count() !== 3) {
                 continue;
             }
-            $allowed = $this->charts($course->songs->pluck('song_key'), WdbDanCourse::isNijiiro($course->series) ? 'Nijiiro' : 'Stock');
+            $allowed = WdbDanCourse::officialCharts($course->songs->pluck('song_key'), $course->series);
             $chartIds = [];
             foreach ($course->songs->values() as $index => $song) {
                 $sha = $play['songs'][$index]['sha256'];
@@ -163,25 +165,5 @@ class WaddamburoDanController extends Controller
         $scorer->rescore($created);
 
         return response()->json(['accepted' => $accepted]);
-    }
-
-    /**
-     * The charts that count for songs, as "song_key\0course" => rows.
-     *
-     * @param  \Illuminate\Support\Collection<int, string>  $songKeys
-     * @return \Illuminate\Support\Collection<string, \Illuminate\Support\Collection<int, object>>
-     */
-    private function charts(\Illuminate\Support\Collection $songKeys, string $source): \Illuminate\Support\Collection
-    {
-        return DB::table('wdb_chart_song')
-            ->join('wdb_songs', 'wdb_songs.id', '=', 'wdb_chart_song.wdb_song_id')
-            ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_chart_song.wdb_chart_id')
-            ->where('wdb_chart_song.source', $source)
-            ->where('wdb_songs.family', WaddamburoSongs::family('Stock'))
-            ->whereIn('wdb_songs.song_key', $songKeys)
-            ->where('wdb_charts.is_stock', true)
-            ->whereNull('wdb_charts.legacy_at')
-            ->get(['wdb_songs.song_key', 'wdb_charts.course', 'wdb_charts.sha256'])
-            ->groupBy(fn (object $chart): string => $chart->song_key."\0".$chart->course);
     }
 }

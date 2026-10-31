@@ -36,6 +36,7 @@
     import adminSongs from '@/routes/admin/songs';
     import adminWaddamburoCharts from '@/routes/admin/waddamburo-charts';
     import adminWaddamburoCabinets from '@/routes/admin/waddamburo-cabinets';
+    import adminWaddamburoDan from '@/routes/admin/waddamburo-dan';
     import adminWaddamburoNotices from '@/routes/admin/waddamburo-notices';
     import moderation from '@/routes/mod';
     import moderationReports from '@/routes/mod/reports';
@@ -80,6 +81,11 @@
             title: 'Waddamburo Cabinets',
             href: adminWaddamburoCabinets.index(taikoParam),
             icon: Gamepad2,
+        },
+        {
+            title: 'Waddamburo Dan',
+            href: adminWaddamburoDan.index(taikoParam),
+            icon: BookOpen,
         },
         {
             title: 'Dan Dojo',

@@ -328,8 +328,9 @@ class WaddamburoWebController extends Controller
             ->orderBy('result_level')->orderBy('score')->pluck('id', 'content_hash');
         $courses = WdbDanCourse::query()->orderBy('level')->get(['series', 'level', 'name', 'content_hash'])->groupBy('series');
         $progress = [];
+        $disabled = WdbDanCourse::disabledSeries();
         foreach (WdbDanCourse::SERIES as $id => $name) {
-            if (! $courses->has($id)) {
+            if (! $courses->has($id) || in_array($id, $disabled, true)) {
                 continue;
             }
             $rows = $courses[$id]->map(fn (WdbDanCourse $course): array => [

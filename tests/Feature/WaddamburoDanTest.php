@@ -3,6 +3,7 @@
 use App\Enums\PlayReportReason;
 use App\Http\Controllers\WaddamburoWebController;
 use App\Models\ModerationAction;
+use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbDanCourse;
 use App\Models\WdbDanPlay;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Process;
+use Inertia\Testing\AssertableInertia as Assert;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function (): void {
@@ -344,15 +346,38 @@ it('lists a player\'s dan runs on their moderation page', function (): void {
         ->assertInertia(fn ($page) => $page->component('mod/Player')->where('danRuns.0.id', $run->id)->where('danRuns.0.result_level', 1));
 });
 
-it('leaves the Nijiiro series out when asked', function (): void {
-    $folder = storage_path('framework/testing/dan-'.Str::uuid());
-    File::ensureDirectoryExists($folder);
-    $course = fn (string $song): string => json_encode([['level' => 7, 'name' => '五級', 'requirements' => [],
-        'songs' => [['song_key' => $song, 'course' => 3, 'notes' => 100]]]]);
-    File::put("{$folder}/green.json", $course('greensong'));
-    File::put("{$folder}/nijiiro-2025.json", $course('nijiirosong'));
+it('hides a disabled series from the catalogue and refuses its plays until an admin enables it', function (): void {
+    WdbDanCourse::query()->create(['series' => 'green', 'level' => 7, 'name' => '五級', 'requirements' => [], 'content_hash' => str_repeat('a', 64)]);
+    WdbDanCourse::query()->create(['series' => 'nijiiro-2025', 'level' => 7, 'name' => '五級', 'requirements' => [], 'content_hash' => str_repeat('b', 64)]);
+    $admin = User::factory()->withTwoFactor()->create(['role' => 'admin']);
+    $served = fn () => collect($this->getJson('/api/wdb/dan')->assertOk()->json('series'))->pluck('id')->all();
 
-    $this->artisan('app:import-waddamburo-dan', ['--data' => $folder, '--without-nijiiro' => true])->assertSuccessful();
+    expect(WdbDanCourse::disabledSeries())->toContain('nijiiro-2025')->and($served())->toBe(['green']);
 
-    expect(WdbDanCourse::query()->pluck('series')->all())->toBe(['green']);
+    $this->actingAs($admin)->patch('/waddamburo/admin/waddamburo-dan/nijiiro-2025', ['enabled' => true])->assertRedirect();
+    expect($served())->toBe(['nijiiro-2025', 'green']);
+    $this->patch('/waddamburo/admin/waddamburo-dan/green', ['enabled' => false])->assertRedirect();
+    expect($served())->toBe(['nijiiro-2025']);
+
+    $this->patch('/waddamburo/admin/waddamburo-dan/nonsense', ['enabled' => false])->assertNotFound();
+    $this->actingAs(User::factory()->create())->patch('/waddamburo/admin/waddamburo-dan/green', ['enabled' => true])->assertForbidden();
+});
+
+it('shows admins which dan songs have official charts', function (): void {
+    $course = WdbDanCourse::query()->create(['series' => 'green', 'level' => 7, 'name' => '五級', 'requirements' => [], 'content_hash' => str_repeat('a', 64)]);
+    $course->songs()->createMany([
+        ['position' => 0, 'song_key' => 'official', 'course' => 3, 'notes' => 100],
+        ['position' => 1, 'song_key' => 'modded', 'course' => 3, 'notes' => 100],
+        ['position' => 2, 'song_key' => 'nowhere', 'course' => 3, 'notes' => 100],
+    ]);
+    $link = fn (string $song, bool $stock, string $sha) => WaddamburoSongs::attach([['wdb_chart_id' => WdbChart::query()->create(['sha256' => str_repeat($sha, 64), 'title' => $song, 'source' => 'Stock', 'course' => 3, 'is_stock' => $stock])->id, 'song_key' => $song, 'source' => 'Stock', 'title' => $song]]);
+    $link('official', true, 'c');
+    $link('modded', false, 'd');
+
+    $this->actingAs(User::factory()->withTwoFactor()->create(['role' => 'admin']))->get('/waddamburo/admin/waddamburo-dan')
+        ->assertInertia(fn (Assert $page) => $page->component('admin/WaddamburoDan')
+            ->where('series.0.id', 'green')->where('series.0.enabled', true)->where('series.0.open', 0)
+            ->where('series.0.courses.0.songs.0.status', 'official')
+            ->where('series.0.courses.0.songs.1.status', 'custom')
+            ->where('series.0.courses.0.songs.2.status', 'none'));
 });
