@@ -29,7 +29,7 @@ class WaddamburoDanController extends Controller
         $songKeys = $courses->flatten(1)->flatMap(fn (WdbDanCourse $course) => $course->songs->pluck('song_key'))->unique();
         $songs = DB::table('wdb_songs')->where('family', WaddamburoSongs::family('Stock'))
             ->whereIn('song_key', $songKeys)->pluck('title', 'song_key');
-        $charts = $this->charts($songKeys);
+        $charts = ['Stock' => $this->charts($songKeys, 'Stock'), 'Nijiiro' => $this->charts($songKeys, 'Nijiiro')];
 
         $series = [];
         foreach (WdbDanCourse::SERIES as $id => $name) {
@@ -44,12 +44,13 @@ class WaddamburoDanController extends Controller
                     'name' => $course->name,
                     'hash' => $course->content_hash,
                     'requirements' => $course->requirements,
+                    'rules' => WdbDanCourse::isNijiiro($id) ? 'nijiiro' : null,
                     'songs' => $course->songs->map(fn ($song): array => [
                         'song_key' => $song->song_key,
                         'course' => $song->course,
                         'title' => $songs[$song->song_key] ?? null,
                         'notes' => $song->notes,
-                        'charts' => ($charts[$song->song_key."\0".$song->course] ?? collect())->pluck('sha256')->values(),
+                        'charts' => ($charts[WdbDanCourse::isNijiiro($id) ? 'Nijiiro' : 'Stock'][$song->song_key."\0".$song->course] ?? collect())->pluck('sha256')->values(),
                     ])->values(),
                 ])->values(),
             ];
@@ -111,7 +112,7 @@ class WaddamburoDanController extends Controller
             if ($course === null || $course->songs->count() !== 3) {
                 continue;
             }
-            $allowed = $this->charts($course->songs->pluck('song_key'));
+            $allowed = $this->charts($course->songs->pluck('song_key'), WdbDanCourse::isNijiiro($course->series) ? 'Nijiiro' : 'Stock');
             $chartIds = [];
             foreach ($course->songs->values() as $index => $song) {
                 $sha = $play['songs'][$index]['sha256'];
@@ -170,12 +171,12 @@ class WaddamburoDanController extends Controller
      * @param  \Illuminate\Support\Collection<int, string>  $songKeys
      * @return \Illuminate\Support\Collection<string, \Illuminate\Support\Collection<int, object>>
      */
-    private function charts(\Illuminate\Support\Collection $songKeys): \Illuminate\Support\Collection
+    private function charts(\Illuminate\Support\Collection $songKeys, string $source): \Illuminate\Support\Collection
     {
         return DB::table('wdb_chart_song')
             ->join('wdb_songs', 'wdb_songs.id', '=', 'wdb_chart_song.wdb_song_id')
             ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_chart_song.wdb_chart_id')
-            ->where('wdb_chart_song.source', 'Stock')
+            ->where('wdb_chart_song.source', $source)
             ->where('wdb_songs.family', WaddamburoSongs::family('Stock'))
             ->whereIn('wdb_songs.song_key', $songKeys)
             ->where('wdb_charts.is_stock', true)

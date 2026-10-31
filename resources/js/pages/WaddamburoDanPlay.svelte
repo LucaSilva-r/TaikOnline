@@ -119,15 +119,32 @@
 
     // Goods and combo fail once the notes left cannot reach them, as the scorer decides: the others only at the end.
     function brokenBy(requirement: Requirement, row: Row): boolean {
-        const current = value(requirement.type, row);
+        const current = counted(requirement, row);
+        const target = targetOf(requirement.red, row);
+        if (target === 0) {
+            return false;
+        }
         if (limit(requirement.type)) {
-            return current >= requirement.red[0];
+            return current >= target;
         }
         if (requirement.type === 'goods' || requirement.type === 'combo') {
             const left = Math.max(course.notes - row[3] - row[4] - row[5], 0);
-            return current + left < requirement.red[0];
+            return current + left < target;
         }
         return false;
+    }
+
+    // A requirement with a value per song (Nijiiro) asks of the song being watched, counted from its start.
+    function targetOf(values: number[], row: Row | null): number {
+        return values.length === 1 ? values[0] : values[Math.min(row?.[0] ?? song, values.length - 1)];
+    }
+
+    function counted(requirement: Requirement, row: Row | null): number {
+        if (requirement.red.length === 1 || row === null) {
+            return value(requirement.type, row);
+        }
+        const before = rows.findLast((other) => other[0] < row[0]) ?? null;
+        return value(requirement.type, row) - value(requirement.type, before);
     }
 
     // Where a requirement broke in the run: the moment worth checking, whatever is being watched.
@@ -223,10 +240,10 @@
                 <Skeleton class="mt-3 h-24 rounded" />
             {/snippet}
             <ul class="mt-3 flex flex-col gap-3">
-                {#each course.requirements.filter((requirement) => requirement.red[0] !== 0) as requirement (requirement.type)}
-                    {@const current = value(requirement.type, now)}
-                    {@const target = requirement.red[0]}
-                    {@const gold = requirement.gold[0]}
+                {#each course.requirements.filter((requirement) => requirement.red.some((target) => target !== 0)) as requirement (requirement.type)}
+                    {@const current = counted(requirement, now)}
+                    {@const target = targetOf(requirement.red, now)}
+                    {@const gold = targetOf(requirement.gold, now)}
                     {@const broken = now !== null && brokenBy(requirement, now)}
                     {@const met = !limit(requirement.type) && current >= target}
                     {@const breach = brokenAt(requirement)}

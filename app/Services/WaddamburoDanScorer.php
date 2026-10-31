@@ -76,6 +76,7 @@ class WaddamburoDanScorer
         return json_encode([
             'id' => $play->id,
             'requirements' => $course->requirements,
+            'rules' => WdbDanCourse::isNijiiro($course->series) ? 'nijiiro' : null,
             'songs' => $play->songs->map(fn ($song): array => [
                 'notes' => base64_encode((string) $song->chart->notes),
                 'source' => $song->chart->source,

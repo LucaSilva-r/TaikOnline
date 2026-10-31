@@ -62,6 +62,13 @@ class WdbDanCourse extends Model
     }
 
     public const SERIES = [
+        'nijiiro-2026' => 'Nijiiro 2026',
+        'nijiiro-2025' => 'Nijiiro 2025',
+        'nijiiro-2024' => 'Nijiiro 2024',
+        'nijiiro-2023' => 'Nijiiro 2023',
+        'nijiiro-2022' => 'Nijiiro 2022',
+        'nijiiro-2021' => 'Nijiiro 2021',
+        'nijiiro-2020' => 'Nijiiro 2020',
         'green' => 'Green',
         'blue' => 'Blue',
         'yellow' => 'Yellow',
@@ -73,6 +80,12 @@ class WdbDanCourse extends Model
         'sorairo' => 'Sorairo',
         'katsudon' => 'Katsu-Don',
     ];
+
+    /** The source of a series' charts, and the rules its courses play by (null: Green and before). */
+    public static function isNijiiro(string $series): bool
+    {
+        return str_starts_with($series, 'nijiiro-');
+    }
 
     protected function casts(): array
     {
