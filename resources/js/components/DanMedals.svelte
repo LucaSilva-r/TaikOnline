@@ -1,12 +1,15 @@
 <script lang="ts">
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
-    import { taikoVersionAccent } from '@/lib/taiko-version';
+    import { taikoRouteParam, taikoVersionAccent } from '@/lib/taiko-version';
+    import { toUrl } from '@/lib/utils';
+    import { show as danPlayShow } from '@/routes/dan-plays';
 
     export type DanCourse = {
         level: number;
         name: string;
         label: string | null;
         title: string;
+        run: string | null;
         best: number | null;
     };
     export type DanSeries = {
@@ -35,6 +38,8 @@
     const percent = (entry: DanSeries): number =>
         entry.ranks_total === 0 ? 0 : Math.round((entry.ranks_passed / entry.ranks_total) * 100);
     const allGold = (entry: DanSeries): boolean => entry.ranks_total > 0 && entry.ranks_gold === entry.ranks_total;
+    const cardClass = (best: number | null): string =>
+        best === 2 ? 'border-yellow-500 bg-yellow-500/20' : best === 1 ? 'border-primary bg-primary/15' : best === 0 ? 'border-dashed' : 'opacity-50';
     const stateOf = (best: number | null): string =>
         best === 2 ? 'Gold' : best === 1 ? 'Passed' : best === 0 ? 'Failed' : 'Not played';
 </script>
@@ -91,18 +96,16 @@
         </div>
         <ul class="mt-3 grid grid-cols-3 gap-1.5 sm:grid-cols-5 lg:grid-cols-7">
             {#each ranks as course (course.level)}
-                <li
-                    title="{course.name}: {stateOf(course.best)}"
-                    class="flex flex-col items-center rounded border px-1 py-1 {course.best === 2
-                        ? 'border-yellow-500 bg-yellow-500/20'
-                        : course.best === 1
-                          ? 'border-primary bg-primary/15'
-                          : course.best === 0
-                            ? 'border-dashed'
-                            : 'opacity-50'}"
-                >
-                    <span class="text-sm font-semibold">{course.label}</span>
-                    <span class="text-2xs text-muted-foreground">{course.name}</span>
+                <li>
+                    <svelte:element
+                        this={course.run ? 'a' : 'div'}
+                        href={course.run ? toUrl(danPlayShow({ ...taikoRouteParam(), id: course.run })) : undefined}
+                        title="{course.name}: {stateOf(course.best)}"
+                        class="flex flex-col items-center rounded border px-1 py-1 {course.run ? 'hover:bg-accent' : ''} {cardClass(course.best)}"
+                    >
+                        <span class="text-sm font-semibold">{course.label}</span>
+                        <span class="text-2xs text-muted-foreground">{course.name}</span>
+                    </svelte:element>
                 </li>
             {/each}
         </ul>
@@ -110,18 +113,16 @@
             <h4 class="mt-4 text-sm font-semibold">Challenges</h4>
             <ul class="mt-2 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
                 {#each challenges as course (course.level)}
-                    <li
-                        title="{course.name}: {stateOf(course.best)}"
-                        class="rounded border px-2 py-1 {course.best === 2
-                            ? 'border-yellow-500 bg-yellow-500/20'
-                            : course.best === 1
-                              ? 'border-primary bg-primary/15'
-                              : course.best === 0
-                                ? 'border-dashed'
-                                : 'opacity-50'}"
-                    >
-                        <span class="block truncate text-sm font-medium">{course.title}</span>
-                        <span class="block truncate text-2xs text-muted-foreground">{course.name}</span>
+                    <li>
+                        <svelte:element
+                            this={course.run ? 'a' : 'div'}
+                            href={course.run ? toUrl(danPlayShow({ ...taikoRouteParam(), id: course.run })) : undefined}
+                            title="{course.name}: {stateOf(course.best)}"
+                            class="block rounded border px-2 py-1 {course.run ? 'hover:bg-accent' : ''} {cardClass(course.best)}"
+                        >
+                            <span class="block truncate text-sm font-medium">{course.title}</span>
+                            <span class="block truncate text-2xs text-muted-foreground">{course.name}</span>
+                        </svelte:element>
                     </li>
                 {/each}
             </ul>

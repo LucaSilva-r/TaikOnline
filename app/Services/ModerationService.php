@@ -10,7 +10,10 @@ use App\Models\Player;
 use App\Models\PlayReport;
 use App\Models\Sanction;
 use App\Models\User;
+use App\Models\WdbDanPlay;
+use App\Models\WdbDanPlayReport;
 use App\Models\WdbPlay;
+use App\Notifications\DanPlayReported;
 use App\Notifications\PlayReported;
 use App\Notifications\WaddamburoNotice;
 use Carbon\CarbonInterface;
@@ -135,6 +138,65 @@ class ModerationService
         }
 
         return $report->wasRecentlyCreated;
+    }
+
+    /** Files a report on a dan run; false when this player already reported it. */
+    public function reportDan(User $reporter, WdbDanPlay $play, PlayReportReason $reason, ?string $comment): bool
+    {
+        $baid = $reporter->player?->baid;
+        if ($baid === null || (int) $baid === (int) $play->baid) {
+            throw new HttpException(403, 'You cannot report this run.');
+        }
+        if (Sanction::activeFor((int) $baid, SanctionType::ReportBlock) !== null || Sanction::activeFor((int) $baid, SanctionType::Ban) !== null) {
+            throw new HttpException(403, 'You cannot report plays.');
+        }
+        if (! WdbDanPlay::query()->whereKey($play->id)->visibleTo((int) $baid)->exists()) {
+            throw new HttpException(404);
+        }
+        $report = WdbDanPlayReport::query()->firstOrCreate(
+            ['wdb_dan_play_id' => $play->id, 'reporter_id' => $reporter->id],
+            ['reason' => $reason, 'comment' => $comment],
+        );
+        // Staff hear of a run once, when it enters the queue.
+        if ($report->wasRecentlyCreated && WdbDanPlayReport::query()->open()->where('wdb_dan_play_id', $play->id)->count() === 1) {
+            Notification::send(User::query()->whereIn('role', [UserRole::Admin, UserRole::Moderator])->get(), new DanPlayReported($report));
+        }
+
+        return $report->wasRecentlyCreated;
+    }
+
+    /** Hides a dan run from its page and the player's medals, closing its reports. */
+    public function hideDan(User $actor, WdbDanPlay $play, string $reason): void
+    {
+        DB::transaction(function () use ($actor, $play, $reason): void {
+            $play->update(['hidden_at' => now(), 'hidden_by' => $actor->id, 'hidden_reason' => $reason]);
+            $this->log($actor, 'hide_dan_play', (int) $play->baid, reason: $reason);
+            $this->resolveDan($actor, $play, PlayReport::PLAY_HIDDEN);
+        });
+    }
+
+    public function restoreDan(User $actor, WdbDanPlay $play, ?string $reason): void
+    {
+        DB::transaction(function () use ($actor, $play, $reason): void {
+            $play->update(['hidden_at' => null, 'hidden_by' => null, 'hidden_reason' => null]);
+            $this->log($actor, 'restore_dan_play', (int) $play->baid, reason: $reason);
+        });
+    }
+
+    /** Closes a dan run's open reports with no action taken. */
+    public function dismissDanReports(User $actor, WdbDanPlay $play, ?string $reason): void
+    {
+        DB::transaction(function () use ($actor, $play, $reason): void {
+            if ($this->resolveDan($actor, $play, PlayReport::DISMISSED) > 0) {
+                $this->log($actor, 'dismiss_dan_reports', (int) $play->baid, reason: $reason);
+            }
+        });
+    }
+
+    private function resolveDan(User $actor, WdbDanPlay $play, string $resolution): int
+    {
+        return WdbDanPlayReport::query()->open()->where('wdb_dan_play_id', $play->id)
+            ->update(['resolved_at' => now(), 'resolved_by' => $actor->id, 'resolution' => $resolution]);
     }
 
     /** Closes a play's open reports with no action taken. */

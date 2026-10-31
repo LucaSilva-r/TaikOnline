@@ -15,6 +15,7 @@ use App\Http\Controllers\RankingController;
 use App\Http\Controllers\Settings\CabinetLoginController;
 use App\Http\Controllers\Settings\DeviceLinkController;
 use App\Http\Controllers\SongCatalogController;
+use App\Http\Controllers\WaddamburoDanPlayController;
 use App\Http\Controllers\WaddamburoPlayController;
 use App\Http\Middleware\ResolveTaikoVersion;
 use Illuminate\Support\Facades\Route;
@@ -43,6 +44,9 @@ Route::prefix('{taikoVersion}')
         Route::inertia('community', 'Community')->name('community');
         Route::get('users/{user}/board', [BoardController::class, 'show'])->name('board.show');
         Route::get('plays/{id}', [WaddamburoPlayController::class, 'show'])->name('plays.show');
+        Route::get('dan-plays/{id}', [WaddamburoDanPlayController::class, 'show'])->name('dan-plays.show');
+        Route::post('dan-plays/{id}/report', [WaddamburoDanPlayController::class, 'report'])
+            ->middleware(['auth', 'throttle:play-reports'])->name('dan-plays.report');
         Route::post('plays/{id}/report', [WaddamburoPlayController::class, 'report'])
             ->middleware(['auth', 'throttle:play-reports'])
             ->name('plays.report');
@@ -68,6 +72,9 @@ Route::prefix('{taikoVersion}')
                 Route::post('players/{player}/sanctions', [ModerationController::class, 'storeSanction'])->name('sanctions.store');
                 Route::patch('sanctions/{sanction}/revoke', [ModerationController::class, 'revokeSanction'])->name('sanctions.revoke');
                 Route::patch('plays/{play}/hide', [ModerationController::class, 'hidePlay'])->name('plays.hide');
+                Route::patch('dan-plays/{play}/hide', [ModerationController::class, 'hideDanPlay'])->name('dan-plays.hide');
+                Route::patch('dan-plays/{play}/restore', [ModerationController::class, 'restoreDanPlay'])->name('dan-plays.restore');
+                Route::patch('dan-plays/{play}/dismiss-reports', [ModerationController::class, 'dismissDanReports'])->name('dan-plays.dismiss-reports');
                 Route::patch('plays/{play}/restore', [ModerationController::class, 'restorePlay'])->name('plays.restore');
                 Route::get('reports', [ModerationController::class, 'reports'])->name('reports.index');
                 Route::patch('plays/{play}/dismiss-reports', [ModerationController::class, 'dismissReports'])->name('plays.dismiss-reports');

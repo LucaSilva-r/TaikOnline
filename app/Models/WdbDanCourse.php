@@ -71,7 +71,7 @@ class WdbDanCourse extends Model
         'kimidori' => 'Kimidori',
         'momoiro' => 'Momoiro',
         'sorairo' => 'Sorairo',
-        'katsudon' => 'KATSU-DON',
+        'katsudon' => 'Katsu-Don',
     ];
 
     protected function casts(): array

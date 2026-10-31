@@ -11,11 +11,11 @@ class WdbDanPlaySong extends Model
 {
     protected $guarded = [];
 
-    protected $hidden = ['replay'];
+    protected $hidden = ['replay', 'timeline'];
 
     protected function casts(): array
     {
-        return ['replay' => PostgresBytea::class];
+        return ['replay' => PostgresBytea::class, 'timeline' => PostgresBytea::class];
     }
 
     /** @return BelongsTo<WdbChart, $this> */

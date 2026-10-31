@@ -8,6 +8,9 @@ use App\Models\ModerationAction;
 use App\Models\Player;
 use App\Models\PlayReport;
 use App\Models\Sanction;
+use App\Models\WdbDanCourse;
+use App\Models\WdbDanPlay;
+use App\Models\WdbDanPlayReport;
 use App\Models\WdbPlay;
 use App\Services\ModerationService;
 use Illuminate\Database\Eloquent\Builder;
@@ -176,7 +179,57 @@ class ModerationController extends Controller
                         ])->values()->all(),
                     ];
                 })->all(),
+            'danRuns' => WdbDanPlayReport::query()->open()->with(['play.player.user', 'reporter.player'])->oldest()->get()
+                ->groupBy('wdb_dan_play_id')->sortByDesc(fn (Collection $group): int => $group->count())
+                ->map(function (Collection $group): array {
+                    $play = $group->first()->play;
+
+                    return [
+                        'id' => $play->id,
+                        'course' => WdbDanCourse::query()->where('content_hash', $play->content_hash)->value('name') ?? 'Unknown course',
+                        'score' => (int) $play->score,
+                        'result_level' => (int) $play->result_level,
+                        'played_at' => $play->played_at?->toIso8601String(),
+                        'hidden_at' => $play->hidden_at?->toIso8601String(),
+                        'player' => $play->player === null ? null : $this->playerRow($play->player),
+                        'reports' => $group->map(fn (WdbDanPlayReport $report): array => [
+                            'id' => $report->id,
+                            'reason' => $report->reason->label(),
+                            'comment' => $report->comment,
+                            'created_at' => $report->created_at?->toIso8601String(),
+                            'reporter' => $report->reporter?->name ?? 'Deleted account',
+                        ])->values()->all(),
+                    ];
+                })->values()->all(),
         ]);
+    }
+
+    public function hideDanPlay(Request $request, WdbDanPlay $play, ModerationService $moderation): RedirectResponse
+    {
+        abort_unless($play->player !== null && ModerationService::canActOn($request->user(), $play->player), 403);
+        abort_if($play->hidden_at !== null, 422, 'The run is already hidden.');
+        $validated = $request->validate(['reason' => ['required', 'string', 'max:2000']]);
+        $moderation->hideDan($request->user(), $play, $validated['reason']);
+
+        return back();
+    }
+
+    public function restoreDanPlay(Request $request, WdbDanPlay $play, ModerationService $moderation): RedirectResponse
+    {
+        abort_unless($play->player !== null && ModerationService::canActOn($request->user(), $play->player), 403);
+        $validated = $request->validate(['reason' => ['nullable', 'string', 'max:2000']]);
+        $moderation->restoreDan($request->user(), $play, $validated['reason'] ?? null);
+
+        return back();
+    }
+
+    public function dismissDanReports(Request $request, WdbDanPlay $play, ModerationService $moderation): RedirectResponse
+    {
+        abort_unless($play->player !== null && ModerationService::canActOn($request->user(), $play->player), 403);
+        $validated = $request->validate(['reason' => ['nullable', 'string', 'max:2000']]);
+        $moderation->dismissDanReports($request->user(), $play, $validated['reason'] ?? null);
+
+        return back();
     }
 
     /** Closes a play's open reports with no action taken. */

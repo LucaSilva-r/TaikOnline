@@ -1,13 +1,18 @@
 <?php
 
+use App\Enums\PlayReportReason;
+use App\Http\Controllers\WaddamburoWebController;
 use App\Models\WdbChart;
 use App\Models\WdbDanCourse;
 use App\Models\WdbDanPlay;
+use App\Services\ModerationService;
 use App\Services\WaddamburoSongs;
 use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Process;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function (): void {
     $this->dataFolder = (string) Str::uuid();
@@ -218,8 +223,8 @@ it('shows every series on the board, with ranks and challenges apart', function 
     WdbDanPlay::query()->create([...$scored, 'content_hash' => $course->content_hash, 'result_level' => 2, 'rescored_at' => now()]);
     WdbDanPlay::query()->create([...$scored, 'content_hash' => str_repeat('d', 64), 'result_level' => 2]); // not scored yet
 
-    $progress = (new ReflectionMethod(App\Http\Controllers\WaddamburoWebController::class, 'danProgress'))
-        ->invoke(app(App\Http\Controllers\WaddamburoWebController::class), $player);
+    $progress = (new ReflectionMethod(WaddamburoWebController::class, 'danProgress'))
+        ->invoke(app(WaddamburoWebController::class), $player);
 
     $green = collect($progress)->firstWhere('id', 'green');
     expect(collect($progress)->pluck('id')->all())->toBe(['green', 'red'])
@@ -258,4 +263,32 @@ it('leaves no Japanese in any challenge title', function (): void {
     foreach ($names as $name) {
         expect(WdbDanCourse::challengeTitle($name))->not->toMatch('/[\x{3040}-\x{30ff}\x{4e00}-\x{9fff}！]/u');
     }
+});
+
+it('shows a dan run to anyone, except one staff hid', function (): void {
+    [$course, $songs] = dan_played_course();
+    $player = wdb_player();
+    $play = WdbDanPlay::query()->create(['baid' => $player->baid, 'content_hash' => $course->content_hash, 'result_level' => 1, 'score' => 1, 'great' => 1, 'good' => 0, 'miss' => 0,
+        'max_combo' => 1, 'rolls' => 0, 'gauge_percent' => 100, 'songs_played' => 3, 'scoring_version' => 4, 'engine_version' => '', 'played_at' => now(), 'rescored_at' => now()]);
+
+    $this->get("/waddamburo/dan-plays/{$play->id}")->assertOk()
+        ->assertInertia(fn ($page) => $page->component('WaddamburoDanPlay')->where('course.label', '5 Kyu')->where('play.result_level', 1));
+
+    $play->update(['hidden_at' => now()]);
+    $this->get("/waddamburo/dan-plays/{$play->id}")->assertNotFound();
+});
+
+it('files one report per player on a dan run, and none on their own', function (): void {
+    Notification::fake();
+    [$course] = dan_played_course();
+    $player = wdb_player();
+    $play = WdbDanPlay::query()->create(['baid' => $player->baid, 'content_hash' => $course->content_hash, 'result_level' => 1, 'score' => 1, 'great' => 1, 'good' => 0, 'miss' => 0,
+        'max_combo' => 1, 'rolls' => 0, 'gauge_percent' => 100, 'songs_played' => 3, 'scoring_version' => 4, 'engine_version' => '', 'played_at' => now(), 'rescored_at' => now()]);
+    $moderation = app(ModerationService::class);
+    $reporter = wdb_player('30800000000000000002')->user;
+
+    expect($moderation->reportDan($reporter, $play, PlayReportReason::cases()[0], null))->toBeTrue()
+        ->and($moderation->reportDan($reporter, $play, PlayReportReason::cases()[0], null))->toBeFalse();
+    expect(fn () => $moderation->reportDan($player->user, $play, PlayReportReason::cases()[0], null))
+        ->toThrow(HttpException::class);
 });

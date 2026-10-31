@@ -323,6 +323,9 @@ class WaddamburoWebController extends Controller
     {
         $bests = WdbDanPlay::query()->where('baid', $player->baid)->whereNotNull('rescored_at')->whereNull('hidden_at')
             ->groupBy('content_hash')->selectRaw('content_hash, MAX(result_level) AS best')->pluck('best', 'content_hash');
+        // The run a course links to: the player's best.
+        $runs = WdbDanPlay::query()->where('baid', $player->baid)->whereNotNull('rescored_at')->whereNull('hidden_at')
+            ->orderBy('result_level')->orderBy('score')->pluck('id', 'content_hash');
         $courses = WdbDanCourse::query()->orderBy('level')->get(['series', 'level', 'name', 'content_hash'])->groupBy('series');
         $progress = [];
         foreach (WdbDanCourse::SERIES as $id => $name) {
@@ -334,6 +337,7 @@ class WaddamburoWebController extends Controller
                 'name' => $course->name,
                 'label' => WdbDanCourse::RANK_LABELS[$course->name] ?? null,
                 'title' => WdbDanCourse::challengeTitle($course->name),
+                'run' => $runs[$course->content_hash] ?? null,
                 'best' => $bests->has($course->content_hash) ? (int) $bests[$course->content_hash] : null,
             ])->values();
             $ranks = $rows->whereNotNull('label');

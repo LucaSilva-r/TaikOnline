@@ -20,6 +20,7 @@
     import { toUrl } from '@/lib/utils';
     import moderationPlayers from '@/routes/mod/players';
     import moderationPlays from '@/routes/mod/plays';
+    import { show as danPlayShow } from '@/routes/dan-plays';
     import { show as playsShow } from '@/routes/plays';
     import { taikoRouteParam } from '@/lib/taiko-version';
 
@@ -41,7 +42,15 @@
         }[];
     };
 
-    let { plays }: { plays: ReportedPlay[] } = $props();
+    type ReportedRun = {
+        id: string;
+        course: string;
+        score: number;
+        player: { name: string } | null;
+        reports: { id: number; reason: string; comment: string | null; reporter: string }[];
+    };
+
+    let { plays, danRuns = [] }: { plays: ReportedPlay[]; danRuns?: ReportedRun[] } = $props();
 
     const taikoParam = taikoRouteParam();
     const courses = ['Easy', 'Normal', 'Hard', 'Oni', 'Ura'];
@@ -148,9 +157,33 @@
                 {/each}
             </ul>
         </section>
-    {:else}
+    {/each}
+    {#if plays.length === 0 && danRuns.length === 0}
         <p class="rounded-md border p-6 text-center text-sm text-muted-foreground">
             No open reports.
         </p>
-    {/each}
+    {/if}
+
+    {#if danRuns.length > 0}
+        <h2 class="mt-2 font-semibold">Dan runs</h2>
+        {#each danRuns as run (run.id)}
+            <section class="rounded-md border p-3 text-sm">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <Link href={toUrl(danPlayShow({ ...taikoParam, id: run.id }))} class="font-semibold underline">
+                        {run.player?.name ?? 'Unknown'}: {run.course} ({run.score.toLocaleString()})
+                    </Link>
+                    <span class="text-xs text-muted-foreground">{run.reports.length} report{run.reports.length === 1 ? '' : 's'}</span>
+                </div>
+                <ul class="mt-2 flex flex-col gap-1">
+                    {#each run.reports as report (report.id)}
+                        <li>
+                            <Badge variant="outline">{report.reason}</Badge>
+                            {report.comment ?? ''}
+                            <span class="text-xs text-muted-foreground">by {report.reporter}</span>
+                        </li>
+                    {/each}
+                </ul>
+            </section>
+        {/each}
+    {/if}
 </div>

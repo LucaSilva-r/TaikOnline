@@ -63,9 +63,11 @@ class WaddamburoDanScorer
             Log::warning('Waddamburo dan play differs from its replays.', ['play' => $play->id, 'baid' => $play->baid,
                 'claimed' => $play->only(self::NUMBERS), 'scored' => $scored]);
         }
-        $play->update([...$scored, 'scoring_version' => $result['scoring_version'] ?? $play->scoring_version, 'rescored_at' => now()]);
+        $play->update([...$scored, 'scoring_version' => $result['scoring_version'] ?? $play->scoring_version, 'rescored_at' => now(),
+            'progress' => isset($result['progress']) ? gzencode(json_encode($result['progress'], JSON_THROW_ON_ERROR)) : null]);
         foreach ($play->songs as $index => $song) {
-            $song->update(array_intersect_key($result['songs'][$index] ?? [], array_flip(['great', 'good', 'miss', 'rolls'])));
+            $song->update([...array_intersect_key($result['songs'][$index] ?? [], array_flip(['great', 'good', 'miss', 'rolls'])),
+                'timeline' => isset($result['timelines'][$index]) ? gzencode(json_encode($result['timelines'][$index], JSON_THROW_ON_ERROR)) : null]);
         }
     }
 
