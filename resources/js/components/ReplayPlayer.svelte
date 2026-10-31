@@ -72,7 +72,7 @@
         master: 'Master 達人',
     } as const;
     const checkTimes = $derived(
-        new Set((replay.branches ?? []).map((check) => check.t)),
+        new Set((replay.branches ?? []).map((check) => check.start)),
     );
 
     /** The route the last check at or before now picked (what the lane shows). */
