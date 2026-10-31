@@ -313,6 +313,24 @@ it('applies chart rules after the import: retired charts stay apart, custom ones
     $this->artisan('app:import-waddamburo-charts', ['files' => [$export], '--chart-rules' => $rules])->assertFailed();
 });
 
+it('shows a Green chart a repack also ships as Green only when Nijiiro never had the song', function (): void {
+    $green = wdb_web_chart(['sha256' => str_repeat('a', 64), 'title' => 'Old Song', 'source' => 'Stock', 'course' => 3, 'is_stock' => true, 'ranked_at' => now()], 'oldsng');
+    WaddamburoSongs::attach([['wdb_chart_id' => $green->id, 'song_key' => 'oldsng', 'source' => 'Nijiiro', 'title' => 'Old Song']]);
+    $both = wdb_web_chart(['sha256' => str_repeat('b', 64), 'title' => 'Both', 'source' => 'Stock', 'course' => 3, 'is_stock' => true, 'ranked_at' => now()], 'bothsg');
+    WaddamburoSongs::attach([['wdb_chart_id' => $both->id, 'song_key' => 'bothsg', 'source' => 'Nijiiro', 'title' => 'Both']]);
+    $songs = tempnam(sys_get_temp_dir(), 'wdb');
+    file_put_contents($songs, "bothsg\n");
+    $export = tempnam(sys_get_temp_dir(), 'wdb');
+    file_put_contents($export, gzencode(''));
+
+    $this->artisan('app:import-waddamburo-charts', ['files' => [$export], '--nijiiro-songs' => $songs])
+        ->expectsOutput("Marked 1 charts of songs off the list as Green's only.")->assertSuccessful();
+
+    $sources = fn (WdbChart $chart) => DB::table('wdb_chart_song')->where('wdb_chart_id', $chart->id)->pluck('source')->sort()->values()->all();
+    expect($sources($green))->toBe(['Stock'])->and($sources($both))->toBe(['Nijiiro', 'Stock'])
+        ->and($green->fresh())->is_stock->toBeTrue()->ranked_at->not->toBeNull();
+});
+
 it('refuses a chart export it cannot read', function (): void {
     $this->artisan('app:import-waddamburo-charts', ['files' => ['/nonexistent/export.jsonl.gz']])
         ->expectsOutput('Cannot read /nonexistent/export.jsonl.gz.')->assertFailed();

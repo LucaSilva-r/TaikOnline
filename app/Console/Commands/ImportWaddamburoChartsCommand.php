@@ -134,6 +134,7 @@ class ImportWaddamburoChartsCommand extends Command
             $charts()->whereNull('ranked_at')->whereNull('legacy_at')->update(['ranked_at' => $now]);
         }
         $offList = 0;
+        $greenOnly = 0;
         if ($songsPath !== null) {
             $nijiiro = fn (bool $listed) => DB::table('wdb_chart_song')->select('wdb_chart_id')->where('source', 'Nijiiro')
                 ->whereIn('wdb_song_id', DB::table('wdb_songs')->select('id')->where('family', WaddamburoSongs::family('Nijiiro'))
@@ -142,6 +143,11 @@ class ImportWaddamburoChartsCommand extends Command
                 ->whereIn('id', $nijiiro(false))->whereNotIn('id', $nijiiro(true))
                 ->whereNotIn('id', DB::table('wdb_chart_song')->select('wdb_chart_id')->where('source', 'Stock'))
                 ->update(['is_stock' => false, 'ranked_at' => null]);
+            // A Green chart a Nijiiro repack also ships, of a song Nijiiro never had, is Green's alone.
+            $greenOnly = DB::table('wdb_chart_song')->where('source', 'Nijiiro')
+                ->whereIn('wdb_song_id', DB::table('wdb_songs')->select('id')->where('family', WaddamburoSongs::family('Nijiiro'))->whereNotIn('song_key', $songIds))
+                ->whereIn('wdb_chart_id', DB::table('wdb_chart_song')->select('wdb_chart_id')->where('source', 'Stock'))
+                ->delete();
         }
         $legacyCharts = 0;
         foreach (array_chunk(array_keys($legacy), 1000) as $chunk) {
@@ -180,6 +186,7 @@ class ImportWaddamburoChartsCommand extends Command
         if ($songsPath !== null) {
             $this->info("Ranked {$songCharts} charts of ".count($listedSongs).' Nijiiro song ids the exports lack.');
             $this->info("Made {$offList} charts of Nijiiro songs off the list custom and unranked.");
+            $this->info("Marked {$greenOnly} charts of songs off the list as Green's only.");
         }
         if ($rulesPath !== null) {
             $this->info("Chart rules: retired {$retired}, made {$madeCustom} custom.");
