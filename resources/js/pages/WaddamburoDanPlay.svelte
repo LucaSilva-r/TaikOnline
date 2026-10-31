@@ -134,7 +134,8 @@
         return false;
     }
 
-    // A requirement with a value per song (Nijiiro) asks of the song being watched, counted from its start.
+    // A requirement with a value per song (Nijiiro) asks of the song being watched (no row: that song), counted
+    // from its start; before the song's first row (fresh, in the panel) it stands at 0.
     function targetOf(values: number[], row: Row | null): number {
         return values.length === 1 ? values[0] : values[Math.min(row?.[0] ?? song, values.length - 1)];
     }
@@ -241,10 +242,12 @@
             {/snippet}
             <ul class="mt-3 flex flex-col gap-3">
                 {#each course.requirements.filter((requirement) => requirement.red.some((target) => target !== 0)) as requirement (requirement.type)}
-                    {@const current = counted(requirement, now)}
-                    {@const target = targetOf(requirement.red, now)}
-                    {@const gold = targetOf(requirement.gold, now)}
-                    {@const broken = now !== null && brokenBy(requirement, now)}
+                    {@const perSong = requirement.red.length > 1}
+                    {@const fresh = perSong && now !== null && now[0] < song}
+                    {@const current = fresh ? 0 : counted(requirement, now)}
+                    {@const target = targetOf(requirement.red, perSong ? null : now)}
+                    {@const gold = targetOf(requirement.gold, perSong ? null : now)}
+                    {@const broken = now !== null && !fresh && brokenBy(requirement, now)}
                     {@const met = !limit(requirement.type) && current >= target}
                     {@const breach = brokenAt(requirement)}
                     <li>
@@ -263,7 +266,7 @@
                         <div class="mt-1 h-2 overflow-hidden rounded bg-muted">
                             <div
                                 class="h-full transition-[width] duration-100 {broken ? 'bg-destructive' : 'bg-primary'}"
-                                style="width: {Math.min((current / target) * 100, 100)}%"
+                                style="width: {target === 0 ? 100 : Math.min((current / target) * 100, 100)}%"
                             ></div>
                         </div>
                         {#if breach}
