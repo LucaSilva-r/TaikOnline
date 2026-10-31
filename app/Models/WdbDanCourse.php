@@ -16,6 +16,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class WdbDanCourse extends Model
 {
     /** The series in the order players see them, newest first: id => name. */
+    /** The ladder's ranks in every series, in romaji; any other course is a challenge. */
+    public const RANK_LABELS = [
+        '初級' => 'Beginner',
+        '十級' => '10 Kyu', '九級' => '9 Kyu', '八級' => '8 Kyu', '七級' => '7 Kyu', '六級' => '6 Kyu',
+        '五級' => '5 Kyu', '四級' => '4 Kyu', '三級' => '3 Kyu', '二級' => '2 Kyu', '一級' => '1 Kyu',
+        '４級' => '4 Kyu', '３級' => '3 Kyu', '２級' => '2 Kyu', '１級' => '1 Kyu',
+        '初段' => '1 Dan', '二段' => '2 Dan', '三段' => '3 Dan', '四段' => '4 Dan', '五段' => '5 Dan',
+        '六段' => '6 Dan', '七段' => '7 Dan', '八段' => '8 Dan', '九段' => '9 Dan', '十段' => '10 Dan',
+        '玄人' => 'Kurouto', '名人' => 'Meijin', '超人' => 'Chojin', '達人' => 'Tatsujin',
+        '先鋒' => 'Senpo', '次鋒' => 'Jiho', '中堅' => 'Chuken', '副将' => 'Fukusho', '大将' => 'Taisho',
+    ];
+
     public const SERIES = [
         'green' => 'Green',
         'blue' => 'Blue',

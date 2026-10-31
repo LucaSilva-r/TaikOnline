@@ -314,33 +314,40 @@ class WaddamburoWebController extends Controller
     }
 
     /**
-     * Each dan series as the board shows it, from the plays the server has scored: how many of its courses the
-     * player passed and got gold on, and the best on each course played. A course in several series counts in each.
+     * Every dan series as the board's medals show it, from the plays the server has scored. The ranks are the
+     * ladder and set a series' progress; challenges are the extras around it. A course in several series counts in each.
      *
-     * @return list<array{id: string, name: string, total: int, passed: int, gold: int, courses: list<array{level: int, name: string, best: int|null}>}>
+     * @return list<array<string, mixed>>
      */
     private function danProgress(Player $player): array
     {
         $bests = WdbDanPlay::query()->where('baid', $player->baid)->whereNotNull('rescored_at')->whereNull('hidden_at')
             ->groupBy('content_hash')->selectRaw('content_hash, MAX(result_level) AS best')->pluck('best', 'content_hash');
-        if ($bests->isEmpty()) {
-            return [];
-        }
         $courses = WdbDanCourse::query()->orderBy('level')->get(['series', 'level', 'name', 'content_hash'])->groupBy('series');
         $progress = [];
         foreach (WdbDanCourse::SERIES as $id => $name) {
-            $series = $courses->get($id);
-            if ($series === null || ! $series->contains(fn (WdbDanCourse $course): bool => $bests->has($course->content_hash))) {
+            if (! $courses->has($id)) {
                 continue;
             }
-            $best = fn (WdbDanCourse $course): ?int => $bests->has($course->content_hash) ? (int) $bests[$course->content_hash] : null;
+            $rows = $courses[$id]->map(fn (WdbDanCourse $course): array => [
+                'level' => $course->level,
+                'name' => $course->name,
+                'label' => WdbDanCourse::RANK_LABELS[$course->name] ?? null,
+                'best' => $bests->has($course->content_hash) ? (int) $bests[$course->content_hash] : null,
+            ])->values();
+            $ranks = $rows->whereNotNull('label');
+            $challenges = $rows->whereNull('label');
             $progress[] = [
                 'id' => $id,
                 'name' => $name,
-                'total' => $series->count(),
-                'passed' => $series->filter(fn (WdbDanCourse $course): bool => ($best($course) ?? 0) >= WdbDanPlay::RED)->count(),
-                'gold' => $series->filter(fn (WdbDanCourse $course): bool => $best($course) === WdbDanPlay::GOLD)->count(),
-                'courses' => $series->map(fn (WdbDanCourse $course): array => ['level' => $course->level, 'name' => $course->name, 'best' => $best($course)])->values()->all(),
+                'ranks_total' => $ranks->count(),
+                'ranks_passed' => $ranks->where('best', '>=', WdbDanPlay::RED)->count(),
+                'ranks_gold' => $ranks->where('best', WdbDanPlay::GOLD)->count(),
+                'challenges_total' => $challenges->count(),
+                'challenges_passed' => $challenges->where('best', '>=', WdbDanPlay::RED)->count(),
+                // The ladder runs in level order: the highest passed is the player's rank.
+                'top_rank' => $ranks->where('best', '>=', WdbDanPlay::RED)->last()['label'] ?? null,
+                'courses' => $rows->all(),
             ];
         }
 

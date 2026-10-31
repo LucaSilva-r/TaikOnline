@@ -19,6 +19,7 @@
     import { LineChart } from 'layerchart';
     import Activity from 'lucide-svelte/icons/activity';
     import Award from 'lucide-svelte/icons/award';
+    import DanMedals, { type DanSeries } from '@/components/DanMedals.svelte';
     import CalendarDays from 'lucide-svelte/icons/calendar-days';
     import Crown from 'lucide-svelte/icons/crown';
     import Drum from 'lucide-svelte/icons/drum';
@@ -175,15 +176,6 @@
         recent_runs: TokkunRun[];
     };
 
-    type DanSeriesProgress = {
-        id: string;
-        name: string;
-        total: number;
-        passed: number;
-        gold: number;
-        courses: { level: number; name: string; best: number | null }[];
-    };
-
     type DaniData = {
         got_dan_max: number;
         disp_taikojuku_dan: number;
@@ -215,7 +207,7 @@
         greenGhostData?: GreenGhostData | null;
         tokkunData?: TokkunData | null;
         daniData?: DaniData | null;
-        danProgress?: DanSeriesProgress[];
+        danProgress?: DanSeries[];
         moderationBaid?: number | null;
         standing?: Standing | null;
     } = $props();
@@ -1067,36 +1059,10 @@
             <div class="border-b border-l-4 border-l-primary px-4 py-3">
                 <h2 class="font-semibold text-lg flex items-center gap-2">
                     <Award class="size-5 text-primary" />
-                    Dan Dojo (段位道場) Progress
+                    Dan Dojo (段位道場)
                 </h2>
-                <p class="text-sm text-muted-foreground">Courses passed in each series</p>
             </div>
-            <div class="grid gap-4 p-4 sm:grid-cols-2">
-                {#each danProgress as series (series.id)}
-                    <div>
-                        <div class="flex items-baseline justify-between gap-2">
-                            <span class="font-semibold">{series.name}</span>
-                            <span class="text-sm tabular-nums text-muted-foreground">
-                                {series.passed}/{series.total} passed, {series.gold} gold
-                            </span>
-                        </div>
-                        <div class="mt-2 flex flex-wrap gap-1">
-                            {#each series.courses as course (course.level)}
-                                <span
-                                    title={course.best === 2 ? 'Gold' : course.best === 1 ? 'Passed' : course.best === 0 ? 'Failed' : 'Not played'}
-                                    class="rounded border px-1.5 py-0.5 text-xs {course.best === 2
-                                        ? 'border-yellow-500 bg-yellow-500/20 font-semibold'
-                                        : course.best === 1
-                                          ? 'border-red-500 bg-red-500/15 font-semibold'
-                                          : 'text-muted-foreground'}"
-                                >
-                                    {course.name}
-                                </span>
-                            {/each}
-                        </div>
-                    </div>
-                {/each}
-            </div>
+            <DanMedals series={danProgress} />
         </section>
     {/if}
 

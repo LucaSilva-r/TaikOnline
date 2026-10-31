@@ -207,3 +207,25 @@ it('keeps a dan play uncounted until it is scored', function (): void {
 
     expect(WdbDanPlay::query()->findOrFail($play['id'])->rescored_at)->toBeNull();
 });
+
+it('shows every series on the board, with ranks and challenges apart', function (): void {
+    [$course] = dan_played_course();
+    WdbDanCourse::query()->create(['series' => 'green', 'level' => 101, 'name' => '復活！カツドン大将', 'content_hash' => str_repeat('d', 64), 'requirements' => []]);
+    WdbDanCourse::query()->create(['series' => 'red', 'level' => 1, 'name' => '初級', 'content_hash' => str_repeat('e', 64), 'requirements' => []]);
+    $player = wdb_player();
+    $scored = ['baid' => $player->baid, 'score' => 1, 'great' => 1, 'good' => 0, 'miss' => 0, 'max_combo' => 1, 'rolls' => 0, 'gauge_percent' => 100,
+        'songs_played' => 3, 'scoring_version' => 4, 'engine_version' => '', 'played_at' => now()];
+    WdbDanPlay::query()->create([...$scored, 'content_hash' => $course->content_hash, 'result_level' => 2, 'rescored_at' => now()]);
+    WdbDanPlay::query()->create([...$scored, 'content_hash' => str_repeat('d', 64), 'result_level' => 2]); // not scored yet
+
+    $progress = (new ReflectionMethod(App\Http\Controllers\WaddamburoWebController::class, 'danProgress'))
+        ->invoke(app(App\Http\Controllers\WaddamburoWebController::class), $player);
+
+    $green = collect($progress)->firstWhere('id', 'green');
+    expect(collect($progress)->pluck('id')->all())->toBe(['green', 'red'])
+        ->and($green['ranks_total'])->toBe(1)
+        ->and($green['ranks_gold'])->toBe(1)
+        ->and($green['top_rank'])->toBe('5 Kyu')
+        ->and($green['challenges_total'])->toBe(1)
+        ->and($green['challenges_passed'])->toBe(0);
+});
