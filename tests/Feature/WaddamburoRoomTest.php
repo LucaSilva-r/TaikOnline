@@ -235,8 +235,9 @@ it('signs the room channel for its members only, with who they are', function ()
     $code = wdb_room_code($host);
 
     $response = $this->withToken(wdb_room_token($host))->postJson('/api/wdb/broadcasting/auth', wdb_room_auth($code))->assertOk();
-    expect(json_decode($response->json('channel_data'), true)['user_info'])
-        ->toBe(['id' => $host->id, 'name' => 'Host', 'baid' => $host->player->baid]);
+    $info = json_decode($response->json('channel_data'), true)['user_info'];
+    expect($info)->toMatchArray(['id' => $host->id, 'account_name' => 'Host', 'baid' => $host->player->baid, 'title_plate' => 0])
+        ->and($info['look'])->toHaveKeys(['costume', 'face', 'body', 'limb']);
 
     $this->withToken(wdb_room_token(wdb_room_player('Stranger')))->postJson('/api/wdb/broadcasting/auth', wdb_room_auth($code))->assertForbidden();
 });
