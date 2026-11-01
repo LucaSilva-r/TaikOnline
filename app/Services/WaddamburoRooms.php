@@ -208,6 +208,12 @@ class WaddamburoRooms
         });
     }
 
+    /** Whether the player opened the room (or waited in it for quick play): they pick the songs. */
+    public function isHost(string $code, User $user): bool
+    {
+        return ($this->room($code)['host'] ?? null) === $user->id;
+    }
+
     public function isMember(string $code, User $user): bool
     {
         $room = $this->room($code);

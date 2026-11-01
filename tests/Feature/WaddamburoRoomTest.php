@@ -49,7 +49,7 @@ it('opens a room with a code the guest can join, in any case', function (): void
 
     expect($code)->toMatch('/\A[A-HJ-NP-Z2-9]{6}\z/');
     $this->withToken(wdb_room_token(wdb_room_player('Katsu')))->postJson('/api/wdb/rooms/'.strtolower($code).'/join')
-        ->assertOk()->assertExactJson(['code' => $code, 'channel' => "presence-wdb.room.{$code}", 'name' => 'Don', 'is_public' => true, 'has_password' => false]);
+        ->assertOk()->assertExactJson(['code' => $code, 'channel' => "presence-wdb.room.{$code}", 'name' => 'Don', 'is_public' => true, 'has_password' => false, 'is_host' => false]);
 });
 
 it('has one guest seat, which they can come back to and which frees when they leave', function (): void {
@@ -84,14 +84,15 @@ it('matches quick play with whoever is waiting, and only them', function (): voi
     $second = wdb_room_player('Second');
     $third = wdb_room_player('Third');
 
-    $room = $this->withToken(wdb_room_token($first))->postJson('/api/wdb/rooms/quick-play')->assertOk()->json();
+    $room = $this->withToken(wdb_room_token($first))->postJson('/api/wdb/rooms/quick-play')->assertOk()->assertJsonPath('is_host', true)->json();
     expect($room['channel'])->toBe("presence-wdb.room.{$room['code']}");
     // Asking again while waiting is the same place, not a second one.
     app('auth')->forgetGuards();
     expect($this->withToken(wdb_room_token($first))->postJson('/api/wdb/rooms/quick-play')->json('code'))->toBe($room['code']);
 
     app('auth')->forgetGuards();
-    expect($this->withToken(wdb_room_token($second))->postJson('/api/wdb/rooms/quick-play')->json('code'))->toBe($room['code']);
+    $matched = $this->withToken(wdb_room_token($second))->postJson('/api/wdb/rooms/quick-play')->assertJsonPath('is_host', false);
+    expect($matched->json('code'))->toBe($room['code']);
 
     // Those two are matched: the next player starts waiting in a room of their own.
     app('auth')->forgetGuards();

@@ -24,7 +24,7 @@ class WaddamburoRoomController extends Controller
         $validated = $request->validate($this->settingsRules());
         $code = $rooms->create($user, $validated['name'] ?? null, (bool) ($validated['is_public'] ?? true), $validated['password'] ?? null);
 
-        return response()->json($this->room($code, $rooms), 201);
+        return response()->json($this->room($code, $rooms, $request->user()), 201);
     }
 
     public function update(Request $request, string $code, WaddamburoRooms $rooms): JsonResponse
@@ -33,12 +33,12 @@ class WaddamburoRoomController extends Controller
         abort_if($request->user() === null, 404);
         abort_unless($rooms->update($code, $request->user(), $request->validate($this->settingsRules())), 404);
 
-        return response()->json($this->room($code, $rooms));
+        return response()->json($this->room($code, $rooms, $request->user()));
     }
 
     public function quickPlay(Request $request, WaddamburoRooms $rooms): JsonResponse
     {
-        return response()->json($this->room($rooms->quickPlay($this->player($request, $rooms)), $rooms));
+        return response()->json($this->room($rooms->quickPlay($user = $this->player($request, $rooms)), $rooms, $user));
     }
 
     public function keepAlive(Request $request, string $code, WaddamburoRooms $rooms): Response
@@ -58,7 +58,7 @@ class WaddamburoRoomController extends Controller
             return response()->json(['message' => 'Wrong password.', 'wrong_password' => true], 403);
         }
 
-        return response()->json($this->room($code, $rooms));
+        return response()->json($this->room($code, $rooms, $request->user()));
     }
 
     public function destroy(Request $request, string $code, WaddamburoRooms $rooms): Response
@@ -97,8 +97,8 @@ class WaddamburoRoomController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function room(string $code, WaddamburoRooms $rooms): array
+    private function room(string $code, WaddamburoRooms $rooms, User $user): array
     {
-        return [...($rooms->describe($code) ?? ['code' => $code]), 'channel' => "presence-wdb.room.{$code}"];
+        return [...($rooms->describe($code) ?? ['code' => $code]), 'channel' => "presence-wdb.room.{$code}", 'is_host' => $rooms->isHost($code, $user)];
     }
 }
