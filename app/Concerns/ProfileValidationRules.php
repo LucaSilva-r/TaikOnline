@@ -2,6 +2,7 @@
 
 namespace App\Concerns;
 
+use App\Models\BlockedEmail;
 use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
@@ -99,6 +100,11 @@ trait ProfileValidationRules
             $userId === null
                 ? Rule::unique(User::class)
                 : Rule::unique(User::class)->ignore($userId),
+            function (string $attribute, mixed $value, \Closure $fail): void {
+                if (BlockedEmail::isBlocked((string) $value)) {
+                    $fail('This email address cannot be used.');
+                }
+            },
         ];
     }
 }

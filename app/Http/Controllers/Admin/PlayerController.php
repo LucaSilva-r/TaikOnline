@@ -10,6 +10,7 @@ use App\Http\Requests\Admin\PlayerUpdateRequest;
 use App\Models\Player;
 use App\Models\User;
 use App\Services\AccessCodeOwnershipService;
+use App\Services\AccountDeletion;
 use App\Services\CardIssueService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -173,7 +174,7 @@ class PlayerController extends Controller
             return back()->withErrors(['user' => 'You cannot delete yourself.']);
         }
 
-        $user->delete();
+        app(AccountDeletion::class)->delete($user);
 
         return back();
     }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
 use App\Models\GameCard;
+use App\Services\AccountDeletion;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
@@ -81,7 +82,7 @@ class ProfileController extends Controller
 
         Auth::logout();
 
-        $user->delete();
+        app(AccountDeletion::class)->delete($user);
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

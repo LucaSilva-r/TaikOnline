@@ -220,6 +220,10 @@ all of them after the analyzer changes.
   is lifted; never for a shadowban. Reporters get one `WaddamburoNotice` (kind
   `report_resolved`) per decision closing their reports: dismissed, play removed, or "action was
   taken" against the player (the sanction is not named). `api/wdb/notifications` returns `WaddamburoNotice`s only.
+- Deleting an account (`AccountDeletion`) deletes the player, plays, cards and what no foreign key reaches; the
+  moderation log stays with the player unlinked. Deleting while banned leaves an HMAC of the normalized email
+  in `blocked_emails` until the ban would have ended, refusing it at sign-up and email change. The privacy policy
+  must mention this. BAIDs never linked to an account are not touched.
 - Closing a report (dismissed, play hidden, player banned or shadowbanned) removes that play's or run's
   staff notifications; a ban or shadowban now closes reports on dan runs too.
 - Notification page `settings/notifications`: tabs by category (`NotificationCategory`, from each

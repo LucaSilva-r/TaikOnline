@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\BlockedEmail;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -11,3 +12,5 @@ Artisan::command('inspire', function () {
 Schedule::command('app:record-player-rank-snapshots')
     ->daily()
     ->withoutOverlapping();
+
+Schedule::command('model:prune', ['--model' => [BlockedEmail::class]])->daily();

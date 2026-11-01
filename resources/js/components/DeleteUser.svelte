@@ -51,11 +51,10 @@
                                 >Are you sure you want to delete your account?</DialogTitle
                             >
                             <DialogDescription>
-                                Once your account is deleted, all of its
-                                resources and data will also be permanently
-                                deleted. Please enter your password to confirm
-                                you would like to permanently delete your
-                                account.
+                                This permanently deletes your account, your
+                                player with all its plays, scores and progress,
+                                your linked cards and your profile picture.
+                                Please enter your password to confirm.
                             </DialogDescription>
                         </div>
 
