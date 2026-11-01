@@ -144,6 +144,9 @@ return [
     |
     */
 
+    // Closing sign-ups keeps the registration routes, which the frontend's generated routes need, and refuses them.
+    'registration_open' => env('REGISTRATION_OPEN', true),
+
     'features' => [
         Features::registration(),
         Features::resetPasswords(),

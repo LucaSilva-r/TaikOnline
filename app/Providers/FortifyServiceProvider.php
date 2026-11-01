@@ -75,7 +75,7 @@ class FortifyServiceProvider extends ServiceProvider
 
             return Inertia::render('auth/Login', [
                 'canResetPassword' => Features::enabled(Features::resetPasswords()),
-                'canRegister' => Features::enabled(Features::registration()),
+                'canRegister' => Features::enabled(Features::registration()) && config('fortify.registration_open'),
                 'status' => $request->session()->get('status'),
                 'signupAccessCode' => $code,
                 'signupVersion' => $code !== null ? $version : null,
@@ -97,6 +97,8 @@ class FortifyServiceProvider extends ServiceProvider
         ]));
 
         Fortify::registerView(function (Request $request) {
+            abort_unless(config('fortify.registration_open'), 404);
+
             // Carry an access code arriving from the login "Sign up" link into
             // the post-registration redirect: after the account is created,
             // Fortify's RegisterResponse honours the intended URL, dropping the

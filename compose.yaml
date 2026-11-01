@@ -88,6 +88,20 @@ services:
             - laravel.test
         restart: unless-stopped
 
+    # Publishes this dev server as staging: docker compose --profile staging up -d cloudflare-tunnel. In the tunnel's public
+    # hostname, the service is https://tls-proxy:443 with TLS verification off (it serves the local certificate).
+    cloudflare-tunnel:
+        image: cloudflare/cloudflared:latest
+        profiles: ['staging']
+        environment:
+            TUNNEL_TOKEN: '${CLOUDFLARE_TUNNEL_TOKEN:-}'
+        command: tunnel --no-autoupdate run
+        networks:
+            - sail
+        depends_on:
+            - tls-proxy
+        restart: unless-stopped
+
     # STUN and relay for Waddamburo's online play. UDP only, and nothing inside this network or the VPS is reachable through it.
     turn:
         image: 'coturn/coturn:4.7.0'

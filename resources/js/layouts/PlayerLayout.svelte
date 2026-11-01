@@ -233,15 +233,17 @@
                     >
                         Log in
                     </Link>
-                    <Link
-                        href={toUrl(register())}
-                        class={buttonVariants({
-                            variant: 'default',
-                            size: 'sm',
-                        })}
-                    >
-                        Sign up
-                    </Link>
+                    {#if page.props.canRegister}
+                        <Link
+                            href={toUrl(register())}
+                            class={buttonVariants({
+                                variant: 'default',
+                                size: 'sm',
+                            })}
+                        >
+                            Sign up
+                        </Link>
+                    {/if}
                 {/if}
             </div>
         </div>

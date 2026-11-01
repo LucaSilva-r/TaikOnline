@@ -39,7 +39,10 @@ A room introduces two players, and that's all the server does for them.
   STUN, and TURN credentials signed with `TURN_SECRET` that last as long as a room. Without `TURN_HOST` they get a
   public STUN server and no relay.
 - **The link:** the game's own `PeerLink` (C#, no native library) probes every address both players gathered, prefers
-  a route without the relay, and only speaks UDP over IPv4. A network that blocks UDP can't connect.
+  a route without the relay. It speaks UDP over IPv4 and IPv6; STUN and the relay are IPv4 only. A network that blocks
+  UDP can't connect.
+- **Testing a network:** `--online-test` opens a room and `--online-test=CODE` joins one, with no game window, and
+  reports the route and round trip.
 
 ## Before deploying
 
