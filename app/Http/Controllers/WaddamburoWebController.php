@@ -284,7 +284,7 @@ class WaddamburoWebController extends Controller
                 'avatar' => $play->player->user->avatar, 'level' => (int) $play->course + 1,
                 'difficulty' => $play->chart?->difficulty,
                 'played_at' => $play->played_at?->toDateTimeString(), 'play_result' => self::crown($play),
-                'score' => (int) $play->score, 'score_rank' => 0,
+                'score' => (int) $play->score, 'score_rank' => 0, 'awaiting_verification' => $play->rescored_at === null,
                 'precision' => PlayerRankAggregateService::precision((int) $play->great, (int) $play->good, (int) $play->miss),
                 'options' => WdbPlay::optionLabels((int) $play->options),
             ])->values()->all();
@@ -309,6 +309,7 @@ class WaddamburoWebController extends Controller
                 // Drumroll hits beside the chart's most (null: not scored by the server yet).
                 'roll_count' => (int) $play->rolls, 'roll_max' => $play->chart->roll_max,
                 'counts_for_leaderboard' => $play->chart->ranked_at !== null,
+                'awaiting_verification' => $play->rescored_at === null,
                 'options' => WdbPlay::optionLabels((int) $play->options),
             ])->all();
     }

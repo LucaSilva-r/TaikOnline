@@ -182,6 +182,11 @@ after the analyzer changes.
   them (hit notes leave, missed ones scroll on), rolls, balloons and kusudama with their hits left,
   go-go tint, Good/Ok/Bad, combo and drumroll counters, play/pause, seek, 0.5–2× speed. It gets the
   timeline without inputs (`replay` prop); inputs stay in the staff-only `inspection`.
+- Roll frames: the engine scores one roll hit per 1/60 s frame, counted from the roll's start. Zoomed to 2.5 s or
+  less, the drumroll chart and pad strip shade those frames and a Frame row counts the hits in each (red
+  past one); the roll table gives each roll's most in a frame. Following the replay keeps the zoom.
+- A play the server has not scored shows "Unranked, awaiting verification" in recent plays; it counts for no
+  board, standing, crown total or game crown (`api/wdb/bests`).
 - Not built yet: synthesized clicks per input, frame stepping.
 
 ## Implementation (step 3)

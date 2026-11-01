@@ -242,6 +242,7 @@ class WaddamburoController extends Controller
             ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_plays.wdb_chart_id')
             ->where('wdb_plays.baid', $baid)
             ->whereNull('wdb_plays.hidden_at')
+            ->whereNotNull('wdb_plays.rescored_at')
             ->groupBy('wdb_charts.sha256')
             // The best normal score (真打 ones are on another scale); a crown from any play.
             ->selectRaw('wdb_charts.sha256, MAX(CASE WHEN (wdb_plays.options & '.WdbPlay::SHINUCHI.') = 0 THEN wdb_plays.score END) AS score, '

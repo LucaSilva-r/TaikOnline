@@ -7,6 +7,7 @@ use App\Jobs\AnalyzeWaddamburoPlays;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
+use App\Models\PlayerVersionStats;
 use App\Models\User;
 use App\Models\WdbCabinet;
 use App\Models\WdbChart;
@@ -16,6 +17,7 @@ use App\Notifications\UploadWarningRaised;
 use App\Notifications\WaddamburoNotice;
 use App\Services\CabinetPairingService;
 use App\Services\WaddamburoAnalyzer;
+use App\Services\WaddamburoRankAggregateService;
 use App\Services\WaddamburoReplay;
 use App\Services\WaddamburoUploadWarnings;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -379,8 +381,14 @@ it('returns a player\'s best score and crown per chart', function (): void {
             'baid' => $owner->baid,
             'wdb_chart_id' => $chart->id,
             'replay' => 'inputs',
+            'rescored_at' => now(),
         ]);
     }
+    // Not scored by the server: its claimed numbers count for nothing.
+    WdbPlay::query()->create([
+        ...Arr::except(wdb_play($chart->sha256, ['score' => 999999]), ['chart_sha256']),
+        'baid' => $player->baid, 'wdb_chart_id' => $chart->id, 'replay' => 'inputs',
+    ]);
 
     $this->withToken(wdb_token($player))->getJson('/api/wdb/bests')
         ->assertOk()
@@ -724,4 +732,29 @@ it('analyzes the plays not analyzed yet from the command, or every one with --al
 
 it('fails the command without an analyzer', function (): void {
     $this->artisan('app:analyze-waddamburo-plays')->assertFailed();
+});
+
+it('counts crowns in a player\'s totals only for ranked charts and plays the server scored', function (): void {
+    $player = wdb_player();
+    $ranked = WdbChart::query()->create(['sha256' => str_repeat('a', 64), 'ranked_at' => now()]);
+    $unranked = WdbChart::query()->create(['sha256' => str_repeat('b', 64)]);
+    $unscored = WdbChart::query()->create(['sha256' => str_repeat('c', 64), 'ranked_at' => now()]);
+    wdb_scored_play($player, $ranked);
+    wdb_scored_play($player, $unranked);
+    wdb_scored_play($player, $unscored)->update(['rescored_at' => null]);
+
+    app(WaddamburoRankAggregateService::class)->recompute($player);
+
+    expect(PlayerVersionStats::query()->where('baid', $player->baid)->sole())
+        ->crown_gold->toBe(1)->crown_clear->toBe(0)->crown_dondaful->toBe(0)->ranked_song_count->toBe(1);
+});
+
+it('labels a play the server has not scored in the recent plays', function (): void {
+    $player = wdb_player();
+    $chart = WdbChart::query()->create(['sha256' => str_repeat('a', 64), 'ranked_at' => now(), 'title' => 'Song', 'source' => 'Stock']);
+    wdb_scored_play($player, $chart)->update(['rescored_at' => null]);
+    wdb_scored_play($player, $chart)->update(['played_at' => now()->subYear()]);
+
+    $this->actingAs($player->user)->get("/waddamburo/users/{$player->user_id}/board")->assertInertia(fn (Assert $page) => $page
+        ->where('recentPlays.0.awaiting_verification', true)->where('recentPlays.1.awaiting_verification', false));
 });

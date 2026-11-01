@@ -90,6 +90,8 @@
         roll_count?: number;
         roll_max?: number | null;
         counts_for_leaderboard?: boolean;
+        /** Waddamburo: the server has not scored it from its replay yet, so its numbers are the client's. */
+        awaiting_verification?: boolean;
         /** Play options as tags (1.3x, Hidden, Reversed, Random, Chaos, Shin-uchi). */
         options?: string[];
     };
@@ -1180,6 +1182,13 @@
                                         class="mt-1 inline-flex rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
                                     >
                                         Unregistered chart · not counted
+                                    </span>
+                                {/if}
+                                {#if play.awaiting_verification}
+                                    <span
+                                        class="mt-1 inline-flex rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+                                    >
+                                        Unranked, awaiting verification
                                     </span>
                                 {/if}
                                 <div

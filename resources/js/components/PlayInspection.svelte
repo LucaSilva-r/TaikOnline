@@ -200,6 +200,18 @@
             ...rollIntervals.map((point) => Math.min(point.interval, 400)),
         ),
     );
+    // The engine scores one roll hit per 1/60 s frame, counted from the roll's start (the rest are capped).
+    const frameLength = 1000 / 60;
+    const frameOf = (at: number, start: number): number =>
+        Math.floor((at - start) / frameLength);
+    const mostInAFrame = (times: number[], start: number): number => {
+        const counts = new Map<number, number>();
+        for (const at of times) {
+            const frame = frameOf(at, start);
+            counts.set(frame, (counts.get(frame) ?? 0) + 1);
+        }
+        return Math.max(0, ...counts.values());
+    };
     const handStats = $derived(
         hands.map((hand) => {
             const values = rollIntervals
@@ -271,6 +283,12 @@
                 rate: rate(scored.map((input) => input.t)),
                 padRate: highest(byPad(scored).map(rate)),
                 steady: highest(steady),
+                frameMost: mostInAFrame(
+                    onIt
+                        .filter((input) => input.t < note.end)
+                        .map((input) => input.t),
+                    note.start,
+                ),
             };
         }),
     );
@@ -290,9 +308,12 @@
     const minimumSpan = 500;
     let view = $state<{ from: number; to: number } | null>(null);
     let follow = $state(false);
+    // How wide the last zoom was: following the replay keeps it.
+    let zoomLength = $state(followSpan);
     const domain = $derived.by(() => {
         if (follow && time !== null) {
-            return { from: time - followSpan / 2, to: time + followSpan / 2 };
+            const length = view === null ? followSpan : zoomLength;
+            return { from: time - length / 2, to: time + length / 2 };
         }
         return view ?? { from: first, to: last };
     });
@@ -328,14 +349,20 @@
     }
 
     function zoomTo(from: number, to: number): void {
-        follow = false;
         const length = Math.max(minimumSpan, to - from);
+        zoomLength = length;
         const middle = (from + to) / 2;
         const clampedFrom = Math.max(first - 1000, middle - length / 2);
         view = {
             from: clampedFrom,
             to: Math.min(last + 1000, clampedFrom + length),
         };
+    }
+
+    // Going somewhere else in the song stops following the replay; zooming does not.
+    function moveTo(from: number, to: number): void {
+        follow = false;
+        zoomTo(from, to);
     }
 
     function resetView(): void {
@@ -455,7 +482,7 @@
         const viewX = ((event.clientX - box.left) / box.width) * width;
         const at = first + ((viewX - pad.left) / plotWidth) * (last - first);
         const length = zoomed ? span : Math.min(followSpan * 2, last - first);
-        zoomTo(at - length / 2, at + length / 2);
+        moveTo(at - length / 2, at + length / 2);
     }
 
     function overviewKey(event: KeyboardEvent): void {
@@ -468,12 +495,12 @@
                 : Math.min(followSpan * 2, last - first);
             const step = (event.key === 'ArrowLeft' ? -1 : 1) * length * 0.5;
             const from = zoomed ? domain.from : first;
-            zoomTo(from + step, from + step + length);
+            moveTo(from + step, from + step + length);
         }
     }
 
     function showRoll(roll: { start: number; end: number }): void {
-        zoomTo(roll.start - 400, roll.end + 400);
+        moveTo(roll.start - 400, roll.end + 400);
         if (time !== null) {
             time = roll.start - 400;
         }
@@ -495,6 +522,43 @@
     // The per-pad strip under the drumroll chart, drawn once the window is a few seconds wide.
     const padStripHeight = 64;
     const padRowY = (padIndex: number): number => 8 + padIndex * 13;
+
+    // The roll frames in the window, once they are wide enough to tell apart, with the hits in each.
+    const frameRowHeight = 20;
+    const framesShown = $derived(zoomed && span <= 2500);
+    const frameLabelsShown = $derived(span <= 1500);
+    const frames = $derived.by(() => {
+        if (!framesShown) {
+            return [];
+        }
+        const shown: { t: number; odd: boolean; hits: number }[] = [];
+        for (const note of longNotes) {
+            if (note.end < domain.from || note.start > domain.to) {
+                continue;
+            }
+            const counts = new Map<number, number>();
+            for (const input of rollInputs) {
+                if (input.t >= note.start && input.t < note.end) {
+                    const frame = frameOf(input.t, note.start);
+                    counts.set(frame, (counts.get(frame) ?? 0) + 1);
+                }
+            }
+            const lastFrame = frameOf(note.end - 0.01, note.start);
+            for (
+                let frame = Math.max(0, frameOf(domain.from, note.start));
+                frame <= Math.min(lastFrame, frameOf(domain.to, note.start));
+                frame++
+            ) {
+                shown.push({
+                    t: note.start + frame * frameLength,
+                    odd: frame % 2 === 1,
+                    hits: counts.get(frame) ?? 0,
+                });
+            }
+        }
+        return shown;
+    });
+    const frameWidth = $derived((frameLength / span) * plotWidth);
 </script>
 
 {#snippet overlays()}
@@ -518,6 +582,19 @@
             stroke-width="2"
         />
     {/if}
+{/snippet}
+
+{#snippet frameBands(top: number, bandHeight: number)}
+    <!-- Every other roll frame shaded, so the frames read as columns. -->
+    {#each frames.filter((frame) => frame.odd) as frame (frame.t)}
+        <rect
+            x={x(frame.t)}
+            y={top}
+            width={frameWidth}
+            height={bandHeight}
+            class="fill-foreground/10"
+        />
+    {/each}
 {/snippet}
 
 {#snippet axis()}
@@ -887,7 +964,9 @@
             <span class="font-medium">Drumroll hit intervals</span>
             <span class="text-xs text-muted-foreground"
                 >ms since the same hand's previous hit on the roll; dashed: the
-                60 hits/s cap</span
+                60 hits/s cap{framesShown
+                    ? "; bands: the roll's 1/60 s frames, one hit scores in each"
+                    : '; zoom in to see its 1/60 s frames'}</span
             >
             <span class="ml-auto flex flex-wrap gap-3 text-xs">
                 {#each handStats as hand (hand.key)}
@@ -963,6 +1042,7 @@
                             class="fill-muted/60"
                         />
                     {/each}
+                    {@render frameBands(pad.top, plotHeight)}
                     {#each rollIntervals.filter( (point) => inView(point.t) ) as point, index (index)}
                         <circle
                             cx={x(point.t)}
@@ -983,7 +1063,8 @@
             {#if zoomed && span <= 20_000}
                 <!-- Every hit by pad: a macro shows as an even comb, a player's hands as ragged ones. -->
                 <svg
-                    viewBox="0 0 {width} {padStripHeight}"
+                    viewBox="0 0 {width} {padStripHeight +
+                        (framesShown ? frameRowHeight : 0)}"
                     class="w-full"
                     role="img"
                     aria-label="Drumroll hits by pad"
@@ -1005,6 +1086,7 @@
                         />
                     {/each}
                     <g clip-path="url(#plot-rolls)">
+                        {@render frameBands(0, padStripHeight)}
                         {#each rollInputs.filter( (input) => inView(input.t) ) as input, index (index)}
                             <line
                                 x1={x(input.t)}
@@ -1023,7 +1105,48 @@
                                 ></line
                             >
                         {/each}
+                        {#each frames as frame (frame.t)}
+                            <!-- More than one hit in a frame: redder with each one. -->
+                            <rect
+                                x={x(frame.t)}
+                                y={padStripHeight}
+                                width={frameWidth}
+                                height={frameRowHeight - 2}
+                                fill={frame.hits > 1
+                                    ? 'var(--playhead)'
+                                    : 'transparent'}
+                                fill-opacity={Math.min(
+                                    0.9,
+                                    0.2 + (frame.hits - 2) * 0.2,
+                                )}
+                                class="stroke-border"
+                                ><title
+                                    >{seconds(frame.t)} · {frame.hits} hit{frame.hits ===
+                                    1
+                                        ? ''
+                                        : 's'} in this frame</title
+                                ></rect
+                            >
+                            {#if frameLabelsShown && frame.hits > 0}
+                                <text
+                                    x={x(frame.t) + frameWidth / 2}
+                                    y={padStripHeight + 13}
+                                    text-anchor="middle"
+                                    class="fill-foreground text-[10px]"
+                                    >{frame.hits}</text
+                                >
+                            {/if}
+                        {/each}
                     </g>
+                    {#if framesShown}
+                        <text
+                            x={pad.left - 6}
+                            y={padStripHeight + 13}
+                            text-anchor="end"
+                            class="fill-muted-foreground text-[10px]"
+                            >Frame</text
+                        >
+                    {/if}
                 </svg>
             {/if}
         {/if}
@@ -1052,6 +1175,11 @@
                                 class="px-2 py-1.5 font-medium"
                                 title="The fastest pad drummed with even gaps: a macro's mark"
                                 >Steady</th
+                            >
+                            <th
+                                class="px-2 py-1.5 font-medium"
+                                title="The most hits in one 1/60 s frame: only one of them scores"
+                                >Most in a frame</th
                             >
                         </tr>
                     </thead>
@@ -1090,6 +1218,7 @@
                                         ? '—'
                                         : `${round(roll.steady)}/s`}</td
                                 >
+                                <td class="px-2 py-1">{roll.frameMost}</td>
                             </tr>
                         {/each}
                     </tbody>

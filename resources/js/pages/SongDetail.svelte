@@ -81,6 +81,8 @@
         score: number;
         score_rank: number;
         precision: number;
+        /** The server has not scored it from its replay yet, so its numbers are the client's. */
+        awaiting_verification?: boolean;
         /** Play options as tags (1.3x, Hidden, Reversed, Random, Chaos, Shin-uchi). */
         options?: string[];
     };
@@ -618,6 +620,13 @@
                                             play.precision,
                                         )} · {formatDate(play.played_at)}
                                     </div>
+                                    {#if play.awaiting_verification}
+                                        <Badge
+                                            variant="secondary"
+                                            class="mt-1 border-0 bg-amber-500/15 px-1.5 py-0 text-[10px] text-amber-700 dark:text-amber-300"
+                                            >Unranked, awaiting verification</Badge
+                                        >
+                                    {/if}
                                     {#if play.options?.length}
                                         <div class="mt-1 flex flex-wrap gap-1">
                                             {#each play.options as option (option)}
