@@ -80,6 +80,39 @@ services:
         healthcheck:
             disable: true
 
+    # STUN and relay for Waddamburo's online play. UDP only, and nothing inside this network or the VPS is reachable through it.
+    turn:
+        image: 'coturn/coturn:4.7.0'
+        command:
+            - '--use-auth-secret'
+            - '--static-auth-secret=${TURN_SECRET:?}'
+            - '--realm=${TURN_HOST:-localhost}'
+            - '--external-ip=${TURN_EXTERNAL_IP:?}'
+            - '--min-port=49160'
+            - '--max-port=49260'
+            - '--no-tcp'
+            - '--no-tls'
+            - '--no-dtls'
+            - '--no-tcp-relay'
+            - '--no-cli'
+            - '--no-multicast-peers'
+            - '--denied-peer-ip=0.0.0.0-0.255.255.255'
+            - '--denied-peer-ip=10.0.0.0-10.255.255.255'
+            - '--denied-peer-ip=100.64.0.0-100.127.255.255'
+            - '--denied-peer-ip=127.0.0.0-127.255.255.255'
+            - '--denied-peer-ip=169.254.0.0-169.254.255.255'
+            - '--denied-peer-ip=172.16.0.0-172.31.255.255'
+            - '--denied-peer-ip=192.168.0.0-192.168.255.255'
+            - '--denied-peer-ip=::1'
+            - '--denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'
+            - '--denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff'
+        ports:
+            - '${TURN_PORT:-3478}:3478/udp'
+            - '49160-49260:49160-49260/udp'
+        networks:
+            - main
+        restart: unless-stopped
+
     # Player status only, all of it stale within 90 s: nothing to persist.
     redis:
         image: 'valkey/valkey:8-alpine'

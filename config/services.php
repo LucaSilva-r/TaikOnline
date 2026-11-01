@@ -35,6 +35,14 @@ return [
         'analyzer' => env('WADDAMBURO_ANALYZER', storage_path('analyzer/wdb-analyze')),
     ],
 
+    // This instance's coturn, for Waddamburo's online play: STUN, and a relay when players can't connect directly.
+    // Unset: a public STUN server and no relay.
+    'turn' => [
+        'host' => env('TURN_HOST'),
+        'port' => env('TURN_PORT', 3478),
+        'secret' => env('TURN_SECRET'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
