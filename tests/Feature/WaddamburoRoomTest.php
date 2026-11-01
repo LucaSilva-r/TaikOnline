@@ -49,7 +49,7 @@ it('opens a room with a code the guest can join, in any case', function (): void
 
     expect($code)->toMatch('/\A[A-HJ-NP-Z2-9]{6}\z/');
     $this->withToken(wdb_room_token(wdb_room_player('Katsu')))->postJson('/api/wdb/rooms/'.strtolower($code).'/join')
-        ->assertOk()->assertExactJson(['code' => $code, 'channel' => "presence-wdb.room.{$code}"]);
+        ->assertOk()->assertExactJson(['code' => $code, 'channel' => "presence-wdb.room.{$code}", 'name' => 'Don', 'is_public' => true, 'has_password' => false]);
 });
 
 it('has one guest seat, which they can come back to and which frees when they leave', function (): void {
@@ -79,6 +79,138 @@ it('closes the room when its host leaves', function (): void {
     $this->withToken(wdb_room_token(wdb_room_player('Guest')))->postJson("/api/wdb/rooms/{$code}/join")->assertNotFound();
 });
 
+it('matches quick play with whoever is waiting, and only them', function (): void {
+    $first = wdb_room_player('First');
+    $second = wdb_room_player('Second');
+    $third = wdb_room_player('Third');
+
+    $room = $this->withToken(wdb_room_token($first))->postJson('/api/wdb/rooms/quick-play')->assertOk()->json();
+    expect($room['channel'])->toBe("presence-wdb.room.{$room['code']}");
+    // Asking again while waiting is the same place, not a second one.
+    app('auth')->forgetGuards();
+    expect($this->withToken(wdb_room_token($first))->postJson('/api/wdb/rooms/quick-play')->json('code'))->toBe($room['code']);
+
+    app('auth')->forgetGuards();
+    expect($this->withToken(wdb_room_token($second))->postJson('/api/wdb/rooms/quick-play')->json('code'))->toBe($room['code']);
+
+    // Those two are matched: the next player starts waiting in a room of their own.
+    app('auth')->forgetGuards();
+    expect($this->withToken(wdb_room_token($third))->postJson('/api/wdb/rooms/quick-play')->json('code'))->not->toBe($room['code']);
+});
+
+it('forgets a waiting player who stops renewing or leaves, and never matches them afterwards', function (): void {
+    $this->freezeTime();
+    $gone = wdb_room_player('Gone');
+    $code = $this->withToken(wdb_room_token($gone))->postJson('/api/wdb/rooms/quick-play')->json('code');
+
+    $this->travel(20)->seconds();
+    app('auth')->forgetGuards();
+    $this->withToken(wdb_room_token($gone))->postJson("/api/wdb/rooms/{$code}/keep-alive")->assertNoContent();
+    $this->travel(20)->seconds();
+    app('auth')->forgetGuards();
+    expect($this->withToken(wdb_room_token(wdb_room_player('Next')))->postJson('/api/wdb/rooms/quick-play')->json('code'))->toBe($code);
+
+    $late = wdb_room_player('Late');
+    app('auth')->forgetGuards();
+    $lateCode = $this->withToken(wdb_room_token($late))->postJson('/api/wdb/rooms/quick-play')->json('code');
+    $this->travel(31)->seconds();
+    app('auth')->forgetGuards();
+    expect($this->withToken(wdb_room_token(wdb_room_player('After')))->postJson('/api/wdb/rooms/quick-play')->json('code'))->not->toBe($lateCode);
+
+    $leaver = wdb_room_player('Leaver');
+    app('auth')->forgetGuards();
+    $leaverToken = wdb_room_token($leaver);
+    $this->travel(31)->seconds();
+    $leaverCode = $this->withToken($leaverToken)->postJson('/api/wdb/rooms/quick-play')->json('code');
+    app('auth')->forgetGuards();
+    $this->withToken($leaverToken)->deleteJson("/api/wdb/rooms/{$leaverCode}")->assertNoContent();
+    app('auth')->forgetGuards();
+    expect($this->withToken(wdb_room_token(wdb_room_player('Other')))->postJson('/api/wdb/rooms/quick-play')->json('code'))->not->toBe($leaverCode);
+});
+
+it('lists public rooms with a free seat, and never their passwords or unlisted ones', function (): void {
+    $viewer = wdb_room_player('Viewer');
+    $publicHost = wdb_room_player('Pub');
+    $public = $this->withToken(wdb_room_token($publicHost))->postJson('/api/wdb/rooms', ['name' => 'Oni only', 'password' => 'hunter2'])->assertCreated()->json('code');
+    app('auth')->forgetGuards();
+    $this->withToken(wdb_room_token(wdb_room_player('Hidden')))->postJson('/api/wdb/rooms', ['is_public' => false])->assertCreated();
+    app('auth')->forgetGuards();
+    $full = $this->withToken(wdb_room_token(wdb_room_player('Full')))->postJson('/api/wdb/rooms')->json('code');
+    app('auth')->forgetGuards();
+    $this->withToken(wdb_room_token(wdb_room_player('Guest')))->postJson("/api/wdb/rooms/{$full}/join")->assertOk();
+    app('auth')->forgetGuards();
+
+    $response = $this->withToken(wdb_room_token($viewer))->getJson('/api/wdb/rooms')->assertOk();
+
+    expect($response->json('rooms'))->toBe([['code' => $public, 'name' => 'Oni only', 'host' => 'Pub', 'has_password' => true]])
+        ->and($response->getContent())->not->toContain('hunter2');
+});
+
+it('drops a room from the list when its game stops renewing it', function (): void {
+    $this->freezeTime();
+    $host = wdb_room_player('Host');
+    $token = wdb_room_token($host);
+    $code = $this->withToken($token)->postJson('/api/wdb/rooms')->json('code');
+
+    $this->travel(40)->seconds();
+    app('auth')->forgetGuards();
+    $this->withToken($token)->postJson("/api/wdb/rooms/{$code}/keep-alive")->assertNoContent();
+    $this->travel(40)->seconds();
+    app('auth')->forgetGuards();
+    expect($this->withToken($token)->getJson('/api/wdb/rooms')->json('rooms'))->toHaveCount(1);
+
+    $this->travel(46)->seconds();
+    app('auth')->forgetGuards();
+    expect($this->withToken($token)->getJson('/api/wdb/rooms')->json('rooms'))->toBe([]);
+    app('auth')->forgetGuards();
+    $this->withToken($token)->postJson("/api/wdb/rooms/{$code}/keep-alive")->assertNotFound();
+});
+
+it('asks for a room\'s password, except from its own members', function (): void {
+    $host = wdb_room_player('Host');
+    $code = $this->withToken(wdb_room_token($host))->postJson('/api/wdb/rooms', ['password' => 'hunter2'])->json('code');
+    $guest = wdb_room_player('Guest');
+    $token = wdb_room_token($guest);
+
+    app('auth')->forgetGuards();
+    $this->withToken($token)->postJson("/api/wdb/rooms/{$code}/join")->assertForbidden()->assertJsonPath('wrong_password', true);
+    app('auth')->forgetGuards();
+    $this->withToken($token)->postJson("/api/wdb/rooms/{$code}/join", ['password' => 'wrong'])->assertForbidden();
+    app('auth')->forgetGuards();
+    $this->withToken($token)->postJson("/api/wdb/rooms/{$code}/join", ['password' => 'hunter2'])->assertOk()->assertJsonPath('has_password', true);
+    app('auth')->forgetGuards();
+    $this->withToken($token)->postJson("/api/wdb/rooms/{$code}/join")->assertOk();
+});
+
+it('lets only the host change a room', function (): void {
+    $host = wdb_room_player('Host');
+    $hostToken = wdb_room_token($host);
+    $code = $this->withToken($hostToken)->postJson('/api/wdb/rooms')->json('code');
+    app('auth')->forgetGuards();
+    $guest = wdb_room_player('Guest');
+    $guestToken = wdb_room_token($guest);
+
+    $this->withToken($guestToken)->patchJson("/api/wdb/rooms/{$code}", ['name' => 'Mine now'])->assertNotFound();
+    app('auth')->forgetGuards();
+    $this->withToken($hostToken)->patchJson("/api/wdb/rooms/{$code}", ['name' => "  Friends\u{0007} only ", 'is_public' => false, 'password' => 'x'])->assertOk()
+        ->assertJsonPath('name', 'Friends only')->assertJsonPath('is_public', false)->assertJsonPath('has_password', true);
+    app('auth')->forgetGuards();
+    expect($this->withToken($guestToken)->getJson('/api/wdb/rooms')->json('rooms'))->toBe([]);
+    app('auth')->forgetGuards();
+    $this->withToken($hostToken)->patchJson("/api/wdb/rooms/{$code}", ['password' => ''])->assertOk()->assertJsonPath('has_password', false);
+    app('auth')->forgetGuards();
+    $this->withToken($guestToken)->postJson("/api/wdb/rooms/{$code}/join")->assertOk();
+});
+
+it('names a room after its host when unnamed or when the host is muted', function (): void {
+    $this->withToken(wdb_room_token(wdb_room_player('Plain')))->postJson('/api/wdb/rooms', ['name' => '   '])->assertCreated()->assertJsonPath('name', 'Plain');
+
+    $muted = wdb_room_player('Muted');
+    Sanction::query()->create(['baid' => $muted->player->baid, 'type' => SanctionType::Mute, 'reason' => 'spam']);
+    app('auth')->forgetGuards();
+    $this->withToken(wdb_room_token($muted))->postJson('/api/wdb/rooms', ['name' => 'Rude words'])->assertCreated()->assertJsonPath('name', 'Muted');
+});
+
 it('keeps banned players and cabinets out, and needs a token', function (): void {
     $code = wdb_room_code(wdb_room_player());
     $banned = wdb_room_player('Banned');
@@ -87,6 +219,8 @@ it('keeps banned players and cabinets out, and needs a token', function (): void
     $this->withToken(wdb_room_token($banned))->postJson("/api/wdb/rooms/{$code}/join")->assertForbidden();
     app('auth')->forgetGuards();
     $this->withToken(wdb_room_token($banned))->postJson('/api/wdb/rooms')->assertForbidden();
+    app('auth')->forgetGuards();
+    $this->withToken(wdb_room_token($banned))->postJson('/api/wdb/rooms/quick-play')->assertForbidden();
     app('auth')->forgetGuards();
 
     [, $cabinetToken] = WdbCabinet::issue('Cab', null);

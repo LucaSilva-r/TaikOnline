@@ -29,9 +29,15 @@ such as "Playing 千本桜 (Oni)".
 
 A room introduces two players, and that's all the server does for them.
 
-- **Lifecycle:** `POST api/wdb/rooms` returns a 6-character code, and `POST api/wdb/rooms/{code}/join` takes the one
-  guest seat. `DELETE api/wdb/rooms/{code}` closes the room for its host and frees the seat for its guest. Rooms live
-  in the `status` cache store and expire after 6 hours.
+- **Lifecycle:** `POST api/wdb/rooms` opens one, named after its host unless given a name, and public unless told
+  otherwise. `POST api/wdb/rooms/{code}/join` takes the one guest seat, with its password if it has one. The host
+  changes settings with `PATCH api/wdb/rooms/{code}`. `DELETE api/wdb/rooms/{code}` closes the room for its host and
+  frees the seat for its guest. Rooms live in the `status` cache store, and go 45 s after the games stop calling
+  `POST api/wdb/rooms/{code}/keep-alive`.
+- **Finding one:** `GET api/wdb/rooms` lists public rooms with a free seat. Other rooms are joined by code.
+  `POST api/wdb/rooms/quick-play` takes the waiting player's room, or starts waiting in a new unlisted one.
+- **Names:** other players see a room's name, so it's one line and 32 characters at most. A muted player's rooms are
+  always named after them.
 - **Who:** home players with a player who aren't banned. Being Invisible doesn't stop anyone joining by code.
 - **Signalling:** `presence-wdb.room.{code}`, for its members' games only. They exchange connection details in
   client events, which Reverb relays without Laravel seeing them. Treat their contents as untrusted.
@@ -56,5 +62,6 @@ Nothing here is deployed yet: it all goes out together once multiplayer is ready
   49160-49260/udp on its firewall. This makes the VPS's IP public.
 - Update the host's `storage/legal/privacy.md` from `resources/legal/privacy.md`, and decide whether to bump
   `LEGAL_VERSION`, which makes everyone accept again.
-- Say in the Privacy Policy that playing online shows your IP address to the other player, which is how a
-  peer-to-peer connection works.
+- Say in the Privacy Policy that playing online shows your IP address to the other player, including strangers in
+  public rooms and Quick Play, which is how a peer-to-peer connection works.
+- Warn players about that in the game, the first time they go online. Not built yet.

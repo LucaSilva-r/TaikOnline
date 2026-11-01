@@ -52,7 +52,11 @@ Route::middleware(['wdb.auth', 'throttle:wdb'])->prefix('api/wdb')->group(functi
     Route::get('me', [WaddamburoController::class, 'me']);
     Route::put('status', [WaddamburoStatusController::class, 'update']);
     Route::delete('status', [WaddamburoStatusController::class, 'destroy']);
+    Route::get('rooms', [WaddamburoRoomController::class, 'index']);
     Route::post('rooms', [WaddamburoRoomController::class, 'store'])->middleware('throttle:wdb-rooms');
+    Route::post('rooms/quick-play', [WaddamburoRoomController::class, 'quickPlay'])->middleware('throttle:wdb-rooms');
+    Route::post('rooms/{code}/keep-alive', [WaddamburoRoomController::class, 'keepAlive']);
+    Route::patch('rooms/{code}', [WaddamburoRoomController::class, 'update']);
     Route::post('rooms/{code}/join', [WaddamburoRoomController::class, 'join'])->middleware('throttle:wdb-rooms');
     Route::delete('rooms/{code}', [WaddamburoRoomController::class, 'destroy']);
     Route::get('rooms/{code}/ice-servers', [WaddamburoRoomController::class, 'iceServers'])->middleware('throttle:wdb-rooms');
