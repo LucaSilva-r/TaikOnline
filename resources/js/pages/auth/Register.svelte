@@ -6,7 +6,7 @@
 </script>
 
 <script lang="ts">
-    import { Form } from '@inertiajs/svelte';
+    import { Form, page } from '@inertiajs/svelte';
     import AppHead from '@/components/AppHead.svelte';
     import InputError from '@/components/InputError.svelte';
     import PasswordInput from '@/components/PasswordInput.svelte';
@@ -15,7 +15,10 @@
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
     import { Spinner } from '@/components/ui/spinner';
+    import { taikoRouteParam } from '@/lib/taiko-version';
+    import { toUrl } from '@/lib/utils';
     import { login } from '@/routes';
+    import { privacy, rules } from '@/routes/legal';
     import { store } from '@/routes/register';
 
     // Prefilled when arriving from the dongle "Sign up" deep-link so a freshly
@@ -120,6 +123,21 @@
                 />
                 <InputError message={errors.password_confirmation} />
             </div>
+
+            {#if page.props.legalVersion}
+                <div class="grid gap-2">
+                    <label class="flex items-start gap-2 text-sm">
+                        <input type="checkbox" name="rules" value="1" class="mt-0.5" required />
+                        <span
+                            >I have read and accept the
+                            <a href={toUrl(rules(taikoRouteParam()))} target="_blank" class="underline">Rules</a>.
+                            See the
+                            <a href={toUrl(privacy(taikoRouteParam()))} target="_blank" class="underline">Privacy Policy</a>.</span
+                        >
+                    </label>
+                    <InputError message={errors.rules} />
+                </div>
+            {/if}
 
             <Button
                 type="submit"

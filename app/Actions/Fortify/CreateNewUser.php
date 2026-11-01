@@ -36,6 +36,7 @@ class CreateNewUser implements CreatesNewUsers
             'username' => $this->usernameRules(),
             'access_code' => ['nullable', 'string', 'exists:cards,access_code'],
             'password' => $this->passwordRules(),
+            'rules' => filled(config('legal.version')) ? ['accepted'] : [],
         ])->validate();
 
         return DB::transaction(function () use ($input): User {
@@ -45,6 +46,8 @@ class CreateNewUser implements CreatesNewUsers
                 'email' => $input['email'],
                 'password' => $input['password'],
                 'role' => User::count() === 0 ? UserRole::Admin : UserRole::User,
+                'rules_accepted_version' => config('legal.version'),
+                'rules_accepted_at' => filled(config('legal.version')) ? now() : null,
             ]);
 
             if (! empty($input['access_code'])) {

@@ -55,6 +55,7 @@ class HandleInertiaRequests extends Middleware
                     ->all(),
                 'allowAll' => $request->routeIs('admin.*'),
             ],
+            'legalVersion' => config('legal.version'),
             // Every visitor, on every version's pages: a maintenance notice is about the whole site.
             'systemNotices' => fn (): array => [
                 'realtimeUrl' => $this->realtimeUrl(),

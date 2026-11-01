@@ -24,6 +24,7 @@ declare module '@inertiajs/core' {
             auth: Auth;
             taikoVersion: TaikoVersionContext;
             sidebarOpen: boolean;
+            legalVersion?: string | null;
             systemNotices?: {
                 realtimeUrl: string | null;
                 active: { id: string; message: string; severity: string; ends_at: string | null }[];

@@ -28,6 +28,7 @@
         <env name="DB_URL" value=""/>
         <env name="WADDAMBURO_SCORER" value=""/>
         <env name="WADDAMBURO_ANALYZER" value=""/>
+        <env name="LEGAL_VERSION" value="test-rules"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

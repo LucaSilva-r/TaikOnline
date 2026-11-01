@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\WaddamburoDanController as AdminWaddamburoDanCont
 use App\Http\Controllers\Admin\WaddamburoNoticeController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\Green\OperatorController;
+use App\Http\Controllers\LegalController;
 use App\Http\Controllers\Mod\ModerationController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RankingController;
@@ -38,6 +39,10 @@ Route::prefix('{taikoVersion}')
     ->where(['taikoVersion' => $taikoVersionPattern])
     ->group(function (): void {
         Route::inertia('/', 'Home')->name('home');
+
+        Route::get('rules', [LegalController::class, 'rules'])->name('legal.rules');
+        Route::get('privacy', [LegalController::class, 'privacy'])->name('legal.privacy');
+        Route::post('rules/accept', [LegalController::class, 'accept'])->middleware('auth')->name('legal.accept');
 
         Route::get('rankings', [RankingController::class, 'index'])->name('rankings');
         Route::get('songs', [SongCatalogController::class, 'index'])->name('songs.index');

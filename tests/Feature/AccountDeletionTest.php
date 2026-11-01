@@ -135,10 +135,10 @@ it('blocks the email of an account deleted while banned, however it is written, 
 
     expect(DB::table('blocked_emails')->sole()->hash)->not->toContain('don');
     foreach (['don.chan@gmail.com', 'DONCHAN+alt@googlemail.com'] as $email) {
-        $this->post(route('register.store'), ['name' => 'Back', 'username' => 'backagain', 'email' => $email, 'password' => 'password', 'password_confirmation' => 'password'])
+        $this->post(route('register.store'), ['name' => 'Back', 'username' => 'backagain', 'email' => $email, 'password' => 'password', 'password_confirmation' => 'password', 'rules' => '1'])
             ->assertSessionHasErrors('email');
     }
-    $this->post(route('register.store'), ['name' => 'Other', 'username' => 'someoneelse', 'email' => 'someone@gmail.com', 'password' => 'password', 'password_confirmation' => 'password'])
+    $this->post(route('register.store'), ['name' => 'Other', 'username' => 'someoneelse', 'email' => 'someone@gmail.com', 'password' => 'password', 'password_confirmation' => 'password', 'rules' => '1'])
         ->assertSessionHasNoErrors();
 
     $this->travel(8)->days();

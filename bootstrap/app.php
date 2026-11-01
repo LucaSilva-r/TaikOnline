@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Middleware\AuthenticateWaddamburo;
+use App\Http\Middleware\EnsureRulesAccepted;
 use App\Http\Middleware\EnsureStaffHasTwoFactor;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureWaddamburoCabinet;
+use App\Http\Middleware\EnsureWaddamburoRulesAccepted;
 use App\Http\Middleware\EnsureZucchiniApiToken;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -41,6 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+            EnsureRulesAccepted::class,
         ]);
 
         $middleware->alias([
@@ -50,6 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'zucchini.token' => EnsureZucchiniApiToken::class,
             'wdb.cabinet' => EnsureWaddamburoCabinet::class,
             'wdb.auth' => AuthenticateWaddamburo::class,
+            'wdb.rules' => EnsureWaddamburoRulesAccepted::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

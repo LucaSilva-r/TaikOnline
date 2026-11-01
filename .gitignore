@@ -44,3 +44,6 @@ frankenphp-worker.php
 
 # The private analyzer: never in this public repository.
 /storage/analyzer/
+
+# This instance's own Rules and Privacy Policy: the repository holds only the templates, resources/legal.
+/storage/legal/

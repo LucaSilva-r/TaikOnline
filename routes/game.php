@@ -50,11 +50,11 @@ Route::middleware(['wdb.auth', 'throttle:wdb'])->prefix('api/wdb')->group(functi
     Route::get('me', [WaddamburoController::class, 'me']);
     Route::post('cards', [WaddamburoController::class, 'card']);
     Route::post('pairing', [WaddamburoController::class, 'homePairing']);
-    Route::post('plays', [WaddamburoController::class, 'storePlays']);
-    Route::post('dan/plays', [WaddamburoDanController::class, 'storePlays']);
+    Route::post('plays', [WaddamburoController::class, 'storePlays'])->middleware('wdb.rules');
+    Route::post('dan/plays', [WaddamburoDanController::class, 'storePlays'])->middleware('wdb.rules');
     Route::post('rankings', [WaddamburoController::class, 'rankings']);
     Route::get('bests', [WaddamburoController::class, 'bests']);
-    Route::put('charts/{sha256}', [WaddamburoController::class, 'storeChart']);
+    Route::put('charts/{sha256}', [WaddamburoController::class, 'storeChart'])->middleware('wdb.rules');
 });
 
 Route::middleware(LogGreenCabinetTraffic::class)->group(function () use ($protocolVersionPattern): void {

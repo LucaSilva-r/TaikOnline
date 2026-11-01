@@ -24,6 +24,7 @@ test('new users can register', function () {
         'email' => 'test@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
+        'rules' => '1',
     ]);
 
     $this->assertAuthenticated();
@@ -49,6 +50,7 @@ test('new users return to the play page after registering', function () {
         'email' => 'play@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
+        'rules' => '1',
     ]);
 
     $this->assertAuthenticated();
@@ -64,6 +66,7 @@ test('username is stored lowercase and must be unique', function () {
         'email' => 'test@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
+        'rules' => '1',
     ])->assertSessionHasErrors('username');
 
     $this->post(route('register.store'), [
@@ -72,6 +75,7 @@ test('username is stored lowercase and must be unique', function () {
         'email' => 'mixed@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
+        'rules' => '1',
     ]);
 
     expect(User::firstWhere('email', 'mixed@example.com')->username)->toBe('mixedcase');
@@ -86,6 +90,7 @@ test('first registered user becomes admin', function () {
         'email' => 'first@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
+        'rules' => '1',
     ]);
 
     expect(User::firstWhere('email', 'first@example.com')->role)->toBe(UserRole::Admin);
@@ -100,6 +105,7 @@ test('subsequent registered users are regular users', function () {
         'email' => 'second@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
+        'rules' => '1',
     ]);
 
     expect(User::firstWhere('email', 'second@example.com')->role)->toBe(UserRole::User);
@@ -119,6 +125,7 @@ test('new users can claim an issued access code during registration', function (
         'access_code' => 'AC-REGISTER',
         'password' => 'password',
         'password_confirmation' => 'password',
+        'rules' => '1',
     ])->assertRedirect(route('home', absolute: false));
 
     $user = User::firstWhere('email', 'card@example.com');
@@ -136,6 +143,7 @@ test('registration rejects access codes that were not issued by the server', fun
         'access_code' => 'NO-SUCH-CODE',
         'password' => 'password',
         'password_confirmation' => 'password',
+        'rules' => '1',
     ])->assertSessionHasErrors('access_code');
 
     expect(User::where('email', 'unknown-card@example.com')->exists())->toBeFalse();
