@@ -94,3 +94,18 @@ it('keeps the public numbers to timing and drumroll speed', function (): void {
         ->and(WaddamburoPlayController::publicStats(['notes' => [['result' => 'miss']], 'long_notes' => [['hits' => [100]]]]))
         ->toBe(['mean_offset' => null, 'early' => 0, 'late' => 0, 'roll_speed' => null]);
 });
+
+it('shows the analyzer\'s flag to staff and its analysis to admins only', function (): void {
+    $player = Player::query()->create(['user_id' => User::factory()->create()->id, 'mydon_name' => 'どんちゃん']);
+    $chart = WdbChart::query()->create(['sha256' => str_repeat('e', 64)]);
+    $play = WdbPlay::query()->create(['id' => (string) Str::uuid(), 'baid' => $player->baid, 'wdb_chart_id' => $chart->id, 'mode' => 'normal', 'course' => 3,
+        'score' => 1, 'great' => 1, 'good' => 0, 'miss' => 0, 'max_combo' => 1, 'rolls' => 0, 'gauge' => 50, 'cleared' => true, 'scoring_version' => 1,
+        'engine_version' => 'test', 'played_at' => now(), 'replay' => 'inputs', 'rescored_at' => now(), 'analysis_flag' => 'strong', 'analysis' => ['private' => 1]]);
+    $url = "/waddamburo/plays/{$play->id}";
+
+    $this->actingAs(User::factory()->admin()->create())->get($url)->assertInertia(fn (Assert $page) => $page
+        ->where('moderation.analysis_flag', 'strong')->where('moderation.analysis', ['private' => 1]));
+    $this->actingAs(User::factory()->moderator()->create())->get($url)->assertInertia(fn (Assert $page) => $page
+        ->where('moderation.analysis_flag', 'strong')->where('moderation.analysis', null));
+    $this->actingAs($player->user)->get($url)->assertInertia(fn (Assert $page) => $page->where('moderation', null));
+});

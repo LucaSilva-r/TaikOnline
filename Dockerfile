@@ -28,7 +28,7 @@ RUN mkdir -p storage/app/private storage/app/public storage/framework/cache/data
 # `php artisan app:rescore-waddamburo-plays --all`.
 FROM debian:bookworm-slim AS waddamburo
 
-ARG WADDAMBURO_VERSION=v0.21.0
+ARG WADDAMBURO_VERSION=v0.21.5
 
 ADD https://github.com/LucaSilva-r/Waddamburo-public/releases/download/${WADDAMBURO_VERSION}/Waddamburo-x86_64.AppImage /tmp/Waddamburo.AppImage
 # Extracted: a container has no FUSE to mount the AppImage.
@@ -37,11 +37,15 @@ RUN cd /tmp && chmod +x Waddamburo.AppImage && ./Waddamburo.AppImage --appimage-
 
 FROM php AS production
 
+# The private analyzer is a Python script, mounted from the host (docker/production/compose.yaml).
+RUN apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*
+
 # Match the host user that owns the bind-mounted storage directory.
 RUN usermod -u 1000 www-data && groupmod -g 1000 www-data
 
 ENV OCTANE_SERVER=frankenphp \
     WADDAMBURO_SCORER=/opt/waddamburo/AppRun \
+    WADDAMBURO_ANALYZER=/srv/analyzer/wdb-analyze \
     XDG_CONFIG_HOME=/app/storage/framework/frankenphp/config \
     XDG_DATA_HOME=/app/storage/framework/frankenphp/data
 

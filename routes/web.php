@@ -5,8 +5,8 @@ use App\Http\Controllers\Admin\DanDojoController;
 use App\Http\Controllers\Admin\PlayerController;
 use App\Http\Controllers\Admin\SongController;
 use App\Http\Controllers\Admin\WaddamburoCabinetController;
-use App\Http\Controllers\Admin\WaddamburoDanController as AdminWaddamburoDanController;
 use App\Http\Controllers\Admin\WaddamburoChartController;
+use App\Http\Controllers\Admin\WaddamburoDanController as AdminWaddamburoDanController;
 use App\Http\Controllers\Admin\WaddamburoNoticeController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\Green\OperatorController;
@@ -78,6 +78,7 @@ Route::prefix('{taikoVersion}')
                 Route::patch('dan-plays/{play}/dismiss-reports', [ModerationController::class, 'dismissDanReports'])->name('dan-plays.dismiss-reports');
                 Route::patch('plays/{play}/restore', [ModerationController::class, 'restorePlay'])->name('plays.restore');
                 Route::get('reports', [ModerationController::class, 'reports'])->name('reports.index');
+                Route::get('upload-warnings', [ModerationController::class, 'uploadWarnings'])->name('upload-warnings.index');
                 Route::patch('plays/{play}/dismiss-reports', [ModerationController::class, 'dismissReports'])->name('plays.dismiss-reports');
             });
 

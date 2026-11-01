@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\SanctionType;
+use App\Enums\UploadWarningKind;
 use App\Http\Middleware\AuthenticateWaddamburo;
 use App\Models\Player;
 use App\Models\Sanction;
@@ -10,7 +11,9 @@ use App\Models\WdbChart;
 use App\Models\WdbDanCourse;
 use App\Models\WdbDanPlay;
 use App\Services\WaddamburoDanScorer;
+use App\Services\WaddamburoReplay;
 use App\Services\WaddamburoSongs;
+use App\Services\WaddamburoUploadWarnings;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,15 +76,15 @@ class WaddamburoDanController extends Controller
             'plays.*.baid' => [$cabinet ? 'required' : 'nullable', 'integer'],
             'plays.*.course_hash' => ['required', 'string', 'size:64'],
             'plays.*.result_level' => ['required', 'integer', 'between:0,2'],
-            'plays.*.score' => ['required', 'integer', 'min:0'],
-            'plays.*.great' => ['required', 'integer', 'min:0'],
-            'plays.*.good' => ['required', 'integer', 'min:0'],
-            'plays.*.miss' => ['required', 'integer', 'min:0'],
-            'plays.*.max_combo' => ['required', 'integer', 'min:0'],
-            'plays.*.rolls' => ['required', 'integer', 'min:0'],
+            'plays.*.score' => ['required', 'integer', 'between:0,2147483647'],
+            'plays.*.great' => ['required', 'integer', 'between:0,2147483647'],
+            'plays.*.good' => ['required', 'integer', 'between:0,2147483647'],
+            'plays.*.miss' => ['required', 'integer', 'between:0,2147483647'],
+            'plays.*.max_combo' => ['required', 'integer', 'between:0,2147483647'],
+            'plays.*.rolls' => ['required', 'integer', 'between:0,2147483647'],
             'plays.*.gauge_percent' => ['required', 'integer', 'between:0,100'],
             'plays.*.songs_played' => ['required', 'integer', 'between:1,3'],
-            'plays.*.scoring_version' => ['required', 'integer', 'min:1'],
+            'plays.*.scoring_version' => ['required', 'integer', 'between:1,2147483647'],
             'plays.*.engine_version' => ['present', 'nullable', 'string', 'max:64'],
             'plays.*.audio_offset_ms' => ['nullable', 'integer', 'between:-5000,5000'],
             'plays.*.input_offset_ms' => ['nullable', 'integer', 'between:-5000,5000'],
@@ -123,8 +126,12 @@ class WaddamburoDanController extends Controller
                 }
                 $chartIds[$index] = WdbChart::query()->where('sha256', $sha)->value('id');
             }
-            $replays = array_map(fn (array $song) => base64_decode((string) $song['replay'], true), $play['songs']);
-            if (in_array(false, $replays, true)) {
+            // No replay: a song the run did not reach.
+            $replays = array_map(fn (array $song): ?string => (string) $song['replay'] === '' ? '' : WaddamburoReplay::canonical($song['replay']), $play['songs']);
+            if (in_array(null, $replays, true)) {
+                WaddamburoUploadWarnings::record($baid, UploadWarningKind::MalformedReplay, $play['id'], 'Dan run');
+                $refused[$baid] = ($refused[$baid] ?? 0) + 1;
+
                 continue;
             }
             $stored = DB::transaction(function () use ($play, $baid, $chartIds, $replays): WdbDanPlay {
@@ -162,6 +169,7 @@ class WaddamburoDanController extends Controller
             }
             $accepted[] = $play['id'];
         }
+        WaddamburoReplay::notifyRefused($refused ?? [], 'dan run');
         $scorer->rescore($created);
 
         return response()->json(['accepted' => $accepted]);

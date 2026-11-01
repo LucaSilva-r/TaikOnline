@@ -8,6 +8,33 @@ it likes. The server already rescores every play from its replay with the Waddam
 replay from being produced by a macro or an autoplay tool. Moderation is the answer on the server:
 staff who can review plays and act on them, with tools to do it well.
 
+## Replay checks
+
+`WaddamburoReplay::canonical()` reads every uploaded replay before it is kept: gzipped, at most
+256 KB decompressed, a known format version, an input count matching the data, actions 0–3, times in
+order (only the first input may be negative, before the song) and within a day of the start. A
+malformed play is not stored or scored, is left out of `accepted` (the client does not retry it) and
+the player gets one `play_rejected` notice per upload. What is kept is
+compressed again, as is an uploaded chart's notes: PHP's `gzdecode` reads one gzip member and the
+scorer reads them all, so a later member could otherwise hide a decompression bomb.
+
+A chart's notes are tried on the scorer with an empty replay before they are kept, at most 512 KB
+decompressed. One it cannot play (or that crashes it) is not kept but gets a 204, as the game stops
+syncing a player's plays over a chart that fails to upload. A scorer run that crashes
+is retried play by play, so one play cannot fail its batch (the scorer runs from the system temp
+directory, where it writes its crash logs), and a result too big for the play
+columns counts as not scored.
+
+A play with the same inputs as another player's on the chart (`wdb_plays.replay_hash`) is kept hidden,
+reason "Copy of play ...", and the uploader is not told; a moderator can restore it.
+
+Page `mod/upload-warnings` lists it all, per player, kind and day with a count (`wdb_upload_warnings`,
+`WaddamburoUploadWarnings::record()`): malformed and copied replays, replays the scorer could not score,
+numbers that differ from the replay under the same scoring version, bad charts, analyzer flags. Staff get an
+`upload_warning` notification the first time each day for a player and kind.
+
+Bump `WaddamburoReplay::FORMAT` with the scorer's release before clients write a new replay format.
+
 ## Roles
 
 `UserRole` gains `Moderator` (`admin` > `moderator` > `user`).
@@ -89,11 +116,21 @@ A trimmed, player-facing version (your own plays only) may come later.
 
 ## Automatic review
 
-An optional private analyzer binary, set with `WADDAMBURO_ANALYZER`, reads the same input as
-`--rescore` and returns an opaque `analysis` JSON and a `flag` (`none`, `review`, `strong`) per
-play, stored on `wdb_plays`. Flagged plays enter the review queue; nothing is sanctioned
-automatically. The analyzer is not part of this repository or the Docker image; it is mounted on
-the production host by hand. When the variable is unset, analysis is skipped.
+An optional private analyzer runs after a play is scored, on the queue. `WADDAMBURO_ANALYZER` names an
+executable (production: `/srv/analyzer/wdb-analyze`, from `./analyzer` beside the compose file; the image
+has Python 3). It is read at each run, so adding or replacing the file needs no deploy, and with no
+file analysis is skipped. It is not part of this repository or the Docker image, and what it looks for
+stays out of them.
+
+JSON lines on stdin, one per play: `id`, `baid`, `chart`, `options`, `seed`, `engine_version`, `score`,
+`timeline` (gzipped JSON, base64), `replay` (base64) and `others`, the 20 best plays by other players on
+the chart (`id`, `baid`, `timeline`). One line back per play: `{id, flag: "none"|"review"|"strong",
+analysis: {...}}` or `{id, error}`. Stored on `wdb_plays` (`analysis_flag`, `analysis`, `analyzed_at`).
+
+A new `review` or `strong` flag adds an upload warning; nothing is sanctioned automatically and the player
+is not told. All staff see the flag on the play page, only admins see `analysis`.
+`php artisan app:analyze-waddamburo-plays` runs it over plays not analyzed yet, `--all` over every play
+after the analyzer changes.
 
 ## Implementation (step 1)
 

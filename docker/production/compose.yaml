@@ -4,6 +4,8 @@ x-app: &app
         - .env
     volumes:
         - './storage:/app/storage'
+        # The private analyzer: an executable wdb-analyze here is picked up without a deploy.
+        - './analyzer:/srv/analyzer:ro'
     networks:
         - main
     depends_on:

@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\UploadWarningKind;
+use App\Jobs\AnalyzeWaddamburoPlays;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
 use Illuminate\Database\Eloquent\Collection;
@@ -21,6 +23,31 @@ class WaddamburoScorer
 
     /** Plays per scorer run: each result carries its play's judgement timeline, so a run's output grows with it. */
     private const BATCH = 50;
+
+    /** The most the play columns hold: a chart's score settings can push a score past it. */
+    private const MAX_NUMBER = 2147483647;
+
+    /** A replay with no inputs, to try a chart on. */
+    private const NO_INPUTS = "\x01\x00";
+
+    /** Why the scorer cannot play these gzipped notes, or null if it can (or there is no scorer to ask). */
+    public function chartProblem(string $notes, ?string $source): ?string
+    {
+        $scorer = config('services.waddamburo.scorer');
+        if (! is_string($scorer) || $scorer === '' || ! is_executable($scorer)) {
+            return null;
+        }
+        $run = Process::input(json_encode([
+            'id' => 'chart', 'notes' => base64_encode($notes), 'source' => $source, 'options' => 0, 'seed' => null,
+            'replay' => base64_encode(gzencode(self::NO_INPUTS)),
+        ], JSON_THROW_ON_ERROR)."\n")->timeout(60)->path(sys_get_temp_dir())->run([$scorer, '--rescore']);
+        if ($run->failed()) {
+            return 'The scorer crashed: '.trim($run->errorOutput());
+        }
+        $result = json_decode(trim($run->output()), true);
+
+        return is_array($result) ? ($result['error'] ?? null) : 'The scorer gave no result.';
+    }
 
     /**
      * Rescores the plays whose chart has notes (the rest wait for their chart). Returns the players whose
@@ -50,6 +77,11 @@ class WaddamburoScorer
             WdbChart::query()->whereKey($chartId)->update(['roll_max' => $max]);
         }
 
+        $scored = $plays->filter(fn (WdbPlay $play): bool => $play->wasChanged('rescored_at'));
+        if ($scored->isNotEmpty() && WaddamburoAnalyzer::isAvailable()) {
+            AnalyzeWaddamburoPlays::dispatch($scored->keys()->all());
+        }
+
         return [...$summary, 'players' => array_keys($changed)];
     }
 
@@ -66,10 +98,15 @@ class WaddamburoScorer
         $notes = [];
         $input = $plays->map(fn (WdbPlay $play): string => $this->line($play, $notes[$play->wdb_chart_id] ??= base64_encode((string) $play->chart->notes)))
             ->implode("\n")."\n";
-        $run = Process::input($input)->timeout(600)->run([$scorer, '--rescore']);
+        $run = Process::input($input)->timeout(600)->path(sys_get_temp_dir())->run([$scorer, '--rescore']);
         if ($run->failed()) {
             Log::error('Waddamburo scorer failed.', ['exit' => $run->exitCode(), 'error' => $run->errorOutput()]);
-            $summary['failed'] += $plays->count();
+            // One play can crash a whole run: alone, the others still score.
+            if ($plays->count() > 1) {
+                $plays->each(fn (WdbPlay $play) => $this->scoreBatch($scorer, new Collection([$play->id => $play]), $summary, $changed, $rollMax));
+            } else {
+                $summary['failed']++;
+            }
 
             return;
         }
@@ -80,8 +117,13 @@ class WaddamburoScorer
             if ($play === null) {
                 continue;
             }
-            if (isset($result['error']) || array_diff(self::RESULT, array_keys($result)) !== []) {
-                Log::warning('Waddamburo play did not score from its replay.', ['play' => $play->id, 'error' => $result['error'] ?? 'incomplete result']);
+            if (isset($result['error']) || array_diff(self::RESULT, array_keys($result)) !== []
+                || max(array_map('intval', array_intersect_key($result, array_flip(self::RESULT)))) > self::MAX_NUMBER) {
+                $error = $result['error'] ?? 'Incomplete or impossible result';
+                Log::warning('Waddamburo play did not score from its replay.', ['play' => $play->id, 'error' => $error]);
+                if ($play->rescored_at === null) {
+                    WaddamburoUploadWarnings::record((int) $play->baid, UploadWarningKind::UnscorableReplay, $play->id, $error);
+                }
                 $summary['failed']++;
 
                 continue;
@@ -93,6 +135,8 @@ class WaddamburoScorer
                 && array_map('intval', $claimed) != array_map('intval', $scored)) {
                 Log::warning('Waddamburo play differs from its replay.', ['play' => $play->id, 'baid' => $play->baid,
                     'claimed' => $claimed, 'scored' => $scored]);
+                WaddamburoUploadWarnings::record((int) $play->baid, UploadWarningKind::ScoreMismatch, $play->id,
+                    "Claimed {$claimed['score']}, replay gives {$scored['score']}");
             }
             if ((int) $claimed['score'] !== (int) $scored['score']) {
                 $summary['changes'][] = ['play' => $play->id, 'baid' => (int) $play->baid, 'from' => (int) $claimed['score'], 'to' => (int) $scored['score']];

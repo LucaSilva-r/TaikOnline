@@ -12,6 +12,7 @@ use App\Models\WdbDanCourse;
 use App\Models\WdbDanPlay;
 use App\Models\WdbDanPlayReport;
 use App\Models\WdbPlay;
+use App\Models\WdbUploadWarning;
 use App\Services\ModerationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -173,6 +174,29 @@ class ModerationController extends Controller
      * The review queue: open reports by play, the most reported first. Each reporter comes with how many
      * reports they filed and how many were dismissed, to spot who reports in bad faith (and block them).
      */
+    /** Bad data players tried to upload, newest first, so a repeat offender stands out. */
+    public function uploadWarnings(): Response
+    {
+        $warnings = WdbUploadWarning::query()->with('player.user')->latest('last_seen_at')->limit(200)->get();
+        $playIds = $warnings->pluck('play_id')->filter();
+        $plays = WdbPlay::query()->whereIn('id', $playIds)->pluck('id')->flip();
+        $danPlays = WdbDanPlay::query()->whereIn('id', $playIds)->pluck('id')->flip();
+
+        return Inertia::render('mod/UploadWarnings', [
+            'warnings' => $warnings->map(fn (WdbUploadWarning $warning): array => [
+                'id' => $warning->id,
+                'kind' => $warning->kind->label(),
+                'day' => $warning->day->toDateString(),
+                'count' => $warning->count,
+                'detail' => $warning->detail,
+                'last_seen_at' => $warning->last_seen_at->toIso8601String(),
+                'player' => $warning->player === null ? null : $this->playerRow($warning->player),
+                'play_id' => $plays->has($warning->play_id) ? $warning->play_id : null,
+                'dan_play_id' => $danPlays->has($warning->play_id) ? $warning->play_id : null,
+            ])->all(),
+        ]);
+    }
+
     public function reports(): Response
     {
         $reports = PlayReport::query()->open()->with(['play.chart', 'play.player.user', 'reporter.player'])->oldest()->limit(500)->get();

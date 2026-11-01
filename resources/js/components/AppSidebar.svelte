@@ -11,6 +11,7 @@
     import Gavel from 'lucide-svelte/icons/gavel';
     import Server from 'lucide-svelte/icons/server';
     import ShieldCheck from 'lucide-svelte/icons/shield-check';
+    import TriangleAlert from 'lucide-svelte/icons/triangle-alert';
     import Users from 'lucide-svelte/icons/users';
     import Trophy from 'lucide-svelte/icons/trophy';
     import type { Snippet } from 'svelte';
@@ -40,6 +41,7 @@
     import adminWaddamburoNotices from '@/routes/admin/waddamburo-notices';
     import moderation from '@/routes/mod';
     import moderationReports from '@/routes/mod/reports';
+    import moderationUploadWarnings from '@/routes/mod/upload-warnings';
     const { dashboard, recentPlays, status } = adminRoute;
     import { home } from '@/routes';
     import type { NavItem } from '@/types';
@@ -56,6 +58,7 @@
     const moderationNavItems: NavItem[] = [
         { title: 'Moderation', href: moderation.index(taikoParam), icon: Gavel },
         { title: 'Reports', href: moderationReports.index(taikoParam), icon: Flag },
+        { title: 'Upload warnings', href: moderationUploadWarnings.index(taikoParam), icon: TriangleAlert },
     ];
 
     const adminNavItems: NavItem[] = [

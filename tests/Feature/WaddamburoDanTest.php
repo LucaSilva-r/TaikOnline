@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbDanCourse;
 use App\Models\WdbDanPlay;
+use App\Notifications\WaddamburoNotice;
 use App\Services\ModerationService;
 use App\Services\WaddamburoSongs;
 use Illuminate\Process\PendingProcess;
@@ -154,7 +155,7 @@ function dan_played_course(): array
         $song = DB::table('wdb_songs')->insertGetId(['family' => WaddamburoSongs::family('Stock'), 'song_key' => $key, 'title' => $key, 'created_at' => now(), 'updated_at' => now()]);
         DB::table('wdb_chart_song')->insert(['wdb_chart_id' => $chart->id, 'wdb_song_id' => $song, 'source' => 'Stock']);
         $course->songs()->create(['position' => $position, 'song_key' => $key, 'course' => 3, 'notes' => 100]);
-        $songs[] = ['sha256' => $chart->sha256, 'replay' => base64_encode("replay {$key}")];
+        $songs[] = ['sha256' => $chart->sha256, 'replay' => base64_encode(gzencode("\x01\x01".chr($position + 1)."\x00"))];
     }
 
     return [$course, $songs];
@@ -192,7 +193,24 @@ it('keeps the numbers the server scores from a dan play, not the ones sent', fun
         ->and($stored->songs->pluck('miss')->all())->toBe([50, 10, 0])
         ->and($sent['requirements'][0]['type'])->toBe('bads')
         ->and($sent['songs'][1]['note_count'])->toBe(100)
-        ->and(base64_decode($sent['songs'][1]['replay']))->toBe('replay b');
+        ->and(gzdecode(base64_decode($sent['songs'][1]['replay'])))->toBe("\x01\x01\x02\x00");
+});
+
+it('refuses a dan play with a malformed replay and tells the player, and still takes a song not reached', function (): void {
+    Notification::fake();
+    [$course, $songs] = dan_played_course();
+    $player = wdb_player();
+    $songs[2]['replay'] = base64_encode(gzencode("\x01\x05"));
+    $malformed = dan_play($course, $songs);
+    $songs[2]['replay'] = null;
+    $unfinished = dan_play($course, $songs);
+
+    $this->withToken(wdb_token($player))->postJson('/api/wdb/dan/plays', ['plays' => [$malformed, $unfinished]])
+        ->assertOk()->assertExactJson(['accepted' => [$unfinished['id']]]);
+
+    expect(WdbDanPlay::query()->pluck('id')->all())->toBe([$unfinished['id']]);
+    Notification::assertSentTo($player->user, WaddamburoNotice::class,
+        fn (WaddamburoNotice $notice): bool => $notice->kind === 'play_rejected' && str_contains($notice->message, 'dan run'));
 });
 
 it('refuses a dan play on a chart that is not the course\'s', function (): void {
@@ -342,7 +360,7 @@ it('lists a player\'s dan runs on their moderation page', function (): void {
         'score' => 1, 'great' => 1, 'good' => 0, 'miss' => 0, 'max_combo' => 1, 'rolls' => 0, 'gauge_percent' => 1, 'songs_played' => 3, 'scoring_version' => 4,
         'engine_version' => 'test', 'played_at' => now()]);
 
-    $this->actingAs(\App\Models\User::factory()->moderator()->create())->get("/waddamburo/mod/players/{$player->baid}")->assertSuccessful()
+    $this->actingAs(User::factory()->moderator()->create())->get("/waddamburo/mod/players/{$player->baid}")->assertSuccessful()
         ->assertInertia(fn ($page) => $page->component('mod/Player')->where('danRuns.0.id', $run->id)->where('danRuns.0.result_level', 1));
 });
 

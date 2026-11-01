@@ -31,6 +31,8 @@ return [
     // Waddamburo's scorer (the game binary's --rescore mode): plays are scored from their replays with it.
     'waddamburo' => [
         'scorer' => env('WADDAMBURO_SCORER'),
+        // The private analyzer: read when it runs, so replacing the file needs no deploy.
+        'analyzer' => env('WADDAMBURO_ANALYZER'),
     ],
 
     'slack' => [

@@ -106,6 +106,9 @@ class WaddamburoPlayController extends Controller
                 'sanctions' => Sanction::query()->active()->where('baid', $play->baid)->pluck('type')->map->value->unique()->values()->all(),
                 'can_act' => $play->player !== null && ModerationService::canActOn($viewer, $play->player),
                 'open_reports' => PlayReport::query()->open()->where('wdb_play_id', $play->id)->count(),
+                'analysis_flag' => $play->analysis_flag,
+                // Why it was flagged: the fewer who see the checks, the fewer who can leak them.
+                'analysis' => $viewer->isAdmin() ? $play->analysis : null,
             ] : null,
             // The engine's whole timeline: staff only (what reviewers look at stays with them).
             'inspection' => $isStaff ? Inertia::defer(fn (): ?array => $play->judgementTimeline()) : null,

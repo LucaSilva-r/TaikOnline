@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\UploadWarningKind;
 use App\Models\WdbDanCourse;
 use App\Models\WdbDanPlay;
 use Illuminate\Database\Eloquent\Collection;
@@ -33,7 +34,7 @@ class WaddamburoDanScorer
         if ($input === '') {
             return;
         }
-        $run = Process::input($input."\n")->timeout(600)->run([$scorer, '--rescore-dan']);
+        $run = Process::input($input."\n")->timeout(600)->path(sys_get_temp_dir())->run([$scorer, '--rescore-dan']);
         if ($run->failed()) {
             Log::error('Waddamburo dan scorer failed.', ['exit' => $run->exitCode(), 'error' => $run->errorOutput()]);
 
@@ -53,6 +54,9 @@ class WaddamburoDanScorer
     {
         if (isset($result['error']) || array_diff(self::NUMBERS, array_keys($result)) !== []) {
             Log::warning('Waddamburo dan play did not score from its replays.', ['play' => $play->id, 'error' => $result['error'] ?? null]);
+            if ($play->rescored_at === null) {
+                WaddamburoUploadWarnings::record((int) $play->baid, UploadWarningKind::UnscorableReplay, $play->id, 'Dan run: '.($result['error'] ?? 'Incomplete result'));
+            }
 
             return;
         }
@@ -62,6 +66,8 @@ class WaddamburoDanScorer
             && array_map('intval', $play->only(self::NUMBERS)) != array_map('intval', $scored)) {
             Log::warning('Waddamburo dan play differs from its replays.', ['play' => $play->id, 'baid' => $play->baid,
                 'claimed' => $play->only(self::NUMBERS), 'scored' => $scored]);
+            WaddamburoUploadWarnings::record((int) $play->baid, UploadWarningKind::ScoreMismatch, $play->id,
+                "Dan run: claimed {$play->score}, replays give {$scored['score']}");
         }
         $play->update([...$scored, 'scoring_version' => $result['scoring_version'] ?? $play->scoring_version, 'rescored_at' => now(),
             'progress' => isset($result['progress']) ? gzencode(json_encode($result['progress'], JSON_THROW_ON_ERROR)) : null]);

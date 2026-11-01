@@ -19,9 +19,9 @@ use Illuminate\Support\Collection;
     'id', 'baid', 'wdb_chart_id', 'mode', 'course', 'score', 'great', 'good', 'miss', 'max_combo',
     'rolls', 'gauge', 'cleared', 'scoring_version', 'engine_version', 'played_at', 'replay', 'audio_offset_ms', 'input_offset_ms',
     'options', 'seed', 'wdb_cabinet_id', 'rescored_at', 'hidden_at', 'hidden_by', 'hidden_reason', 'timeline',
-    'roll_hits', 'roll_peak_rate', 'roll_pad_peak_rate', 'roll_steady_rate',
+    'roll_hits', 'roll_peak_rate', 'roll_pad_peak_rate', 'roll_steady_rate', 'replay_hash', 'analysis_flag', 'analysis', 'analyzed_at',
 ])]
-#[Hidden(['replay', 'timeline'])]
+#[Hidden(['replay', 'timeline', 'analysis_flag', 'analysis', 'analyzed_at'])]
 class WdbPlay extends Model
 {
     use HasUuids;
@@ -99,6 +99,8 @@ class WdbPlay extends Model
             'roll_steady_rate' => 'float',
             'replay' => PostgresBytea::class,
             'timeline' => PostgresBytea::class,
+            'analysis' => 'array',
+            'analyzed_at' => 'datetime',
         ];
     }
 

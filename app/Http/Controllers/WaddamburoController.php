@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\SanctionType;
+use App\Enums\UploadWarningKind;
 use App\Http\Middleware\AuthenticateWaddamburo;
 use App\Http\Middleware\EnsureWaddamburoCabinet;
 use App\Http\Middleware\ResolveTaikoVersion;
@@ -17,8 +18,10 @@ use App\Notifications\WaddamburoNotice;
 use App\Services\CabinetPairingService;
 use App\Services\WaddamburoDeviceLoginService;
 use App\Services\WaddamburoRankAggregateService;
+use App\Services\WaddamburoReplay;
 use App\Services\WaddamburoScorer;
 use App\Services\WaddamburoSongs;
+use App\Services\WaddamburoUploadWarnings;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,8 +41,8 @@ class WaddamburoController extends Controller
     /** Chart metadata newer than the first imports; filled in on charts that lack it. */
     public const LATER_METADATA = ['title_en', 'subtitle_en', 'difficulty', 'osu_beatmap_id', 'osu_beatmapset_id'];
 
-    /** Decompressed canonical chart size limit (a long Oni chart is well under 100 KB). */
-    public const MAX_CHART_BYTES = 4 * 1024 * 1024;
+    /** Decompressed canonical chart size limit: about 9x the longest stored chart (55 KB). */
+    public const MAX_CHART_BYTES = 512 * 1024;
 
     /** Home login: username or email + password (+ 2FA code) -> a long-lived 'wdb' token. */
     public function login(Request $request, TwoFactorAuthenticationProvider $twoFactor): JsonResponse
@@ -280,22 +283,22 @@ class WaddamburoController extends Controller
             'plays.*.chart_sha256' => ['required', 'string', 'regex:/\A[0-9a-f]{64}\z/'],
             'plays.*.mode' => ['required', 'string', 'in:normal'],
             'plays.*.course' => ['required', 'integer', 'between:0,4'],
-            'plays.*.score' => ['required', 'integer', 'min:0'],
-            'plays.*.great' => ['required', 'integer', 'min:0'],
-            'plays.*.good' => ['required', 'integer', 'min:0'],
-            'plays.*.miss' => ['required', 'integer', 'min:0'],
-            'plays.*.max_combo' => ['required', 'integer', 'min:0'],
-            'plays.*.rolls' => ['required', 'integer', 'min:0'],
+            'plays.*.score' => ['required', 'integer', 'between:0,2147483647'],
+            'plays.*.great' => ['required', 'integer', 'between:0,2147483647'],
+            'plays.*.good' => ['required', 'integer', 'between:0,2147483647'],
+            'plays.*.miss' => ['required', 'integer', 'between:0,2147483647'],
+            'plays.*.max_combo' => ['required', 'integer', 'between:0,2147483647'],
+            'plays.*.rolls' => ['required', 'integer', 'between:0,2147483647'],
             'plays.*.gauge' => ['required', 'integer', 'between:0,255'],
             'plays.*.cleared' => ['required', 'boolean'],
-            'plays.*.scoring_version' => ['required', 'integer', 'min:1'],
+            'plays.*.scoring_version' => ['required', 'integer', 'between:1,2147483647'],
             'plays.*.engine_version' => ['present', 'nullable', 'string', 'max:64'],
             'plays.*.played_at' => ['required', 'date'],
             'plays.*.replay' => ['required', 'string', 'max:2000000'],
             'plays.*.audio_offset_ms' => ['nullable', 'integer', 'between:-5000,5000'],
             'plays.*.input_offset_ms' => ['nullable', 'integer', 'between:-5000,5000'],
             'plays.*.options' => ['nullable', 'integer', 'between:0,65535'],
-            'plays.*.seed' => ['nullable', 'integer'],
+            'plays.*.seed' => ['nullable', 'integer', 'between:-2147483648,2147483647'],
         ]);
 
         $ownBaid = $cabinet ? null : $request->user()->player?->baid;
@@ -312,18 +315,25 @@ class WaddamburoController extends Controller
             if ($cabinet && ! Player::query()->whereKey($baid)->exists()) {
                 continue;
             }
-            $replay = base64_decode($play['replay'], true);
-            if ($replay === false) {
-                continue;
-            }
             // Failed plays aren't kept: accepted, so a client still sending them stops.
             if (! filter_var($play['cleared'], FILTER_VALIDATE_BOOLEAN)) {
                 $accepted[] = $play['id'];
 
                 continue;
             }
+            $replay = WaddamburoReplay::canonical($play['replay']);
+            if ($replay === null) {
+                WaddamburoUploadWarnings::record($baid, UploadWarningKind::MalformedReplay, $play['id']);
+                $refused[$baid] = ($refused[$baid] ?? 0) + 1;
+
+                continue;
+            }
 
             $chart = $charts[$play['chart_sha256']] ??= WdbChart::query()->firstOrCreate(['sha256' => $play['chart_sha256']]);
+            $replayHash = WaddamburoReplay::hash($replay);
+            // Another player's inputs: kept hidden (a moderator can restore it), and the uploader is not told.
+            $original = WdbPlay::query()->where('wdb_chart_id', $chart->id)->where('replay_hash', $replayHash)
+                ->where('baid', '!=', $baid)->oldest()->first(['id', 'baid']);
             $stored = WdbPlay::query()->firstOrCreate(['id' => $play['id']], [
                 'baid' => $baid,
                 'wdb_chart_id' => $chart->id,
@@ -341,21 +351,27 @@ class WaddamburoController extends Controller
                 'engine_version' => (string) ($play['engine_version'] ?? ''),
                 'played_at' => $play['played_at'],
                 'replay' => $replay,
+                'replay_hash' => $replayHash,
                 'audio_offset_ms' => $play['audio_offset_ms'] ?? null,
                 'input_offset_ms' => $play['input_offset_ms'] ?? null,
                 'options' => $play['options'] ?? 0,
                 'seed' => $play['seed'] ?? null,
                 'wdb_cabinet_id' => $request->attributes->get(EnsureWaddamburoCabinet::CABINET_ID),
+                ...($original !== null ? ['hidden_at' => now(), 'hidden_reason' => "Copy of play {$original->id}"] : []),
                 // Played while restricted: kept (evidence), never counted, even after the ban ends.
                 ...(($banned[$baid] ??= Sanction::activeFor($baid, SanctionType::Ban) !== null)
                     ? ['hidden_at' => now(), 'hidden_reason' => 'Played while restricted'] : []),
             ]);
             if ($stored->wasRecentlyCreated) {
                 $created->push($stored);
+                if ($original !== null) {
+                    WaddamburoUploadWarnings::record($baid, UploadWarningKind::CopiedReplay, $stored->id, "Same inputs as play {$original->id} of player {$original->baid}");
+                }
             }
             $accepted[] = $play['id'];
             $players[$baid] = true;
         }
+        WaddamburoReplay::notifyRefused($refused ?? [], 'play');
         $scorer->rescore($created);
         // Restricted players hear their new plays won't count (once per upload, in game and on the site).
         $created->where('hidden_reason', 'Played while restricted')->groupBy('baid')->each(function (EloquentCollection $plays) use ($charts): void {
@@ -397,14 +413,24 @@ class WaddamburoController extends Controller
 
         $compressed = base64_decode($validated['notes'], true);
         $notes = $compressed === false ? false : @gzdecode($compressed, self::MAX_CHART_BYTES);
-        if ($notes === false || ! hash_equals($sha256, hash('sha256', $notes))) {
+        $uploader = $this->isCabinet($request) ? null : $request->user()->player?->baid;
+        if ($notes === false || strlen($notes) > self::MAX_CHART_BYTES || ! hash_equals($sha256, hash('sha256', $notes))) {
+            WaddamburoUploadWarnings::record($uploader, UploadWarningKind::BadChart, detail: "Notes too big or not matching {$sha256}");
             throw ValidationException::withMessages(['notes' => 'The notes do not match the chart hash.']);
         }
 
         $chart = WdbChart::query()->firstOrCreate(['sha256' => $sha256]);
         if ($chart->notes === null) {
+            $problem = $scorer->chartProblem(gzencode($notes), $validated['source'] ?? null);
+            if ($problem !== null) {
+                // Not kept, and no error: the game stops syncing a player's plays over a chart it cannot upload.
+                WaddamburoUploadWarnings::record($uploader, UploadWarningKind::BadChart, detail: "{$sha256}: {$problem}");
+
+                return response()->noContent();
+            }
             $chart->update([
-                'notes' => $compressed,
+                // Compressed again: PHP read only the first gzip member, the scorer would read them all.
+                'notes' => gzencode($notes),
                 'title' => $validated['title'] ?? null,
                 'subtitle' => $validated['subtitle'] ?? null,
                 'source' => $validated['source'] ?? null,

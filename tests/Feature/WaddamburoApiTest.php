@@ -1,5 +1,9 @@
 <?php
 
+use App\Enums\UploadWarningKind;
+use App\Enums\UserRole;
+use App\Http\Controllers\WaddamburoController;
+use App\Jobs\AnalyzeWaddamburoPlays;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
@@ -7,12 +11,27 @@ use App\Models\User;
 use App\Models\WdbCabinet;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
+use App\Models\WdbUploadWarning;
+use App\Notifications\UploadWarningRaised;
+use App\Notifications\WaddamburoNotice;
 use App\Services\CabinetPairingService;
+use App\Services\WaddamburoAnalyzer;
+use App\Services\WaddamburoReplay;
+use App\Services\WaddamburoUploadWarnings;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
+
+/** A replay as the game writes it: version 1, one input, 2 ticks in, left Don. */
+const WDB_REPLAY = "\x01\x01\x02\x00";
+
+/** Well formed, but the faked scorer below cannot score it. */
+const WDB_UNSCORABLE_REPLAY = "\x01\x01\x03\x00";
 
 beforeEach(function (): void {
     // A Waddamburo cabinet an admin let in (the token's hash, as WdbCabinet::issue keeps it).
@@ -49,7 +68,7 @@ function wdb_play(string $sha256, array $overrides = []): array
         'scoring_version' => 1,
         'engine_version' => 'test',
         'played_at' => '2026-09-25T20:00:00Z',
-        'replay' => base64_encode(gzencode('inputs')),
+        'replay' => base64_encode(gzencode(WDB_REPLAY)),
         ...$overrides,
     ];
 }
@@ -130,7 +149,7 @@ it('stores home plays idempotently under the token owner and asks for unknown ch
 
     expect(WdbPlay::query()->count())->toBe(1)
         ->and(WdbPlay::query()->firstOrFail()->baid)->toBe($player->baid)
-        ->and(gzdecode(WdbPlay::query()->firstOrFail()->replay))->toBe('inputs');
+        ->and(gzdecode(WdbPlay::query()->firstOrFail()->replay))->toBe(WDB_REPLAY);
 });
 
 it('lets a cabinet resolve a paired card and upload plays for it', function (): void {
@@ -188,7 +207,7 @@ it('scores plays from their replays once the chart is known, keeping the rest of
         $runs[] = $process->command;
         $lines = collect(explode("\n", trim((string) $process->input)))->map(fn (string $line): array => json_decode($line, true));
 
-        return Process::result($lines->map(fn (array $play): string => json_encode($play['replay'] === base64_encode('broken')
+        return Process::result($lines->map(fn (array $play): string => json_encode($play['replay'] === base64_encode(gzencode(WDB_UNSCORABLE_REPLAY))
             ? ['id' => $play['id'], 'error' => 'Unknown replay format.']
             : ['id' => $play['id'], 'course' => 3, 'score' => 123450, 'great' => 7, 'good' => 2, 'miss' => 1, 'max_combo' => 6,
                 'rolls' => 4, 'roll_max' => 90, 'gauge' => 30, 'cleared' => false, 'scoring_version' => 3,
@@ -212,12 +231,12 @@ it('scores plays from their replays once the chart is known, keeping the rest of
         ->and(WdbPlay::query()->findOrFail($early['id'])->judgementTimeline())->toBe(['notes' => [['t' => 1000, 'kind' => 'don', 'result' => 'great', 'offset' => -3]]])
         ->and(WdbPlay::query()->findOrFail($early['id']))->roll_hits->toBe(0)->roll_peak_rate->toBeNull()->roll_pad_peak_rate->toBeNull()->roll_steady_rate->toBeNull()
         ->and(WdbChart::query()->where('sha256', $sha)->value('roll_max'))->toBe(90)
-        ->and($runs)->toBe([[PHP_BINARY, '--rescore']]);
+        ->and($runs)->toBe([[PHP_BINARY, '--rescore'], [PHP_BINARY, '--rescore']]); // the chart tried, then the play
     $this->withToken($token)->getJson("/api/wdb/charts/{$sha}/scores")->assertJsonPath('scores.0.score', 123450);
 
     // Later plays score on upload; one whose replay does not score stays off the boards.
     $later = wdb_play($sha, ['score' => 999999]);
-    $broken = wdb_play($sha, ['score' => 999999, 'replay' => base64_encode('broken')]);
+    $broken = wdb_play($sha, ['score' => 999999, 'replay' => base64_encode(gzencode(WDB_UNSCORABLE_REPLAY))]);
     $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [$later, $broken]])->assertJson(['missing_charts' => []]);
     expect(WdbPlay::query()->findOrFail($later['id'])->score)->toBe(123450)
         ->and(WdbPlay::query()->findOrFail($broken['id'])->rescored_at)->toBeNull();
@@ -225,7 +244,7 @@ it('scores plays from their replays once the chart is known, keeping the rest of
 
     // A rules change: the command rescores every play.
     $this->artisan('app:rescore-waddamburo-plays', ['--all' => true])->assertSuccessful();
-    expect($runs)->toHaveCount(3);
+    expect($runs)->toHaveCount(4);
 });
 
 it('scores a chart\'s plays in batches, so the scorer\'s timelines stay small', function (): void {
@@ -248,7 +267,7 @@ it('scores a chart\'s plays in batches, so the scorer\'s timelines stay small', 
 
     $this->withToken($token)->putJson("/api/wdb/charts/{$sha}", ['notes' => base64_encode(gzencode($notes))])->assertNoContent();
 
-    expect($batches)->toBe([50, 50, 20])
+    expect($batches)->toBe([1, 50, 50, 20])
         ->and(WdbPlay::query()->whereNull('rescored_at')->count())->toBe(0);
 });
 
@@ -429,4 +448,280 @@ it('accepts a failed play without keeping it', function (): void {
         ->assertOk()->assertJsonPath('accepted', [$failed['id']]);
 
     expect(WdbPlay::query()->count())->toBe(0);
+});
+
+it('refuses a malformed replay without keeping or scoring it, and tells the player', function (string $replay): void {
+    config(['services.waddamburo.scorer' => PHP_BINARY]); // any executable: the process is faked
+    Process::fake();
+    Notification::fake();
+    $player = wdb_player();
+    $sha = str_repeat('a', 64);
+    WdbChart::query()->create(['sha256' => $sha, 'notes' => gzencode('notes')]);
+    $good = wdb_play($sha);
+
+    $this->withToken(wdb_token($player))
+        ->postJson('/api/wdb/plays', ['plays' => [wdb_play($sha, ['replay' => base64_encode($replay)]), $good]])
+        ->assertOk()->assertJsonPath('accepted', [$good['id']]);
+
+    expect(WdbPlay::query()->pluck('id')->all())->toBe([$good['id']]);
+    Notification::assertSentToTimes($player->user, WaddamburoNotice::class, 1);
+    Notification::assertSentTo($player->user, WaddamburoNotice::class, fn (WaddamburoNotice $notice): bool => $notice->kind === 'play_rejected');
+})->with([
+    'not gzip' => ['inputs'],
+    'over the size limit' => [gzencode(str_repeat("\0", WaddamburoReplay::MAX_BYTES + 1))],
+    'unknown version' => [gzencode("\x02\x00")],
+    'cut short' => [gzencode("\x01\x02\x02\x00")],
+    'a bomb past the first gzip member' => [gzencode("\x01\xFF\xFF\x0F").gzencode(str_repeat("\0", 1024))],
+    'more inputs than can fit' => [gzencode("\x01\xFF\xFF\xFF\xFF\x07")],
+    'negative count' => [gzencode("\x01\xFF\xFF\xFF\xFF\x0F")],
+    'bytes after the inputs' => [gzencode(WDB_REPLAY.'junk')],
+    'unknown action' => [gzencode("\x01\x01\x02\x04")],
+    'time moving backwards' => [gzencode("\x01\x02\x02\x00".str_repeat("\xFF", 9)."\x01\x00")],
+    'time past a day' => [gzencode("\x01\x01\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x7F\x00")],
+]);
+
+it('takes an input before the song and keeps only what it checked of a replay', function (): void {
+    $player = wdb_player();
+    $sha = str_repeat('a', 64);
+    $beforeTheSong = "\x01\x01".str_repeat("\xFF", 9)."\x01\x00";
+    $play = wdb_play($sha, ['replay' => base64_encode(gzencode($beforeTheSong).gzencode('a later member'))]);
+
+    $this->withToken(wdb_token($player))->postJson('/api/wdb/plays', ['plays' => [$play]])
+        ->assertOk()->assertJsonPath('accepted', [$play['id']]);
+
+    expect(WdbPlay::query()->findOrFail($play['id'])->replay)->toBe(gzencode($beforeTheSong));
+});
+
+it('keeps only the checked gzip member of an uploaded chart', function (): void {
+    $notes = 'WDBC canonical notes';
+    $sha = hash('sha256', $notes);
+
+    $this->withToken(wdb_token(wdb_player()))
+        ->putJson("/api/wdb/charts/{$sha}", ['notes' => base64_encode(gzencode($notes).gzencode(str_repeat("\0", 1024)))])
+        ->assertNoContent();
+
+    expect(WdbChart::query()->where('sha256', $sha)->value('notes'))->toBe(gzencode($notes));
+});
+
+it('turns numbers the database cannot hold away with a validation error', function (array $field): void {
+    $this->withToken(wdb_token(wdb_player()))
+        ->postJson('/api/wdb/plays', ['plays' => [wdb_play(str_repeat('a', 64), $field)]])
+        ->assertUnprocessable();
+})->with([
+    'score' => [['score' => 2147483648]],
+    'seed' => [['seed' => 2147483648]],
+]);
+
+it('hides another player\'s copied replay without telling the uploader, and warns moderators', function (): void {
+    Notification::fake();
+    $sha = str_repeat('a', 64);
+    $original = wdb_play($sha);
+    $copy = wdb_play($sha);
+    $owner = wdb_player();
+    $copier = wdb_player('30800000000000000002');
+
+    $this->withToken(wdb_token($owner))->postJson('/api/wdb/plays', ['plays' => [$original, wdb_play($sha)]])->assertOk();
+    $this->withToken(wdb_token($copier))->postJson('/api/wdb/plays', ['plays' => [$copy]])
+        ->assertOk()->assertJsonPath('accepted', [$copy['id']]);
+
+    expect(WdbPlay::query()->find($original['id'])->hidden_at)->toBeNull()
+        ->and(WdbPlay::query()->find($copy['id'])->hidden_reason)->toStartWith('Copy of play')
+        ->and(WdbUploadWarning::query()->sole())->baid->toBe($copier->baid)->kind->toBe(UploadWarningKind::CopiedReplay)->play_id->toBe($copy['id']);
+    Notification::assertNotSentTo($copier->user, WaddamburoNotice::class);
+});
+
+it('counts bad uploads per player, kind and day, and tells staff once', function (): void {
+    Notification::fake();
+    $staff = User::factory()->create(['role' => UserRole::Moderator]);
+    $player = wdb_player();
+    $malformed = fn (): array => wdb_play(str_repeat('a', 64), ['replay' => base64_encode('junk')]);
+
+    $this->withToken(wdb_token($player))->postJson('/api/wdb/plays', ['plays' => [$malformed(), $malformed()]])->assertOk();
+    $this->withToken(wdb_token($player))->postJson('/api/wdb/plays', ['plays' => [$malformed()]])->assertOk();
+
+    expect(WdbUploadWarning::query()->sole())->count->toBe(3)->kind->toBe(UploadWarningKind::MalformedReplay);
+    Notification::assertSentToTimes($staff, UploadWarningRaised::class, 1);
+});
+
+it('warns about a play the scorer cannot score, or that differs from what it claims', function (string $replay, UploadWarningKind $kind): void {
+    config(['services.waddamburo.scorer' => PHP_BINARY]); // any executable: the process is faked
+    Process::fake(fn (PendingProcess $process) => Process::result(collect(explode("\n", trim((string) $process->input)))
+        ->map(fn (string $line): array => json_decode($line, true))
+        ->map(fn (array $play): string => json_encode($play['replay'] === base64_encode(gzencode(WDB_UNSCORABLE_REPLAY))
+            ? ['id' => $play['id'], 'error' => 'Unknown replay format.']
+            : ['id' => $play['id'], 'course' => 3, 'score' => 5, 'great' => 500, 'good' => 10, 'miss' => 0, 'max_combo' => 510, 'rolls' => 20, 'gauge' => 50, 'cleared' => true, 'scoring_version' => 1]))
+        ->implode("\n")));
+    $player = wdb_player();
+    $sha = str_repeat('a', 64);
+    WdbChart::query()->create(['sha256' => $sha, 'notes' => gzencode('notes')]);
+
+    $this->withToken(wdb_token($player))->postJson('/api/wdb/plays', ['plays' => [wdb_play($sha, ['replay' => base64_encode(gzencode($replay))])]])->assertOk();
+
+    expect(WdbUploadWarning::query()->sole())->baid->toBe($player->baid)->kind->toBe($kind);
+})->with([
+    'unscorable' => [WDB_UNSCORABLE_REPLAY, UploadWarningKind::UnscorableReplay],
+    'claimed score differs' => [WDB_REPLAY, UploadWarningKind::ScoreMismatch],
+]);
+
+it('keeps a play that crashes the scorer from failing the rest of its batch', function (): void {
+    config(['services.waddamburo.scorer' => PHP_BINARY]); // any executable: the process is faked
+    Process::fake(function (PendingProcess $process) {
+        $lines = collect(explode("\n", trim((string) $process->input)))->map(fn (array|string $line): array => json_decode($line, true));
+        if ($lines->contains(fn (array $play): bool => $play['replay'] === base64_encode(gzencode(WDB_UNSCORABLE_REPLAY)))) {
+            return Process::result(errorOutput: 'Index was outside the bounds of the array.', exitCode: 1);
+        }
+
+        return Process::result($lines->map(fn (array $play): string => json_encode(['id' => $play['id'], 'course' => 3, 'score' => 7, 'great' => 500, 'good' => 10,
+            'miss' => 0, 'max_combo' => 510, 'rolls' => 20, 'gauge' => 50, 'cleared' => true, 'scoring_version' => 9]))->implode("\n"));
+    });
+    $sha = str_repeat('a', 64);
+    WdbChart::query()->create(['sha256' => $sha, 'notes' => gzencode('notes')]);
+    $crashing = wdb_play($sha, ['replay' => base64_encode(gzencode(WDB_UNSCORABLE_REPLAY))]);
+    $fine = wdb_play($sha);
+
+    $this->withToken(wdb_token(wdb_player()))->postJson('/api/wdb/plays', ['plays' => [$crashing, $fine]])->assertOk();
+
+    expect(WdbPlay::query()->find($fine['id'])->score)->toBe(7)
+        ->and(WdbPlay::query()->find($crashing['id'])->rescored_at)->toBeNull();
+});
+
+it('leaves a score too big for its column unscored', function (): void {
+    config(['services.waddamburo.scorer' => PHP_BINARY]); // any executable: the process is faked
+    Process::fake(fn (PendingProcess $process) => Process::result(json_encode(['id' => json_decode(trim((string) $process->input), true)['id'], 'course' => 3, 'score' => 107374182200,
+        'great' => 1, 'good' => 0, 'miss' => 0, 'max_combo' => 1, 'rolls' => 0, 'gauge' => 50, 'cleared' => true, 'scoring_version' => 9])));
+    $sha = str_repeat('a', 64);
+    WdbChart::query()->create(['sha256' => $sha, 'notes' => gzencode('notes')]);
+    $play = wdb_play($sha);
+
+    $this->withToken(wdb_token(wdb_player()))->postJson('/api/wdb/plays', ['plays' => [$play]])->assertOk();
+
+    expect(WdbPlay::query()->find($play['id'])->rescored_at)->toBeNull()
+        ->and(WdbUploadWarning::query()->sole()->kind)->toBe(UploadWarningKind::UnscorableReplay);
+});
+
+it('does not keep chart notes the scorer cannot play, warns moderators, and lets the game carry on', function (array $scorerResult): void {
+    config(['services.waddamburo.scorer' => PHP_BINARY]); // any executable: the process is faked
+    Process::fake(fn () => Process::result(...$scorerResult));
+    $player = wdb_player();
+    $notes = 'hostile notes';
+    $sha = hash('sha256', $notes);
+
+    $this->withToken(wdb_token($player))->putJson("/api/wdb/charts/{$sha}", ['notes' => base64_encode(gzencode($notes))])
+        ->assertNoContent();
+
+    expect(WdbChart::query()->where('sha256', $sha)->value('notes'))->toBeNull()
+        ->and(WdbUploadWarning::query()->sole())->baid->toBe($player->baid)->kind->toBe(UploadWarningKind::BadChart);
+})->with([
+    'a clean error' => [['output' => '{"id":"chart","error":"Chart events must be ordered by time."}']],
+    'a crash' => [['errorOutput' => 'Index was outside the bounds of the array.', 'exitCode' => 1]],
+]);
+
+it('refuses chart notes past the size limit', function (): void {
+    $notes = str_repeat("\0", WaddamburoController::MAX_CHART_BYTES + 1);
+    $sha = hash('sha256', $notes);
+
+    $this->withToken(wdb_token(wdb_player()))->putJson("/api/wdb/charts/{$sha}", ['notes' => base64_encode(gzencode($notes))])
+        ->assertUnprocessable();
+});
+
+it('shows staff the upload warnings, and nobody else', function (): void {
+    $staff = User::factory()->create(['role' => UserRole::Admin, 'two_factor_secret' => 'x', 'two_factor_confirmed_at' => now()]);
+    $player = wdb_player();
+    WaddamburoUploadWarnings::record($player->baid, UploadWarningKind::MalformedReplay, (string) Str::uuid(), 'Dan run');
+
+    $this->actingAs($staff)->get('/waddamburo/mod/upload-warnings')->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('mod/UploadWarnings')
+            ->where('warnings.0.kind', 'Malformed replay')->where('warnings.0.count', 1)
+            ->where('warnings.0.player.baid', $player->baid)->where('warnings.0.play_id', null));
+    $this->actingAs($player->user)->get('/waddamburo/mod/upload-warnings')->assertForbidden();
+});
+
+function wdb_scored_play(Player $player, WdbChart $chart, int $score = 1000): WdbPlay
+{
+    return WdbPlay::query()->create([
+        ...Arr::except(wdb_play($chart->sha256, ['score' => $score]), ['chart_sha256']),
+        'baid' => $player->baid, 'wdb_chart_id' => $chart->id, 'replay' => gzencode(WDB_REPLAY),
+        'timeline' => gzencode('{}'), 'rescored_at' => now(),
+    ]);
+}
+
+function wdb_analyzer_answers(array $answer): void
+{
+    config(['services.waddamburo.analyzer' => PHP_BINARY]); // any executable: the process is faked
+    Process::fake(fn (PendingProcess $process) => Process::result(collect(explode("\n", trim((string) $process->input)))
+        ->map(fn (string $line): string => json_encode(['id' => json_decode($line, true)['id'], ...$answer]))->implode("\n")));
+}
+
+it('queues plays for the analyzer once scored, only when there is one', function (?string $analyzer, bool $queued): void {
+    Queue::fake();
+    config(['services.waddamburo.scorer' => PHP_BINARY, 'services.waddamburo.analyzer' => $analyzer]);
+    Process::fake(fn (PendingProcess $process) => Process::result(json_encode(['id' => json_decode(trim((string) $process->input), true)['id'], 'course' => 3, 'score' => 7,
+        'great' => 1, 'good' => 0, 'miss' => 0, 'max_combo' => 1, 'rolls' => 0, 'gauge' => 50, 'cleared' => true, 'scoring_version' => 9])));
+    $sha = str_repeat('a', 64);
+    WdbChart::query()->create(['sha256' => $sha, 'notes' => gzencode('notes')]);
+    $play = wdb_play($sha);
+
+    $this->withToken(wdb_token(wdb_player()))->postJson('/api/wdb/plays', ['plays' => [$play]])->assertOk();
+
+    $queued
+        ? Queue::assertPushed(AnalyzeWaddamburoPlays::class, fn (AnalyzeWaddamburoPlays $job): bool => $job->playIds === [$play['id']])
+        : Queue::assertNotPushed(AnalyzeWaddamburoPlays::class);
+})->with([
+    'an analyzer' => [PHP_BINARY, true],
+    'none' => [null, false],
+]);
+
+it('stores the analyzer\'s flag, warns moderators once, and does not tell the player', function (): void {
+    Notification::fake();
+    wdb_analyzer_answers(['flag' => 'review', 'analysis' => ['private' => 1]]);
+    $player = wdb_player();
+    $chart = WdbChart::query()->create(['sha256' => str_repeat('a', 64), 'notes' => gzencode('notes')]);
+    $play = wdb_scored_play($player, $chart);
+    $other = wdb_scored_play(wdb_player('30800000000000000002'), $chart);
+
+    (new AnalyzeWaddamburoPlays([$play->id]))->handle(app(WaddamburoAnalyzer::class));
+    (new AnalyzeWaddamburoPlays([$play->id]))->handle(app(WaddamburoAnalyzer::class));
+
+    expect($play->fresh())->analysis_flag->toBe('review')->analysis->toBe(['private' => 1])->analyzed_at->not->toBeNull()
+        ->and(WdbUploadWarning::query()->sole())->kind->toBe(UploadWarningKind::AnalyzerFlag)->count->toBe(1)->play_id->toBe($play->id);
+    Process::assertRan(function (PendingProcess $process) use ($other): bool {
+        $sent = json_decode(trim((string) $process->input), true);
+
+        return array_column($sent['others'], 'id') === [$other->id] && gzdecode(base64_decode($sent['timeline'])) === '{}';
+    });
+    Notification::assertNotSentTo($player->user, WaddamburoNotice::class);
+});
+
+it('keeps a play unanalyzed when the analyzer gives an error or crashes', function (array $answer): void {
+    config(['services.waddamburo.analyzer' => PHP_BINARY]); // any executable: the process is faked
+    $player = wdb_player();
+    $chart = WdbChart::query()->create(['sha256' => str_repeat('a', 64), 'notes' => gzencode('notes')]);
+    $play = wdb_scored_play($player, $chart);
+    Process::fake(fn () => Process::result(...($answer['line'] ?? false ? ['output' => json_encode(['id' => $play->id, 'error' => 'bad'])] : $answer)));
+
+    expect(app(WaddamburoAnalyzer::class)->analyze(new EloquentCollection([$play])))->toMatchArray(['analyzed' => 0, 'failed' => 1])
+        ->and($play->fresh()->analyzed_at)->toBeNull();
+})->with([
+    'an error' => [['line' => true]],
+    'a crash' => [['exitCode' => 1]],
+]);
+
+it('analyzes the plays not analyzed yet from the command, or every one with --all', function (): void {
+    wdb_analyzer_answers(['flag' => 'none']);
+    $chart = WdbChart::query()->create(['sha256' => str_repeat('a', 64), 'notes' => gzencode('notes')]);
+    $player = wdb_player();
+    $done = wdb_scored_play($player, $chart);
+    $done->update(['analyzed_at' => now()->subDay(), 'analysis_flag' => 'none']);
+    $pending = wdb_scored_play($player, $chart);
+
+    $this->artisan('app:analyze-waddamburo-plays')->assertSuccessful();
+    expect($pending->fresh()->analyzed_at)->not->toBeNull()
+        ->and($done->fresh()->analyzed_at->isToday())->toBeFalse();
+
+    $this->artisan('app:analyze-waddamburo-plays', ['--all' => true])->assertSuccessful();
+    expect($done->fresh()->analyzed_at->isToday())->toBeTrue();
+});
+
+it('fails the command without an analyzer', function (): void {
+    $this->artisan('app:analyze-waddamburo-plays')->assertFailed();
 });

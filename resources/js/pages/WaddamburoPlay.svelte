@@ -72,6 +72,8 @@
         sanctions: string[];
         can_act: boolean;
         open_reports: number;
+        analysis_flag: string | null;
+        analysis: Record<string, unknown> | null;
     };
 
     let {
@@ -517,6 +519,14 @@
                 <p class="text-sm text-muted-foreground">
                     Hidden because: {moderation.hidden_reason}
                 </p>
+            {/if}
+            {#if moderation.analysis_flag && moderation.analysis_flag !== 'none'}
+                <p class="text-sm text-amber-700 dark:text-amber-400">
+                    Flagged by the analyzer: {moderation.analysis_flag}
+                </p>
+            {/if}
+            {#if moderation.analysis}
+                <pre class="overflow-x-auto rounded-md bg-muted p-3 text-xs">{JSON.stringify(moderation.analysis, null, 2)}</pre>
             {/if}
             <Deferred data="inspection">
                 {#snippet fallback()}

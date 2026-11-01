@@ -126,7 +126,7 @@ it('restricts a banned player: still logged in and playing, but unseen, uncounte
     $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [[
         'id' => $id, 'chart_sha256' => $chart->sha256, 'mode' => 'normal', 'course' => 3, 'score' => 1_000_000,
         'great' => 100, 'good' => 0, 'miss' => 0, 'max_combo' => 100, 'rolls' => 0, 'gauge' => 50, 'cleared' => true,
-        'scoring_version' => 1, 'engine_version' => 'test', 'played_at' => now()->toIso8601String(), 'replay' => base64_encode('inputs'),
+        'scoring_version' => 1, 'engine_version' => 'test', 'played_at' => now()->toIso8601String(), 'replay' => base64_encode(gzencode(WDB_REPLAY)),
     ]]])->assertOk()->assertJsonPath('accepted', [$id]);
     expect(WdbPlay::query()->find($id))->hidden_reason->toBe('Played while restricted');
     expect($player->user->notifications()->sole()->data['message'])->toBe('Your play of Song will not count: your account is restricted.');
