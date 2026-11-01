@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Bad uploads of one kind by one player (no baid: a cabinet or an account without a Banapass) in one
  * day, counted, so a flood of them stays one row. See WaddamburoUploadWarnings.
  */
-#[Fillable(['baid', 'kind', 'day', 'count', 'play_id', 'detail', 'last_seen_at'])]
+#[Fillable(['baid', 'kind', 'day', 'count', 'play_id', 'detail', 'last_seen_at', 'dismissed_at', 'dismissed_by'])]
 class WdbUploadWarning extends Model
 {
     protected function casts(): array
@@ -21,6 +21,7 @@ class WdbUploadWarning extends Model
             'day' => 'date:Y-m-d',
             'count' => 'integer',
             'last_seen_at' => 'datetime',
+            'dismissed_at' => 'datetime',
         ];
     }
 

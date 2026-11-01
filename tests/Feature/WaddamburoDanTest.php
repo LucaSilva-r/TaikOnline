@@ -1,20 +1,25 @@
 <?php
 
 use App\Enums\PlayReportReason;
+use App\Enums\UploadWarningKind;
 use App\Http\Controllers\WaddamburoWebController;
+use App\Jobs\AnalyzeWaddamburoPlays;
 use App\Models\ModerationAction;
 use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbDanCourse;
 use App\Models\WdbDanPlay;
+use App\Models\WdbUploadWarning;
 use App\Notifications\WaddamburoNotice;
 use App\Services\ModerationService;
+use App\Services\WaddamburoAnalyzer;
 use App\Services\WaddamburoSongs;
 use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -398,4 +403,60 @@ it('shows admins which dan songs have official charts', function (): void {
             ->where('series.0.courses.0.songs.0.status', 'official')
             ->where('series.0.courses.0.songs.1.status', 'custom')
             ->where('series.0.courses.0.songs.2.status', 'none'));
+});
+
+it('analyzes a dan run\'s reached songs, stores its flag and warns moderators, not the player', function (): void {
+    Notification::fake();
+    config(['services.waddamburo.analyzer' => PHP_BINARY]); // any executable: the process is faked
+    $sent = null;
+    Process::fake(function (PendingProcess $process) use (&$sent) {
+        $sent = json_decode(trim((string) $process->input), true);
+
+        return Process::result(json_encode(['id' => $sent['id'], 'flag' => 'strong', 'analysis' => ['private' => 1]]));
+    });
+    [$course, $songs] = dan_played_course();
+    $player = wdb_player();
+    $play = dan_play($course, $songs);
+    $this->withToken(wdb_token($player))->postJson('/api/wdb/dan/plays', ['plays' => [$play]])->assertOk();
+    $run = WdbDanPlay::query()->with('songs')->sole();
+    $run->songs[0]->update(['timeline' => gzencode('{}')]);
+    $run->songs[1]->update(['timeline' => gzencode('{}')]);
+
+    (new AnalyzeWaddamburoPlays([$run->id], true))->handle(app(WaddamburoAnalyzer::class));
+    (new AnalyzeWaddamburoPlays([$run->id], true))->handle(app(WaddamburoAnalyzer::class));
+
+    expect(array_column($sent['songs'], 'position'))->toBe([0, 1])
+        ->and($run->fresh())->analysis_flag->toBe('strong')->analysis->toBe(['private' => 1])->analyzed_at->not->toBeNull()
+        ->and(WdbUploadWarning::query()->sole())->kind->toBe(UploadWarningKind::AnalyzerFlag)->count->toBe(1)->play_id->toBe($run->id);
+    Notification::assertNotSentTo($player->user, WaddamburoNotice::class);
+});
+
+it('queues a dan run for the analyzer once it is scored', function (): void {
+    Queue::fake();
+    config(['services.waddamburo.scorer' => PHP_BINARY, 'services.waddamburo.analyzer' => PHP_BINARY]);
+    Process::fake(fn (PendingProcess $process) => Process::result(json_encode(['id' => json_decode(trim((string) $process->input), true)['id'], 'result_level' => 1, 'score' => 1000, 'great' => 10, 'good' => 2, 'miss' => 0,
+        'max_combo' => 9, 'rolls' => 3, 'gauge_percent' => 80, 'songs_played' => 3, 'scoring_version' => 4])));
+    [$course, $songs] = dan_played_course();
+    $play = dan_play($course, $songs);
+
+    $this->withToken(wdb_token(wdb_player()))->postJson('/api/wdb/dan/plays', ['plays' => [$play]])->assertOk();
+
+    Queue::assertPushed(AnalyzeWaddamburoPlays::class, fn (AnalyzeWaddamburoPlays $job): bool => $job->danRuns && $job->playIds === [$play['id']]);
+});
+
+it('shows a dan run\'s flag to staff and its analysis to admins only', function (): void {
+    [$course, $songs] = dan_played_course();
+    $player = wdb_player();
+    $play = dan_play($course, $songs);
+    $this->withToken(wdb_token($player))->postJson('/api/wdb/dan/plays', ['plays' => [$play]])->assertOk();
+    $run = WdbDanPlay::query()->sole();
+    $run->update(['analysis_flag' => 'review', 'analysis' => ['private' => 1]]);
+    $url = "/waddamburo/dan-plays/{$run->id}";
+    app('auth')->forgetGuards(); // the previous request's user stays set inside one test
+
+    $this->actingAs(User::factory()->admin()->create())->get($url)->assertInertia(fn (Assert $page) => $page
+        ->where('moderation.analysis_flag', 'review')->where('moderation.analysis', ['private' => 1]));
+    $this->actingAs(User::factory()->moderator()->create())->get($url)->assertInertia(fn (Assert $page) => $page
+        ->where('moderation.analysis_flag', 'review')->where('moderation.analysis', null));
+    $this->actingAs($player->user)->get($url)->assertInertia(fn (Assert $page) => $page->where('moderation', null));
 });

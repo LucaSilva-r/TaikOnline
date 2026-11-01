@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
-/** A system notice for every Waddamburo client (severity info, warning or critical). */
+/** A system notice for every Waddamburo client and website visitor (severity info, warning or critical). */
 #[Fillable(['message', 'severity', 'starts_at', 'ends_at', 'created_by'])]
 class WdbNotice extends Model
 {

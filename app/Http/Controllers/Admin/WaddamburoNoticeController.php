@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** System notices for every Waddamburo client: written here, pushed at once, ended early or deleted. */
+/** System notices for every Waddamburo client and website visitor: written here, pushed at once, ended early or deleted. */
 class WaddamburoNoticeController extends Controller
 {
     public function index(): Response

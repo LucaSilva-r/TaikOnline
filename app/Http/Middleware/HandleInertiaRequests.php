@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Enums\TaikoGameVersion;
+use App\Models\WdbNotice;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -53,6 +54,11 @@ class HandleInertiaRequests extends Middleware
                     ->values()
                     ->all(),
                 'allowAll' => $request->routeIs('admin.*'),
+            ],
+            // Every visitor, on every version's pages: a maintenance notice is about the whole site.
+            'systemNotices' => fn (): array => [
+                'realtimeUrl' => $this->realtimeUrl(),
+                'active' => WdbNotice::query()->active()->latest('id')->limit(5)->get()->map->toClient()->all(),
             ],
             'notifications' => fn (): ?array => $request->user() === null ? null : [
                 'unread' => $request->user()->unreadNotifications()->count(),

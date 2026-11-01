@@ -7,6 +7,7 @@
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
     import NotificationBell from '@/components/NotificationBell.svelte';
     import SiteDisclaimer from '@/components/SiteDisclaimer.svelte';
+    import SystemNotices from '@/components/SystemNotices.svelte';
     import TaikoVersionSelect from '@/components/TaikoVersionSelect.svelte';
     import {
         Avatar,
@@ -246,6 +247,7 @@
             </div>
         </div>
     </header>
+    <SystemNotices />
 
     <main class="flex-1">
         {@render children?.()}

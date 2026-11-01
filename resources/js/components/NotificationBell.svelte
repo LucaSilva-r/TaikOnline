@@ -13,7 +13,7 @@
     import { toast } from 'svelte-sonner';
     import { listenPrivate } from '@/lib/realtime';
     import { taikoRouteParam } from '@/lib/taiko-version';
-    import { read } from '@/routes/notifications';
+    import { index as notificationCenter, read } from '@/routes/notifications';
 
     const notifications = $derived(page.props.notifications);
     const readUrl = read(taikoRouteParam()).url;
@@ -114,6 +114,12 @@
                     <p class="px-2 py-4 text-center text-sm text-muted-foreground">No notifications yet.</p>
                 {/each}
             </div>
+            <DropdownMenuSeparator />
+            <button
+                type="button"
+                class="w-full px-2 py-1.5 text-center text-xs text-muted-foreground hover:text-foreground"
+                onclick={() => router.visit(notificationCenter(taikoRouteParam()).url)}>View all</button
+            >
         </DropdownMenuContent>
     </DropdownMenu>
 {/if}

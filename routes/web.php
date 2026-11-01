@@ -79,6 +79,8 @@ Route::prefix('{taikoVersion}')
                 Route::patch('plays/{play}/restore', [ModerationController::class, 'restorePlay'])->name('plays.restore');
                 Route::get('reports', [ModerationController::class, 'reports'])->name('reports.index');
                 Route::get('upload-warnings', [ModerationController::class, 'uploadWarnings'])->name('upload-warnings.index');
+                Route::patch('upload-warnings/dismiss-all', [ModerationController::class, 'dismissAllUploadWarnings'])->name('upload-warnings.dismiss-all');
+                Route::patch('upload-warnings/{warning}/dismiss', [ModerationController::class, 'dismissUploadWarning'])->name('upload-warnings.dismiss');
                 Route::patch('plays/{play}/dismiss-reports', [ModerationController::class, 'dismissReports'])->name('plays.dismiss-reports');
             });
 

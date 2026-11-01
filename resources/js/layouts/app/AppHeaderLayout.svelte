@@ -4,6 +4,7 @@
     import AppContent from '@/components/AppContent.svelte';
     import AppHeader from '@/components/AppHeader.svelte';
     import AppShell from '@/components/AppShell.svelte';
+    import SystemNotices from '@/components/SystemNotices.svelte';
     import { Toaster } from '@/components/ui/sonner';
     import type { BreadcrumbItem } from '@/types';
 
@@ -18,6 +19,7 @@
 
 <AppShell variant="header">
     <AppHeader {breadcrumbs} />
+    <SystemNotices />
     <AppContent variant="header">
         {@render children?.()}
     </AppContent>

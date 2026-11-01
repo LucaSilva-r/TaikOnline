@@ -3,6 +3,7 @@
     import { tick } from 'svelte';
     import Flag from 'lucide-svelte/icons/flag';
     import Gavel from 'lucide-svelte/icons/gavel';
+    import AnalysisPanel from '@/components/AnalysisPanel.svelte';
     import AppHead from '@/components/AppHead.svelte';
     import InputError from '@/components/InputError.svelte';
     import PlayInspection, { type Inspection } from '@/components/PlayInspection.svelte';
@@ -61,7 +62,7 @@
         stats?: Stats[] | null;
         inspections?: (Inspection | null)[] | null;
         report?: { reasons: { value: string; label: string }[]; reported: boolean } | null;
-        moderation?: { baid: number; hidden_at: string | null; hidden_reason: string | null; sanctions: string[]; can_act: boolean; open_reports: number } | null;
+        moderation?: { baid: number; hidden_at: string | null; hidden_reason: string | null; sanctions: string[]; can_act: boolean; open_reports: number; analysis_flag: string | null; analysis: Record<string, unknown> | null } | null;
     } = $props();
 
     const taikoParam = taikoRouteParam();
@@ -336,6 +337,7 @@
             {#if moderation.hidden_reason}
                 <p class="text-sm text-muted-foreground">Hidden because: {moderation.hidden_reason}</p>
             {/if}
+            <AnalysisPanel flag={moderation.analysis_flag} analysis={moderation.analysis} songTitles={songs.map((entry) => entry.title)} {song} />
             <Deferred data="inspections">
                 {#snippet fallback()}
                     <Skeleton class="h-64 rounded-lg" />

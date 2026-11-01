@@ -13,11 +13,14 @@ use App\Models\User;
 use App\Models\WdbDanPlay;
 use App\Models\WdbDanPlayReport;
 use App\Models\WdbPlay;
+use App\Models\WdbUploadWarning;
 use App\Notifications\DanPlayReported;
 use App\Notifications\PlayReported;
+use App\Notifications\UploadWarningRaised;
 use App\Notifications\WaddamburoNotice;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -66,6 +69,11 @@ class ModerationService
             // A ban or shadowban answers every open report on the player's plays.
             if ($type === SanctionType::Ban || $type === SanctionType::Shadowban) {
                 $this->resolve($actor, PlayReport::query()->whereHas('play', fn (Builder $play) => $play->where('baid', $player->baid)), PlayReport::PLAYER_SANCTIONED);
+                WdbDanPlay::query()->where('baid', $player->baid)->get()
+                    ->each(fn (WdbDanPlay $run) => $this->resolveDan($actor, $run, PlayReport::PLAYER_SANCTIONED));
+                // Its upload warnings are answered too.
+                WdbUploadWarning::query()->whereNull('dismissed_at')->where('baid', $player->baid)->get()
+                    ->each(fn (WdbUploadWarning $warning) => $this->closeWarning($actor, $warning));
             }
 
             return $sanction;
@@ -195,8 +203,40 @@ class ModerationService
 
     private function resolveDan(User $actor, WdbDanPlay $play, string $resolution): int
     {
-        return WdbDanPlayReport::query()->open()->where('wdb_dan_play_id', $play->id)
+        $closed = WdbDanPlayReport::query()->open()->where('wdb_dan_play_id', $play->id)
             ->update(['resolved_at' => now(), 'resolved_by' => $actor->id, 'resolution' => $resolution]);
+        if ($closed > 0) {
+            $this->removeStaffNotifications(DanPlayReported::class, $play->id);
+        }
+
+        return $closed;
+    }
+
+    /** Clears an upload warning from the page and from every staff member's notifications. */
+    public function dismissWarning(User $actor, WdbUploadWarning $warning): void
+    {
+        DB::transaction(function () use ($actor, $warning): void {
+            $this->closeWarning($actor, $warning);
+            $this->log($actor, 'dismiss_upload_warning', $warning->baid === null ? null : (int) $warning->baid, reason: $warning->kind->label());
+        });
+    }
+
+    /** Clears every open upload warning. */
+    public function dismissAllWarnings(User $actor): void
+    {
+        WdbUploadWarning::query()->whereNull('dismissed_at')->get()->each(fn (WdbUploadWarning $warning) => $this->dismissWarning($actor, $warning));
+    }
+
+    private function closeWarning(User $actor, WdbUploadWarning $warning): void
+    {
+        $warning->update(['dismissed_at' => now(), 'dismissed_by' => $actor->id]);
+        $this->removeStaffNotifications(UploadWarningRaised::class, '"warning_id":'.$warning->id.',');
+    }
+
+    /** A closed queue item needs no one's attention: its notification goes, the action log keeps what happened. */
+    private function removeStaffNotifications(string $type, string $dataContains): void
+    {
+        DatabaseNotification::query()->where('type', $type)->where('data', 'like', "%{$dataContains}%")->delete();
     }
 
     /** Closes a play's open reports with no action taken. */
@@ -217,6 +257,7 @@ class ModerationService
     {
         $closed = $reports->open()->with(['play.player.user', 'reporter'])->get();
         PlayReport::query()->whereKey($closed->modelKeys())->update(['resolved_at' => now(), 'resolved_by' => $actor->id, 'resolution' => $resolution]);
+        $closed->pluck('wdb_play_id')->unique()->each(fn (string $playId) => $this->removeStaffNotifications(PlayReported::class, $playId));
         // Each reporter hears once per decision; a sanction is not named (a shadowban stays unsaid).
         $closed->groupBy('reporter_id')->each(function (Collection $reports) use ($resolution): void {
             $player = $reports->first()->play->player;
@@ -251,7 +292,7 @@ class ModerationService
         }
     }
 
-    private function log(User $actor, string $action, int $baid, ?WdbPlay $play = null, ?string $reason = null, ?Sanction $sanction = null, ?WdbDanPlay $danRun = null): void
+    private function log(User $actor, string $action, ?int $baid, ?WdbPlay $play = null, ?string $reason = null, ?Sanction $sanction = null, ?WdbDanPlay $danRun = null): void
     {
         ModerationAction::query()->create([
             'actor_id' => $actor->id,

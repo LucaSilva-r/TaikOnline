@@ -41,3 +41,6 @@ frankenphp-worker.php
 /public/costumes/
 
 /staging.yaml
+
+# The private analyzer: never in this public repository.
+/storage/analyzer/

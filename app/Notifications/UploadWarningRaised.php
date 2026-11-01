@@ -37,6 +37,7 @@ class UploadWarningRaised extends Notification
             'message' => "{$name}: {$this->warning->kind->label()}.",
             'severity' => 'warning',
             'kind' => 'upload_warning',
+            'warning_id' => $this->warning->id,
             'url' => route('mod.upload-warnings.index', ['taikoVersion' => ResolveTaikoVersion::DefaultScope], false),
         ];
     }

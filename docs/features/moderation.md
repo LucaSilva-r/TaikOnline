@@ -31,7 +31,8 @@ reason "Copy of play ...", and the uploader is not told; a moderator can restore
 Page `mod/upload-warnings` lists it all, per player, kind and day with a count (`wdb_upload_warnings`,
 `WaddamburoUploadWarnings::record()`): malformed and copied replays, replays the scorer could not score,
 numbers that differ from the replay under the same scoring version, bad charts, analyzer flags. Staff get an
-`upload_warning` notification the first time each day for a player and kind.
+`upload_warning` notification the first time each day for a player and kind. Staff can clear one or all
+(logged, gone for all staff); a ban or shadowban clears the player's; the same upload again reopens it.
 
 Bump `WaddamburoReplay::FORMAT` with the scorer's release before clients write a new replay format.
 
@@ -116,21 +117,29 @@ A trimmed, player-facing version (your own plays only) may come later.
 
 ## Automatic review
 
-An optional private analyzer runs after a play is scored, on the queue. `WADDAMBURO_ANALYZER` names an
-executable (production: `/srv/analyzer/wdb-analyze`, from `./analyzer` beside the compose file; the image
-has Python 3). It is read at each run, so adding or replacing the file needs no deploy, and with no
-file analysis is skipped. It is not part of this repository or the Docker image, and what it looks for
+An optional private analyzer runs after a play is scored, on the queue. It is the executable at
+`storage/analyzer/wdb-analyze` (`WADDAMBURO_ANALYZER` overrides the path; the image has Python 3), never
+committed: `.gitignore` and `.dockerignore` keep it out of the repository and the image. It is read at each run, so adding or replacing the file needs no deploy,
+and with no file analysis is skipped. It is not part of this repository or the Docker image, and what it looks for
 stays out of them.
 
 JSON lines on stdin, one per play: `id`, `baid`, `chart`, `options`, `seed`, `engine_version`, `score`,
 `timeline` (gzipped JSON, base64), `replay` (base64) and `others`, the 20 best plays by other players on
-the chart (`id`, `baid`, `timeline`). One line back per play: `{id, flag: "none"|"review"|"strong",
+the chart (`id`, `kind`, `baid`, `timeline`). One line back per play: `{id, flag: "none"|"review"|"strong",
 analysis: {...}}` or `{id, error}`. Stored on `wdb_plays` (`analysis_flag`, `analysis`, `analyzed_at`).
+`AnalysisPanel.svelte` draws `analysis.findings` (`flag`, `title`, `detail`), `analysis.metrics` (`label`, `value`,
+`unit`, `review`, `strong`, `lower_is_worse`, `status`, `hint`) and `analysis.copy_of`, all sent by the analyzer, so
+this repository holds none of its limits or wording.
+
+A dan run is one line with the same `id`, `baid`, `engine_version` and `score`, and instead of the play's
+own fields a `songs` list of the songs it reached (`position`, `chart`, `timeline`, `replay`, `others`).
+It answers with one flag for the run, stored on `wdb_dan_plays`. `others` also holds other players' dan
+runs' songs on the chart, under their run's id.
 
 A new `review` or `strong` flag adds an upload warning; nothing is sanctioned automatically and the player
 is not told. All staff see the flag on the play page, only admins see `analysis`.
-`php artisan app:analyze-waddamburo-plays` runs it over plays not analyzed yet, `--all` over every play
-after the analyzer changes.
+`php artisan app:analyze-waddamburo-plays` runs it over plays and dan runs not analyzed yet, `--all` over
+all of them after the analyzer changes.
 
 ## Implementation (step 1)
 
@@ -211,6 +220,13 @@ after the analyzer changes.
   is lifted; never for a shadowban. Reporters get one `WaddamburoNotice` (kind
   `report_resolved`) per decision closing their reports: dismissed, play removed, or "action was
   taken" against the player (the sanction is not named). `api/wdb/notifications` returns `WaddamburoNotice`s only.
+- Closing a report (dismissed, play hidden, player banned or shadowbanned) removes that play's or run's
+  staff notifications; a ban or shadowban now closes reports on dan runs too.
+- Notification page `settings/notifications`: tabs by category (`NotificationCategory`, from each
+  notification's `kind`: Moderation, Scores, System, and All), mark read, delete one, clear a tab.
+- System notices (`WdbNotice`, admin page Waddamburo Notices) also show on every website page, to visitors too:
+  a banner under the header (`SystemNotices.svelte`, shared prop `systemNotices`), live over the public channel
+  `wdb.notices`, dismissable per browser unless critical, and listed in the notification page's All and System tabs.
 - Notification center: a bell in both headers (`NotificationBell.svelte`), fed by the shared
   `notifications` prop (unread count, latest 15, Reverb URL and the user's private channel);
   `POST {version}/notifications/read` marks the given ids, or all, read. The bell subscribes the

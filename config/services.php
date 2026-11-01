@@ -32,7 +32,7 @@ return [
     'waddamburo' => [
         'scorer' => env('WADDAMBURO_SCORER'),
         // The private analyzer: read when it runs, so replacing the file needs no deploy.
-        'analyzer' => env('WADDAMBURO_ANALYZER'),
+        'analyzer' => env('WADDAMBURO_ANALYZER', storage_path('analyzer/wdb-analyze')),
     ],
 
     'slack' => [

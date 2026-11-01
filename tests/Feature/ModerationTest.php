@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\PlayReportReason;
 use App\Enums\SanctionType;
+use App\Enums\UploadWarningKind;
 use App\Models\ModerationAction;
 use App\Models\Player;
 use App\Models\PlayerVersionStats;
@@ -8,9 +10,11 @@ use App\Models\Sanction;
 use App\Models\User;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
+use App\Models\WdbUploadWarning;
 use App\Services\ModerationService;
 use App\Services\WaddamburoRankAggregateService;
 use App\Services\WaddamburoSongs;
+use App\Services\WaddamburoUploadWarnings;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -263,4 +267,61 @@ it('pages a player\'s plays for moderators, filtered and sorted', function (): v
     $this->actingAs($moderator)->get("{$url}?sort=oldest&page=2")->assertInertia(fn (Assert $page) => $page
         ->where('plays.current_page', 2)->where('plays.data.7.score', 800_001));
     $this->actingAs($moderator)->get("{$url}?q=nothing")->assertInertia(fn (Assert $page) => $page->has('plays.data', 0));
+});
+
+it('takes a report\'s notification away from staff once it is closed', function (string $outcome): void {
+    config(['broadcasting.default' => 'log']);
+    $moderator = User::factory()->moderator()->create();
+    $reporter = mod_player();
+    $cheater = mod_player();
+    $play = mod_play($cheater, mod_chart(), 1000);
+    $moderation = app(ModerationService::class);
+    $moderation->report($reporter->user, $play, PlayReportReason::Macro, null);
+    expect($moderator->notifications()->count())->toBe(1);
+
+    match ($outcome) {
+        'dismissed' => $moderation->dismissReports($moderator, $play, null),
+        'hidden' => $moderation->hide($moderator, $play, 'macro'),
+        'banned' => $moderation->sanction($moderator, $cheater, SanctionType::Ban, 'macro', null, now()->addDay()),
+    };
+
+    expect($moderator->notifications()->count())->toBe(0)
+        ->and($reporter->user->notifications()->where('data', 'like', '%report_resolved%')->count())->toBe(1);
+})->with(['dismissed', 'hidden', 'banned']);
+
+it('lets staff clear upload warnings for everyone, and reopens one that happens again', function (): void {
+    config(['broadcasting.default' => 'log']);
+    $moderator = User::factory()->moderator()->create();
+    $other = User::factory()->admin()->create();
+    $player = mod_player();
+    WaddamburoUploadWarnings::record($player->baid, UploadWarningKind::MalformedReplay);
+    $warning = WdbUploadWarning::query()->sole();
+    expect($other->notifications()->count())->toBe(1);
+
+    $this->actingAs($player->user)->patch("/waddamburo/mod/upload-warnings/{$warning->id}/dismiss")->assertForbidden();
+    $this->actingAs($moderator)->patch("/waddamburo/mod/upload-warnings/{$warning->id}/dismiss")->assertRedirect();
+
+    expect($other->notifications()->count())->toBe(0)
+        ->and(ModerationAction::query()->where('action', 'dismiss_upload_warning')->sole()->baid)->toBe($player->baid);
+    $this->actingAs($moderator)->get('/waddamburo/mod/upload-warnings')->assertInertia(fn (Assert $page) => $page->has('warnings', 0));
+
+    WaddamburoUploadWarnings::record($player->baid, UploadWarningKind::MalformedReplay);
+    expect($warning->fresh())->dismissed_at->toBeNull()->count->toBe(2)
+        ->and($other->notifications()->count())->toBe(1);
+
+    $this->actingAs($moderator)->patch('/waddamburo/mod/upload-warnings/dismiss-all')->assertRedirect();
+    expect($warning->fresh()->dismissed_at)->not->toBeNull();
+});
+
+it('clears a banned player\'s upload warnings but nobody else\'s', function (): void {
+    config(['broadcasting.default' => 'log']);
+    $moderator = User::factory()->moderator()->create();
+    $banned = mod_player();
+    $other = mod_player();
+    WaddamburoUploadWarnings::record($banned->baid, UploadWarningKind::MalformedReplay);
+    WaddamburoUploadWarnings::record($other->baid, UploadWarningKind::MalformedReplay);
+
+    app(ModerationService::class)->sanction($moderator, $banned, SanctionType::Ban, 'bad data', null, now()->addDay());
+
+    expect(WdbUploadWarning::query()->whereNull('dismissed_at')->pluck('baid')->all())->toBe([$other->baid]);
 });

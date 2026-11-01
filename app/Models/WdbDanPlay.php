@@ -25,11 +25,11 @@ class WdbDanPlay extends Model
 
     protected $guarded = [];
 
-    protected $hidden = ['progress'];
+    protected $hidden = ['progress', 'analysis_flag', 'analysis', 'analyzed_at'];
 
     protected function casts(): array
     {
-        return ['played_at' => 'datetime', 'rescored_at' => 'datetime', 'hidden_at' => 'datetime', 'progress' => PostgresBytea::class];
+        return ['played_at' => 'datetime', 'rescored_at' => 'datetime', 'hidden_at' => 'datetime', 'progress' => PostgresBytea::class, 'analysis' => 'array', 'analyzed_at' => 'datetime'];
     }
 
     /**

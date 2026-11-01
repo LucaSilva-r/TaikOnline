@@ -98,6 +98,9 @@ class WaddamburoDanPlayController extends Controller
                 'sanctions' => Sanction::query()->active()->where('baid', $play->baid)->pluck('type')->map->value->unique()->values()->all(),
                 'can_act' => $play->player !== null && ModerationService::canActOn($viewer, $play->player),
                 'open_reports' => WdbDanPlayReport::query()->open()->where('wdb_dan_play_id', $play->id)->count(),
+                'analysis_flag' => $play->analysis_flag,
+                // Why it was flagged: the fewer who see the checks, the fewer who can leak them.
+                'analysis' => $viewer->isAdmin() ? $play->analysis : null,
             ] : null,
         ]);
     }

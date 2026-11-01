@@ -19,12 +19,16 @@ class WaddamburoUploadWarnings
             ['baid' => $baid, 'kind' => $kind, 'day' => now()->toDateString()],
             ['last_seen_at' => now()],
         );
+        $isDismissed = $warning->dismissed_at !== null;
         $warning->increment('count', 1, [
+            'dismissed_at' => null,
+            'dismissed_by' => null,
             'play_id' => $playId,
             'detail' => $detail === null ? null : Str::limit($detail, 250),
             'last_seen_at' => now(),
         ]);
-        if ($warning->wasRecentlyCreated) {
+        // Cleared, then it happened again: staff hear of it again.
+        if ($warning->wasRecentlyCreated || $isDismissed) {
             Notification::send(User::query()->whereIn('role', [UserRole::Admin, UserRole::Moderator])->get(), new UploadWarningRaised($warning));
         }
     }

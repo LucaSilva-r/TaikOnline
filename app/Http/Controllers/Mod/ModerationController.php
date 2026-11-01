@@ -177,7 +177,7 @@ class ModerationController extends Controller
     /** Bad data players tried to upload, newest first, so a repeat offender stands out. */
     public function uploadWarnings(): Response
     {
-        $warnings = WdbUploadWarning::query()->with('player.user')->latest('last_seen_at')->limit(200)->get();
+        $warnings = WdbUploadWarning::query()->whereNull('dismissed_at')->with('player.user')->latest('last_seen_at')->limit(200)->get();
         $playIds = $warnings->pluck('play_id')->filter();
         $plays = WdbPlay::query()->whereIn('id', $playIds)->pluck('id')->flip();
         $danPlays = WdbDanPlay::query()->whereIn('id', $playIds)->pluck('id')->flip();
@@ -195,6 +195,20 @@ class ModerationController extends Controller
                 'dan_play_id' => $danPlays->has($warning->play_id) ? $warning->play_id : null,
             ])->all(),
         ]);
+    }
+
+    public function dismissUploadWarning(Request $request, WdbUploadWarning $warning, ModerationService $moderation): RedirectResponse
+    {
+        $moderation->dismissWarning($request->user(), $warning);
+
+        return back();
+    }
+
+    public function dismissAllUploadWarnings(Request $request, ModerationService $moderation): RedirectResponse
+    {
+        $moderation->dismissAllWarnings($request->user());
+
+        return back();
     }
 
     public function reports(): Response

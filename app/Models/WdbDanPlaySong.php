@@ -18,6 +18,12 @@ class WdbDanPlaySong extends Model
         return ['replay' => PostgresBytea::class, 'timeline' => PostgresBytea::class];
     }
 
+    /** @return BelongsTo<WdbDanPlay, $this> */
+    public function play(): BelongsTo
+    {
+        return $this->belongsTo(WdbDanPlay::class, 'wdb_dan_play_id');
+    }
+
     /** @return BelongsTo<WdbChart, $this> */
     public function chart(): BelongsTo
     {

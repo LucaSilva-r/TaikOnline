@@ -5,6 +5,7 @@ use App\Http\Controllers\Settings\CostumeController;
 use App\Http\Controllers\Settings\CustomizeController;
 use App\Http\Controllers\Settings\DeviceController;
 use App\Http\Controllers\Settings\GameSettingsController;
+use App\Http\Controllers\Settings\NotificationController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use Illuminate\Support\Facades\Route;
@@ -35,6 +36,11 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('settings/devices', [DeviceController::class, 'index'])->name('devices.index');
     Route::delete('settings/devices/{device}', [DeviceController::class, 'destroy'])->name('devices.destroy');
+
+    Route::get('settings/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('settings/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
+    Route::delete('settings/notifications', [NotificationController::class, 'clear'])->name('notifications.clear');
+    Route::delete('settings/notifications/{notification}', [NotificationController::class, 'destroy'])->whereUuid('notification')->name('notifications.destroy');
 
 });
 

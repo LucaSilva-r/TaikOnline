@@ -19,7 +19,9 @@ export function listenPrivate(
         socket.onmessage = async (message) => {
             const { event, data } = JSON.parse(message.data);
             const payload = typeof data === 'string' ? JSON.parse(data || '{}') : (data ?? {});
-            if (event === 'pusher:connection_established') {
+            if (event === 'pusher:connection_established' && !channel.startsWith('private-')) {
+                send('pusher:subscribe', { channel });
+            } else if (event === 'pusher:connection_established') {
                 const response = await fetch('/broadcasting/auth', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-XSRF-TOKEN': xsrf() },
@@ -49,3 +51,6 @@ export function listenPrivate(
         socket?.close();
     };
 }
+
+/** The same for a public channel: it needs no sign-in, so visitors get it too. */
+export const listenPublic = listenPrivate;

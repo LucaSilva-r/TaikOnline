@@ -113,3 +113,14 @@ it('pushes a player\'s notices as "notice", the event Waddamburo and the site li
 
     Event::assertDispatched(BroadcastNotificationCreated::class, fn (BroadcastNotificationCreated $event): bool => $event->broadcastAs() === 'notice');
 });
+
+it('shows the system notices running now on every website page, to visitors too', function (string $page): void {
+    $running = WdbNotice::query()->create(['message' => 'Scheduled maintenance at 22:00', 'severity' => 'warning']);
+    WdbNotice::query()->create(['message' => 'Over', 'severity' => 'info', 'ends_at' => now()->subMinute()]);
+    WdbNotice::query()->create(['message' => 'Later', 'severity' => 'info', 'starts_at' => now()->addHour()]);
+
+    $this->get($page)->assertInertia(fn (Assert $response) => $response
+        ->has('systemNotices.active', 1)
+        ->where('systemNotices.active.0.id', (string) $running->id)
+        ->where('systemNotices.active.0.message', 'Scheduled maintenance at 22:00'));
+})->with(['/waddamburo/songs', '/green/rankings']);

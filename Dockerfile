@@ -37,7 +37,7 @@ RUN cd /tmp && chmod +x Waddamburo.AppImage && ./Waddamburo.AppImage --appimage-
 
 FROM php AS production
 
-# The private analyzer is a Python script, mounted from the host (docker/production/compose.yaml).
+# The private analyzer is a Python script the host puts in storage/analyzer/.
 RUN apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*
 
 # Match the host user that owns the bind-mounted storage directory.
@@ -45,7 +45,6 @@ RUN usermod -u 1000 www-data && groupmod -g 1000 www-data
 
 ENV OCTANE_SERVER=frankenphp \
     WADDAMBURO_SCORER=/opt/waddamburo/AppRun \
-    WADDAMBURO_ANALYZER=/srv/analyzer/wdb-analyze \
     XDG_CONFIG_HOME=/app/storage/framework/frankenphp/config \
     XDG_DATA_HOME=/app/storage/framework/frankenphp/data
 

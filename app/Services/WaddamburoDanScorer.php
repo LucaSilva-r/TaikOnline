@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\UploadWarningKind;
+use App\Jobs\AnalyzeWaddamburoPlays;
 use App\Models\WdbDanCourse;
 use App\Models\WdbDanPlay;
 use Illuminate\Database\Eloquent\Collection;
@@ -46,6 +47,11 @@ class WaddamburoDanScorer
             if ($play !== null) {
                 $this->apply($play, $result);
             }
+        }
+
+        $scored = $plays->filter(fn (WdbDanPlay $play): bool => $play->wasChanged('rescored_at'));
+        if ($scored->isNotEmpty() && WaddamburoAnalyzer::isAvailable()) {
+            AnalyzeWaddamburoPlays::dispatch($scored->keys()->all(), true);
         }
     }
 

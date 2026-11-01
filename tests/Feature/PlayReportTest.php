@@ -127,9 +127,13 @@ it('notifies staff once when a play enters the queue, and players of their sanct
     expect($cheater->user->notifications()->oldest()->pluck('data')->pluck('message')->all())
         ->toBe(['You have been muted permanently. Be nice.', 'Your mute was lifted.']);
 
+    // Both reported plays are closed, so staff have nothing left about them; a new report is what's open.
+    expect($moderator->notifications()->count())->toBe(0);
+    $moderation->report($first->user, report_play(report_player()), PlayReportReason::Macro, null);
+
     // The game gets the player's notices only; staff's stay on the site, where the bell marks them read.
     $this->withToken($moderator->createToken('test', ['wdb'])->plainTextToken)->getJson('/api/wdb/notifications')->assertJsonCount(0, 'notifications');
-    $this->actingAs($moderator)->get('/waddamburo/songs')->assertInertia(fn (Assert $page) => $page->where('notifications.unread', 2));
+    $this->actingAs($moderator)->get('/waddamburo/songs')->assertInertia(fn (Assert $page) => $page->where('notifications.unread', 1));
     $this->actingAs($moderator)->post('/waddamburo/notifications/read')->assertRedirect();
     expect($moderator->unreadNotifications()->count())->toBe(0);
 });

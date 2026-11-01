@@ -13,14 +13,15 @@
 </script>
 
 <script lang="ts">
-    import { Link } from '@inertiajs/svelte';
+    import { Link, router } from '@inertiajs/svelte';
     import AppHead from '@/components/AppHead.svelte';
     import { Badge } from '@/components/ui/badge';
-    import { buttonVariants } from '@/components/ui/button';
+    import { Button, buttonVariants } from '@/components/ui/button';
     import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
     import { show as danPlayShow } from '@/routes/dan-plays';
     import moderationPlayers from '@/routes/mod/players';
+    import moderationWarnings from '@/routes/mod/upload-warnings';
     import { show as playsShow } from '@/routes/plays';
 
     type Warning = {
@@ -46,6 +47,16 @@
         dateStyle: 'medium',
         timeStyle: 'short',
     });
+
+    function clearAll(): void {
+        if (confirm(`Clear all ${warnings.length} upload warnings?`)) {
+            router.patch(
+                moderationWarnings.dismissAll(taikoParam).url,
+                {},
+                { preserveScroll: true },
+            );
+        }
+    }
 </script>
 
 <AppHead title="Upload warnings" />
@@ -57,9 +68,18 @@
             Bad data players tried to send, one row per player, kind and day,
             with how many times. An honest client should never cause these,
             though a score difference can also be an engine bug. Nothing here is
-            sanctioned automatically.
+            sanctioned automatically. Clearing one removes it for all staff, and
+            it comes back if the player does it again.
         </p>
     </div>
+
+    {#if warnings.length > 0}
+        <div class="flex justify-end">
+            <Button size="sm" variant="outline" onclick={clearAll}
+                >Clear all</Button
+            >
+        </div>
+    {/if}
 
     {#each warnings as warning (warning.id)}
         <section class="flex flex-col gap-2 rounded-md border p-4">
@@ -117,6 +137,19 @@
                             })}>Player</Link
                         >
                     {/if}
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onclick={() =>
+                            router.patch(
+                                moderationWarnings.dismiss({
+                                    ...taikoParam,
+                                    warning: warning.id,
+                                }).url,
+                                {},
+                                { preserveScroll: true },
+                            )}>Clear</Button
+                    >
                 </div>
             </div>
             {#if warning.detail}

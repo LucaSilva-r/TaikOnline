@@ -5,6 +5,7 @@
     import Crown from 'lucide-svelte/icons/crown';
     import ExternalLink from 'lucide-svelte/icons/external-link';
     import Gavel from 'lucide-svelte/icons/gavel';
+    import AnalysisPanel from '@/components/AnalysisPanel.svelte';
     import AppHead from '@/components/AppHead.svelte';
     import PlayInspection, {
         type Inspection,
@@ -520,14 +521,10 @@
                     Hidden because: {moderation.hidden_reason}
                 </p>
             {/if}
-            {#if moderation.analysis_flag && moderation.analysis_flag !== 'none'}
-                <p class="text-sm text-amber-700 dark:text-amber-400">
-                    Flagged by the analyzer: {moderation.analysis_flag}
-                </p>
-            {/if}
-            {#if moderation.analysis}
-                <pre class="overflow-x-auto rounded-md bg-muted p-3 text-xs">{JSON.stringify(moderation.analysis, null, 2)}</pre>
-            {/if}
+            <AnalysisPanel
+                flag={moderation.analysis_flag}
+                analysis={moderation.analysis}
+            />
             <Deferred data="inspection">
                 {#snippet fallback()}
                     <Skeleton class="h-64 rounded-lg" />

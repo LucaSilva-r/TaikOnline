@@ -12,6 +12,7 @@
     import { edit as editCostumes } from '@/routes/costumes';
     import { index as indexDevices } from '@/routes/devices';
     import { edit as editGameSettings } from '@/routes/game-settings';
+    import { index as indexNotifications } from '@/routes/notifications';
     import { edit as editProfile } from '@/routes/profile';
     import { edit as editSecurity } from '@/routes/security';
     import type { NavItem } from '@/types';
@@ -56,6 +57,10 @@
         {
             title: 'Devices',
             href: indexDevices(taikoRouteParam()),
+        },
+        {
+            title: 'Notifications',
+            href: indexNotifications(taikoRouteParam()),
         },
         {
             title: 'Appearance',
