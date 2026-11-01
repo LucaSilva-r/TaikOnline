@@ -24,3 +24,13 @@ such as "Playing 千本桜 (Oni)".
 - **Who isn't kept at all:** banned players and players who haven't accepted the current Rules.
 - **Song names:** ranked, legacy and osu! charts are named. Other custom charts, and charts the server doesn't
   know yet, show "Playing a song", because custom charts stay with their communities (`WdbChart::visibleTo`).
+
+## Before deploying
+
+Nothing here is deployed yet: it all goes out together once multiplayer is ready.
+
+- Add the `redis` (Valkey) service from `docker/production/compose.yaml` to the host's `compose.yaml` by hand. Don't
+  copy the whole file over, because the host's differs.
+- Set `REDIS_HOST=redis` in the host's `.env`.
+- Update the host's `storage/legal/privacy.md` from `resources/legal/privacy.md`, and decide whether to bump
+  `LEGAL_VERSION`, which makes everyone accept again.
