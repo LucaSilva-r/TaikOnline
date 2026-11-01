@@ -529,6 +529,7 @@ it('hides another player\'s copied replay without telling the uploader, and warn
     $copier = wdb_player('30800000000000000002');
 
     $this->withToken(wdb_token($owner))->postJson('/api/wdb/plays', ['plays' => [$original, wdb_play($sha)]])->assertOk();
+    app('auth')->forgetGuards(); // the previous request's user stays set inside one test
     $this->withToken(wdb_token($copier))->postJson('/api/wdb/plays', ['plays' => [$copy]])
         ->assertOk()->assertJsonPath('accepted', [$copy['id']]);
 
