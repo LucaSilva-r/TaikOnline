@@ -14,6 +14,7 @@ use App\Models\WdbPlay;
 use App\Models\WdbSong;
 use App\Services\PlayerRankAggregateService;
 use App\Services\WaddamburoRankAggregateService;
+use App\Services\WaddamburoStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
@@ -198,6 +199,7 @@ class WaddamburoWebController extends Controller
             'danProgress' => $player instanceof Player ? $this->danProgress($player) : [],
             'moderationBaid' => $request->user()?->isStaff() === true && $player instanceof Player ? (int) $player->baid : null,
             'standing' => Sanction::standingFor($user, $request->user()),
+            'onlineStatus' => app(WaddamburoStatus::class)->of($user),
         ]);
     }
 

@@ -5,6 +5,7 @@ export type User = {
     name: string;
     email: string;
     role: UserRole;
+    presence_status: 'online' | 'invisible';
     avatar?: string;
     email_verified_at: string | null;
     created_at: string;

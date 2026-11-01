@@ -88,6 +88,18 @@ services:
             - laravel.test
         restart: unless-stopped
 
+    # Player status only, all of it stale within 90 s: nothing to persist.
+    redis:
+        image: 'valkey/valkey:8-alpine'
+        command: ['valkey-server', '--save', '', '--appendonly', 'no']
+        networks:
+            - sail
+        healthcheck:
+            test: ['CMD', 'valkey-cli', 'ping']
+            retries: 3
+            timeout: 5s
+        restart: unless-stopped
+
     pgsql:
         image: 'postgres:18-alpine'
         ports:

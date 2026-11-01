@@ -15,6 +15,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::patch('settings/online-status', [ProfileController::class, 'updateOnlineStatus'])->name('online-status.update');
 
     Route::get('settings/customize', [CustomizeController::class, 'edit'])->name('customize.edit');
     Route::patch('settings/customize', [CustomizeController::class, 'update'])->name('customize.update');

@@ -11,8 +11,9 @@
 | Plays: scores, replays of your inputs, timing, options, game version | Scores, leaderboards, replays | Providing the service you asked for |
 | Technical: IP address and browser in sessions, IP addresses in server and cabinet logs | Security, keeping the service working | Legitimate interest |
 | Moderation: reports, sanctions, automated and staff review of plays | Fair play, protecting other players | Legitimate interest |
+| Online status in Waddamburo: whether you are online or away, and the song you are playing | Showing others on your profile that you are online | Legitimate interest |
 
-Your name, scores, replays and profile are public. A card used without an account has no email or name attached by us, apart from any player name entered in the game.
+Your name, scores, replays and profile are public. While you are logged in to Waddamburo at home, so is your online status: your profile shows it, including the song and difficulty you are playing if it is an official, ranked or osu! chart. To hide it from everyone else, set your status to Invisible in the menu under your profile picture. A card used without an account has no email or name attached by us, apart from any player name entered in the game.
 
 ## Automated checks
 
@@ -27,6 +28,7 @@ We do not sell your data and do not use advertising or analytics trackers. We on
 ## How long we keep it
 
 - Account, player and play data: until you delete your account
+- Online status: about 90 seconds after your game stops reporting it. It is not kept as a history
 - Backups: up to [BACKUP RETENTION] after that
 - Server and cabinet logs: only as long as needed for security and debugging
 - Moderation records: as long as needed to enforce sanctions and handle appeals. If you delete your account, staff's log of actions stays without being linked to you

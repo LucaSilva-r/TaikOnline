@@ -1,7 +1,9 @@
 <script lang="ts">
     import { Link, router } from '@inertiajs/svelte';
+    import Circle from 'lucide-svelte/icons/circle';
     import LogOut from 'lucide-svelte/icons/log-out';
     import Settings from 'lucide-svelte/icons/settings';
+    import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
     import {
         DropdownMenuGroup,
         DropdownMenuItem,
@@ -21,6 +23,14 @@
         user: User;
     } = $props();
 
+    function changeStatus(event: Event) {
+        router.patch(
+            ProfileController.updateOnlineStatus.url(taikoRouteParam()),
+            { presence_status: (event.currentTarget as HTMLSelectElement).value },
+            { preserveState: true, preserveScroll: true },
+        );
+    }
+
     function handleLogout(propsOnClick?: () => void) {
         return () => {
             propsOnClick?.();
@@ -36,6 +46,22 @@
 </DropdownMenuLabel>
 <DropdownMenuSeparator />
 <DropdownMenuGroup>
+    <label class="flex items-center px-2 py-1.5 text-sm">
+        <Circle
+            class="mr-2 h-4 w-4 {user.presence_status === 'invisible'
+                ? 'text-muted-foreground'
+                : 'fill-green-500 text-green-500'}"
+        />
+        <span class="mr-3">Status</span>
+        <select
+            class="ml-auto rounded-md border bg-background px-2 py-1 text-sm"
+            value={user.presence_status}
+            onchange={changeStatus}
+        >
+            <option value="online">Online</option>
+            <option value="invisible">Invisible</option>
+        </select>
+    </label>
     <DropdownMenuItem asChild>
         {#snippet children(props)}
             <Link

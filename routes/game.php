@@ -7,6 +7,7 @@ use App\Http\Controllers\WaddamburoController;
 use App\Http\Controllers\WaddamburoDanController;
 use App\Http\Controllers\WaddamburoNoticeController;
 use App\Http\Controllers\WaddamburoScoreController;
+use App\Http\Controllers\WaddamburoStatusController;
 use App\Http\Controllers\ZucchiniCardController;
 use App\Http\Controllers\ZucchiniExtraBestController;
 use App\Http\Controllers\ZucchiniPairingController;
@@ -48,6 +49,8 @@ Route::middleware(['wdb.auth', 'throttle:wdb'])->prefix('api/wdb')->group(functi
     // Private channel subscriptions (Pusher auth) for Waddamburo tokens.
     Route::match(['get', 'post'], 'broadcasting/auth', fn (Request $request) => Broadcast::auth($request));
     Route::get('me', [WaddamburoController::class, 'me']);
+    Route::put('status', [WaddamburoStatusController::class, 'update']);
+    Route::delete('status', [WaddamburoStatusController::class, 'destroy']);
     Route::post('cards', [WaddamburoController::class, 'card']);
     Route::post('pairing', [WaddamburoController::class, 'homePairing']);
     Route::post('plays', [WaddamburoController::class, 'storePlays'])->middleware('wdb.rules');

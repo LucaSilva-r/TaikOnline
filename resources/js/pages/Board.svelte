@@ -8,6 +8,7 @@
     } from '@/components/ui/avatar';
     import * as Chart from '@/components/ui/chart';
     import { getInitials } from '@/lib/initials';
+    import { listenPublic } from '@/lib/realtime';
     import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
     import { show as songsShow } from '@/routes/songs';
@@ -15,7 +16,7 @@
     import moderationPlayers from '@/routes/mod/players';
     import { buttonVariants } from '@/components/ui/button';
     import Gavel from 'lucide-svelte/icons/gavel';
-    import { Link } from '@inertiajs/svelte';
+    import { Link, page } from '@inertiajs/svelte';
     import { LineChart } from 'layerchart';
     import Activity from 'lucide-svelte/icons/activity';
     import Award from 'lucide-svelte/icons/award';
@@ -198,6 +199,7 @@
         danProgress = [],
         moderationBaid = null,
         standing = null,
+        onlineStatus,
     }: {
         profile: Profile;
         hasPlayer: boolean;
@@ -212,6 +214,7 @@
         danProgress?: DanSeries[];
         moderationBaid?: number | null;
         standing?: Standing | null;
+        onlineStatus?: OnlineStatus | null;
     } = $props();
 
     const taikoParam = taikoRouteParam();
@@ -284,6 +287,68 @@
         return value instanceof Date ? formatShortDate(value) : String(value);
     }
 
+    type OnlineStatus = {
+        state: 'online' | 'afk' | 'playing';
+        song: { title: string; course: number } | null;
+    };
+
+    // The server's WaddamburoStatus::TTL_SECONDS: the game reports every 30 s until it stops.
+    const statusLifetimeMs = 90_000;
+    const realtimeUrl = $derived(page.props.systemNotices?.realtimeUrl);
+    let status = $state<OnlineStatus | null>(null);
+
+    $effect(() => {
+        // Only Waddamburo's board has a status to show.
+        if (onlineStatus === undefined) {
+            status = null;
+
+            return;
+        }
+
+        status = onlineStatus;
+        let expiry: ReturnType<typeof setTimeout> | undefined;
+
+        const expireLater = () => {
+            clearTimeout(expiry);
+            expiry = setTimeout(() => (status = null), statusLifetimeMs);
+        };
+
+        if (onlineStatus) {
+            expireLater();
+        }
+
+        const stopListening = realtimeUrl
+            ? listenPublic(realtimeUrl, `wdb.status.${profile.id}`, (event, data) => {
+                  if (event !== 'status') {
+                      return;
+                  }
+
+                  const next = data as OnlineStatus | { state: 'offline' };
+                  status = next.state === 'offline' ? null : next;
+                  expireLater();
+              })
+            : undefined;
+
+        return () => {
+            clearTimeout(expiry);
+            stopListening?.();
+        };
+    });
+
+    function statusText({ state, song }: OnlineStatus): string {
+        if (state === 'afk') {
+            return 'AFK';
+        }
+
+        if (state === 'online') {
+            return 'Online';
+        }
+
+        return song
+            ? `Playing ${song.title} (${['Easy', 'Normal', 'Hard', 'Oni', 'Ura'][song.course] ?? song.course})`
+            : 'Playing a song';
+    }
+
     function difficultyLabel(level: number): string {
         return (
             {
@@ -318,7 +383,13 @@
     <section class="overflow-hidden rounded-lg border bg-card">
         <div class="border-b bg-[var(--taiko-accent-soft)] px-5 py-8">
             <div class="flex flex-col gap-5 sm:flex-row sm:items-end">
-                <Avatar class="size-24 border-4 border-background shadow-sm">
+                <Avatar
+                    class="size-24 border-4 border-background shadow-sm {status
+                        ? status.state === 'afk'
+                            ? 'ring-4 ring-orange-500'
+                            : 'ring-4 ring-green-500'
+                        : ''}"
+                >
                     {#if profile.avatar}
                         <AvatarImage
                             src={profile.avatar}
@@ -344,6 +415,16 @@
                     <p class="mt-1 text-sm text-muted-foreground">
                         {profile.mydon_name ?? 'No MyDon profile linked'}
                     </p>
+                    {#if status}
+                        <p
+                            class={[
+                                'mt-1 truncate text-sm font-medium',
+                                status.state === 'afk' ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400',
+                            ]}
+                        >
+                            {statusText(status)}
+                        </p>
+                    {/if}
                 </div>
 
                 <div class="grid gap-1 text-sm sm:text-right">
