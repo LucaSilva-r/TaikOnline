@@ -1,6 +1,5 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
-    import AlphaBanner from '@/components/AlphaBanner.svelte';
     import AppContent from '@/components/AppContent.svelte';
     import AppShell from '@/components/AppShell.svelte';
     import AppSidebar from '@/components/AppSidebar.svelte';
@@ -24,7 +23,6 @@
         <AppSidebarHeader {breadcrumbs} />
         <SystemNotices />
         {@render children?.()}
-        <AlphaBanner />
     </AppContent>
     <Toaster />
 </AppShell>

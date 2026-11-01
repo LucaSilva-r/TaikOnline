@@ -3,7 +3,6 @@
     import Menu from 'lucide-svelte/icons/menu';
     import ShieldCheck from 'lucide-svelte/icons/shield-check';
     import type { Snippet } from 'svelte';
-    import AlphaBanner from '@/components/AlphaBanner.svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
     import NotificationBell from '@/components/NotificationBell.svelte';
     import SiteDisclaimer from '@/components/SiteDisclaimer.svelte';
@@ -255,7 +254,6 @@
 
     <SiteDisclaimer />
 
-    <AlphaBanner />
 
     <Toaster />
 </div>
