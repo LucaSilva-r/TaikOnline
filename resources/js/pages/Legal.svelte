@@ -14,12 +14,29 @@
         html,
         mustAccept,
         version,
+        versions = [],
+        since = null,
+        changes = null,
     }: {
         title: string;
         html: string;
         mustAccept: boolean;
         version: string;
+        versions?: string[];
+        since?: string | null;
+        changes?:
+            { change: 'same' | 'removed' | 'added'; html: string }[] | null;
     } = $props();
+
+    // Another earlier version to compare with, or none ('' rather than nothing: a player behind on the rules gets
+    // the one they accepted unless they say otherwise).
+    function compare(event: Event) {
+        router.get(
+            window.location.pathname,
+            { since: (event.currentTarget as HTMLSelectElement).value },
+            { preserveScroll: true, preserveState: true },
+        );
+    }
 
     const taikoParam = taikoRouteParam();
     const links = [
@@ -84,9 +101,42 @@
         </section>
     {/if}
 
-    <article class="legal">
-        {@html html}
-    </article>
+    {#if versions.length > 0}
+        <label class="flex flex-wrap items-center gap-2 text-sm">
+            <span class="text-muted-foreground">Show what changed since</span>
+            <select
+                class="rounded-md border bg-background px-2 py-1"
+                value={since ?? ''}
+                onchange={compare}
+            >
+                <option value="">(don't show changes)</option>
+                {#each versions.toReversed() as earlier (earlier)}
+                    <option value={earlier}>Version {earlier}</option>
+                {/each}
+            </select>
+        </label>
+    {/if}
+
+    {#if changes}
+        <p class="text-sm text-muted-foreground">
+            Changes since version {since}:
+            <span class="added px-1">added</span>
+            <span class="removed px-1">removed</span>
+        </p>
+        <article class="legal">
+            {#each changes as block, index (index)}
+                {#if block.change === 'same'}
+                    {@html block.html}
+                {:else}
+                    <div class={block.change}>{@html block.html}</div>
+                {/if}
+            {/each}
+        </article>
+    {:else}
+        <article class="legal">
+            {@html html}
+        </article>
+    {/if}
     <p class="text-xs text-muted-foreground">Version {version}</p>
 
     {#if mustAccept}
@@ -95,6 +145,20 @@
 </div>
 
 <style>
+    .added {
+        border-left: 3px solid rgb(34 197 94);
+        background: rgb(34 197 94 / 0.12);
+        padding-left: 0.5rem;
+    }
+
+    .removed {
+        border-left: 3px solid rgb(239 68 68);
+        background: rgb(239 68 68 / 0.12);
+        padding-left: 0.5rem;
+        text-decoration: line-through;
+        opacity: 0.8;
+    }
+
     .legal {
         display: flex;
         flex-direction: column;

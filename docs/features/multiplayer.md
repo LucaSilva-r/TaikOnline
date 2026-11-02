@@ -1,8 +1,9 @@
 # Waddamburo multiplayer
 
 Planned: online play between two home players, each alone at their PC. Arcade mode is excluded. Gameplay
-traffic goes peer to peer with NAT punchthrough, so TaikOnline is involved as little as possible. Scores from
-these plays are unranked and never uploaded.
+traffic goes peer to peer with NAT punchthrough, so TaikOnline is involved as little as possible. Each player's
+own lane is saved and uploaded like any play (the charts are the usual one-player ones), so scores rank as usual;
+the other player's lane is left to their own game.
 
 Player status, rooms and playing a song together work (tested between Italy and Brazil, 2026-11-02). The game side
 lives in the Waddamburo repo; see Playing below.
