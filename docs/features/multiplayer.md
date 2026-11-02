@@ -70,7 +70,10 @@ All in the game: the server only introduced the players.
   nothing played online is kept or uploaded.
 - **IP warning:** the first time the lobby opens, it says the other player sees your IP address; accepting is kept in
   config.cfg (`online_warning_accepted`).
-- **Still to do:** sending a song the guest lacks.
+- **Still to do:** sending a song the guest lacks, and a relay over TCP for networks that block UDP: coturn's TLS
+  listener on 443 (a certificate and a DNS-only record), TURN over a stream in `PeerLink`, tried after direct and the UDP
+  relay, and a `turns:` server from `ice-servers`. Hits would stall behind a lost packet, but the delayed lane hides
+  most of that. Worth it once a tester can't connect over UDP.
 
 ## Before deploying
 
