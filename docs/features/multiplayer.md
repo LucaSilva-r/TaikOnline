@@ -4,7 +4,8 @@ Planned: online play between two home players, each alone at their PC. Arcade mo
 traffic goes peer to peer with NAT punchthrough, so TaikOnline is involved as little as possible. Scores from
 these plays are unranked and never uploaded.
 
-Player status and rooms exist so far. The peer-to-peer connection and play itself don't.
+Player status, rooms and playing a song together work (tested between Italy and Brazil, 2026-11-02). The game side
+lives in the Waddamburo repo; see Playing below.
 
 ## Player status
 
@@ -49,6 +50,21 @@ A room introduces two players, and that's all the server does for them.
   UDP can't connect.
 - **Testing a network:** `--online-test` opens a room and `--online-test=CODE` joins one, with no game window, and
   reports the route and round trip.
+
+## Playing
+
+All in the game: the server only introduced the players.
+
+- **Choosing:** the host picks a song and course and holds on the rainbow's title. The guest's Song Select reloads on
+  that song alone and they pick their course. A guest without the song is told, and the host plays alone.
+- **Starting:** both load the song with the other player's chart and options (the host's seed) on the second lane, and
+  hold on the title until both could open it. The host waits half a round trip after "go", so both open together.
+- **The other lane:** their hits arrive over the peer link and drive their lane a little more than half the round trip
+  behind (120 to 400 ms), so each lands where they hit it. Lanes don't share hand notes.
+- **No pausing, no saving:** leaving the window doesn't stop an online song, Escape opens the menu over it, and
+  nothing played online is kept or uploaded.
+- **Still to do:** both players on the results screen, telling the other player when one leaves mid-song, a kusudama
+  each, sending a song the guest lacks, and the first-time IP warning.
 
 ## Before deploying
 
