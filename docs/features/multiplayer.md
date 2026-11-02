@@ -98,8 +98,11 @@ Nothing here is deployed yet: it all goes out together once multiplayer is ready
   copy the whole file over, because the host's differs.
 - Set `REDIS_HOST=redis` in the host's `.env`.
 - Add the `relay` service too (it builds from `relay/`), set the same random `RELAY_SECRET` for it and Laravel, and
-  `RELAY_URL=wss://relay.taikonline.com`. In the tunnel, give that hostname the service `http://relay:8080`. Nothing
-  needs a DNS-only record or an open port, so the VPS's address stays hidden.
+  `RELAY_URL=wss://relay.taikonline.com`. Production's tunnel runs on the host network, so the relay publishes
+  `127.0.0.1:1026:8080` (beside the app's 1024 and Reverb's 1025) and the tunnel gives that hostname the service
+  `http://localhost:1026` (staging's tunnel, inside compose, uses `http://relay:8080`). Nothing needs a DNS-only
+  record or an open port, so the VPS's address stays hidden. The host has no checkout: copy the relay with
+  `git archive HEAD relay | ssh crystal 'cd ~/TaikOnline2 && tar -x'` and build it there.
 - Update the host's `storage/legal/privacy.md` from `resources/legal/privacy.md`, and decide whether to bump
   `LEGAL_VERSION`, which makes everyone accept again.
 - Say in the Privacy Policy that playing online shows your IP address to the other player, including strangers in
