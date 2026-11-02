@@ -70,14 +70,15 @@ All in the game: the server only introduced the players.
   when the game closes. The game's own songs (Stock, Nijiiro) are never sent: without one, the host plays alone.
 - **Starting:** both load the song with the other player's chart and options (the host's seed) on the second lane, and
   hold on the title until both could open it. The host waits half a round trip after "go", so both open together.
-- **The other lane:** their hits arrive over the peer link and drive their lane a little more than half the round trip
-  behind (120 to 400 ms, up to 800 through the relay), so each lands where they hit it. Each packet carries every hit
-  not yet confirmed, with its time; through the relay they go every 50 ms instead of every tick, so fewer packets queue
-  on its TCP stream. Lanes don't share hand notes.
-- **Charts:** both play the one-player charts. A kusudama is each player's own: on the other player's lane it's a balloon
-  with the same hits, so the two games score that note a little differently.
-- **Two players:** the song and its results run as two players at the drums do (shutter, Don-chans, both results).
-  Song Select stays one player's, with the partner shown beside them.
+- **The other lane:** it runs in time with this player's song, whatever the delay. Their hits arrive over the peer link
+  (each packet carries every hit not yet confirmed, with its time; through the relay every 50 ms instead of every tick)
+  and a shadow of their lane judges them at the times they were hit, so its score, combo, gauge and results are exactly
+  theirs, just late. Each note reaching the line takes the next judgement the shadow has made, misses included; with
+  none yet (the first notes, or a lag spike) it's a placeholder: it pops, with no judgement, score or drum sound. So the
+  lane runs a few notes behind in judgements, never in time. Their hits that judged no note (stray ones, rolls) flash
+  their drum as they arrive, with no sound. Their clear/fail banner waits for their play to catch up, 3 s at most. Once
+  a player's notes are over their game sends its own result, which the other's results screen shows as it is. Lanes
+  don't share hand notes.
 - **Leaving:** the game that leaves says "bye" over the link, so the other reacts at once; the server's room going, the
   link going quiet and the channel's presence cover a crash. F5 shows the link's round trip and whether it's relayed.
 - **No pausing, no saving:** leaving the window doesn't stop an online song, Escape opens the menu over it, and
