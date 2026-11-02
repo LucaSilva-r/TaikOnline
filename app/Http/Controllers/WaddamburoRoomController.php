@@ -69,12 +69,16 @@ class WaddamburoRoomController extends Controller
         return response()->noContent();
     }
 
-    /** TURN credentials open the relay, so only a room's own players get them. */
+    /** A relay ticket opens the relay, so only a room's own players get one. */
     public function iceServers(Request $request, string $code, WaddamburoRooms $rooms): JsonResponse
     {
-        abort_unless($request->user() !== null && $rooms->isMember(strtoupper($code), $request->user()), 404);
+        $code = strtoupper($code);
+        abort_unless($request->user() !== null && $rooms->isMember($code, $request->user()), 404);
 
-        return response()->json(['ice_servers' => $rooms->iceServers($request->user())]);
+        return response()->json(array_filter(
+            ['ice_servers' => $rooms->iceServers(), 'relay' => $rooms->relay($code, $request->user())],
+            static fn (?array $value): bool => $value !== null,
+        ));
     }
 
     /** @return array<string, list<string>> */

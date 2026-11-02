@@ -12,7 +12,7 @@ beforeEach(function (): void {
         'broadcasting.connections.reverb.key' => 'test-key',
         'broadcasting.connections.reverb.secret' => 'test-secret',
         'broadcasting.connections.reverb.app_id' => '1',
-        'services.turn' => ['host' => null, 'port' => 3478, 'secret' => null],
+        'services.relay' => ['url' => null, 'secret' => null],
     ]);
     // Channels register on the broadcaster booted with the app (null under tests).
     require base_path('routes/channels.php');
@@ -258,7 +258,7 @@ it('refuses the room channel to a website session, even a member\'s', function (
     $this->actingAs($host)->postJson('/broadcasting/auth', wdb_room_auth($code))->assertForbidden();
 });
 
-it('gives a room\'s members a public STUN server without a coturn, and nobody else anything', function (): void {
+it('gives a room\'s members a public STUN server and no relay without one, and nobody else anything', function (): void {
     $host = wdb_room_player();
     $code = wdb_room_code($host);
 
@@ -268,17 +268,18 @@ it('gives a room\'s members a public STUN server without a coturn, and nobody el
     $this->withToken(wdb_room_token(wdb_room_player('Stranger')))->getJson("/api/wdb/rooms/{$code}/ice-servers")->assertNotFound();
 });
 
-it('signs TURN credentials coturn can check, valid as long as a room lasts and without giving away the secret', function (): void {
-    config(['services.turn' => ['host' => 'turn.taikonline.test', 'port' => 3478, 'secret' => 'shared-secret']]);
+it('signs a relay ticket for this member of this room, valid as long as a room lasts and without giving away the secret', function (): void {
+    config(['services.relay' => ['url' => 'wss://relay.taikonline.test', 'secret' => 'shared-secret']]);
     $this->freezeTime();
     $host = wdb_room_player();
     $code = wdb_room_code($host);
 
-    $response = $this->withToken(wdb_room_token($host))->getJson("/api/wdb/rooms/{$code}/ice-servers")->assertOk();
+    $response = $this->withToken(wdb_room_token($host))->getJson('/api/wdb/rooms/'.strtolower($code).'/ice-servers')->assertOk();
 
-    $username = (now()->getTimestamp() + 6 * 3600).":{$host->id}";
-    expect($response->json('ice_servers'))->toBe([
-        ['urls' => ['stun:turn.taikonline.test:3478']],
-        ['urls' => ['turn:turn.taikonline.test:3478?transport=udp'], 'username' => $username, 'credential' => base64_encode(hash_hmac('sha1', $username, 'shared-secret', true))],
-    ])->and($response->getContent())->not->toContain('shared-secret');
+    [$payload, $signature] = explode('.', $response->json('relay.ticket'));
+    $decode = static fn (string $value): string => base64_decode(strtr($value, '-_', '+/'));
+    expect($response->json('relay.url'))->toBe('wss://relay.taikonline.test')
+        ->and($decode($payload))->toBe("{$code}:{$host->id}:".(now()->getTimestamp() + 6 * 3600))
+        ->and($decode($signature))->toBe(hash_hmac('sha256', $payload, 'shared-secret', true))
+        ->and($response->getContent())->not->toContain('shared-secret');
 });

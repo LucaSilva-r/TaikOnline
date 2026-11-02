@@ -230,30 +230,33 @@ class WaddamburoRooms
     }
 
     /**
-     * Where the players find each other: this instance's coturn when it has one, with TURN credentials good for a long
-     * sitting (coturn's use-auth-secret: it checks the signature with the same secret, and needs no call from here).
-     * Without one, a public STUN server: most players still connect, just with no relay to fall back on.
+     * Where the players find their own public addresses: a public STUN server, which sees only theirs.
      *
-     * @return list<array{urls: list<string>, username?: string, credential?: string}>
+     * @return list<array{urls: list<string>}>
      */
-    public function iceServers(User $user): array
+    public function iceServers(): array
     {
-        $host = config('services.turn.host');
-        $secret = config('services.turn.secret');
-        if (! is_string($host) || $host === '' || ! is_string($secret) || $secret === '') {
-            return [['urls' => ['stun:stun.cloudflare.com:3478']]];
-        }
-        $port = (int) config('services.turn.port');
-        $username = (now()->getTimestamp() + self::CREDENTIAL_TTL_SECONDS).":{$user->id}";
+        return [['urls' => ['stun:stun.cloudflare.com:3478']]];
+    }
 
-        return [
-            ['urls' => ["stun:{$host}:{$port}"]],
-            [
-                'urls' => ["turn:{$host}:{$port}?transport=udp"],
-                'username' => $username,
-                'credential' => base64_encode(hash_hmac('sha1', $username, $secret, true)),
-            ],
-        ];
+    /**
+     * The relay (relay/, behind the Cloudflare tunnel) for players who can't reach each other directly: its address
+     * and a ticket for this member of this room, good for a long sitting. The relay checks the signature with the same
+     * secret and needs no call from here. Null when this instance has no relay.
+     *
+     * @return array{url: string, ticket: string}|null
+     */
+    public function relay(string $code, User $user): ?array
+    {
+        $url = config('services.relay.url');
+        $secret = config('services.relay.secret');
+        if (! is_string($url) || $url === '' || ! is_string($secret) || $secret === '') {
+            return null;
+        }
+        $payload = rtrim(strtr(base64_encode("{$code}:{$user->id}:".(now()->getTimestamp() + self::CREDENTIAL_TTL_SECONDS)), '+/', '-_'), '=');
+        $signature = rtrim(strtr(base64_encode(hash_hmac('sha256', $payload, $secret, true)), '+/', '-_'), '=');
+
+        return ['url' => $url, 'ticket' => "{$payload}.{$signature}"];
     }
 
     /** A room's name is shown to everyone browsing: one line, short, and a muted player's is just their own name. */

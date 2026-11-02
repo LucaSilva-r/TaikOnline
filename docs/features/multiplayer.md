@@ -43,14 +43,19 @@ A room introduces two players, and that's all the server does for them.
 - **Who:** home players with a player who aren't banned. Being Invisible doesn't stop anyone joining by code.
 - **Signalling:** `presence-wdb.room.{code}`, for its members' games only. They exchange connection details in
   client events, which Reverb relays without Laravel seeing them. Treat their contents as untrusted.
-- **Connecting:** `GET api/wdb/rooms/{code}/ice-servers` gives members this instance's coturn (the `turn` service) for
-  STUN, and TURN credentials signed with `TURN_SECRET` that last as long as a room. Without `TURN_HOST` they get a
-  public STUN server and no relay.
-- **The link:** the game's own `PeerLink` (C#, no native library) probes every address both players gathered, prefers
-  a route without the relay. It speaks UDP over IPv4 and IPv6; STUN and the relay are IPv4 only. A network that blocks
-  UDP can't connect.
+- **Connecting:** `GET api/wdb/rooms/{code}/ice-servers` gives members a public STUN server (Cloudflare's, which only
+  learns the players' own addresses) and, when `RELAY_URL` is set, the relay with a ticket signed with `RELAY_SECRET`
+  for that member of that room, good as long as a room lasts.
+- **The relay** (`relay/`, the `relay` service): a small Node WebSocket server on its own hostname through the Cloudflare
+  tunnel, so the server's address stays hidden. It checks the ticket's signature with the same secret, pairs a room's
+  two members and passes each one's binary frames to the other, untouched. It keeps and logs nothing and never calls
+  TaikOnline. `npm test` in `relay/` covers it.
+- **The link:** the game's own `PeerLink` (C#, no native library) probes every address both players gathered over UDP
+  (IPv4 and IPv6), and the relay at the same time; a direct route replaces the relay as soon as one answers. The relay
+  goes over TCP, so it gets through networks that block UDP, at the cost of more latency and a stall after a lost
+  packet, which the delayed lane mostly hides.
 - **Testing a network:** `--online-test` opens a room and `--online-test=CODE` joins one, with no game window, and
-  reports the route and round trip.
+  reports the route and round trip. `WADDAMBURO_ONLINE_RELAY_ONLY=1` connects through the relay alone.
 
 ## Playing
 
@@ -66,19 +71,19 @@ All in the game: the server only introduced the players.
 - **Starting:** both load the song with the other player's chart and options (the host's seed) on the second lane, and
   hold on the title until both could open it. The host waits half a round trip after "go", so both open together.
 - **The other lane:** their hits arrive over the peer link and drive their lane a little more than half the round trip
-  behind (120 to 400 ms), so each lands where they hit it. Lanes don't share hand notes.
+  behind (120 to 400 ms, up to 800 through the relay), so each lands where they hit it. Each packet carries every hit
+  not yet confirmed, with its time; through the relay they go every 50 ms instead of every tick, so fewer packets queue
+  on its TCP stream. Lanes don't share hand notes.
 - **Charts:** both play the one-player charts. A kusudama is each player's own: on the other player's lane it's a balloon
   with the same hits, so the two games score that note a little differently.
 - **Two players:** the song and its results run as two players at the drums do (shutter, Don-chans, both results).
   Song Select stays one player's, with the partner shown beside them.
+- **Leaving:** the game that leaves says "bye" over the link, so the other reacts at once; the server's room going, the
+  link going quiet and the channel's presence cover a crash. F5 shows the link's round trip and whether it's relayed.
 - **No pausing, no saving:** leaving the window doesn't stop an online song, Escape opens the menu over it, and
   nothing played online is kept or uploaded.
 - **IP warning:** the first time the lobby opens, it says the other player sees your IP address; accepting is kept in
   config.cfg (`online_warning_accepted`).
-- **Still to do:** a relay over TCP for networks that block UDP: coturn's TLS
-  listener on 443 (a certificate and a DNS-only record), TURN over a stream in `PeerLink`, tried after direct and the UDP
-  relay, and a `turns:` server from `ice-servers`. Hits would stall behind a lost packet, but the delayed lane hides
-  most of that. Worth it once a tester can't connect over UDP.
 
 ## Before deploying
 
@@ -87,9 +92,9 @@ Nothing here is deployed yet: it all goes out together once multiplayer is ready
 - Add the `redis` (Valkey) service from `docker/production/compose.yaml` to the host's `compose.yaml` by hand. Don't
   copy the whole file over, because the host's differs.
 - Set `REDIS_HOST=redis` in the host's `.env`.
-- Add the `turn` service too, and set `TURN_HOST`, `TURN_SECRET` and `TURN_EXTERNAL_IP` in the host's `.env`. Point
-  `TURN_HOST` at the VPS with a DNS-only record, since the Cloudflare tunnel only carries HTTP, and open 3478/udp and
-  49160-49260/udp on its firewall. This makes the VPS's IP public.
+- Add the `relay` service too (it builds from `relay/`), set the same random `RELAY_SECRET` for it and Laravel, and
+  `RELAY_URL=wss://relay.taikonline.com`. In the tunnel, give that hostname the service `http://relay:8080`. Nothing
+  needs a DNS-only record or an open port, so the VPS's address stays hidden.
 - Update the host's `storage/legal/privacy.md` from `resources/legal/privacy.md`, and decide whether to bump
   `LEGAL_VERSION`, which makes everyone accept again.
 - Say in the Privacy Policy that playing online shows your IP address to the other player, including strangers in
