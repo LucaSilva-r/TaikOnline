@@ -61,13 +61,16 @@ A room introduces two players, and that's all the server does for them.
 
 All in the game: the server only introduced the players.
 
-- **Choosing:** the host picks a song and course and holds on the rainbow's title. The guest's Song Select reloads on
-  that song alone and they pick their course. A guest finds their own copy of a custom song by its chart's id (a hash of
-  the file), wherever their library keeps it.
-- **Sending a song:** a guest without the host's TJA or osu! song gets it over the peer link: every course's parsed
-  chart and the original audio, 64 MB at most. The first time, the host confirms they're authorized to share their
+- **Choosing:** whoever's turn it is picks a song and course and holds on the rainbow's title; the other player waits in
+  the lobby ("X is choosing a song...", only Leave), then their Song Select reloads on that song alone and they pick
+  their course. Quick Play takes turns; a hosted room's host sets "Songs: Host chooses / Guest chooses / Take turns"
+  (default Host). The host's game keeps the turn and tells the guest (`turn` message); a new guest starts with the host.
+  The other player finds their own copy of a custom song by its chart's id (a hash of the file), wherever their library
+  keeps it. When they don't have a game song (Stock, Nijiiro), the chooser is sent back to pick another.
+- **Sending a song:** a player without the chooser's TJA or osu! song gets it over the peer link: every course's parsed
+  chart and the original audio, 64 MB at most. The first time, the chooser confirms they're authorized to share their
   custom songs' charts and audio (`share_warning_accepted` in config.cfg). Received songs live in memory only and go
-  when the game closes. The game's own songs (Stock, Nijiiro) are never sent: without one, the host plays alone.
+  when the game closes. The game's own songs (Stock, Nijiiro) are never sent.
 - **Starting:** both load the song with the other player's chart and options (the host's seed) on the second lane, and
   hold on the title until both could open it. The host waits half a round trip after "go", so both open together.
 - **The other lane:** it runs in time with this player's song, whatever the delay. Their hits arrive over the peer link
