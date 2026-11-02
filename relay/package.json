@@ -1,0 +1,16 @@
+{
+  "name": "taikonline-relay",
+  "private": true,
+  "type": "module",
+  "description": "Relays Waddamburo's online play between two players who can't reach each other directly.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "ws": "8.18.3"
+  }
+}

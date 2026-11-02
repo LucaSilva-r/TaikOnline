@@ -80,6 +80,27 @@ services:
         healthcheck:
             disable: true
 
+    # Relays Waddamburo's online play between players who can't reach each other directly (relay/). Reached through the
+    # Cloudflare tunnel's own hostname for it, so the server's address stays hidden.
+    relay:
+        build: ./relay
+        environment:
+            RELAY_SECRET: '${RELAY_SECRET:?}'
+        networks:
+            - main
+        restart: unless-stopped
+
+    redis:
+        image: 'valkey/valkey:8-alpine'
+        command: ['valkey-server', '--save', '', '--appendonly', 'no']
+        networks:
+            - main
+        healthcheck:
+            test: ['CMD', 'valkey-cli', 'ping']
+            retries: 3
+            timeout: 5s
+        restart: unless-stopped
+
     pgsql:
         image: 'postgres:18-alpine'
         ports:

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\PresenceStatus;
 use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,12 +17,15 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'username', 'email', 'password', 'role', 'rules_accepted_version', 'rules_accepted_at'])]
+#[Fillable(['name', 'username', 'email', 'password', 'role', 'rules_accepted_version', 'rules_accepted_at', 'presence_status'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable, TwoFactorAuthenticatable;
+
+    /** @var array<string, string> */
+    protected $attributes = ['presence_status' => 'online'];
 
     /**
      * Always expose the computed avatar URL so shared auth.user and any serialized User
@@ -43,6 +47,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
             'rules_accepted_at' => 'datetime',
+            'presence_status' => PresenceStatus::class,
             'avatar_updated_at' => 'datetime',
             'avatar_animation_frame' => 'float',
             'avatar_camera_yaw' => 'float',

@@ -78,6 +78,12 @@ return [
             'lock_connection' => env('REDIS_CACHE_LOCK_CONNECTION', 'default'),
         ],
 
+        // What players are doing right now (WaddamburoStatus): written often, read on every board, gone when stale.
+        'status' => [
+            'driver' => env('STATUS_CACHE_DRIVER', 'redis'),
+            'connection' => env('REDIS_CACHE_CONNECTION', 'cache'),
+        ],
+
         'dynamodb' => [
             'driver' => 'dynamodb',
             'key' => env('AWS_ACCESS_KEY_ID'),

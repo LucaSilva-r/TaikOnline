@@ -3,10 +3,16 @@
 use App\Models\User;
 use App\Models\WdbCabinet;
 use App\Notifications\WaddamburoNotice;
+use Illuminate\Support\Facades\File;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
-    config(['broadcasting.default' => 'log', 'legal.path' => resource_path('legal')]);
+    $this->legalHistory = sys_get_temp_dir().'/legal-history-'.uniqid();
+    config(['broadcasting.default' => 'log', 'legal.path' => resource_path('legal'), 'legal.history' => $this->legalHistory]);
+});
+
+afterEach(function (): void {
+    File::deleteDirectory($this->legalHistory);
 });
 
 function player_behind_on_rules(): User
@@ -115,4 +121,27 @@ it('asks nothing and shows nothing while the instance has no rules of its own', 
     $this->actingAs($user)->get('/waddamburo/songs')->assertOk();
     $this->get('/waddamburo/rules')->assertNotFound();
     $this->withToken($user->createToken('game', ['wdb'])->plainTextToken)->postJson('/api/wdb/plays', [])->assertUnprocessable();
+});
+
+it('shows a player behind on the rules what changed since the version they accepted', function (): void {
+    $legal = sys_get_temp_dir().'/legal-'.uniqid();
+    File::ensureDirectoryExists($legal);
+    File::put("{$legal}/rules.md", "# Rules\n\nBe nice.\n\nNo macros.");
+    File::put("{$legal}/privacy.md", "# Privacy Policy\n\nWe keep your scores.");
+    config(['legal.path' => $legal, 'legal.version' => 'v1']);
+    $this->get('/waddamburo/privacy')->assertInertia(fn (Assert $page) => $page->where('versions', [])->where('changes', null));
+
+    File::put("{$legal}/privacy.md", "# Privacy Policy\n\nWe keep your scores.\n\nOnline play shows your IP address to the other player.");
+    config(['legal.version' => 'v2']);
+    $user = User::factory()->create(['rules_accepted_version' => 'v1']);
+
+    $this->actingAs($user)->get('/waddamburo/privacy')->assertInertia(fn (Assert $page) => $page
+        ->where('versions', ['v1'])->where('since', 'v1')
+        ->where('changes.0.change', 'same')->where('changes.1.change', 'same')
+        ->where('changes.2.change', 'added')
+        ->where('changes.2.html', fn (string $html): bool => str_contains($html, 'IP address')));
+    $this->actingAs($user)->get('/waddamburo/privacy?since=')->assertInertia(fn (Assert $page) => $page->where('changes', null));
+    $this->get('/waddamburo/privacy?since=../../etc')->assertInertia(fn (Assert $page) => $page->where('changes', null));
+
+    File::deleteDirectory($legal);
 });

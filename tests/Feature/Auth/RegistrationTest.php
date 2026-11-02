@@ -148,3 +148,25 @@ test('registration rejects access codes that were not issued by the server', fun
 
     expect(User::where('email', 'unknown-card@example.com')->exists())->toBeFalse();
 });
+
+test('nobody can sign up while registration is closed, and existing users still log in', function () {
+    config(['fortify.registration_open' => false]);
+    $existing = User::factory()->create();
+
+    $this->get(route('register'))->assertNotFound();
+    $this->post(route('register.store'), [
+        'name' => 'Test User',
+        'username' => 'testuser',
+        'email' => 'test@example.com',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+        'rules' => '1',
+    ])->assertNotFound();
+
+    $this->assertGuest();
+    expect(User::query()->where('email', 'test@example.com')->exists())->toBeFalse();
+    $this->get(route('login'))->assertInertia(fn ($page) => $page->where('canRegister', false));
+
+    $this->post(route('login.store'), ['email' => $existing->email, 'password' => 'password']);
+    $this->assertAuthenticatedAs($existing);
+});

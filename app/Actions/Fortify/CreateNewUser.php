@@ -29,6 +29,8 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
+        abort_unless(config('fortify.registration_open'), 404);
+
         $input['username'] = Str::lower($input['username'] ?? '');
 
         Validator::make($input, [

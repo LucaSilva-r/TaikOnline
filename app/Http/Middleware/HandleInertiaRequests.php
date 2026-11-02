@@ -40,6 +40,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'canRegister' => (bool) config('fortify.registration_open'),
             'auth' => [
                 'user' => $request->user(),
             ],

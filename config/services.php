@@ -35,6 +35,13 @@ return [
         'analyzer' => env('WADDAMBURO_ANALYZER', storage_path('analyzer/wdb-analyze')),
     ],
 
+    // The relay for Waddamburo's online play (relay/), for players who can't connect directly. RELAY_URL: its WebSocket
+    // address, through the Cloudflare tunnel. RELAY_SECRET: shared with the relay service. Unset: no relay.
+    'relay' => [
+        'url' => env('RELAY_URL'),
+        'secret' => env('RELAY_SECRET'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
