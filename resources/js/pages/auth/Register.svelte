@@ -11,6 +11,7 @@
     import InputError from '@/components/InputError.svelte';
     import PasswordInput from '@/components/PasswordInput.svelte';
     import TextLink from '@/components/TextLink.svelte';
+    import Turnstile from '@/components/Turnstile.svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
@@ -24,6 +25,8 @@
     // Prefilled when arriving from the dongle "Sign up" deep-link so a freshly
     // created card is linked as the account is created.
     let { accessCode = null }: { accessCode?: string | null } = $props();
+
+    let turnstile: Turnstile | undefined = $state();
 </script>
 
 <AppHead title="Register" />
@@ -31,6 +34,7 @@
 <Form
     {...store.form()}
     resetOnSuccess={['password', 'password_confirmation']}
+    onFinish={() => turnstile?.reset()}
     class="flex flex-col gap-6"
 >
     {#snippet children({ errors, processing })}
@@ -127,17 +131,32 @@
             {#if page.props.legalVersion}
                 <div class="grid gap-2">
                     <label class="flex items-start gap-2 text-sm">
-                        <input type="checkbox" name="rules" value="1" class="mt-0.5" required />
+                        <input
+                            type="checkbox"
+                            name="rules"
+                            value="1"
+                            class="mt-0.5"
+                            required
+                        />
                         <span
                             >I have read and accept the
-                            <a href={toUrl(rules(taikoRouteParam()))} target="_blank" class="underline">Rules</a>.
-                            See the
-                            <a href={toUrl(privacy(taikoRouteParam()))} target="_blank" class="underline">Privacy Policy</a>.</span
+                            <a
+                                href={toUrl(rules(taikoRouteParam()))}
+                                target="_blank"
+                                class="underline">Rules</a
+                            >. See the
+                            <a
+                                href={toUrl(privacy(taikoRouteParam()))}
+                                target="_blank"
+                                class="underline">Privacy Policy</a
+                            >.</span
                         >
                     </label>
                     <InputError message={errors.rules} />
                 </div>
             {/if}
+
+            <Turnstile bind:this={turnstile} error={errors.turnstile} />
 
             <Button
                 type="submit"

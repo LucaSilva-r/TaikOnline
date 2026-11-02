@@ -57,6 +57,7 @@ class HandleInertiaRequests extends Middleware
                 'allowAll' => $request->routeIs('admin.*'),
             ],
             'legalVersion' => config('legal.version'),
+            'turnstileSiteKey' => filled(config('services.turnstile.secret_key')) ? config('services.turnstile.site_key') : null,
             // Every visitor, on every version's pages: a maintenance notice is about the whole site.
             'systemNotices' => fn (): array => [
                 'realtimeUrl' => $this->realtimeUrl(),

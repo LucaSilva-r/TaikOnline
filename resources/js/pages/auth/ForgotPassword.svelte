@@ -10,6 +10,7 @@
     import AppHead from '@/components/AppHead.svelte';
     import InputError from '@/components/InputError.svelte';
     import TextLink from '@/components/TextLink.svelte';
+    import Turnstile from '@/components/Turnstile.svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
@@ -22,6 +23,8 @@
     }: {
         status?: string;
     } = $props();
+
+    let turnstile: Turnstile | undefined = $state();
 </script>
 
 <AppHead title="Forgot password" />
@@ -33,7 +36,7 @@
 {/if}
 
 <div class="space-y-6">
-    <Form {...email.form()}>
+    <Form {...email.form()} onFinish={() => turnstile?.reset()}>
         {#snippet children({ errors, processing })}
             <div class="grid gap-2">
                 <Label for="email">Email address</Label>
@@ -45,6 +48,10 @@
                     placeholder="email@example.com"
                 />
                 <InputError message={errors.email} />
+            </div>
+
+            <div class="mt-6">
+                <Turnstile bind:this={turnstile} error={errors.turnstile} />
             </div>
 
             <div class="my-6 flex items-center justify-start">

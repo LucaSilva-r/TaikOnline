@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\ResolveTaikoVersion;
+use App\Http\Middleware\VerifyTurnstile;
 use Laravel\Fortify\Features;
 
 return [
@@ -102,7 +103,7 @@ return [
     |
     */
 
-    'middleware' => ['web'],
+    'middleware' => ['web', VerifyTurnstile::class],
 
     /*
     |--------------------------------------------------------------------------

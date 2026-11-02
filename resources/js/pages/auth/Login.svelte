@@ -12,6 +12,7 @@
     import InputError from '@/components/InputError.svelte';
     import PasswordInput from '@/components/PasswordInput.svelte';
     import TextLink from '@/components/TextLink.svelte';
+    import Turnstile from '@/components/Turnstile.svelte';
     import { Button } from '@/components/ui/button';
     import { Checkbox } from '@/components/ui/checkbox';
     import { Input } from '@/components/ui/input';
@@ -49,6 +50,7 @@
               })
             : register(),
     );
+    let turnstile: Turnstile | undefined = $state();
 </script>
 
 <AppHead title="Log in" />
@@ -71,6 +73,7 @@
 <Form
     {...store.form()}
     resetOnSuccess={['password']}
+    onFinish={() => turnstile?.reset()}
     class="flex flex-col gap-6"
 >
     {#snippet children({ errors, processing })}
@@ -113,6 +116,8 @@
                     <span>Remember me</span>
                 </Label>
             </div>
+
+            <Turnstile bind:this={turnstile} error={errors.turnstile} />
 
             <Button
                 type="submit"
