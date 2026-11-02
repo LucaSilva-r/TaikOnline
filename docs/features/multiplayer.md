@@ -57,7 +57,12 @@ A room introduces two players, and that's all the server does for them.
 All in the game: the server only introduced the players.
 
 - **Choosing:** the host picks a song and course and holds on the rainbow's title. The guest's Song Select reloads on
-  that song alone and they pick their course. A guest without the song is told, and the host plays alone.
+  that song alone and they pick their course. A guest finds their own copy of a custom song by its chart's id (a hash of
+  the file), wherever their library keeps it.
+- **Sending a song:** a guest without the host's TJA or osu! song gets it over the peer link: every course's parsed
+  chart and the original audio, 64 MB at most. The first time, the host confirms they're authorized to share their
+  custom songs' charts and audio (`share_warning_accepted` in config.cfg). Received songs live in memory only and go
+  when the game closes. The game's own songs (Stock, Nijiiro) are never sent: without one, the host plays alone.
 - **Starting:** both load the song with the other player's chart and options (the host's seed) on the second lane, and
   hold on the title until both could open it. The host waits half a round trip after "go", so both open together.
 - **The other lane:** their hits arrive over the peer link and drive their lane a little more than half the round trip
@@ -70,7 +75,7 @@ All in the game: the server only introduced the players.
   nothing played online is kept or uploaded.
 - **IP warning:** the first time the lobby opens, it says the other player sees your IP address; accepting is kept in
   config.cfg (`online_warning_accepted`).
-- **Still to do:** sending a song the guest lacks, and a relay over TCP for networks that block UDP: coturn's TLS
+- **Still to do:** a relay over TCP for networks that block UDP: coturn's TLS
   listener on 443 (a certificate and a DNS-only record), TURN over a stream in `PeerLink`, tried after direct and the UDP
   relay, and a `turns:` server from `ice-servers`. Hits would stall behind a lost packet, but the delayed lane hides
   most of that. Worth it once a tester can't connect over UDP.
