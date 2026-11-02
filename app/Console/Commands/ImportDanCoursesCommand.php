@@ -63,21 +63,23 @@ class ImportDanCoursesCommand extends Command
     }
 
     /**
-     * Copy this version's musicmedleyinfo.xml out of its own colour dump into
-     * the canonical storage location.
+     * Copy this version's musicmedleyinfo.xml out of the dump that holds its
+     * dojo into the canonical storage location.
      */
     private function syncFromSource(string $source, string $dataPath, TaikoGameVersion $version): bool
     {
-        $dataDir = $this->locateDataDir($source, $version);
+        [$dump, $relativeFile] = $this->medleySource($version);
+
+        $dataDir = $this->locateDataDir($source, $dump);
         if ($dataDir === null) {
-            $this->warn("No game data dir for {$version->value} under {$source}");
+            $this->warn("No {$dump->label()} game data dir for {$version->value} under {$source}");
 
             return false;
         }
 
-        $sourceFile = $this->locateMedleyFile($dataDir, $version);
-        if ($sourceFile === null) {
-            $this->warn("No musicmedleyinfo.xml for {$version->value} under {$dataDir}");
+        $sourceFile = "{$dataDir}/{$relativeFile}";
+        if (! is_file($sourceFile)) {
+            $this->warn("No musicmedleyinfo.xml for {$version->value} at {$sourceFile}");
 
             return false;
         }
@@ -95,10 +97,10 @@ class ImportDanCoursesCommand extends Command
     }
 
     /**
-     * Resolve <source>/<colour>/<serial>/USRDIR/data for a version. Dumps nest a
+     * Resolve <source>/<colour>/<serial>/USRDIR/data for a dump. Dumps nest a
      * serial id folder (e.g. SCEEX001) between the colour folder and USRDIR.
      */
-    private function locateDataDir(string $source, TaikoGameVersion $version): ?string
+    private function locateDataDir(string $source, TaikoGameVersion $dump): ?string
     {
         if (! is_dir($source)) {
             return null;
@@ -110,7 +112,7 @@ class ImportDanCoursesCommand extends Command
             }
 
             $colour = "{$source}/{$entry}";
-            if (! is_dir($colour) || stripos($entry, $version->label()) === false) {
+            if (! is_dir($colour) || stripos($entry, $dump->label()) === false) {
                 continue;
             }
 
@@ -129,33 +131,29 @@ class ImportDanCoursesCommand extends Command
     }
 
     /**
-     * Pick the board-specific datatable when it exists. Green and Blue retain a
-     * legacy base file beside their current-board config, so preferring the base
-     * file silently imports the same stale 16-course catalog for both games.
+     * The dump and data-relative path that hold each version's own dojo.
+     *
+     * Kimidori to Red cannot use their own colour dump: each of those ships the
+     * previous version's dojo, whose song uniqueids belong to the older song
+     * numbering and point at missing or different songs. Green's
+     * config/<board> folders carry the matching dojo for those boards. Every
+     * pick was checked by matching each course's (musicid, uniqueid) pairs
+     * against that version's own musicinfo.xml.
+     *
+     * @return array{0: TaikoGameVersion, 1: string}
      */
-    private function locateMedleyFile(string $dataDir, TaikoGameVersion $version): ?string
+    private function medleySource(TaikoGameVersion $version): array
     {
-        $configDir = "{$dataDir}/config";
-        if (is_dir($configDir)) {
-            // Board number is the NNN before "100" in the update identifier,
-            // e.g. ST8100-1 => 8100, ST-11100-1 => 11100.
-            preg_match('/(\d+)100/', $version->updateIdentifier(), $matches);
-            $board = ($matches[1] ?? '').'100';
-
-            foreach (scandir($configDir) ?: [] as $entry) {
-                if ($entry === '.' || $entry === '..') {
-                    continue;
-                }
-                $file = "{$configDir}/{$entry}/musicmedleyinfo.xml";
-                if (str_contains($entry, $board) && is_file($file)) {
-                    return $file;
-                }
-            }
-        }
-
-        $baseFile = "{$dataDir}/musicmedleyinfo.xml";
-
-        return is_file($baseFile) ? $baseFile : null;
+        return match ($version) {
+            TaikoGameVersion::Kimidori => [TaikoGameVersion::Green, 'config/ST5100-1/musicmedleyinfo.xml'],
+            TaikoGameVersion::Murasaki => [TaikoGameVersion::Green, 'config/ST6100-1/musicmedleyinfo.xml'],
+            TaikoGameVersion::White => [TaikoGameVersion::Green, 'config/ST7100-1/musicmedleyinfo.xml'],
+            TaikoGameVersion::Red => [TaikoGameVersion::Green, 'config/ST8100-1/musicmedleyinfo.xml'],
+            TaikoGameVersion::Yellow => [TaikoGameVersion::Yellow, 'config/ST9100-1/musicmedleyinfo.xml'],
+            TaikoGameVersion::Blue => [TaikoGameVersion::Blue, 'config/S10100-1/musicmedleyinfo.xml'],
+            TaikoGameVersion::Green => [TaikoGameVersion::Green, 'config/S11100-1/musicmedleyinfo.xml'],
+            default => [$version, 'musicmedleyinfo.xml'],
+        };
     }
 
     private function importVersion(string $dataPath, TaikoGameVersion $version): ?int
