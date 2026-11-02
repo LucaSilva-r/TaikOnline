@@ -6,14 +6,17 @@ use Illuminate\Support\Facades\File;
 
 uses(RefreshDatabase::class);
 
-it('prefers the matching board config over a stale base medley', function (
+it('imports each version\'s own dojo instead of the stale one in its colour dump', function (
     string $version,
+    string $ownColour,
     string $colour,
     string $board,
 ): void {
     $root = storage_path('framework/testing/dan-import-'.str()->uuid());
+    $ownData = "{$root}/source/{$ownColour}/SCEEX001/USRDIR/data";
     $sourceData = "{$root}/source/{$colour}/SCEEX001/USRDIR/data";
     $stagedData = "{$root}/staged";
+    File::ensureDirectoryExists("{$ownData}/config/{$board}");
     File::ensureDirectoryExists("{$sourceData}/config/{$board}");
 
     $xml = static fn (int $songNo, int $difficulty): string => <<<XML
@@ -35,7 +38,11 @@ it('prefers the matching board config over a stale base medley', function (
         XML;
 
     try {
-        File::put("{$sourceData}/musicmedleyinfo.xml", $xml(100, 0));
+        File::put("{$ownData}/musicmedleyinfo.xml", $xml(100, 0));
+        if ($ownData !== $sourceData) {
+            // The colour dump's own board folder holds the previous version's dojo.
+            File::put("{$ownData}/config/{$board}/musicmedleyinfo.xml", $xml(200, 0));
+        }
         File::put("{$sourceData}/config/{$board}/musicmedleyinfo.xml", $xml(900, 4));
         config()->set('taiko_green.data_path', $stagedData);
 
@@ -61,6 +68,8 @@ it('prefers the matching board config over a stale base medley', function (
         File::deleteDirectory($root);
     }
 })->with([
-    'green' => ['green', 'GREEN', 'S11100-1'],
-    'blue' => ['blue', 'BLUE', 'S10100-1'],
+    'green' => ['green', 'GREEN', 'GREEN', 'S11100-1'],
+    'blue' => ['blue', 'BLUE', 'BLUE', 'S10100-1'],
+    'kimidori from green' => ['kimidori', 'KIMIDORI', 'GREEN', 'ST5100-1'],
+    'red from green' => ['red', 'RED', 'GREEN', 'ST8100-1'],
 ]);
