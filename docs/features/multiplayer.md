@@ -36,7 +36,8 @@ A room introduces two players, and that's all the server does for them.
   frees the seat for its guest. Rooms live in the `status` cache store, and go 45 s after the games stop calling
   `POST api/wdb/rooms/{code}/keep-alive`.
 - **Finding one:** `GET api/wdb/rooms` lists public rooms with a free seat. Other rooms are joined by code.
-  `POST api/wdb/rooms/quick-play` takes the waiting player's room, or starts waiting in a new unlisted one.
+  `POST api/wdb/rooms/quick-play` takes the waiting player's room, or starts waiting in a new one. A quick play room is
+  its own kind (`is_quick`): never listed, changed or joined by code, so quick play alone fills it.
 - **Names:** other players see a room's name, so it's one line and 32 characters at most. A muted player's rooms are
   always named after them.
 - **Who:** home players with a player who aren't banned. Being Invisible doesn't stop anyone joining by code.
@@ -61,10 +62,15 @@ All in the game: the server only introduced the players.
   hold on the title until both could open it. The host waits half a round trip after "go", so both open together.
 - **The other lane:** their hits arrive over the peer link and drive their lane a little more than half the round trip
   behind (120 to 400 ms), so each lands where they hit it. Lanes don't share hand notes.
+- **Charts:** both play the one-player charts. A kusudama is each player's own: on the other player's lane it's a balloon
+  with the same hits, so the two games score that note a little differently.
+- **Two players:** the song and its results run as two players at the drums do (shutter, Don-chans, both results).
+  Song Select stays one player's, with the partner shown beside them.
 - **No pausing, no saving:** leaving the window doesn't stop an online song, Escape opens the menu over it, and
   nothing played online is kept or uploaded.
-- **Still to do:** both players on the results screen, telling the other player when one leaves mid-song, a kusudama
-  each, sending a song the guest lacks, and the first-time IP warning.
+- **IP warning:** the first time the lobby opens, it says the other player sees your IP address; accepting is kept in
+  config.cfg (`online_warning_accepted`).
+- **Still to do:** sending a song the guest lacks.
 
 ## Before deploying
 
@@ -80,4 +86,4 @@ Nothing here is deployed yet: it all goes out together once multiplayer is ready
   `LEGAL_VERSION`, which makes everyone accept again.
 - Say in the Privacy Policy that playing online shows your IP address to the other player, including strangers in
   public rooms and Quick Play, which is how a peer-to-peer connection works.
-- Warn players about that in the game, the first time they go online. Not built yet.
+- The game warns players about that the first time they open the online lobby.

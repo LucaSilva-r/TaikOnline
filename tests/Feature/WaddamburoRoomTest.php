@@ -49,7 +49,7 @@ it('opens a room with a code the guest can join, in any case', function (): void
 
     expect($code)->toMatch('/\A[A-HJ-NP-Z2-9]{6}\z/');
     $this->withToken(wdb_room_token(wdb_room_player('Katsu')))->postJson('/api/wdb/rooms/'.strtolower($code).'/join')
-        ->assertOk()->assertExactJson(['code' => $code, 'channel' => "presence-wdb.room.{$code}", 'name' => 'Don', 'is_public' => true, 'has_password' => false, 'is_host' => false]);
+        ->assertOk()->assertExactJson(['code' => $code, 'channel' => "presence-wdb.room.{$code}", 'name' => 'Don', 'is_public' => true, 'has_password' => false, 'is_quick' => false, 'is_host' => false]);
 });
 
 it('has one guest seat, which they can come back to and which frees when they leave', function (): void {
@@ -93,6 +93,13 @@ it('matches quick play with whoever is waiting, and only them', function (): voi
     app('auth')->forgetGuards();
     $matched = $this->withToken(wdb_room_token($second))->postJson('/api/wdb/rooms/quick-play')->assertJsonPath('is_host', false);
     expect($matched->json('code'))->toBe($room['code']);
+
+    // A quick play room is only quick play's: nobody changes it, lists it or joins it by code.
+    app('auth')->forgetGuards();
+    $this->withToken(wdb_room_token($first))->patchJson("/api/wdb/rooms/{$room['code']}", ['is_public' => true])->assertNotFound();
+    expect($this->withToken(wdb_room_token($first))->getJson('/api/wdb/rooms')->json('rooms'))->toBe([]);
+    app('auth')->forgetGuards();
+    $this->withToken(wdb_room_token(wdb_room_player('Stranger')))->postJson("/api/wdb/rooms/{$room['code']}/join")->assertNotFound();
 
     // Those two are matched: the next player starts waiting in a room of their own.
     app('auth')->forgetGuards();

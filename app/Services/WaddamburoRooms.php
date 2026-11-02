@@ -48,15 +48,19 @@ class WaddamburoRooms
         return $baid !== null && Sanction::activeFor((int) $baid, SanctionType::Ban) === null;
     }
 
-    /** Opens a room hosted by the player, named after them unless they say otherwise, and returns its code. */
-    public function create(User $host, ?string $name = null, bool $isPublic = true, ?string $password = null): string
+    /**
+     * Opens a room hosted by the player, named after them unless they say otherwise, and returns its code. A quick play
+     * room is never listed, changed or joined by code: quick play alone fills it.
+     */
+    public function create(User $host, ?string $name = null, bool $isPublic = true, ?string $password = null, bool $quick = false): string
     {
         $room = [
+            'quick' => $quick,
             'host' => $host->id,
             'guest' => null,
             'host_name' => $host->name,
             'name' => $this->roomName($host, $name),
-            'is_public' => $isPublic,
+            'is_public' => $isPublic && ! $quick,
             'password' => $password === null || $password === '' ? null : Hash::make($password),
         ];
         do {
@@ -71,11 +75,12 @@ class WaddamburoRooms
     }
 
     /** Takes the guest's seat: JOINED, NO_ROOM (none, or someone else has it) or WRONG_PASSWORD. A member joining again is fine. */
-    public function join(string $code, User $user, ?string $password = null): string
+    public function join(string $code, User $user, ?string $password = null, bool $quickPlay = false): string
     {
-        return Cache::store('status')->lock($this->key($code).':lock', 5)->block(3, function () use ($code, $user, $password): string {
+        return Cache::store('status')->lock($this->key($code).':lock', 5)->block(3, function () use ($code, $user, $password, $quickPlay): string {
             $room = $this->room($code);
-            if ($room === null || ($room['guest'] !== null && $room['guest'] !== $user->id && $room['host'] !== $user->id)) {
+            if ($room === null || (($room['quick'] ?? false) && ! $quickPlay && ! in_array($user->id, [$room['host'], $room['guest']], true))
+                || ($room['guest'] !== null && $room['guest'] !== $user->id && $room['host'] !== $user->id)) {
                 return self::NO_ROOM;
             }
             if ($room['host'] === $user->id || $room['guest'] === $user->id) {
@@ -99,7 +104,7 @@ class WaddamburoRooms
     {
         return (bool) Cache::store('status')->lock($this->key($code).':lock', 5)->block(3, function () use ($code, $user, $changes): bool {
             $room = $this->room($code);
-            if ($room === null || $room['host'] !== $user->id) {
+            if ($room === null || $room['host'] !== $user->id || ($room['quick'] ?? false)) {
                 return false;
             }
             if (array_key_exists('name', $changes)) {
@@ -138,12 +143,15 @@ class WaddamburoRooms
         return $listed;
     }
 
-    /** What the room's own players see of it. @return array{code: string, name: string, is_public: bool, has_password: bool}|null */
+    /** What the room's own players see of it. @return array{code: string, name: string, is_public: bool, has_password: bool, is_quick: bool}|null */
     public function describe(string $code): ?array
     {
         $room = $this->room($code);
 
-        return $room === null ? null : ['code' => $code, 'name' => $room['name'], 'is_public' => $room['is_public'], 'has_password' => $room['password'] !== null];
+        return $room === null ? null : [
+            'code' => $code, 'name' => $room['name'], 'is_public' => $room['is_public'], 'has_password' => $room['password'] !== null,
+            'is_quick' => $room['quick'] ?? false,
+        ];
     }
 
     /**
@@ -161,12 +169,12 @@ class WaddamburoRooms
 
                 return $waiting['code'];
             }
-            if ($waiting !== null && $this->join($waiting['code'], $user) === self::JOINED) {
+            if ($waiting !== null && $this->join($waiting['code'], $user, quickPlay: true) === self::JOINED) {
                 Cache::store('status')->forget(self::QUEUE_KEY);
 
                 return $waiting['code'];
             }
-            $code = $this->create($user, isPublic: false);
+            $code = $this->create($user, isPublic: false, quick: true);
             Cache::store('status')->put(self::QUEUE_KEY, ['code' => $code, 'host' => $user->id], self::QUEUE_TTL_SECONDS);
 
             return $code;
@@ -271,7 +279,7 @@ class WaddamburoRooms
         Cache::store('status')->put($this->key($code), $room, self::TTL_SECONDS);
     }
 
-    /** @return array{host: int, guest: int|null, host_name: string, name: string, is_public: bool, password: string|null}|null */
+    /** @return array{quick?: bool, host: int, guest: int|null, host_name: string, name: string, is_public: bool, password: string|null}|null */
     private function room(string $code): ?array
     {
         return Cache::store('status')->get($this->key($code));
