@@ -3,6 +3,7 @@ export type UserRole = 'admin' | 'moderator' | 'user';
 export type User = {
     id: number;
     name: string;
+    username: string;
     email: string;
     role: UserRole;
     presence_status: 'online' | 'invisible';

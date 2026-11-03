@@ -9,10 +9,10 @@
 
     let {
         user,
-        showEmail = false,
+        showUsername = false,
     }: {
         user: User;
-        showEmail?: boolean;
+        showUsername?: boolean;
     } = $props();
 
     const showAvatar = $derived(user.avatar && user.avatar !== '');
@@ -30,7 +30,7 @@
 
 <div class="grid flex-1 text-left text-sm leading-tight">
     <span class="truncate font-medium">{user.name}</span>
-    {#if showEmail}
-        <span class="truncate text-xs text-muted-foreground">{user.email}</span>
+    {#if showUsername}
+        <span class="truncate text-xs text-muted-foreground">@{user.username}</span>
     {/if}
 </div>
