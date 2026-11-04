@@ -8,6 +8,7 @@ use App\Models\WdbDanCourse;
 use App\Models\WdbDanPlay;
 use App\Models\WdbDanPlayReport;
 use App\Services\ModerationService;
+use App\Services\WaddamburoDanRank;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -33,6 +34,7 @@ class WaddamburoDanPlayController extends Controller
         $user = $play->player?->user;
 
         return Inertia::render('WaddamburoDanPlay', [
+            'danRanks' => app(WaddamburoDanRank::class)->forUsers([$user?->id]),
             'play' => [
                 'id' => $play->id,
                 'result_level' => (int) $play->result_level,

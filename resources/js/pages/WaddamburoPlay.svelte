@@ -7,6 +7,7 @@
     import Gavel from 'lucide-svelte/icons/gavel';
     import AnalysisPanel from '@/components/AnalysisPanel.svelte';
     import AppHead from '@/components/AppHead.svelte';
+    import DanRankTag from '@/components/DanRankTag.svelte';
     import PlayInspection, {
         type Inspection,
     } from '@/components/PlayInspection.svelte';
@@ -234,8 +235,9 @@
                     {/if}
                 </Avatar>
                 <div class="min-w-0">
-                    <div class="truncate text-xl font-bold tracking-tight">
-                        {player.name}
+                    <div class="flex min-w-0 items-center gap-2">
+                        <DanRankTag userId={player.user_id} />
+                        <span class="truncate text-xl font-bold tracking-tight">{player.name}</span>
                     </div>
                     <div
                         class="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"

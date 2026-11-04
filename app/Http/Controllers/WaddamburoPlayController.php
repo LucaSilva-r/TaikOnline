@@ -8,6 +8,7 @@ use App\Models\Sanction;
 use App\Models\WdbPlay;
 use App\Services\ModerationService;
 use App\Services\PlayerRankAggregateService;
+use App\Services\WaddamburoDanRank;
 use App\Services\WaddamburoRankAggregateService;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\RedirectResponse;
@@ -39,6 +40,7 @@ class WaddamburoPlayController extends Controller
         $visibleBests = fn (QueryBuilder $query) => $query->where('wdb_plays.wdb_chart_id', $chart->id);
 
         return Inertia::render('WaddamburoPlay', [
+            'danRanks' => app(WaddamburoDanRank::class)->forUsers([$user?->id]),
             'play' => [
                 'id' => $play->id,
                 'score' => (int) $play->score,

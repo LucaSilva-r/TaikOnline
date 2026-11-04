@@ -9,6 +9,7 @@ use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use App\Models\User;
 use App\Services\PlayerRankAggregateService;
+use App\Services\WaddamburoDanRank;
 use App\Support\SongSearch;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -119,7 +120,12 @@ class SongCatalogController extends Controller
 
         $favorites = $this->favoriteState($request, $version);
 
+        $difficulties = $this->difficulties($version, $song);
+        $recentPlays = $this->recentPlays($version, $song);
+        $userIds = collect($difficulties)->pluck('entries')->flatten(1)->merge($recentPlays)->pluck('user_id');
+
         return Inertia::render('SongDetail', [
+            'danRanks' => app(WaddamburoDanRank::class)->forUsers($userIds),
             'gameVersion' => [
                 'value' => $version->value,
                 'label' => $version->label(),
@@ -136,8 +142,8 @@ class SongCatalogController extends Controller
                 ],
             ],
             'summary' => $this->summary($version, $song),
-            'difficulties' => $this->difficulties($version, $song),
-            'recentPlays' => $this->recentPlays($version, $song),
+            'difficulties' => $difficulties,
+            'recentPlays' => $recentPlays,
             'isFavorite' => in_array((int) $song->song_no, $favorites['numbers'], true),
             'favoritesSupported' => $favorites['supported'],
             'canFavorite' => $favorites['can_favorite'],

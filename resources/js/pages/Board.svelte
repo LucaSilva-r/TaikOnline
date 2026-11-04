@@ -1,6 +1,7 @@
 <script lang="ts">
     import AccountStanding, { type Standing } from '@/components/AccountStanding.svelte';
     import AppHead from '@/components/AppHead.svelte';
+    import DanRankTag from '@/components/DanRankTag.svelte';
     import {
         Avatar,
         AvatarFallback,
@@ -414,9 +415,10 @@
                     >
                         {profile.game_version.label}
                     </div>
-                    <h1 class="truncate text-3xl font-semibold tracking-tight">
-                        {profile.name}
-                    </h1>
+                    <div class="flex min-w-0 items-center gap-2">
+                        <DanRankTag userId={profile.id} />
+                        <h1 class="truncate text-3xl font-semibold tracking-tight">{profile.name}</h1>
+                    </div>
                     <p class="mt-1 text-sm text-muted-foreground">
                         {profile.mydon_name ?? 'No MyDon profile linked'}
                     </p>

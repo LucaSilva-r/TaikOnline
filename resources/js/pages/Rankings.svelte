@@ -1,5 +1,6 @@
 <script lang="ts">
     import AppHead from '@/components/AppHead.svelte';
+    import DanRankTag from '@/components/DanRankTag.svelte';
     import {
         Avatar,
         AvatarFallback,
@@ -186,6 +187,7 @@
                                     </AvatarFallback>
                                 {/if}
                             </Avatar>
+                            <DanRankTag userId={entry.user_id} size="compact" />
                             <span class="truncate font-medium hover:underline">
                                 {entry.player_name}
                             </span>

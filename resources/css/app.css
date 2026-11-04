@@ -189,3 +189,55 @@
         @apply bg-background text-foreground;
     }
 }
+
+@layer utilities {
+    .dan-perfect-text {
+        color: transparent;
+        background-image: linear-gradient(
+            90deg,
+            #fda4af,
+            #fde68a,
+            #86efac,
+            #67e8f9,
+            #c4b5fd,
+            #f0abfc,
+            #fda4af
+        );
+        background-size: 200% 100%;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: none;
+        animation: dan-rainbow-shift 5s linear infinite;
+    }
+
+    .dan-perfect-course {
+        border-color: transparent;
+        background:
+            linear-gradient(var(--card), var(--card)) padding-box,
+            linear-gradient(
+                    110deg,
+                    #fb7185,
+                    #facc15,
+                    #4ade80,
+                    #22d3ee,
+                    #a78bfa,
+                    #f472b6
+                )
+                border-box;
+    }
+}
+
+@keyframes dan-rainbow-shift {
+    from {
+        background-position: 0% 50%;
+    }
+    to {
+        background-position: 200% 50%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dan-perfect-text {
+        animation: none;
+    }
+}

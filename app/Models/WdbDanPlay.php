@@ -23,6 +23,10 @@ class WdbDanPlay extends Model
 
     public const GOLD = 2;
 
+    /** A completed, visible, server-scored all-Great clear; separate from its exam medal. */
+    public const PERFECT_CLEAR_SQL = 'rescored_at IS NOT NULL AND hidden_at IS NULL AND result_level > 0 '
+        .'AND great > 0 AND good = 0 AND miss = 0 AND songs_played > 0';
+
     protected $guarded = [];
 
     protected $hidden = ['progress', 'analysis_flag', 'analysis', 'analyzed_at'];

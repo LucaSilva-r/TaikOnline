@@ -5,6 +5,7 @@
     import Gavel from 'lucide-svelte/icons/gavel';
     import AnalysisPanel from '@/components/AnalysisPanel.svelte';
     import AppHead from '@/components/AppHead.svelte';
+    import DanRankTag from '@/components/DanRankTag.svelte';
     import InputError from '@/components/InputError.svelte';
     import PlayInspection, { type Inspection } from '@/components/PlayInspection.svelte';
     import ReplayPlayer, { type Replay } from '@/components/ReplayPlayer.svelte';
@@ -182,6 +183,7 @@
             <h1 class="text-xl font-semibold">{course.label}</h1>
             <p class="text-sm text-muted-foreground">
                 {course.name} · {course.series.join(', ')} ·
+                <DanRankTag userId={player.user_id} />
                 {#if player.user_id !== null}
                     <Link href={toUrl(boardShow({ ...taikoParam, user: player.user_id }))} class="underline">{player.name}</Link>
                 {:else}

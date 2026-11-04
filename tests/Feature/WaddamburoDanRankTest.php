@@ -3,9 +3,15 @@
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Models\User;
+use App\Models\WdbChart;
 use App\Models\WdbDanCourse;
 use App\Models\WdbDanPlay;
+use App\Models\WdbPlay;
+use App\Services\WaddamburoDanRank;
+use App\Services\WaddamburoRankAggregateService;
+use App\Services\WaddamburoSongs;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
 function rank_player(): Player
@@ -23,7 +29,7 @@ function rank_clear(Player $player, WdbDanCourse $course, array $overrides = [])
 {
     return WdbDanPlay::query()->create([
         'baid' => $player->baid, 'content_hash' => $course->content_hash, 'result_level' => 2,
-        'score' => 1, 'great' => 1, 'good' => 0, 'miss' => 0, 'max_combo' => 1, 'rolls' => 0,
+        'score' => 1, 'great' => 1, 'good' => 1, 'miss' => 0, 'max_combo' => 1, 'rolls' => 0,
         'gauge_percent' => 100, 'songs_played' => 3, 'scoring_version' => 4, 'engine_version' => 'test',
         'played_at' => now(), 'rescored_at' => now(), ...$overrides,
     ]);
@@ -171,3 +177,167 @@ it('falls back to the next highest verified rank if the top course changes or it
     $this->withToken($player->user->createToken('rank-test', ['wdb'])->plainTextToken)->getJson('/api/wdb/me')
         ->assertOk()->assertJson(['dan_rank' => 17, 'dan_gold' => true]);
 })->with(['changed course', 'hidden clear']);
+
+it('batches each user\'s selected dojo and highest rank with that course\'s own medal', function (): void {
+    $red = rank_player();
+    $green = rank_player();
+    $notRequested = rank_player();
+    $lower = rank_course('六段', 'red', 17);
+    $higher = rank_course();
+    $otherDojo = rank_course('二段', 'green', 13);
+    rank_clear($red, $lower);
+    rank_clear($red, $higher, ['result_level' => 1]);
+    rank_clear($green, $otherDojo);
+    rank_clear($green, $higher);
+    rank_clear($notRequested, $higher);
+    foreach ([$red, $green, $notRequested] as $player) {
+        PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo',
+            'wdb_dan_series' => $player->is($green) ? 'green' : 'red']);
+    }
+
+    $ranks = app(WaddamburoDanRank::class)->forUsers([$red->user_id, $green->user_id, $red->user_id]);
+
+    expect($ranks)->toBe([
+        $red->user_id => ['series' => 'red', 'label' => '7 Dan', 'name' => '七段', 'rank' => 18, 'gold' => false, 'perfect' => false, 'dojo' => 'Red'],
+        $green->user_id => ['series' => 'green', 'label' => '2 Dan', 'name' => '二段', 'rank' => 13, 'gold' => true, 'perfect' => false, 'dojo' => 'Green'],
+    ]);
+});
+
+it('omits a dashboard rank without a selected valid verified clear', function (string $reason): void {
+    $player = rank_player();
+    $course = rank_course();
+    $play = rank_clear($player, $course);
+    $cosmetic = PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_dan_series' => 'red']);
+    match ($reason) {
+        'unverified' => $play->update(['rescored_at' => null]),
+        'hidden' => $play->update(['hidden_at' => now()]),
+        'failed' => $play->update(['result_level' => 0]),
+        'stale' => $course->update(['content_hash' => str_repeat('b', 64)]),
+        'disabled' => DB::table('wdb_dan_disabled_series')->insert(['series' => 'red']),
+        'unselected' => $cosmetic->update(['wdb_dan_series' => null]),
+        'unknown dojo' => $cosmetic->update(['wdb_dan_series' => 'unknown']),
+        'other version' => $cosmetic->update(['game_version' => 'green']),
+        'challenge only' => $course->update(['name' => 'Synthetic challenge']),
+    };
+
+    expect(app(WaddamburoDanRank::class)->forUsers([$player->user_id]))->toBe([]);
+})->with(['unverified', 'hidden', 'failed', 'stale', 'disabled', 'unselected', 'unknown dojo', 'other version', 'challenge only']);
+
+it('serves the equipped rank beside player identities across the dashboard', function (): void {
+    $player = rank_player();
+    $course = rank_course();
+    $danPlay = rank_clear($player, $course);
+    PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_dan_series' => 'red']);
+    $chart = WdbChart::create(['sha256' => str_repeat('c', 64), 'title' => 'Rank tag fixture',
+        'course' => 3, 'ranked_at' => now()]);
+    WaddamburoSongs::attach([['wdb_chart_id' => $chart->id, 'title' => $chart->title, 'course' => 3]]);
+    $play = WdbPlay::create(['id' => (string) Str::uuid(),
+        'baid' => $player->baid, 'wdb_chart_id' => $chart->id, 'mode' => 'normal', 'course' => 3,
+        'score' => 100, 'great' => 1, 'good' => 0, 'miss' => 0, 'max_combo' => 1, 'rolls' => 0,
+        'gauge' => 50, 'cleared' => true, 'scoring_version' => 4, 'engine_version' => 'test',
+        'played_at' => now(), 'rescored_at' => now(), 'replay' => 'synthetic']);
+    app(WaddamburoRankAggregateService::class)->recomputeChart($chart->id);
+    $songId = $chart->songs()->value('wdb_songs.id');
+
+    foreach (["/waddamburo/users/{$player->user_id}/board", "/green/users/{$player->user_id}/board",
+        '/waddamburo/rankings', "/waddamburo/songs/{$songId}", "/waddamburo/plays/{$play->id}",
+        "/waddamburo/dan-plays/{$danPlay->id}"] as $url) {
+        $this->get($url)->assertInertia(fn (Assert $page) => $page
+            ->where("danRanks.{$player->user_id}.label", '7 Dan')
+            ->where("danRanks.{$player->user_id}.name", '七段')
+            ->where("danRanks.{$player->user_id}.dojo", 'Red')
+            ->where("danRanks.{$player->user_id}.gold", true));
+    }
+});
+
+it('refreshes the account menu rank when the player hides their rank', function (): void {
+    $player = rank_player();
+    rank_clear($player, rank_course());
+    PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_dan_series' => 'red']);
+    $url = "/waddamburo/users/{$player->user_id}/board";
+    $this->actingAs($player->user)->get($url)->assertInertia(fn (Assert $page) => $page->where('auth.danRank.label', '7 Dan'));
+
+    $this->patch('/waddamburo/settings/dan-rank', ['series' => null])->assertRedirect();
+
+    $this->get($url)->assertInertia(fn (Assert $page) => $page->where('danRanks', [])->where('auth.danRank', null));
+});
+
+it('recognizes an existing verified all-Great clear as perfect while keeping its game medal', function (int $medal): void {
+    $player = rank_player();
+    $course = rank_course();
+    $play = rank_clear($player, $course, ['result_level' => $medal, 'great' => 300, 'good' => 0, 'miss' => 0]);
+    PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_dan_series' => 'red']);
+
+    $this->get("/waddamburo/users/{$player->user_id}/board")->assertInertia(fn (Assert $page) => $page
+        ->where('displayDanRank.perfect', true)
+        ->where("danRanks.{$player->user_id}.perfect", true)
+        ->where('danProgress.0.ranks_perfect', 1)
+        ->where('danProgress.0.top_perfect', true)
+        ->where('danProgress.0.courses.0.perfect', true)
+        ->where('danProgress.0.courses.0.run', $play->id));
+    $this->withToken($player->user->createToken('perfect-test', ['wdb'])->plainTextToken)->getJson('/api/wdb/me')
+        ->assertJson(['dan_rank' => 18, 'dan_gold' => $medal === WdbDanPlay::GOLD])
+        ->assertJsonMissingPath('dan_perfect');
+})->with(['normal clear' => [1], 'gold clear' => [2]]);
+
+it('does not award a perfect badge for an ineligible run', function (string $reason): void {
+    $player = rank_player();
+    $course = rank_course();
+    rank_clear($player, $course);
+    $invalid = ['great' => 300, 'good' => 0, 'miss' => 0];
+    $invalid = [...$invalid, ...match ($reason) {
+        'Ok judgement' => ['good' => 1],
+        'Bad judgement' => ['miss' => 1],
+        'no notes' => ['great' => 0],
+        'no songs' => ['songs_played' => 0],
+        'failed course' => ['result_level' => 0],
+        'unverified' => ['rescored_at' => null],
+        'hidden' => ['hidden_at' => now()],
+        'another player' => ['baid' => rank_player()->baid],
+        'outdated course' => ['content_hash' => str_repeat('d', 64)],
+    }];
+    rank_clear($player, $course, $invalid);
+    PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_dan_series' => 'red']);
+
+    $this->get("/waddamburo/users/{$player->user_id}/board")->assertInertia(fn (Assert $page) => $page
+        ->where('displayDanRank.perfect', false)
+        ->where("danRanks.{$player->user_id}.perfect", false)
+        ->where('danProgress.0.ranks_perfect', 0)
+        ->where('danProgress.0.courses.0.perfect', false));
+})->with(['Ok judgement', 'Bad judgement', 'no notes', 'no songs', 'failed course', 'unverified', 'hidden', 'another player', 'outdated course']);
+
+it('keeps a lower perfect rank and a perfect challenge from coloring the highest equipped rank', function (): void {
+    $player = rank_player();
+    $lower = rank_course('六段', 'red', 17);
+    rank_clear($player, $lower, ['good' => 0]);
+    $higher = rank_course();
+    rank_clear($player, $higher);
+    $challenge = rank_course('Synthetic challenge', 'red', 101);
+    rank_clear($player, $challenge, ['good' => 0]);
+    PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_dan_series' => 'red']);
+
+    $this->get("/waddamburo/users/{$player->user_id}/board")->assertInertia(fn (Assert $page) => $page
+        ->where('displayDanRank.rank', 18)->where('displayDanRank.perfect', false)
+        ->where('danProgress.0.top_perfect', false)->where('danProgress.0.ranks_perfect', 1)
+        ->where('danProgress.0.courses.0.perfect', true)
+        ->where('danProgress.0.courses.2.perfect', true));
+});
+
+it('links a rainbow course to its perfect run and keeps gold from a separate run', function (): void {
+    $player = rank_player();
+    $course = rank_course();
+    $perfect = rank_clear($player, $course, ['result_level' => 1, 'good' => 0, 'score' => 100]);
+    $gold = rank_clear($player, $course, ['result_level' => 2, 'score' => 1000]);
+    PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_dan_series' => 'red']);
+    $url = "/waddamburo/users/{$player->user_id}/board";
+
+    $this->get($url)->assertInertia(fn (Assert $page) => $page
+        ->where('displayDanRank.perfect', true)->where('displayDanRank.gold', true)
+        ->where('danProgress.0.courses.0.best', 2)->where('danProgress.0.courses.0.run', $perfect->id));
+
+    $perfect->update(['hidden_at' => now()]);
+
+    $this->get($url)->assertInertia(fn (Assert $page) => $page
+        ->where('displayDanRank.perfect', false)->where('displayDanRank.gold', true)
+        ->where('danProgress.0.courses.0.run', $gold->id));
+});

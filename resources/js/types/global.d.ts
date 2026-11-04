@@ -1,4 +1,5 @@
 import type { Auth } from '@/types/auth';
+import type { DanRank } from '@/types/dan-rank';
 import type { TaikoVersionContext } from '@/lib/taiko-version';
 
 // Extend ImportMeta interface for Vite...
@@ -22,6 +23,7 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            danRanks?: Record<number, DanRank>;
             taikoVersion: TaikoVersionContext;
             sidebarOpen: boolean;
             legalVersion?: string | null;

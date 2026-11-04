@@ -1,5 +1,6 @@
 <script lang="ts">
     import AppHead from '@/components/AppHead.svelte';
+    import DanRankTag from '@/components/DanRankTag.svelte';
     import {
         Avatar,
         AvatarFallback,
@@ -248,10 +249,9 @@
                     {/if}
                 </Avatar>
                 <span class="min-w-0">
-                    <span
-                        class="block truncate text-sm font-medium hover:underline"
-                    >
-                        {entry.player_name}
+                    <span class="flex min-w-0 items-center gap-2">
+                        <DanRankTag userId={entry.user_id} size="compact" />
+                        <span class="truncate text-sm font-medium hover:underline">{entry.player_name}</span>
                     </span>
                     {#if entry.counts}
                         <!-- Good / Ok / Bad in the game's colours (良 orange, 可 white, 不可 blue). -->
@@ -609,10 +609,9 @@
                                     {/if}
                                 </Avatar>
                                 <div class="min-w-0">
-                                    <div
-                                        class="truncate text-sm font-medium hover:underline"
-                                    >
-                                        {play.player_name}
+                                    <div class="flex min-w-0 items-center gap-2">
+                                        <DanRankTag userId={play.user_id} size="compact" />
+                                        <span class="truncate text-sm font-medium hover:underline">{play.player_name}</span>
                                     </div>
                                     <div class="text-xs text-muted-foreground">
                                         {play.difficulty ??

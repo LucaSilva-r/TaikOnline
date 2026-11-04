@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Enums\TaikoGameVersion;
 use App\Models\WdbNotice;
+use App\Services\WaddamburoDanRank;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -43,6 +44,8 @@ class HandleInertiaRequests extends Middleware
             'canRegister' => (bool) config('fortify.registration_open'),
             'auth' => [
                 'user' => $request->user(),
+                'danRank' => fn (): ?array => $request->user() === null ? null
+                    : (app(WaddamburoDanRank::class)->forUsers([$request->user()->id])[$request->user()->id] ?? null),
             ],
             'taikoVersion' => [
                 'scope' => $request->attributes->get('taikoVersionScope', ResolveTaikoVersion::DefaultScope),

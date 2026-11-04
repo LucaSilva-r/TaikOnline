@@ -4,6 +4,7 @@
         AvatarFallback,
         AvatarImage,
     } from '@/components/ui/avatar';
+    import DanRankTag from '@/components/DanRankTag.svelte';
     import { getInitials } from '@/lib/initials';
     import type { User } from '@/types';
 
@@ -28,8 +29,11 @@
     {/if}
 </Avatar>
 
-<div class="grid flex-1 text-left text-sm leading-tight">
-    <span class="truncate font-medium">{user.name}</span>
+<div class="grid min-w-0 flex-1 text-left text-sm leading-tight">
+    <span class="flex min-w-0 items-center gap-1.5">
+        <DanRankTag userId={user.id} size="compact" />
+        <span class="truncate font-medium">{user.name}</span>
+    </span>
     {#if showUsername}
         <span class="truncate text-xs text-muted-foreground">@{user.username}</span>
     {/if}

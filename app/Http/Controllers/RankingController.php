@@ -6,6 +6,7 @@ use App\Enums\TaikoGameVersion;
 use App\Models\PlayerRankSnapshot;
 use App\Models\User;
 use App\Services\PlayerRankAggregateService;
+use App\Services\WaddamburoDanRank;
 use App\Services\WaddamburoRankAggregateService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -62,6 +63,7 @@ class RankingController extends Controller
         })->all();
 
         return Inertia::render('Rankings', [
+            'danRanks' => app(WaddamburoDanRank::class)->forUsers($userIds),
             'gameVersion' => [
                 'value' => $version->value,
                 'label' => $version->label(),

@@ -48,6 +48,7 @@ class WaddamburoWebController extends Controller
 
         return Inertia::render('Rankings', [
             'gameVersion' => $this->scope(),
+            'danRanks' => app(WaddamburoDanRank::class)->forUsers($stats->pluck('user_id')),
             'entries' => $stats->map(function (PlayerVersionStats $row, int $index) use ($users): array {
                 $user = $users->get($row->user_id);
 
@@ -137,7 +138,15 @@ class WaddamburoWebController extends Controller
         $songSources = self::ordered($charts->pluck('sources')->flatten()->all());
         $plays = WdbPlay::query()->whereIn('wdb_chart_id', $chartIds)->visibleTo($this->viewerBaid());
 
+        $difficulties = $this->difficultyBoards($charts);
+        $recentPlays = $this->songRecentPlays($chartIds);
+        $userIds = collect($difficulties)->flatMap(fn (array $board): array => [
+            ...$board['entries'], ...$board['shinuchi_entries'],
+            ...collect($board['legacy'] ?? [])->flatMap(fn (array $legacy): array => [...$legacy['entries'], ...$legacy['shinuchi_entries']])->all(),
+        ])->merge($recentPlays)->pluck('user_id');
+
         return Inertia::render('SongDetail', [
+            'danRanks' => app(WaddamburoDanRank::class)->forUsers($userIds),
             'gameVersion' => $this->scope(),
             'song' => [
                 'id' => $song->id,
@@ -156,8 +165,8 @@ class WaddamburoWebController extends Controller
                 'first_played_at' => (clone $plays)->min('played_at'),
                 'last_played_at' => (clone $plays)->max('played_at'),
             ],
-            'difficulties' => $this->difficultyBoards($charts),
-            'recentPlays' => $this->songRecentPlays($chartIds),
+            'difficulties' => $difficulties,
+            'recentPlays' => $recentPlays,
             'isFavorite' => false,
             'favoritesSupported' => false,
             'canFavorite' => false,
@@ -175,6 +184,7 @@ class WaddamburoWebController extends Controller
         $summary = $player instanceof Player ? $standings->firstWhere('user_id', $user->id) : null;
 
         return Inertia::render('Board', [
+            'danRanks' => app(WaddamburoDanRank::class)->forUsers([$user->id]),
             'profile' => [
                 'id' => $user->id, 'name' => $user->name, 'avatar' => $user->avatar,
                 'mydon_name' => $player?->mydon_name, 'game_version' => $this->scope(),
@@ -328,10 +338,13 @@ class WaddamburoWebController extends Controller
     private function danProgress(Player $player): array
     {
         $bests = WdbDanPlay::query()->where('baid', $player->baid)->whereNotNull('rescored_at')->whereNull('hidden_at')->where('result_level', '>', 0)
-            ->groupBy('content_hash')->selectRaw('content_hash, MAX(result_level) AS best')->pluck('best', 'content_hash');
+            ->groupBy('content_hash')
+            ->selectRaw('content_hash, MAX(result_level) AS best, MAX(CASE WHEN '.WdbDanPlay::PERFECT_CLEAR_SQL.' THEN 1 ELSE 0 END) AS perfect')
+            ->get()->keyBy('content_hash');
         // The run a course links to: the player's best.
         $runs = WdbDanPlay::query()->where('baid', $player->baid)->whereNotNull('rescored_at')->whereNull('hidden_at')->where('result_level', '>', 0)
-            ->orderBy('result_level')->orderBy('score')->pluck('id', 'content_hash');
+            ->select('wdb_dan_plays.*')->selectRaw('CASE WHEN '.WdbDanPlay::PERFECT_CLEAR_SQL.' THEN 1 ELSE 0 END AS perfect_clear')
+            ->orderBy('perfect_clear')->orderBy('result_level')->orderBy('score')->pluck('id', 'content_hash');
         $courses = WdbDanCourse::query()->orderBy('level')->get(['series', 'level', 'name', 'content_hash'])->groupBy('series');
         $progress = [];
         $disabled = WdbDanCourse::disabledSeries();
@@ -345,7 +358,8 @@ class WaddamburoWebController extends Controller
                 'label' => WdbDanCourse::RANK_LABELS[$course->name] ?? null,
                 'title' => WdbDanCourse::challengeTitle($course->name),
                 'run' => $runs[$course->content_hash] ?? null,
-                'best' => $bests->has($course->content_hash) ? (int) $bests[$course->content_hash] : null,
+                'best' => $bests->has($course->content_hash) ? (int) $bests[$course->content_hash]->best : null,
+                'perfect' => (bool) ($bests->get($course->content_hash)?->perfect ?? false),
             ])->values();
             $ranks = $rows->whereNotNull('label');
             $challenges = $rows->whereNull('label');
@@ -355,10 +369,12 @@ class WaddamburoWebController extends Controller
                 'ranks_total' => $ranks->count(),
                 'ranks_passed' => $ranks->where('best', '>=', WdbDanPlay::RED)->count(),
                 'ranks_gold' => $ranks->where('best', WdbDanPlay::GOLD)->count(),
+                'ranks_perfect' => $ranks->where('perfect', true)->count(),
                 'challenges_total' => $challenges->count(),
                 'challenges_passed' => $challenges->where('best', '>=', WdbDanPlay::RED)->count(),
                 // The ladder runs in level order: the highest passed is the player's rank.
                 'top_rank' => $ranks->where('best', '>=', WdbDanPlay::RED)->last()['label'] ?? null,
+                'top_perfect' => $ranks->where('best', '>=', WdbDanPlay::RED)->last()['perfect'] ?? false,
                 'courses' => $rows->all(),
             ];
         }

@@ -1,3 +1,5 @@
+import type { DanRank } from './dan-rank';
+
 export type UserRole = 'admin' | 'moderator' | 'user';
 
 export type User = {
@@ -16,6 +18,7 @@ export type User = {
 
 export type Auth = {
     user: User;
+    danRank?: DanRank | null;
 };
 
 export type TwoFactorConfigContent = {

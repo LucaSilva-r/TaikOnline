@@ -12,6 +12,7 @@ use App\Models\SongBest;
 use App\Models\SongPlayResult;
 use App\Models\User;
 use App\Services\PlayerRankAggregateService;
+use App\Services\WaddamburoDanRank;
 use App\Services\WaddamburoRankAggregateService;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Http\Request;
@@ -57,6 +58,7 @@ class BoardController extends Controller
         unset($summary['user_id']);
 
         return Inertia::render('Board', [
+            'danRanks' => app(WaddamburoDanRank::class)->forUsers([$user->id]),
             'profile' => $this->profilePayload($user, $player, $version),
             'hasPlayer' => true,
             'summary' => $summary,
