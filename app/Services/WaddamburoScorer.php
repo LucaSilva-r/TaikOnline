@@ -7,6 +7,8 @@ use App\Jobs\AnalyzeWaddamburoPlays;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Process\Pool;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 
@@ -23,6 +25,12 @@ class WaddamburoScorer
 
     /** Plays per scorer run: each result carries its play's judgement timeline, so a run's output grows with it. */
     private const BATCH = 50;
+
+    /**
+     * Scorer runs at once (one CPU core each): the server has four, one stays free for the site.
+     * ponytail: fixed; a config value if the server changes size.
+     */
+    private const WORKERS = 3;
 
     /** The most the play columns hold: a chart's score settings can push a score past it. */
     private const MAX_NUMBER = 2147483647;
@@ -69,8 +77,17 @@ class WaddamburoScorer
         $plays = $plays->filter(fn (WdbPlay $play): bool => $play->chart?->notes !== null)->keyBy('id');
         $changed = [];
         $rollMax = [];
-        foreach ($plays->chunk(self::BATCH) as $batch) {
-            $this->scoreBatch($scorer, $batch, $summary, $changed, $rollMax);
+        // Up to WORKERS batches score side by side; their results are applied one batch after another.
+        foreach ($plays->chunk(self::BATCH)->chunk(self::WORKERS) as $group) {
+            $runs = Process::pool(function (Pool $pool) use ($group, $scorer): void {
+                foreach ($group as $key => $batch) {
+                    $pool->as((string) $key)->input($this->input($batch))->timeout(600)->path(sys_get_temp_dir())
+                        ->command([$scorer, '--rescore']);
+                }
+            })->start()->wait();
+            foreach ($group as $key => $batch) {
+                $this->applyBatch($scorer, $batch, $runs[(string) $key], $summary, $changed, $rollMax);
+            }
         }
 
         foreach ($rollMax as $chartId => $max) {
@@ -95,10 +112,29 @@ class WaddamburoScorer
      */
     private function scoreBatch(string $scorer, Collection $plays, array &$summary, array &$changed, array &$rollMax): void
     {
+        $run = Process::input($this->input($plays))->timeout(600)->path(sys_get_temp_dir())->run([$scorer, '--rescore']);
+        $this->applyBatch($scorer, $plays, $run, $summary, $changed, $rollMax);
+    }
+
+    /** A batch's plays as the scorer reads them on stdin. */
+    private function input(Collection $plays): string
+    {
         $notes = [];
-        $input = $plays->map(fn (WdbPlay $play): string => $this->line($play, $notes[$play->wdb_chart_id] ??= base64_encode((string) $play->chart->notes)))
+
+        return $plays->map(fn (WdbPlay $play): string => $this->line($play, $notes[$play->wdb_chart_id] ??= base64_encode((string) $play->chart->notes)))
             ->implode("\n")."\n";
-        $run = Process::input($input)->timeout(600)->path(sys_get_temp_dir())->run([$scorer, '--rescore']);
+    }
+
+    /**
+     * A scorer run's results applied to its batch's plays; a crashed run scores its plays again one by one.
+     *
+     * @param  Collection<string, WdbPlay>  $plays
+     * @param  array{players: list<int>, scored: int, failed: int, changes: list<array{play: string, baid: int, from: int, to: int}>}  $summary
+     * @param  array<int, true>  $changed
+     * @param  array<int, int>  $rollMax
+     */
+    private function applyBatch(string $scorer, Collection $plays, ProcessResult $run, array &$summary, array &$changed, array &$rollMax): void
+    {
         if ($run->failed()) {
             Log::error('Waddamburo scorer failed.', ['exit' => $run->exitCode(), 'error' => $run->errorOutput()]);
             // One play can crash a whole run: alone, the others still score.
