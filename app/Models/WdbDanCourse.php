@@ -3,11 +3,11 @@
 namespace App\Models;
 
 use App\Services\WaddamburoSongs;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * A dan dojo course of one series. requirements is a list of {type, red, gold}: red and gold hold one value
@@ -30,6 +30,23 @@ class WdbDanCourse extends Model
         '玄人' => 'Kurouto', '名人' => 'Meijin', '超人' => 'Chojin', '達人' => 'Tatsujin',
         '先鋒' => 'Senpo', '次鋒' => 'Jiho', '中堅' => 'Chuken', '副将' => 'Fukusho', '大将' => 'Taisho',
     ];
+
+    /** Green's nameplate art shared by all series; 0 means this is a challenge. */
+    public function nameplateRank(): int
+    {
+        $name = match ($this->name) {
+            '４級' => '四級', '３級' => '三級', '２級' => '二級', '１級' => '一級',
+            '先鋒' => '初段', '次鋒' => '二段', '中堅' => '三段', '副将' => '四段', '大将' => '五段',
+            default => $this->name,
+        };
+        $rank = array_search($name, [
+            '初級', '十級', '九級', '八級', '七級', '六級', '五級', '四級', '三級', '二級', '一級',
+            '初段', '二段', '三段', '四段', '五段', '六段', '七段', '八段', '九段', '十段',
+            '玄人', '名人', '超人', '達人',
+        ], true);
+
+        return $rank === false ? 0 : $rank + 1;
+    }
 
     /** The parts challenge names are made of, longest first, in English. */
     private const CHALLENGE_WORDS = [

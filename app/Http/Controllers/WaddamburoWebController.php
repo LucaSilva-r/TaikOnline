@@ -13,6 +13,7 @@ use App\Models\WdbDanPlay;
 use App\Models\WdbPlay;
 use App\Models\WdbSong;
 use App\Services\PlayerRankAggregateService;
+use App\Services\WaddamburoDanRank;
 use App\Services\WaddamburoRankAggregateService;
 use App\Services\WaddamburoStatus;
 use Illuminate\Database\Eloquent\Builder;
@@ -197,6 +198,8 @@ class WaddamburoWebController extends Controller
             'blueBattleData' => null, 'greenGhostData' => null, 'tokkunData' => null, 'daniData' => null,
             // Staff get a way into the player's moderation page.
             'danProgress' => $player instanceof Player ? $this->danProgress($player) : [],
+            'displayDanRank' => $player instanceof Player ? app(WaddamburoDanRank::class)->selected($player) : null,
+            'canChooseDanRank' => $player instanceof Player && $request->user()?->id === $user->id,
             'moderationBaid' => $request->user()?->isStaff() === true && $player instanceof Player ? (int) $player->baid : null,
             'standing' => Sanction::standingFor($user, $request->user()),
             'onlineStatus' => app(WaddamburoStatus::class)->of($user),

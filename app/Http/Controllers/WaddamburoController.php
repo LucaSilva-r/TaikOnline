@@ -16,6 +16,7 @@ use App\Models\WdbChart;
 use App\Models\WdbPlay;
 use App\Notifications\WaddamburoNotice;
 use App\Services\CabinetPairingService;
+use App\Services\WaddamburoDanRank;
 use App\Services\WaddamburoDeviceLoginService;
 use App\Services\WaddamburoRankAggregateService;
 use App\Services\WaddamburoReplay;
@@ -475,11 +476,12 @@ class WaddamburoController extends Controller
      * The player and their Don's look, from Waddamburo's own loadout (Green's item ids, as it draws Green's models):
      * the equipped costume parts (kigurumi, head, body, face, puchi) and the face/body/limb colours.
      *
-     * @return array{baid: int, name: string, title: ?string, title_plate: int, look: array{costume: list<int>, presets: list<list<int>>, face: string, body: string, limb: string}}
+     * @return array{baid: int, name: string, title: ?string, title_plate: int, dan_rank: int, dan_gold: bool, look: array{costume: list<int>, presets: list<list<int>>, face: string, body: string, limb: string}}
      */
     public static function profile(Player $player): array
     {
         $cosmetics = $player->cosmetics()->where('game_version', PlayerCosmetic::WADDAMBURO)->first();
+        $dan = app(WaddamburoDanRank::class)->selected($player, $cosmetics);
         $color = fn (?int $id, int $default): string => self::DON_COLORS[$id ?? $default] ?? self::DON_COLORS[$default];
 
         return [
@@ -492,6 +494,8 @@ class WaddamburoController extends Controller
             // Name-board title (RESTRICTED while banned, so every screen shows it) and plate (0 wood, 1 rainbow, 2 gold, 3 purple).
             'title' => $player->activeBan() !== null ? 'RESTRICTED' : $cosmetics?->title,
             'title_plate' => (int) ($cosmetics?->titleplate_id ?? 0),
+            'dan_rank' => $dan['rank'] ?? 0,
+            'dan_gold' => $dan['gold'] ?? false,
             'look' => [
                 'costume' => array_map(fn (int $slot): int => (int) ($cosmetics?->{"costume_{$slot}"} ?? 0), [1, 2, 3, 4, 5]),
                 // The entry's three costume sets: [kigurumi, head, body, puchi] each.

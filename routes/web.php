@@ -18,6 +18,7 @@ use App\Http\Controllers\Settings\CabinetLoginController;
 use App\Http\Controllers\Settings\DeviceLinkController;
 use App\Http\Controllers\SongCatalogController;
 use App\Http\Controllers\WaddamburoDanPlayController;
+use App\Http\Controllers\WaddamburoDanRankController;
 use App\Http\Controllers\WaddamburoPlayController;
 use App\Http\Middleware\ResolveTaikoVersion;
 use Illuminate\Support\Facades\Route;
@@ -58,6 +59,7 @@ Route::prefix('{taikoVersion}')
             ->name('plays.report');
 
         Route::middleware('auth')->group(function (): void {
+            Route::patch('settings/dan-rank', [WaddamburoDanRankController::class, 'update'])->name('dan-rank.update');
             Route::post('notifications/read', [NotificationController::class, 'read'])->name('notifications.read');
             Route::get('play', [CabinetLoginController::class, 'create'])->name('play.create');
             Route::post('play', [CabinetLoginController::class, 'store'])

@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'game_version',
     'title',
     'titleplate_id',
+    'wdb_dan_series',
     'default_tone_setting',
     'default_option_setting',
     'costume_1',

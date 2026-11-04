@@ -20,7 +20,8 @@
     import { LineChart } from 'layerchart';
     import Activity from 'lucide-svelte/icons/activity';
     import Award from 'lucide-svelte/icons/award';
-    import DanMedals, { type DanSeries } from '@/components/DanMedals.svelte';
+    import DanMedals from '@/components/DanMedals.svelte';
+    import type { DanSeries, DisplayDanRank } from '@/components/DanMedals.svelte';
     import CalendarDays from 'lucide-svelte/icons/calendar-days';
     import Crown from 'lucide-svelte/icons/crown';
     import Drum from 'lucide-svelte/icons/drum';
@@ -197,6 +198,8 @@
         tokkunData = null,
         daniData = null,
         danProgress = [],
+        displayDanRank = null,
+        canChooseDanRank = false,
         moderationBaid = null,
         standing = null,
         onlineStatus,
@@ -212,6 +215,8 @@
         tokkunData?: TokkunData | null;
         daniData?: DaniData | null;
         danProgress?: DanSeries[];
+        displayDanRank?: DisplayDanRank | null;
+        canChooseDanRank?: boolean;
         moderationBaid?: number | null;
         standing?: Standing | null;
         onlineStatus?: OnlineStatus | null;
@@ -1145,7 +1150,7 @@
                     Dan Dojo (段位道場)
                 </h2>
             </div>
-            <DanMedals series={danProgress} />
+            <DanMedals series={danProgress} selected={displayDanRank} canChoose={canChooseDanRank} />
         </section>
     {/if}
 
