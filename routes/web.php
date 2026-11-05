@@ -21,7 +21,9 @@ use App\Http\Controllers\WaddamburoDanPlayController;
 use App\Http\Controllers\WaddamburoDanRankController;
 use App\Http\Controllers\WaddamburoPlayController;
 use App\Http\Middleware\ResolveTaikoVersion;
+use App\Services\WaddamburoStatus;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::get('/', fn () => redirect('/'.ResolveTaikoVersion::DefaultScope));
 Route::any('rankings', fn () => abort(404));
@@ -39,7 +41,7 @@ $taikoVersionPattern = collect(TaikoGameVersion::cases())
 Route::prefix('{taikoVersion}')
     ->where(['taikoVersion' => $taikoVersionPattern])
     ->group(function (): void {
-        Route::inertia('/', 'Home')->name('home');
+        Route::get('/', fn () => Inertia::render('Home', ['waddamburoOnline' => app(WaddamburoStatus::class)->online()]))->name('home');
 
         Route::get('rules', [LegalController::class, 'rules'])->name('legal.rules');
         Route::get('privacy', [LegalController::class, 'privacy'])->name('legal.privacy');
