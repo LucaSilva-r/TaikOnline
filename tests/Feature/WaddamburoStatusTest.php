@@ -170,3 +170,42 @@ it('gives the board the status, and still renders when the store is down', funct
     app('cache')->forgetDriver('status');
     $this->get($board)->assertOk()->assertInertia(fn (Assert $page) => $page->where('onlineStatus', null));
 });
+
+it('names the other player of the online room, unless they are invisible', function (): void {
+    $host = wdb_status_player();
+    $guest = wdb_status_player();
+    $guest->update(['name' => 'Katsu']);
+    $rooms = app(\App\Services\WaddamburoRooms::class);
+    $code = $rooms->create($host);
+    $rooms->join($code, $guest);
+    $token = $host->createToken('test', ['wdb'])->plainTextToken;
+
+    $this->withToken($token)->putJson('/api/wdb/status', ['state' => 'online', 'room' => $code])->assertNoContent();
+    expect(app(WaddamburoStatus::class)->of($host)['opponent'])->toBe(['name' => 'Katsu']);
+
+    // A room the player isn't in names nobody.
+    app('auth')->forgetGuards();
+    $this->withToken(wdb_status_player()->createToken('test', ['wdb'])->plainTextToken)
+        ->putJson('/api/wdb/status', ['state' => 'online', 'room' => $code])->assertNoContent();
+
+    $guest->update(['presence_status' => PresenceStatus::Invisible]);
+    app('auth')->forgetGuards();
+    $this->withToken($token)->putJson('/api/wdb/status', ['state' => 'online', 'room' => $code])->assertNoContent();
+    expect(app(WaddamburoStatus::class)->of($host))->not->toHaveKey('opponent');
+});
+
+it('counts the players in Waddamburo for the home page', function (): void {
+    $first = wdb_status_player();
+    $second = wdb_status_player();
+    $this->withToken($first->createToken('test', ['wdb'])->plainTextToken)->putJson('/api/wdb/status', ['state' => 'online'])->assertNoContent();
+    $secondToken = $second->createToken('test', ['wdb'])->plainTextToken;
+    app('auth')->forgetGuards();
+    $this->withToken($secondToken)->putJson('/api/wdb/status', ['state' => 'afk'])->assertNoContent();
+    expect(app(WaddamburoStatus::class)->online())->toBe(2);
+
+    $this->withToken($secondToken)->deleteJson('/api/wdb/status')->assertNoContent();
+    expect(app(WaddamburoStatus::class)->online())->toBe(1);
+
+    $this->travel(WaddamburoStatus::TTL_SECONDS + 1)->seconds();
+    expect(app(WaddamburoStatus::class)->online())->toBe(0);
+});

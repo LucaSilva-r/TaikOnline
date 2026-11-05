@@ -222,6 +222,18 @@ class WaddamburoRooms
         return ($this->room($code)['host'] ?? null) === $user->id;
     }
 
+    /** The other player in the player's room; null when they aren't in it, or alone there. */
+    public function opponent(string $code, User $user): ?User
+    {
+        $room = $this->room($code);
+        if ($room === null || ! in_array($user->id, [$room['host'], $room['guest']], true)) {
+            return null;
+        }
+        $other = $room['host'] === $user->id ? $room['guest'] : $room['host'];
+
+        return $other === null ? null : User::query()->find($other);
+    }
+
     public function isMember(string $code, User $user): bool
     {
         $room = $this->room($code);

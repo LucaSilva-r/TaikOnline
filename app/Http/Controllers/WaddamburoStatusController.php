@@ -15,8 +15,9 @@ class WaddamburoStatusController extends Controller
         $validated = $request->validate([
             'state' => ['required', 'string', 'in:online,afk,playing'],
             'chart_sha256' => ['nullable', 'string', 'regex:/\A[0-9a-f]{64}\z/'],
+            'room' => ['nullable', 'string', 'max:16'],
         ]);
-        $status->report($request->user(), $validated['state'], $validated['chart_sha256'] ?? null);
+        $status->report($request->user(), $validated['state'], $validated['chart_sha256'] ?? null, $validated['room'] ?? null);
 
         return response()->noContent();
     }

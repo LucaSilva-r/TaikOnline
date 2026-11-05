@@ -296,6 +296,7 @@
     type OnlineStatus = {
         state: 'online' | 'afk' | 'playing';
         song: { title: string; course: number } | null;
+        opponent?: { name: string } | null;
     };
 
     // The server's WaddamburoStatus::TTL_SECONDS: the game reports every 30 s until it stops.
@@ -341,18 +342,21 @@
         };
     });
 
-    function statusText({ state, song }: OnlineStatus): string {
+    function statusText({ state, song, opponent }: OnlineStatus): string {
+        const versus = opponent ? ` against ${opponent.name}` : '';
         if (state === 'afk') {
             return 'AFK';
         }
 
         if (state === 'online') {
-            return 'Online';
+            return opponent ? `In an online room with ${opponent.name}` : 'Online';
         }
 
-        return song
-            ? `Playing ${song.title} (${['Easy', 'Normal', 'Hard', 'Oni', 'Ura'][song.course] ?? song.course})`
-            : 'Playing a song';
+        return (
+            (song
+                ? `Playing ${song.title} (${['Easy', 'Normal', 'Hard', 'Oni', 'Ura'][song.course] ?? song.course})`
+                : 'Playing a song') + versus
+        );
     }
 
     function difficultyLabel(level: number): string {

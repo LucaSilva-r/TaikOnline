@@ -21,19 +21,27 @@ class WaddamburoStatus
     /** The game reports every 30 s, so this outlasts two lost reports. The board goes offline on the same limit. */
     public const TTL_SECONDS = 90;
 
+    // Who reported lately, by user id => when that runs out: the home page's count. One small map, renewed with each
+    // report under a lock (a player reports every 30 s).
+    private const ONLINE_KEY = 'wdb-online';
+
     /**
      * Stores the player's status and pushes it, unless they chose to be invisible: then only the server knows.
      * A banned player, or one who hasn't accepted the current Rules and Privacy notice, isn't kept at all. The
      * game can't tell and needn't care.
      */
-    public function report(User $user, string $state, ?string $chartSha256): void
+    public function report(User $user, string $state, ?string $chartSha256, ?string $room = null): void
     {
         $baid = $user->player?->baid;
         if ($baid === null || LegalController::mustAccept($user) || Sanction::activeFor((int) $baid, SanctionType::Ban) !== null) {
             return;
         }
         $status = ['state' => $state, 'song' => $state === 'playing' && $chartSha256 !== null ? $this->song($chartSha256) : null];
+        if ($room !== null && ($opponent = $this->opponent($user, $room)) !== null) {
+            $status['opponent'] = $opponent;
+        }
         rescue(fn () => Cache::store('status')->put($this->key($user), $status, self::TTL_SECONDS), report: false);
+        $this->markOnline($user->id, true);
         if (! $user->presence_status->hidesStatus()) {
             rescue(fn () => WdbPlayerStatusChanged::dispatch($user->id, $status), report: false);
         }
@@ -53,13 +61,37 @@ class WaddamburoStatus
     public function clear(User $user): void
     {
         rescue(fn () => Cache::store('status')->forget($this->key($user)), report: false);
+        $this->markOnline($user->id, false);
         rescue(fn () => WdbPlayerStatusChanged::dispatch($user->id, ['state' => 'offline', 'song' => null]), report: false);
+    }
+
+    /** How many players are in Waddamburo now (invisible ones included: it names nobody). */
+    public function online(): int
+    {
+        $now = now()->timestamp;
+
+        return count(array_filter((array) rescue(fn () => Cache::store('status')->get(self::ONLINE_KEY, []), [], report: false),
+            fn (int $until): bool => $until > $now));
+    }
+
+    private function markOnline(int $userId, bool $online): void
+    {
+        rescue(fn () => Cache::store('status')->lock(self::ONLINE_KEY.':lock', 5)->block(2, function () use ($userId, $online): void {
+            $now = now()->timestamp;
+            $players = array_filter(Cache::store('status')->get(self::ONLINE_KEY, []), fn (int $until): bool => $until > $now);
+            if ($online) {
+                $players[$userId] = $now + self::TTL_SECONDS;
+            } else {
+                unset($players[$userId]);
+            }
+            Cache::store('status')->put(self::ONLINE_KEY, $players, self::TTL_SECONDS);
+        }), report: false);
     }
 
     /**
      * What everyone else may see: nothing while the player is invisible.
      *
-     * @return array{state: string, song: array{title: string, course: int}|null}|null
+     * @return array{state: string, song: array{title: string, course: int}|null, opponent?: array{name: string}|null}|null
      */
     public function of(User $user): ?array
     {
@@ -68,6 +100,19 @@ class WaddamburoStatus
         }
 
         return rescue(fn () => Cache::store('status')->get($this->key($user)), report: false);
+    }
+
+    /**
+     * Who the player is in an online room with, as the room says (the game only names the room): nothing while that
+     * player is invisible.
+     *
+     * @return array{name: string}|null
+     */
+    private function opponent(User $user, string $room): ?array
+    {
+        $other = rescue(fn () => app(WaddamburoRooms::class)->opponent($room, $user), report: false);
+
+        return $other === null || $other->presence_status->hidesStatus() ? null : ['name' => (string) $other->name];
     }
 
     /**
