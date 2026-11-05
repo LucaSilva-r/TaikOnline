@@ -86,6 +86,8 @@ services:
         build: ./relay
         environment:
             RELAY_SECRET: '${RELAY_SECRET:?}'
+            # false: no connection log (rooms, members, how each connection ended).
+            RELAY_LOG: '${RELAY_LOG:-true}'
         networks:
             - main
         restart: unless-stopped

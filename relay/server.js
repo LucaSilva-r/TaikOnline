@@ -128,6 +128,8 @@ export function startRelay({ port, secret, log = timestamped }) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-    const server = startRelay({ port: Number(process.env.PORT ?? 8080), secret: process.env.RELAY_SECRET });
+    // RELAY_LOG=false (the host's .env) keeps the connection log quiet; on otherwise.
+    const quiet = ['false', '0', 'off', 'no'].includes((process.env.RELAY_LOG ?? '').toLowerCase());
+    const server = startRelay({ port: Number(process.env.PORT ?? 8080), secret: process.env.RELAY_SECRET, log: quiet ? () => {} : undefined });
     server.on('listening', () => console.log(`Relay listening on ${server.address().port}.`));
 }
