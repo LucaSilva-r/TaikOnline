@@ -2,8 +2,10 @@
 //
 // A game connects with ?ticket=..., which TaikOnline signed for one member of one room (WaddamburoRooms::relayTicket).
 // The relay pairs the two members of a room and passes each one's binary frames to the other, as they are: the game's
-// own peer-link packets. It keeps nothing, logs no traffic, and never talks to TaikOnline: the shared secret is all
-// it needs. Sitting behind the Cloudflare tunnel, it never shows the server's address.
+// own peer-link packets. It keeps nothing and never talks to TaikOnline: the shared secret is all it needs. Sitting
+// behind the Cloudflare tunnel, it never shows the server's address. It logs each connection's room and member, how it
+// ended and how many frames it passed (to tell a relayed game's trouble from the peer-to-peer link's), never an
+// address or a frame's content.
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
@@ -32,8 +34,10 @@ export function verifyTicket(ticket, secret, nowSeconds = Date.now() / 1000) {
     return { room, member };
 }
 
-/** Starts the relay on `port` (0: any free one). Returns the HTTP server, listening. */
-export function startRelay({ port, secret }) {
+const timestamped = (line) => console.log(`${new Date().toISOString()} ${line}`);
+
+/** Starts the relay on `port` (0: any free one); `log` takes one line per event. Returns the HTTP server, listening. */
+export function startRelay({ port, secret, log = timestamped }) {
     if (!secret) {
         throw new Error('RELAY_SECRET is not set.');
     }
@@ -47,22 +51,36 @@ export function startRelay({ port, secret }) {
     sockets.on('connection', (socket, request) => {
         const ticket = verifyTicket(new URL(request.url, 'http://relay').searchParams.get('ticket'), secret);
         if (ticket === null) {
+            log('rejected: bad or expired ticket');
             socket.close(4001, 'bad ticket');
             return;
         }
         const { room: code, member } = ticket;
+        const who = `room ${code} member ${member}`;
         const room = rooms.get(code) ?? new Map();
         if (!room.has(member) && room.size >= 2) {
+            log(`${who} rejected: room full`);
             socket.close(4003, 'room full');
             return;
         }
         // The same member again (their game reconnected): the new connection replaces the old one.
-        room.get(member)?.terminate();
+        const previous = room.get(member);
+        if (previous) {
+            previous.replaced = true;
+            previous.terminate();
+        }
         room.set(member, socket);
         rooms.set(code, room);
+        const opened = Date.now();
+        socket.sent = 0;
+        socket.received = 0;
+        log(`${who} connected${previous ? ' (replacing its previous connection)' : ''}, ${room.size} of 2 in the room`);
 
         // A bad frame (too big, malformed) closes this connection; unhandled, it would end the whole relay.
-        socket.on('error', () => socket.terminate());
+        socket.on('error', (error) => {
+            log(`${who} error: ${error.message}`);
+            socket.terminate();
+        });
         socket.isAlive = true;
         socket.on('pong', () => {
             socket.isAlive = true;
@@ -71,13 +89,17 @@ export function startRelay({ port, secret }) {
             if (!isBinary) {
                 return;
             }
+            socket.received++;
             for (const [other, peer] of room) {
                 if (other !== member && peer.readyState === peer.OPEN) {
                     peer.send(data, { binary: true });
+                    socket.sent++;
                 }
             }
         });
-        socket.on('close', () => {
+        socket.on('close', (closeCode, reason) => {
+            const how = socket.timedOut ? 'timed out (no pong)' : socket.replaced ? 'replaced' : `closed ${closeCode}${reason?.length ? ` ${reason}` : ''}`;
+            log(`${who} ${how} after ${((Date.now() - opened) / 1000).toFixed(1)} s, ${socket.received} frames in, ${socket.sent} passed on`);
             if (room.get(member) === socket) {
                 room.delete(member);
             }
@@ -91,6 +113,7 @@ export function startRelay({ port, secret }) {
     const heartbeat = setInterval(() => {
         for (const socket of sockets.clients) {
             if (!socket.isAlive) {
+                socket.timedOut = true;
                 socket.terminate();
                 continue;
             }

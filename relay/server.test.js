@@ -69,3 +69,31 @@ test('pairs two members of a room and passes binary frames between them only', a
         server.closeAllConnections?.();
     }
 });
+
+test('logs who connected and how each connection ended, without addresses', async () => {
+    const lines = [];
+    const server = startRelay({ port: 0, secret, log: (line) => lines.push(line) });
+    await once(server, 'listening');
+    const port = server.address().port;
+    try {
+        const first = await connect(port, ticket('LOGS22', '1'));
+        const second = await connect(port, ticket('LOGS22', '2'));
+        first.send(Buffer.from([0xd3, 1]));
+        await settle();
+        first.close();
+        await settle();
+        const forged = new WebSocket(`ws://127.0.0.1:${port}/?ticket=nope`);
+        await once(forged, 'close');
+        second.close();
+        await settle();
+
+        assert.ok(lines.includes('room LOGS22 member 1 connected, 1 of 2 in the room'));
+        assert.ok(lines.includes('room LOGS22 member 2 connected, 2 of 2 in the room'));
+        assert.ok(lines.some((line) => /^room LOGS22 member 1 closed 1005 after [\d.]+ s, 1 frames in, 1 passed on$/.test(line)));
+        assert.ok(lines.includes('rejected: bad or expired ticket'));
+        assert.ok(lines.every((line) => !line.includes('127.0.0.1')));
+    } finally {
+        server.close();
+        server.closeAllConnections?.();
+    }
+});
