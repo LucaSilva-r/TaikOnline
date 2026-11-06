@@ -217,7 +217,8 @@ export class DonchanRenderer {
     private extent = 1;
     private readonly baseCenter = new THREE.Vector3();
     private readonly camTarget = new THREE.Vector3();
-    private readonly baseYaw = THREE.MathUtils.degToRad(20);
+    private readonly baseYaw: number;
+    private readonly fixedCamera: boolean;
     private userYaw = 0;
     private userPitch = 0;
 
@@ -231,7 +232,14 @@ export class DonchanRenderer {
     private sceneTarget: THREE.WebGLRenderTarget | null = null;
     private maskTarget: THREE.WebGLRenderTarget | null = null;
     private readonly outlineScene = new THREE.Scene();
-    private readonly outlineCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    private readonly outlineCamera = new THREE.OrthographicCamera(
+        -1,
+        1,
+        1,
+        -1,
+        0,
+        1,
+    );
     private readonly screenOutlineMaterial: THREE.ShaderMaterial;
     private readonly drawBufferSize = new THREE.Vector2();
 
@@ -244,10 +252,18 @@ export class DonchanRenderer {
         rim: { r: 255, g: 255, b: 255 },
     };
 
+    /**
+     * @param options.yawDegrees the base 3/4 turn (the game's menu camera sees Don about 28° off the front)
+     * @param options.fixedCamera one frame for every costume (from the skeleton they share) instead of
+     *     following the BODY bone, so the animation's bop moves Don in the frame as in game
+     */
     public constructor(
         private readonly canvas: HTMLCanvasElement,
         private readonly size = 512,
+        options: { yawDegrees?: number; fixedCamera?: boolean } = {},
     ) {
+        this.baseYaw = THREE.MathUtils.degToRad(options.yawDegrees ?? 20);
+        this.fixedCamera = options.fixedCamera ?? false;
         this.renderer = new THREE.WebGLRenderer({
             canvas,
             alpha: true,
@@ -690,6 +706,7 @@ export class DonchanRenderer {
         this.renderer.setRenderTarget(mask);
         this.renderer.clear();
         this.renderer.render(this.scene, this.camera);
+
         for (const object of hidden) {
             object.visible = true;
         }
@@ -807,9 +824,7 @@ export class DonchanRenderer {
         // alpha gradient (an actual lens). Hard-alpha blends (hair, shuriken, netting) are
         // solid and stay in the outline mask.
         const seeThrough =
-            isFace ||
-            isGlass ||
-            (isBlend && this.hasSmoothAlpha(original.map));
+            isFace || isGlass || (isBlend && this.hasSmoothAlpha(original.map));
         flat.userData = { ...original.userData, seeThrough };
 
         if (isFace) {
@@ -820,6 +835,7 @@ export class DonchanRenderer {
             // Keep depth writes so the lens occludes/sorts against its border and the
             // rest of the model instead of painting over whatever drew first.
             flat.depthWrite = true;
+
             // Glass textures with no alpha (opaque reflections) need a material opacity
             // to read as see-through; textures carrying their own alpha define it.
             if (!original.transparent) {
@@ -858,6 +874,7 @@ export class DonchanRenderer {
         }
 
         const cached = this.smoothAlphaCache.get(image);
+
         if (cached !== undefined) {
             return cached;
         }
@@ -882,12 +899,15 @@ export class DonchanRenderer {
 
             let partial = 0;
             let total = 0;
+
             for (let i = 3; i < data.length; i += 4) {
                 total++;
+
                 if (data[i] > 20 && data[i] < 235) {
                     partial++;
                 }
             }
+
             smooth = total > 0 && partial / total > 0.12;
         } catch {
             smooth = false;
@@ -961,6 +981,7 @@ export class DonchanRenderer {
         for (const material of this.blackLineMaterials) {
             material.dispose();
         }
+
         this.blackLineMaterials = [];
 
         if (meshes.length === 0 || !this.root) {
@@ -1003,6 +1024,7 @@ export class DonchanRenderer {
         for (const material of this.hullMaterials) {
             material.dispose();
         }
+
         this.hullMaterials = [];
 
         if (meshes.length === 0 || !this.root) {
@@ -1046,10 +1068,26 @@ export class DonchanRenderer {
             return;
         }
 
-        const box = new THREE.Box3().setFromObject(this.root);
-        box.getCenter(this.baseCenter);
-        const size = box.getSize(new THREE.Vector3());
-        this.extent = Math.max(size.x, size.y) * 0.62;
+        if (this.fixedCamera && this.targetBones.length > 0) {
+            // Framed on the skeleton every costume shares, so switching costumes never moves the
+            // shot: room above for tall hats and the idle bop (bones span 0..h, plain Don's mesh
+            // ~0.25h..1.6h, the tallest costumes ~2.4h).
+            const bones = new THREE.Box3();
+            const point = new THREE.Vector3();
+
+            for (const bone of this.targetBones) {
+                bones.expandByPoint(bone.getWorldPosition(point));
+            }
+
+            const height = bones.max.y - bones.min.y;
+            this.baseCenter.set(0, bones.min.y + height * 1.25, 0);
+            this.extent = height * 1.32;
+        } else {
+            const box = new THREE.Box3().setFromObject(this.root);
+            box.getCenter(this.baseCenter);
+            const size = box.getSize(new THREE.Vector3());
+            this.extent = Math.max(size.x, size.y) * 0.62;
+        }
 
         this.camera.left = -this.extent;
         this.camera.right = this.extent;
@@ -1060,7 +1098,7 @@ export class DonchanRenderer {
 
     /** Keep the camera centred on the BODY bone so jumps/squashes stay in frame. */
     private updateCamera(): void {
-        if (this.bodyBone) {
+        if (this.bodyBone && !this.fixedCamera) {
             this.bodyBone.getWorldPosition(this.camTarget);
         } else {
             this.camTarget.copy(this.baseCenter);
@@ -1118,8 +1156,7 @@ export class DonchanRenderer {
             if (mesh.isMesh) {
                 mesh.geometry.dispose();
                 const material = mesh.material as
-                    | THREE.Material
-                    | THREE.Material[];
+                    THREE.Material | THREE.Material[];
 
                 if (Array.isArray(material)) {
                     material.forEach((m) => m.dispose());

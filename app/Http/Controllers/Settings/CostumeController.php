@@ -80,6 +80,7 @@ class CostumeController extends Controller
             // Waddamburo's dan costume needs a displayed, server-verified rank (the costume draws that rank).
             'danCostumeLocked' => $request->attributes->get('taikoVersionIsWaddamburo') === true
                 && ! $this->hasDanRank($card?->player),
+            'preview' => $this->preview($version, $request->attributes->get('taikoVersionIsWaddamburo') === true ? $card?->player : null),
             'status' => $request->session()->get('status'),
         ]);
     }
@@ -130,6 +131,41 @@ class CostumeController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Costume updated.')]);
 
         return to_route('costumes.edit');
+    }
+
+    /**
+     * The 3D preview's data: this version's costume ids as the web Don-chan's models number them
+     * (scripts/donchan/map_costumes.py; null: no model), the face sheet each whole-costume model
+     * wears (the sheets are named by Green's ids), and the dan rank Waddamburo dresses the dan
+     * costume by. Null when the models are not exported here.
+     *
+     * @return array{map: array<string, array<string, ?int>>, faces: array<int, string>, danRank: int}|null
+     */
+    private function preview(?TaikoGameVersion $version, ?Player $waddamburoPlayer): ?array
+    {
+        $models = storage_path('app/public/donchan/models');
+        $path = database_path('data/donchan-costume-map.json');
+        if (! $version instanceof TaikoGameVersion || ! File::isDirectory($models) || ! File::exists($path)) {
+            return null;
+        }
+
+        /** @var array<string, array<string, array<string, ?int>>> $all */
+        $all = json_decode(File::get($path), true);
+        if (! isset($all[$version->value])) {
+            return null;
+        }
+
+        $faces = [];
+        foreach ($all['green']['kigurumi'] ?? [] as $green => $model) {
+            $face = sprintf('face_%03d000.png', $green);
+            if ($model !== null && File::exists(storage_path("app/public/donchan/face/{$face}"))) {
+                $faces[$model] = $face;
+            }
+        }
+
+        $dan = $waddamburoPlayer === null ? null : app(WaddamburoDanRank::class)->selected($waddamburoPlayer);
+
+        return ['map' => $all[$version->value], 'faces' => $faces, 'danRank' => $dan['rank'] ?? 0];
     }
 
     private function hasDanRank(?Player $player): bool

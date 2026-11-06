@@ -15,6 +15,7 @@
 
 <script lang="ts">
     import { Form } from '@inertiajs/svelte';
+    import { onMount } from 'svelte';
     import CostumeController from '@/actions/App/Http/Controllers/Settings/CostumeController';
     import CustomizeController from '@/actions/App/Http/Controllers/Settings/CustomizeController';
     import AppHead from '@/components/AppHead.svelte';
@@ -23,6 +24,7 @@
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
+    import { DonchanRenderer, hexToRgb } from '@/lib/donchan/renderer';
     import { romajiToHiragana } from '@/lib/romaji';
     import { taikoRouteParam } from '@/lib/taiko-version';
 
@@ -179,6 +181,7 @@
         colorBody = 0,
         colorLimb = 0,
         danCostumeLocked = false,
+        preview = null,
     }: {
         supported?: boolean;
         supportsTitlePlates?: boolean;
@@ -197,7 +200,135 @@
         colorBody?: number;
         colorLimb?: number;
         danCostumeLocked?: boolean;
+        preview?: Preview | null;
     } = $props();
+
+    type Preview = {
+        // This version's costume ids as the web Don-chan's models number them (null: no model).
+        map: Record<
+            'kigurumi' | 'head' | 'body',
+            Record<string, number | null>
+        >;
+        // The face sheet a whole-costume model wears, by model id.
+        faces: Record<string, string>;
+        danRank: number;
+    };
+
+    const MODEL_BASE = '/storage/donchan/models';
+    const FACE_BASE = '/storage/donchan/face';
+    const ANIMATIONS = '/storage/donchan/animations.glb';
+
+    let previewCanvas = $state<HTMLCanvasElement | null>(null);
+    let previewRenderer: DonchanRenderer | null = null;
+    let previewMissing = $state(false);
+    let previewKey = '';
+
+    /** The models and face for the preset being edited; null pieces fall back to the plain Don. */
+    function previewModels(): {
+        urls: string[];
+        face: string;
+        missing: boolean;
+    } {
+        const map = preview!.map;
+        const model = (slot: 'kigurumi' | 'head' | 'body', id: number) =>
+            id === 0 ? 0 : (map[slot]?.[String(id)] ?? null);
+        const kigurumi = model('kigurumi', current.costume_1);
+
+        if (kigurumi !== null && kigurumi > 0) {
+            // Waddamburo dresses the dan costume by the displayed rank: one model per rank after it.
+            const id =
+                current.costume_1 === DAN_COSTUME
+                    ? kigurumi + preview!.danRank
+                    : kigurumi;
+
+            return {
+                urls: [`${MODEL_BASE}/cos/${id}.glb`],
+                face: preview!.faces[String(id)] ?? 'face_000000.png',
+                missing: false,
+            };
+        }
+
+        const head = model('head', current.costume_2);
+        const body = model('body', current.costume_3);
+
+        return {
+            urls: [
+                `${MODEL_BASE}/body/${body ?? 0}.glb`,
+                `${MODEL_BASE}/head/${head ?? 0}.glb`,
+            ],
+            face: 'face_000000.png',
+            missing: kigurumi === null || head === null || body === null,
+        };
+    }
+
+    async function refreshPreview(): Promise<void> {
+        if (!previewRenderer || !preview) {
+            return;
+        }
+
+        const { urls, face, missing } = previewModels();
+        const key = urls.join() + face;
+        previewMissing = missing;
+
+        if (key !== previewKey) {
+            previewKey = key;
+            await previewRenderer.loadModels(urls, ANIMATIONS);
+
+            if (key !== previewKey) {
+                return; // a newer selection is loading
+            }
+
+            // Frame 4: the regular face, mouth closed.
+            await previewRenderer.setFace(`${FACE_BASE}/${face}`, 4);
+            const clip =
+                previewRenderer.currentAnimation ??
+                previewRenderer.animationNames[0];
+
+            if (clip) {
+                previewRenderer.playClip(clip);
+            }
+
+            previewRenderer.setPlaying(true);
+        }
+
+        previewRenderer.setColors(
+            hexToRgb(COLORS[selectedBody]),
+            hexToRgb(COLORS[selectedFace]),
+            hexToRgb(COLORS[selectedLimb]),
+        );
+        previewRenderer.render();
+    }
+
+    $effect(() => {
+        // Tracked: the edited preset's pieces and the colours.
+        void [
+            current.costume_1,
+            current.costume_2,
+            current.costume_3,
+            selectedBody,
+            selectedFace,
+            selectedLimb,
+        ];
+        void refreshPreview();
+    });
+
+    onMount(() => {
+        if (!previewCanvas || !preview) {
+            return;
+        }
+
+        // The game's menu camera: about 28° off the front, fixed, so the idle bop shows.
+        previewRenderer = new DonchanRenderer(previewCanvas, 512, {
+            yawDegrees: 28,
+            fixedCamera: true,
+        });
+        void refreshPreview();
+
+        return () => {
+            previewRenderer?.dispose();
+            previewRenderer = null;
+        };
+    });
 
     // Green's dan costume (Full body 36): Waddamburo draws the model of the displayed dan rank.
     const DAN_COSTUME = 36;
@@ -336,511 +467,578 @@
             </p>
         </div>
     {:else}
-        {#if !showDonChanName}
-            <p class="text-sm text-muted-foreground">
-                {versionLabel} shows your public display name, set in your Profile
-                settings.
-            </p>
-        {:else}
-            <section class="w-full space-y-4">
-                <Heading
-                    variant="small"
-                    title="Name"
-                    description="Change the name shown for your DonChan."
-                />
-
-                <Form
-                    {...CustomizeController.updateName.form(taikoRouteParam())}
-                    class="space-y-6"
-                    options={{ preserveScroll: true }}
+        <div
+            class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] xl:items-start xl:gap-12"
+        >
+            {#if preview}
+                <aside
+                    class="flex flex-col items-center gap-2 justify-self-center xl:sticky xl:top-24 xl:order-2"
                 >
-                    {#snippet children({ errors, processing })}
-                        <div class="grid max-w-md gap-2">
-                            <Label for="mydon_name">DonChan name</Label>
-                            <Input
-                                id="mydon_name"
-                                name="mydon_name"
-                                value={donChanName}
-                                oninput={updateDonChanName}
-                                onblur={transliterateDonChanName}
-                                required
-                                autocomplete="off"
-                                placeholder="donchan → どんちゃん"
-                                aria-describedby="mydon-name-help"
-                            />
-                            <div
-                                id="mydon-name-help"
-                                class="flex items-start justify-between gap-4 text-sm text-muted-foreground"
-                            >
-                                <p>
-                                    Up to 5 hiragana. Romaji is converted when
-                                    you leave the field.
-                                </p>
-                                <span class="shrink-0"
-                                    >{Array.from(donChanName).length}/5</span
-                                >
-                            </div>
-                            <InputError message={errors.mydon_name} />
-                        </div>
-
-                        <Button
-                            type="submit"
-                            disabled={processing}
-                            data-test="update-donchan-name-button"
-                        >
-                            Save name
-                        </Button>
-                    {/snippet}
-                </Form>
-            </section>
-        {/if}
-
-        <section class="w-full space-y-4">
-            <Heading
-                variant="small"
-                title="Title"
-                description="Choose a custom or official title for {versionLabel}."
-            />
-
-            <Form
-                {...CustomizeController.updateTitle.form(taikoRouteParam())}
-                class="space-y-6 rounded-lg border p-4"
-                options={{ preserveScroll: true }}
-            >
-                {#snippet children({ errors, processing })}
-                    <div>
-                        <h3 class="font-medium">Custom title</h3>
-                        <p class="text-sm text-muted-foreground">
-                            Custom text and its plate are saved only for {versionLabel}.
-                        </p>
-                    </div>
-
-                    <div class="grid max-w-md gap-2">
-                        <Label for="title">Title text</Label>
-                        <Input
-                            id="title"
-                            name="title"
-                            value={donChanTitle}
-                            oninput={updateDonChanTitle}
-                            maxlength={20}
-                            autocomplete="off"
-                            placeholder="ほんのきもち"
-                            aria-describedby="title-help"
-                        />
+                    <canvas
+                        bind:this={previewCanvas}
+                        class="size-72"
+                        aria-label="Preview of Preset {editIndex + 1}"
+                    ></canvas>
+                    <p class="text-sm font-medium">Preset {editIndex + 1}</p>
+                    {#if previewMissing}
                         <p
-                            id="title-help"
-                            class="text-sm text-muted-foreground"
+                            class="max-w-64 text-center text-xs text-muted-foreground"
                         >
-                            Leave it empty to remove this version's title.
+                            Some of this preset has no 3D model here; the
+                            preview shows the plain Don for it.
                         </p>
-                        <InputError message={errors.title} />
-                    </div>
-
-                    {#if supportsTitlePlates}
-                        <div class="grid max-w-md gap-2">
-                            <Label for="titleplate_id"
-                                >Title plate background</Label
-                            >
-                            <select
-                                id="titleplate_id"
-                                name="titleplate_id"
-                                bind:value={selectedTitlePlateId}
-                                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                aria-describedby="titleplate-help"
-                            >
-                                {#each TITLE_PLATES as plate (plate.id)}
-                                    <option
-                                        value={plate.id}
-                                        class="bg-popover text-popover-foreground"
-                                    >
-                                        {plate.label} (ID {plate.id})
-                                    </option>
-                                {/each}
-                            </select>
-                            <p
-                                id="titleplate-help"
-                                class="text-sm text-muted-foreground"
-                            >
-                                These are the four backgrounds GEN 3 accepts for
-                                custom text.
-                            </p>
-                            <InputError message={errors.titleplate_id} />
-                        </div>
-
-                        <div class="grid max-w-md gap-2">
-                            <span class="text-sm font-medium">Preview</span>
-                            <div
-                                class="flex min-h-28 items-center justify-center overflow-hidden rounded-md border bg-muted/30 p-4"
-                            >
-                                <div
-                                    class="relative flex aspect-[8.5/1] w-full max-w-72 items-center justify-center overflow-hidden rounded-full border-2 border-zinc-900 px-7 shadow-[inset_0_2px_0_rgba(255,255,255,0.7),inset_0_-2px_0_rgba(0,0,0,0.22),0_2px_0_rgba(0,0,0,0.2)] {selectedTitlePlate.backgroundClass}"
-                                    role="img"
-                                    aria-label="{selectedTitlePlate.label} title plate preview"
-                                >
-                                    <span
-                                        class="truncate text-center text-sm font-black tracking-wide text-zinc-950 [text-shadow:0_1px_0_rgba(255,255,255,0.65)] sm:text-base"
-                                    >
-                                        {donChanTitle || 'Title preview'}
-                                    </span>
-                                </div>
-                            </div>
-                            <p class="text-xs text-muted-foreground">
-                                CSS approximation; the game renders its own
-                                background artwork.
-                            </p>
-                        </div>
                     {/if}
+                </aside>
+            {/if}
 
-                    <Button
-                        type="submit"
-                        disabled={processing}
-                        data-test="update-donchan-title-button"
-                    >
-                        Save custom title
-                    </Button>
-                {/snippet}
-            </Form>
+            <div class="flex min-w-0 flex-col space-y-10">
+                {#if !showDonChanName}
+                    <p class="text-sm text-muted-foreground">
+                        {versionLabel} shows your public display name, set in your
+                        Profile settings.
+                    </p>
+                {:else}
+                    <section class="w-full space-y-4">
+                        <Heading
+                            variant="small"
+                            title="Name"
+                            description="Change the name shown for your DonChan."
+                        />
 
-            {#if officialTitles.length > 0}
-                <Form
-                    {...CustomizeController.updateOfficialTitle.form(
-                        taikoRouteParam(),
-                    )}
-                    class="space-y-6 rounded-lg border p-4"
-                    options={{ preserveScroll: true }}
-                >
-                    {#snippet children({ errors, processing })}
-                        <div>
-                            <h3 class="font-medium">Official title</h3>
-                            <p class="text-sm text-muted-foreground">
-                                Selecting one applies its exact text, unlock
-                                flag, and game-defined plate for {versionLabel}.
-                            </p>
-                        </div>
-
-                        <div class="grid max-w-md gap-2">
-                            <Label for="title_id">Title catalog</Label>
-                            <select
-                                id="title_id"
-                                name="title_id"
-                                bind:value={selectedOfficialTitleId}
-                                required
-                                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                            >
-                                <option
-                                    value={0}
-                                    disabled
-                                    class="bg-popover text-popover-foreground"
-                                >
-                                    Choose an official title…
-                                </option>
-                                {#each officialTitles as officialTitle (officialTitle.id)}
-                                    <option
-                                        value={officialTitle.id}
-                                        class="bg-popover text-popover-foreground"
-                                    >
-                                        #{officialTitle.id} — {officialTitle.name}
-                                    </option>
-                                {/each}
-                            </select>
-                            <p class="text-sm text-muted-foreground">
-                                {officialTitles.length} titles are available in this
-                                version.
-                            </p>
-                            <InputError message={errors.title_id} />
-                        </div>
-
-                        {#if selectedOfficialTitle}
-                            <div class="grid max-w-md gap-2">
-                                <span class="text-sm font-medium">Preview</span>
-                                <div
-                                    class="flex min-h-28 items-center justify-center overflow-hidden rounded-md border bg-muted/30 p-4"
-                                >
+                        <Form
+                            {...CustomizeController.updateName.form(
+                                taikoRouteParam(),
+                            )}
+                            class="space-y-6"
+                            options={{ preserveScroll: true }}
+                        >
+                            {#snippet children({ errors, processing })}
+                                <div class="grid max-w-md gap-2">
+                                    <Label for="mydon_name">DonChan name</Label>
+                                    <Input
+                                        id="mydon_name"
+                                        name="mydon_name"
+                                        value={donChanName}
+                                        oninput={updateDonChanName}
+                                        onblur={transliterateDonChanName}
+                                        required
+                                        autocomplete="off"
+                                        placeholder="donchan → どんちゃん"
+                                        aria-describedby="mydon-name-help"
+                                    />
                                     <div
-                                        class="relative flex aspect-[8.5/1] w-full max-w-72 items-center justify-center overflow-hidden rounded-full border-2 border-zinc-900 px-7 shadow-[inset_0_2px_0_rgba(255,255,255,0.7),inset_0_-2px_0_rgba(0,0,0,0.22),0_2px_0_rgba(0,0,0,0.2)] {selectedOfficialTitlePlate.backgroundClass}"
-                                        role="img"
-                                        aria-label="{selectedOfficialTitlePlate.label} title plate preview"
+                                        id="mydon-name-help"
+                                        class="flex items-start justify-between gap-4 text-sm text-muted-foreground"
                                     >
-                                        <span
-                                            class="truncate text-center text-sm font-black tracking-wide text-zinc-950 [text-shadow:0_1px_0_rgba(255,255,255,0.65)] sm:text-base"
+                                        <p>
+                                            Up to 5 hiragana. Romaji is
+                                            converted when you leave the field.
+                                        </p>
+                                        <span class="shrink-0"
+                                            >{Array.from(donChanName)
+                                                .length}/5</span
                                         >
-                                            {selectedOfficialTitle.name}
-                                        </span>
                                     </div>
+                                    <InputError message={errors.mydon_name} />
                                 </div>
-                                <p class="text-xs text-muted-foreground">
-                                    CSS approximation; the game renders its own
-                                    background artwork.
+
+                                <Button
+                                    type="submit"
+                                    disabled={processing}
+                                    data-test="update-donchan-name-button"
+                                >
+                                    Save name
+                                </Button>
+                            {/snippet}
+                        </Form>
+                    </section>
+                {/if}
+
+                <section class="w-full space-y-4">
+                    <Heading
+                        variant="small"
+                        title="Title"
+                        description="Choose a custom or official title for {versionLabel}."
+                    />
+
+                    <Form
+                        {...CustomizeController.updateTitle.form(
+                            taikoRouteParam(),
+                        )}
+                        class="space-y-6 rounded-lg border p-4"
+                        options={{ preserveScroll: true }}
+                    >
+                        {#snippet children({ errors, processing })}
+                            <div>
+                                <h3 class="font-medium">Custom title</h3>
+                                <p class="text-sm text-muted-foreground">
+                                    Custom text and its plate are saved only for {versionLabel}.
                                 </p>
                             </div>
-                        {/if}
 
-                        <Button
-                            type="submit"
-                            disabled={processing ||
-                                selectedOfficialTitleId === 0}
-                            data-test="update-official-donchan-title-button"
-                        >
-                            Use official title
-                        </Button>
-                    {/snippet}
-                </Form>
-            {/if}
-        </section>
-
-        <section class="w-full space-y-4">
-            <Heading
-                variant="small"
-                title="Colors"
-                description="Change the Face, Body, and Limb colors saved to your Banapassport."
-            />
-
-            <p
-                class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
-            >
-                Color settings are currently shared across all game versions.
-                Changing them here will update DonChan colors everywhere, not
-                only {versionLabel}.
-            </p>
-
-            <Form
-                {...CustomizeController.update.form(taikoRouteParam())}
-                class="space-y-6"
-                options={{ preserveScroll: true }}
-            >
-                {#snippet children({ errors, processing })}
-                    <div class="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
-                        {#each COLOR_TABS as tab (tab.key)}
-                            <button
-                                type="button"
-                                onclick={() => (activeColorTab = tab.key)}
-                                class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {activeColorTab ===
-                                tab.key
-                                    ? 'bg-background text-foreground shadow-sm'
-                                    : 'text-muted-foreground hover:text-foreground'}"
-                            >
-                                {tab.label}
-                            </button>
-                        {/each}
-                    </div>
-
-                    {#each COLOR_TABS as tab (tab.key)}
-                        {#if activeColorTab === tab.key}
-                            <div class="grid gap-3">
-                                <div class="flex items-center gap-3">
-                                    <span class="text-sm font-medium"
-                                        >{tab.label}</span
-                                    >
-                                    <div
-                                        class="h-4 w-4 rounded border border-muted-foreground/20"
-                                        style="background-color: {COLORS[
-                                            selectedColor(tab.key)
-                                        ]}; border-color: {COLORS[
-                                            selectedColor(tab.key)
-                                        ]};"
-                                    ></div>
-                                    <span class="text-xs text-muted-foreground">
-                                        ID: {selectedColor(tab.key)}
-                                    </span>
-                                </div>
-
-                                <div
-                                    class="grid grid-cols-[repeat(9,minmax(0,1fr))] gap-1"
+                            <div class="grid max-w-md gap-2">
+                                <Label for="title">Title text</Label>
+                                <Input
+                                    id="title"
+                                    name="title"
+                                    value={donChanTitle}
+                                    oninput={updateDonChanTitle}
+                                    maxlength={20}
+                                    autocomplete="off"
+                                    placeholder="ほんのきもち"
+                                    aria-describedby="title-help"
+                                />
+                                <p
+                                    id="title-help"
+                                    class="text-sm text-muted-foreground"
                                 >
-                                    {#each COLOR_IDS as colorId (colorId)}
-                                        <button
-                                            type="button"
-                                            onclick={() =>
-                                                selectColor(tab.key, colorId)}
-                                            class="h-8 w-full rounded-md border-2 transition-[border-color] hover:scale-105"
-                                            style="background-color: {COLORS[
-                                                colorId
-                                            ]}; border-color: {colorId ===
-                                            selectedColor(tab.key)
-                                                ? 'currentColor'
-                                                : 'transparent'};"
-                                            title={String(colorId)}
-                                            aria-label="{tab.label} color {colorId}"
-                                        ></button>
-                                    {/each}
-                                </div>
-
-                                <InputError message={errors[tab.field]} />
+                                    Leave it empty to remove this version's
+                                    title.
+                                </p>
+                                <InputError message={errors.title} />
                             </div>
-                        {/if}
-                    {/each}
 
-                    <input
-                        type="hidden"
-                        name="color_face"
-                        value={selectedFace}
-                    />
-                    <input
-                        type="hidden"
-                        name="color_body"
-                        value={selectedBody}
-                    />
-                    <input
-                        type="hidden"
-                        name="color_limb"
-                        value={selectedLimb}
-                    />
-
-                    <Button
-                        type="submit"
-                        disabled={processing}
-                        data-test="update-customization-button"
-                        >Save colors</Button
-                    >
-                {/snippet}
-            </Form>
-        </section>
-
-        <section class="w-full space-y-4">
-            <Heading
-                variant="small"
-                title="Costumes"
-                description="Set up your three costume presets for {versionLabel}."
-            />
-
-            <Form
-                {...CostumeController.update.form(taikoRouteParam())}
-                class="space-y-6"
-                options={{ preserveScroll: true }}
-            >
-                {#snippet children({ processing })}
-                    <div class="grid gap-2">
-                        <div class="flex items-center gap-2">
-                            {#each sets as _set, i (i)}
-                                <button
-                                    type="button"
-                                    onclick={() => (editIndex = i)}
-                                    class="flex-1 rounded-md border-2 px-3 py-2 text-sm font-medium transition-colors {editIndex ===
-                                    i
-                                        ? 'border-primary bg-muted'
-                                        : 'border-transparent bg-muted/40 hover:bg-muted/70'}"
-                                >
-                                    Preset {i + 1}
-                                    {#if worn === i}
-                                        <span class="ml-1 text-xs text-primary"
-                                            >worn</span
-                                        >
-                                    {/if}
-                                </button>
-                            {/each}
-                        </div>
-                        {#if worn !== editIndex}
-                            <button
-                                type="button"
-                                onclick={() => (worn = editIndex)}
-                                class="self-start text-xs text-muted-foreground underline hover:text-foreground"
-                            >
-                                Wear this preset
-                            </button>
-                        {/if}
-                    </div>
-
-                    <div class="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
-                        {#each availableSlots as slot (slot.key)}
-                            <button
-                                type="button"
-                                onclick={() => (activeCostumeTab = slot.key)}
-                                class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {activeCostumeTab ===
-                                slot.key
-                                    ? 'bg-background text-foreground shadow-sm'
-                                    : 'text-muted-foreground hover:text-foreground'}"
-                            >
-                                {slot.label}
-                            </button>
-                        {/each}
-                    </div>
-
-                    {#each availableSlots as slot (slot.key)}
-                        {#if activeCostumeTab === slot.key}
-                            <div class="grid gap-3">
-                                <div class="flex items-center gap-3">
-                                    <span class="text-sm font-medium"
-                                        >{slot.label}</span
+                            {#if supportsTitlePlates}
+                                <div class="grid max-w-md gap-2">
+                                    <Label for="titleplate_id"
+                                        >Title plate background</Label
                                     >
-                                    <span class="text-xs text-muted-foreground">
-                                        ID: {current[slot.field]}
-                                    </span>
+                                    <select
+                                        id="titleplate_id"
+                                        name="titleplate_id"
+                                        bind:value={selectedTitlePlateId}
+                                        class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                        aria-describedby="titleplate-help"
+                                    >
+                                        {#each TITLE_PLATES as plate (plate.id)}
+                                            <option
+                                                value={plate.id}
+                                                class="bg-popover text-popover-foreground"
+                                            >
+                                                {plate.label} (ID {plate.id})
+                                            </option>
+                                        {/each}
+                                    </select>
+                                    <p
+                                        id="titleplate-help"
+                                        class="text-sm text-muted-foreground"
+                                    >
+                                        These are the four backgrounds GEN 3
+                                        accepts for custom text.
+                                    </p>
+                                    <InputError
+                                        message={errors.titleplate_id}
+                                    />
                                 </div>
 
-                                {#if (slot.key === 'head' || slot.key === 'body') && current.costume_1 !== 0}
-                                    <p
-                                        class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+                                <div class="grid max-w-md gap-2">
+                                    <span class="text-sm font-medium"
+                                        >Preview</span
                                     >
-                                        A Full body costume (ID {current.costume_1})
-                                        is set in this preset and overrides Body
-                                        and Head in game (Puchi-chara still
-                                        shows). Set Full body to the default (ID
-                                        0) to show them.
-                                    </p>
-                                {/if}
-
-                                {#if slotItems(slot.key).length === 0}
-                                    <p class="text-xs text-muted-foreground">
-                                        No items for this slot yet.
-                                    </p>
-                                {:else}
                                     <div
-                                        class="overflow-y-auto rounded-md border p-2"
-                                        style="display:grid;grid-template-columns:repeat(auto-fill,{PICKER_BUTTON_SIZE}px);gap:0.5rem;max-height:24rem;justify-content:center;"
+                                        class="flex min-h-28 items-center justify-center overflow-hidden rounded-md border bg-muted/30 p-4"
                                     >
-                                        {#each slotItems(slot.key) as item (item.id)}
-                                            <button
-                                                type="button"
-                                                disabled={isLocked(
-                                                    slot.key,
-                                                    item.id,
-                                                )}
-                                                onclick={() =>
-                                                    (current[slot.field] =
-                                                        item.id)}
-                                                class="flex items-center justify-center overflow-hidden rounded-md border-2 bg-white transition-[border-color] hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100 {item.id ===
-                                                current[slot.field]
-                                                    ? 'border-primary'
-                                                    : 'border-transparent'}"
-                                                style="width:{PICKER_BUTTON_SIZE}px;height:{PICKER_BUTTON_SIZE}px;"
-                                                title={isLocked(
-                                                    slot.key,
-                                                    item.id,
-                                                )
-                                                    ? 'Dan costume: clear a dan course in Waddamburo and display its rank on your profile to unlock it'
-                                                    : `ID: ${item.id}`}
-                                                aria-label="{slot.label} {item.id}"
+                                        <div
+                                            class="relative flex aspect-[8.5/1] w-full max-w-72 items-center justify-center overflow-hidden rounded-full border-2 border-zinc-900 px-7 shadow-[inset_0_2px_0_rgba(255,255,255,0.7),inset_0_-2px_0_rgba(0,0,0,0.22),0_2px_0_rgba(0,0,0,0.2)] {selectedTitlePlate.backgroundClass}"
+                                            role="img"
+                                            aria-label="{selectedTitlePlate.label} title plate preview"
+                                        >
+                                            <span
+                                                class="truncate text-center text-sm font-black tracking-wide text-zinc-950 [text-shadow:0_1px_0_rgba(255,255,255,0.65)] sm:text-base"
                                             >
-                                                <span style={sprite(item)}
-                                                ></span>
-                                            </button>
+                                                {donChanTitle ||
+                                                    'Title preview'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-muted-foreground">
+                                        CSS approximation; the game renders its
+                                        own background artwork.
+                                    </p>
+                                </div>
+                            {/if}
+
+                            <Button
+                                type="submit"
+                                disabled={processing}
+                                data-test="update-donchan-title-button"
+                            >
+                                Save custom title
+                            </Button>
+                        {/snippet}
+                    </Form>
+
+                    {#if officialTitles.length > 0}
+                        <Form
+                            {...CustomizeController.updateOfficialTitle.form(
+                                taikoRouteParam(),
+                            )}
+                            class="space-y-6 rounded-lg border p-4"
+                            options={{ preserveScroll: true }}
+                        >
+                            {#snippet children({ errors, processing })}
+                                <div>
+                                    <h3 class="font-medium">Official title</h3>
+                                    <p class="text-sm text-muted-foreground">
+                                        Selecting one applies its exact text,
+                                        unlock flag, and game-defined plate for {versionLabel}.
+                                    </p>
+                                </div>
+
+                                <div class="grid max-w-md gap-2">
+                                    <Label for="title_id">Title catalog</Label>
+                                    <select
+                                        id="title_id"
+                                        name="title_id"
+                                        bind:value={selectedOfficialTitleId}
+                                        required
+                                        class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    >
+                                        <option
+                                            value={0}
+                                            disabled
+                                            class="bg-popover text-popover-foreground"
+                                        >
+                                            Choose an official title…
+                                        </option>
+                                        {#each officialTitles as officialTitle (officialTitle.id)}
+                                            <option
+                                                value={officialTitle.id}
+                                                class="bg-popover text-popover-foreground"
+                                            >
+                                                #{officialTitle.id} — {officialTitle.name}
+                                            </option>
                                         {/each}
+                                    </select>
+                                    <p class="text-sm text-muted-foreground">
+                                        {officialTitles.length} titles are available
+                                        in this version.
+                                    </p>
+                                    <InputError message={errors.title_id} />
+                                </div>
+
+                                {#if selectedOfficialTitle}
+                                    <div class="grid max-w-md gap-2">
+                                        <span class="text-sm font-medium"
+                                            >Preview</span
+                                        >
+                                        <div
+                                            class="flex min-h-28 items-center justify-center overflow-hidden rounded-md border bg-muted/30 p-4"
+                                        >
+                                            <div
+                                                class="relative flex aspect-[8.5/1] w-full max-w-72 items-center justify-center overflow-hidden rounded-full border-2 border-zinc-900 px-7 shadow-[inset_0_2px_0_rgba(255,255,255,0.7),inset_0_-2px_0_rgba(0,0,0,0.22),0_2px_0_rgba(0,0,0,0.2)] {selectedOfficialTitlePlate.backgroundClass}"
+                                                role="img"
+                                                aria-label="{selectedOfficialTitlePlate.label} title plate preview"
+                                            >
+                                                <span
+                                                    class="truncate text-center text-sm font-black tracking-wide text-zinc-950 [text-shadow:0_1px_0_rgba(255,255,255,0.65)] sm:text-base"
+                                                >
+                                                    {selectedOfficialTitle.name}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            CSS approximation; the game renders
+                                            its own background artwork.
+                                        </p>
                                     </div>
                                 {/if}
-                            </div>
-                        {/if}
-                    {/each}
 
-                    <input type="hidden" name="active_preset" value={worn} />
-                    {#each sets as set, i (i)}
-                        {#each SLOTS as slot (slot.key)}
+                                <Button
+                                    type="submit"
+                                    disabled={processing ||
+                                        selectedOfficialTitleId === 0}
+                                    data-test="update-official-donchan-title-button"
+                                >
+                                    Use official title
+                                </Button>
+                            {/snippet}
+                        </Form>
+                    {/if}
+                </section>
+
+                <section class="w-full space-y-4">
+                    <Heading
+                        variant="small"
+                        title="Colors"
+                        description="Change the Face, Body, and Limb colors saved to your Banapassport."
+                    />
+
+                    <p
+                        class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+                    >
+                        Color settings are currently shared across all game
+                        versions. Changing them here will update DonChan colors
+                        everywhere, not only {versionLabel}.
+                    </p>
+
+                    <Form
+                        {...CustomizeController.update.form(taikoRouteParam())}
+                        class="space-y-6"
+                        options={{ preserveScroll: true }}
+                    >
+                        {#snippet children({ errors, processing })}
+                            <div
+                                class="flex flex-wrap gap-1 rounded-lg bg-muted p-1"
+                            >
+                                {#each COLOR_TABS as tab (tab.key)}
+                                    <button
+                                        type="button"
+                                        onclick={() =>
+                                            (activeColorTab = tab.key)}
+                                        class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {activeColorTab ===
+                                        tab.key
+                                            ? 'bg-background text-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground'}"
+                                    >
+                                        {tab.label}
+                                    </button>
+                                {/each}
+                            </div>
+
+                            {#each COLOR_TABS as tab (tab.key)}
+                                {#if activeColorTab === tab.key}
+                                    <div class="grid gap-3">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-sm font-medium"
+                                                >{tab.label}</span
+                                            >
+                                            <div
+                                                class="h-4 w-4 rounded border border-muted-foreground/20"
+                                                style="background-color: {COLORS[
+                                                    selectedColor(tab.key)
+                                                ]}; border-color: {COLORS[
+                                                    selectedColor(tab.key)
+                                                ]};"
+                                            ></div>
+                                            <span
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                ID: {selectedColor(tab.key)}
+                                            </span>
+                                        </div>
+
+                                        <div
+                                            class="grid grid-cols-[repeat(9,minmax(0,1fr))] gap-1"
+                                        >
+                                            {#each COLOR_IDS as colorId (colorId)}
+                                                <button
+                                                    type="button"
+                                                    onclick={() =>
+                                                        selectColor(
+                                                            tab.key,
+                                                            colorId,
+                                                        )}
+                                                    class="h-8 w-full rounded-md border-2 transition-[border-color] hover:scale-105"
+                                                    style="background-color: {COLORS[
+                                                        colorId
+                                                    ]}; border-color: {colorId ===
+                                                    selectedColor(tab.key)
+                                                        ? 'currentColor'
+                                                        : 'transparent'};"
+                                                    title={String(colorId)}
+                                                    aria-label="{tab.label} color {colorId}"
+                                                ></button>
+                                            {/each}
+                                        </div>
+
+                                        <InputError
+                                            message={errors[tab.field]}
+                                        />
+                                    </div>
+                                {/if}
+                            {/each}
+
                             <input
                                 type="hidden"
-                                name="presets[{i}][{slot.field}]"
-                                value={set[slot.field]}
+                                name="color_face"
+                                value={selectedFace}
                             />
-                        {/each}
-                    {/each}
+                            <input
+                                type="hidden"
+                                name="color_body"
+                                value={selectedBody}
+                            />
+                            <input
+                                type="hidden"
+                                name="color_limb"
+                                value={selectedLimb}
+                            />
 
-                    <Button
-                        type="submit"
-                        disabled={processing}
-                        data-test="update-costumes-button"
+                            <Button
+                                type="submit"
+                                disabled={processing}
+                                data-test="update-customization-button"
+                                >Save colors</Button
+                            >
+                        {/snippet}
+                    </Form>
+                </section>
+
+                <section class="w-full space-y-4">
+                    <Heading
+                        variant="small"
+                        title="Costumes"
+                        description="Set up your three costume presets for {versionLabel}."
+                    />
+
+                    <Form
+                        {...CostumeController.update.form(taikoRouteParam())}
+                        class="space-y-6"
+                        options={{ preserveScroll: true }}
                     >
-                        Save costumes
-                    </Button>
-                {/snippet}
-            </Form>
-        </section>
+                        {#snippet children({ processing })}
+                            <div class="grid gap-2">
+                                <div class="flex items-center gap-2">
+                                    {#each sets as _set, i (i)}
+                                        <button
+                                            type="button"
+                                            onclick={() => (editIndex = i)}
+                                            class="flex-1 rounded-md border-2 px-3 py-2 text-sm font-medium transition-colors {editIndex ===
+                                            i
+                                                ? 'border-primary bg-muted'
+                                                : 'border-transparent bg-muted/40 hover:bg-muted/70'}"
+                                        >
+                                            Preset {i + 1}
+                                            {#if worn === i}
+                                                <span
+                                                    class="ml-1 text-xs text-primary"
+                                                    >worn</span
+                                                >
+                                            {/if}
+                                        </button>
+                                    {/each}
+                                </div>
+                                {#if worn !== editIndex}
+                                    <button
+                                        type="button"
+                                        onclick={() => (worn = editIndex)}
+                                        class="self-start text-xs text-muted-foreground underline hover:text-foreground"
+                                    >
+                                        Wear this preset
+                                    </button>
+                                {/if}
+                            </div>
+
+                            <div
+                                class="flex flex-wrap gap-1 rounded-lg bg-muted p-1"
+                            >
+                                {#each availableSlots as slot (slot.key)}
+                                    <button
+                                        type="button"
+                                        onclick={() =>
+                                            (activeCostumeTab = slot.key)}
+                                        class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {activeCostumeTab ===
+                                        slot.key
+                                            ? 'bg-background text-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground'}"
+                                    >
+                                        {slot.label}
+                                    </button>
+                                {/each}
+                            </div>
+
+                            {#each availableSlots as slot (slot.key)}
+                                {#if activeCostumeTab === slot.key}
+                                    <div class="grid gap-3">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-sm font-medium"
+                                                >{slot.label}</span
+                                            >
+                                            <span
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                ID: {current[slot.field]}
+                                            </span>
+                                        </div>
+
+                                        {#if (slot.key === 'head' || slot.key === 'body') && current.costume_1 !== 0}
+                                            <p
+                                                class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+                                            >
+                                                A Full body costume (ID {current.costume_1})
+                                                is set in this preset and
+                                                overrides Body and Head in game
+                                                (Puchi-chara still shows). Set
+                                                Full body to the default (ID 0)
+                                                to show them.
+                                            </p>
+                                        {/if}
+
+                                        {#if slotItems(slot.key).length === 0}
+                                            <p
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                No items for this slot yet.
+                                            </p>
+                                        {:else}
+                                            <div
+                                                class="overflow-y-auto rounded-md border p-2"
+                                                style="display:grid;grid-template-columns:repeat(auto-fill,{PICKER_BUTTON_SIZE}px);gap:0.5rem;max-height:24rem;justify-content:center;"
+                                            >
+                                                {#each slotItems(slot.key) as item (item.id)}
+                                                    <button
+                                                        type="button"
+                                                        disabled={isLocked(
+                                                            slot.key,
+                                                            item.id,
+                                                        )}
+                                                        onclick={() =>
+                                                            (current[
+                                                                slot.field
+                                                            ] = item.id)}
+                                                        class="flex items-center justify-center overflow-hidden rounded-md border-2 bg-white transition-[border-color] hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100 {item.id ===
+                                                        current[slot.field]
+                                                            ? 'border-primary'
+                                                            : 'border-transparent'}"
+                                                        style="width:{PICKER_BUTTON_SIZE}px;height:{PICKER_BUTTON_SIZE}px;"
+                                                        title={isLocked(
+                                                            slot.key,
+                                                            item.id,
+                                                        )
+                                                            ? 'Dan costume: clear a dan course in Waddamburo and display its rank on your profile to unlock it'
+                                                            : `ID: ${item.id}`}
+                                                        aria-label="{slot.label} {item.id}"
+                                                    >
+                                                        <span
+                                                            style={sprite(item)}
+                                                        ></span>
+                                                    </button>
+                                                {/each}
+                                            </div>
+                                        {/if}
+                                    </div>
+                                {/if}
+                            {/each}
+
+                            <input
+                                type="hidden"
+                                name="active_preset"
+                                value={worn}
+                            />
+                            {#each sets as set, i (i)}
+                                {#each SLOTS as slot (slot.key)}
+                                    <input
+                                        type="hidden"
+                                        name="presets[{i}][{slot.field}]"
+                                        value={set[slot.field]}
+                                    />
+                                {/each}
+                            {/each}
+
+                            <Button
+                                type="submit"
+                                disabled={processing}
+                                data-test="update-costumes-button"
+                            >
+                                Save costumes
+                            </Button>
+                        {/snippet}
+                    </Form>
+                </section>
+            </div>
+        </div>
     {/if}
 </div>

@@ -142,3 +142,12 @@ it('shows the Don-chan name setting on game versions but not on Waddamburo', fun
     $this->actingAs($user)->get('/waddamburo/settings/costumes')
         ->assertInertia(fn ($assert) => $assert->where('showDonChanName', false)->where('versionLabel', 'Waddamburo'));
 });
+
+it('maps each version\'s costume ids to the preview models, the dan ranks shifting the kigurumi after 36', function (): void {
+    $map = json_decode(file_get_contents(database_path('data/donchan-costume-map.json')), true);
+
+    expect($map['green']['kigurumi'])->toMatchArray(['35' => 35, '36' => 36, '37' => 62, '40' => null])
+        ->and($map['green']['head']['139'])->toBe(139)
+        ->and($map['white']['head'])->toMatchArray(['111' => null, '112' => 122])
+        ->and(array_keys($map))->toContain('green', 'white', 'blue', 'sorairo');
+});
