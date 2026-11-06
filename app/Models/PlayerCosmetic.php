@@ -68,6 +68,9 @@ class PlayerCosmetic extends Model
     /** Number of きせかえセット preset slots the cabinet exposes. */
     public const PRESET_COUNT = 3;
 
+    /** Green's dan costume (kigurumi): Waddamburo draws the model of the displayed dan rank, so it needs one. */
+    public const DAN_COSTUME = 36;
+
     /**
      * The equipped-part keys that make up one preset. Slot 4 (face) is omitted
      * because no make-up items exist yet.

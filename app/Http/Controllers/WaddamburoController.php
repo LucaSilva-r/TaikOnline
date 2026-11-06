@@ -495,13 +495,15 @@ class WaddamburoController extends Controller
      * The player and their Don's look, from Waddamburo's own loadout (Green's item ids, as it draws Green's models):
      * the equipped costume parts (kigurumi, head, body, face, puchi) and the face/body/limb colours.
      *
-     * @return array{baid: int, name: string, title: ?string, title_plate: int, dan_rank: int, dan_gold: bool, look: array{costume: list<int>, presets: list<list<int>>, face: string, body: string, limb: string}}
+     * @return array{baid: int, name: string, title: ?string, title_plate: int, dan_rank: int, dan_gold: bool, look: array{costume: list<int>, presets: list<list<int>>, dan_rank: int, face: string, body: string, limb: string}}
      */
     public static function profile(Player $player): array
     {
         $cosmetics = $player->cosmetics()->where('game_version', PlayerCosmetic::WADDAMBURO)->first();
         $dan = app(WaddamburoDanRank::class)->selected($player, $cosmetics);
         $color = fn (?int $id, int $default): string => self::DON_COLORS[$id ?? $default] ?? self::DON_COLORS[$default];
+        // The dan costume without a displayed rank (none chosen, or no longer verified) falls back to no costume.
+        $kigurumi = fn (int $id): int => $id === PlayerCosmetic::DAN_COSTUME && $dan === null ? 0 : $id;
 
         return [
             'baid' => (int) $player->baid,
@@ -516,9 +518,13 @@ class WaddamburoController extends Controller
             'dan_rank' => $dan['rank'] ?? 0,
             'dan_gold' => $dan['gold'] ?? false,
             'look' => [
-                'costume' => array_map(fn (int $slot): int => (int) ($cosmetics?->{"costume_{$slot}"} ?? 0), [1, 2, 3, 4, 5]),
+                'costume' => array_map(fn (int $slot): int => $slot === 1 ? $kigurumi((int) ($cosmetics?->costume_1 ?? 0))
+                    : (int) ($cosmetics?->{"costume_{$slot}"} ?? 0), [1, 2, 3, 4, 5]),
                 // The entry's three costume sets: [kigurumi, head, body, puchi] each.
-                'presets' => array_map(array_values(...), ($cosmetics ?? new PlayerCosmetic)->normalizedPresets()),
+                'presets' => array_map(fn (array $set): array => [$kigurumi((int) $set['costume_1']), ...array_slice(array_values($set), 1)],
+                    ($cosmetics ?? new PlayerCosmetic)->normalizedPresets()),
+                // Which of the dan costume's per-rank models to draw (1-25; 0 none).
+                'dan_rank' => $dan['rank'] ?? 0,
                 'face' => $color($player->color_face, 0),
                 'body' => $color($player->color_body, 1),
                 'limb' => $color($player->color_limb, 3),

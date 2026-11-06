@@ -7,10 +7,13 @@ use App\GameProtocol\Support\TaikoTitleCatalog;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\CostumeRequest;
 use App\Models\GameCard;
+use App\Models\Player;
 use App\Models\PlayerCosmetic;
+use App\Services\WaddamburoDanRank;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -74,6 +77,9 @@ class CostumeController extends Controller
             'colorFace' => $card?->player->color_face ?? 0,
             'colorBody' => $card?->player->color_body ?? 0,
             'colorLimb' => $card?->player->color_limb ?? 0,
+            // Waddamburo's dan costume needs a displayed, server-verified rank (the costume draws that rank).
+            'danCostumeLocked' => $request->attributes->get('taikoVersionIsWaddamburo') === true
+                && ! $this->hasDanRank($card?->player),
             'status' => $request->session()->get('status'),
         ]);
     }
@@ -103,6 +109,11 @@ class CostumeController extends Controller
                 );
             }
 
+            if ($request->attributes->get('taikoVersionIsWaddamburo') === true && ! $this->hasDanRank($card->player)
+                && in_array(PlayerCosmetic::DAN_COSTUME, array_column($presets, 'costume_1'), true)) {
+                throw ValidationException::withMessages(['presets' => __('The dan costume needs a cleared dan rank displayed on your profile.')]);
+            }
+
             $active = (int) $request->validated('active_preset');
             $cosmetic->costume_presets = $presets;
             $cosmetic->active_costume_preset = $active;
@@ -119,6 +130,11 @@ class CostumeController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Costume updated.')]);
 
         return to_route('costumes.edit');
+    }
+
+    private function hasDanRank(?Player $player): bool
+    {
+        return $player !== null && app(WaddamburoDanRank::class)->selected($player) !== null;
     }
 
     /**

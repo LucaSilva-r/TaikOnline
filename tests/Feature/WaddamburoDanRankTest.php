@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Models\User;
@@ -340,4 +341,31 @@ it('links a rainbow course to its perfect run and keeps gold from a separate run
     $this->get($url)->assertInertia(fn (Assert $page) => $page
         ->where('displayDanRank.perfect', false)->where('displayDanRank.gold', true)
         ->where('danProgress.0.courses.0.run', $gold->id));
+});
+
+it('gates the dan costume behind a displayed verified rank, which picks its model', function (): void {
+    $player = rank_player();
+    GameCard::query()->create(['access_code' => '12345678901234567890', 'baid' => $player->baid]);
+    $cosmetic = PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'costume_1' => 36,
+        'costume_presets' => [['costume_1' => 36], ['costume_2' => 10], []]]);
+    $presets = fn (int $kigurumi): array => ['active_preset' => 0, 'presets' => array_fill(0, 3,
+        ['costume_1' => $kigurumi, 'costume_2' => 0, 'costume_3' => 0, 'costume_5' => 0])];
+    $me = fn () => $this->withToken($player->user->createToken('rank-test', ['wdb'])->plainTextToken)->getJson('/api/wdb/me');
+
+    // No rank: locked on the page, refused on save, and stored dan costumes are left off.
+    $this->actingAs($player->user)->get('/waddamburo/settings/costumes')
+        ->assertInertia(fn (Assert $page) => $page->where('danCostumeLocked', true));
+    $this->actingAs($player->user)->patch('/waddamburo/settings/costumes', $presets(36))->assertSessionHasErrors('presets');
+    $me()->assertOk()->assertJson(['look' => ['costume' => [0, 0, 0, 0, 0], 'presets' => [[0, 0, 0, 0], [0, 10, 0, 0]], 'dan_rank' => 0]]);
+
+    rank_clear($player, rank_course());
+    $cosmetic->update(['wdb_dan_series' => 'red']);
+
+    $this->actingAs($player->user)->get('/waddamburo/settings/costumes')
+        ->assertInertia(fn (Assert $page) => $page->where('danCostumeLocked', false));
+    $this->actingAs($player->user)->patch('/waddamburo/settings/costumes', $presets(36))->assertSessionHasNoErrors();
+    $me()->assertOk()->assertJson(['look' => ['costume' => [36, 0, 0, 0, 0], 'presets' => [[36, 0, 0, 0]], 'dan_rank' => 18]]);
+    // Green itself is not gated: its cabinet handles the dan costume.
+    $this->actingAs($player->user)->get('/green/settings/costumes')
+        ->assertInertia(fn (Assert $page) => $page->where('danCostumeLocked', false));
 });

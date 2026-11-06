@@ -178,6 +178,7 @@
         colorFace = 0,
         colorBody = 0,
         colorLimb = 0,
+        danCostumeLocked = false,
     }: {
         supported?: boolean;
         supportsTitlePlates?: boolean;
@@ -195,7 +196,13 @@
         colorFace?: number;
         colorBody?: number;
         colorLimb?: number;
+        danCostumeLocked?: boolean;
     } = $props();
+
+    // Green's dan costume (Full body 36): Waddamburo draws the model of the displayed dan rank.
+    const DAN_COSTUME = 36;
+    const isLocked = (slotKey: string, id: number): boolean =>
+        danCostumeLocked && slotKey === 'kigurumi' && id === DAN_COSTUME;
 
     let donChanName = $state(mydonName);
     let donChanTitle = $derived(title);
@@ -784,15 +791,24 @@
                                         {#each slotItems(slot.key) as item (item.id)}
                                             <button
                                                 type="button"
+                                                disabled={isLocked(
+                                                    slot.key,
+                                                    item.id,
+                                                )}
                                                 onclick={() =>
                                                     (current[slot.field] =
                                                         item.id)}
-                                                class="flex items-center justify-center overflow-hidden rounded-md border-2 bg-white transition-[border-color] hover:scale-105 {item.id ===
+                                                class="flex items-center justify-center overflow-hidden rounded-md border-2 bg-white transition-[border-color] hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100 {item.id ===
                                                 current[slot.field]
                                                     ? 'border-primary'
                                                     : 'border-transparent'}"
                                                 style="width:{PICKER_BUTTON_SIZE}px;height:{PICKER_BUTTON_SIZE}px;"
-                                                title="ID: {item.id}"
+                                                title={isLocked(
+                                                    slot.key,
+                                                    item.id,
+                                                )
+                                                    ? 'Dan costume: clear a dan course in Waddamburo and display its rank on your profile to unlock it'
+                                                    : `ID: ${item.id}`}
                                                 aria-label="{slot.label} {item.id}"
                                             >
                                                 <span style={sprite(item)}
