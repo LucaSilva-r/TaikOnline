@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TaikoGameVersion;
+use App\Events\WdbProfileChanged;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -58,6 +59,17 @@ class PlayerCosmetic extends Model
             'baid' => $baid,
             'game_version' => $version instanceof TaikoGameVersion ? $version->value : $version,
         ]);
+    }
+
+    protected static function booted(): void
+    {
+        // Waddamburo's loadout changed: its clients redraw it from the next scene.
+        static::saved(function (self $cosmetic): void {
+            if ($cosmetic->game_version === self::WADDAMBURO && ($cosmetic->wasRecentlyCreated || $cosmetic->wasChanged())
+                && $cosmetic->player !== null) {
+                WdbProfileChanged::dispatch($cosmetic->player);
+            }
+        });
     }
 
     public function player(): BelongsTo

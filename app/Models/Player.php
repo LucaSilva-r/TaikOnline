@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\SanctionType;
+use App\Events\WdbProfileChanged;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -155,6 +156,16 @@ class Player extends Model
     public function shopItems(): HasMany
     {
         return $this->hasMany(PlayerShopItem::class, 'baid', 'baid');
+    }
+
+    protected static function booted(): void
+    {
+        // The Don's colours and name are part of Waddamburo's profile too.
+        static::updated(function (self $player): void {
+            if ($player->wasChanged(['color_face', 'color_body', 'color_limb', 'mydon_name'])) {
+                WdbProfileChanged::dispatch($player);
+            }
+        });
     }
 
     public function user(): BelongsTo

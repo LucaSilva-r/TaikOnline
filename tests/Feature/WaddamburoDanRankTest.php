@@ -1,5 +1,6 @@
 <?php
 
+use App\Events\WdbProfileChanged;
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
@@ -12,6 +13,7 @@ use App\Services\WaddamburoDanRank;
 use App\Services\WaddamburoRankAggregateService;
 use App\Services\WaddamburoSongs;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -368,4 +370,20 @@ it('gates the dan costume behind a displayed verified rank, which picks its mode
     // Green itself is not gated: its cabinet handles the dan costume.
     $this->actingAs($player->user)->get('/green/settings/costumes')
         ->assertInertia(fn (Assert $page) => $page->where('danCostumeLocked', false));
+});
+
+it('pushes the new profile to the player\'s clients when their Waddamburo loadout changes', function (): void {
+    $player = rank_player();
+    rank_clear($player, rank_course());
+    Event::fake([WdbProfileChanged::class]);
+
+    $this->actingAs($player->user)->patch('/waddamburo/settings/dan-rank', ['series' => 'red'])->assertRedirect();
+    PlayerCosmetic::resolve($player->baid, 'green')->fill(['title' => 'green only'])->save(); // not Waddamburo's
+    $player->update(['color_face' => 5]);
+
+    Event::assertDispatchedTimes(WdbProfileChanged::class, 2);
+    $event = new WdbProfileChanged($player);
+    expect($event->broadcastOn()->name)->toBe('private-App.Models.User.'.$player->user_id)
+        ->and($event->broadcastAs())->toBe('profile')
+        ->and($event->broadcastWith())->toMatchArray(['baid' => $player->baid, 'dan_rank' => 18]);
 });
