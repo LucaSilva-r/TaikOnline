@@ -392,7 +392,25 @@ it('returns a player\'s best score and crown per chart', function (): void {
 
     $this->withToken(wdb_token($player))->getJson('/api/wdb/bests')
         ->assertOk()
-        ->assertExactJson(['bests' => [['sha256' => $chart->sha256, 'score' => 900000, 'crown' => 2]]]);
+        ->assertJsonPath('bests', [['sha256' => $chart->sha256, 'score' => 900000, 'crown' => 2]]);
+});
+
+it('lists a player\'s last plays, newest first, with the bests', function (): void {
+    $player = wdb_player();
+    $chart = WdbChart::query()->create(['sha256' => str_repeat('e', 64)]);
+    foreach ([['2026-11-01T10:00:00Z', 3, null], ['2026-11-03T10:00:00Z', 2, null], ['2026-11-02T10:00:00Z', 1, now()]] as [$at, $course, $hidden]) {
+        WdbPlay::query()->create([
+            ...Arr::except(wdb_play($chart->sha256, ['course' => $course, 'played_at' => $at]), ['chart_sha256']),
+            'baid' => $player->baid, 'wdb_chart_id' => $chart->id, 'replay' => 'inputs', 'hidden_at' => $hidden,
+        ]);
+    }
+
+    $recent = $this->withToken(wdb_token($player))->getJson('/api/wdb/bests')->assertOk()->json('recent');
+
+    // A hidden play is left out.
+    expect(array_column($recent, 'course'))->toBe([2, 3])
+        ->and($recent[0]['sha256'])->toBe($chart->sha256)
+        ->and($recent[0]['played_at'])->toStartWith('2026-11-03T10:00:00');
 });
 
 it('lists the account\'s Waddamburo devices and revokes them', function (): void {

@@ -256,8 +256,27 @@ class WaddamburoController extends Controller
             ])
             ->all();
 
-        return response()->json(['bests' => $bests]);
+        // The last plays, newest first: the client's play history (Song Select's 最近あそんだ曲 folder and its
+        // last-played difficulty), merged there with the plays kept on that PC only.
+        $recent = WdbPlay::query()
+            ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_plays.wdb_chart_id')
+            ->where('wdb_plays.baid', $baid)
+            ->whereNull('wdb_plays.hidden_at')
+            ->orderByDesc('wdb_plays.played_at')
+            ->limit(self::RECENT_PLAYS)
+            ->get(['wdb_charts.sha256', 'wdb_plays.course', 'wdb_plays.played_at'])
+            ->map(fn ($play): array => [
+                'sha256' => (string) $play->sha256,
+                'course' => (int) $play->course,
+                'played_at' => $play->played_at->toIso8601String(),
+            ])
+            ->all();
+
+        return response()->json(['bests' => $bests, 'recent' => $recent]);
     }
+
+    /** How many of a player's last plays the bests carry (the client keeps the newest 20 songs). */
+    private const RECENT_PLAYS = 100;
 
     /** Cabinet: resolve the access code a 6-pin pairing delivered. */
     public function card(Request $request): JsonResponse
