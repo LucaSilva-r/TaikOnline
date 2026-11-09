@@ -23,6 +23,7 @@ use App\Services\WaddamburoUploadWarnings;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
@@ -474,6 +475,33 @@ it('accepts a failed play without keeping it', function (): void {
         ->assertOk()->assertJsonPath('accepted', [$failed['id']]);
 
     expect(WdbPlay::query()->count())->toBe(0);
+});
+
+it('keeps every AI battle, failed or not, and lists them with the bests', function (): void {
+    $player = wdb_player();
+    $token = wdb_token($player);
+    $battle = ['mode' => 'ai_battle', 'ai_won' => true, 'ai_sections' => 'WLWWL', 'ai_support' => 0, 'ai_points' => 3,
+        'hit_median_ms' => 12.5, 'hit_variance' => 400];
+    $cleared = wdb_play(str_repeat('a', 64), $battle);
+    $failed = wdb_play(str_repeat('b', 64), [...$battle, 'cleared' => false, 'ai_points' => 0, 'played_at' => '2026-09-24T20:00:00Z']);
+
+    $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [$cleared, $failed, $cleared]])
+        ->assertOk()->assertJsonPath('accepted', [$cleared['id'], $failed['id'], $cleared['id']]);
+
+    // The failed battle is no play (bests and boards never see it), but it is a battle.
+    expect(WdbPlay::query()->pluck('id')->all())->toBe([$cleared['id']])
+        ->and(DB::table('wdb_ai_battles')->count())->toBe(2);
+    $plays = $this->withToken($token)->getJson('/api/wdb/bests')->assertOk()->json('ai_plays');
+    expect($plays)->toHaveCount(2)
+        ->and($plays[0])->toMatchArray(['id' => $cleared['id'], 'sha256' => str_repeat('a', 64), 'won' => true, 'points' => 3,
+            'hit_median_ms' => 12.5, 'hit_variance' => 400.0])
+        ->and($plays[1])->toMatchArray(['id' => $failed['id'], 'won' => true, 'points' => 0]);
+});
+
+it('refuses an AI battle without its outcome', function (): void {
+    $this->withToken(wdb_token(wdb_player()))
+        ->postJson('/api/wdb/plays', ['plays' => [wdb_play(str_repeat('a', 64), ['mode' => 'ai_battle'])]])
+        ->assertUnprocessable();
 });
 
 it('refuses a malformed replay without keeping or scoring it, and tells the player', function (string $replay): void {

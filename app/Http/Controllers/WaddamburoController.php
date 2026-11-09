@@ -28,7 +28,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -272,7 +274,24 @@ class WaddamburoController extends Controller
             ])
             ->all();
 
-        return response()->json(['bests' => $bests, 'recent' => $recent]);
+        // Every AI battle (any machine): the client derives the rank, wins and AI-don's starting timing from them.
+        $aiPlays = DB::table('wdb_ai_battles')
+            ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_ai_battles.wdb_chart_id')
+            ->where('wdb_ai_battles.baid', $baid)
+            ->orderByDesc('wdb_ai_battles.played_at')
+            ->get(['wdb_ai_battles.id', 'wdb_charts.sha256', 'won', 'points', 'hit_median', 'hit_variance', 'wdb_ai_battles.played_at'])
+            ->map(fn ($battle): array => [
+                'id' => (string) $battle->id,
+                'sha256' => (string) $battle->sha256,
+                'won' => (bool) $battle->won,
+                'points' => (int) $battle->points,
+                'hit_median_ms' => $battle->hit_median === null ? null : (float) $battle->hit_median,
+                'hit_variance' => $battle->hit_variance === null ? null : (float) $battle->hit_variance,
+                'played_at' => Carbon::parse($battle->played_at)->toIso8601String(),
+            ])
+            ->all();
+
+        return response()->json(['bests' => $bests, 'recent' => $recent, 'ai_plays' => $aiPlays]);
     }
 
     /** How many of a player's last plays the bests carry (the client keeps the newest 20 songs). */
@@ -302,7 +321,7 @@ class WaddamburoController extends Controller
             'plays.*.id' => ['required', 'uuid'],
             'plays.*.baid' => [$cabinet ? 'required' : 'nullable', 'integer'],
             'plays.*.chart_sha256' => ['required', 'string', 'regex:/\A[0-9a-f]{64}\z/'],
-            'plays.*.mode' => ['required', 'string', 'in:normal'],
+            'plays.*.mode' => ['required', 'string', 'in:normal,ai_battle'],
             'plays.*.course' => ['required', 'integer', 'between:0,4'],
             'plays.*.score' => ['required', 'integer', 'between:0,2147483647'],
             'plays.*.great' => ['required', 'integer', 'between:0,2147483647'],
@@ -320,6 +339,12 @@ class WaddamburoController extends Controller
             'plays.*.input_offset_ms' => ['nullable', 'integer', 'between:-5000,5000'],
             'plays.*.options' => ['nullable', 'integer', 'between:0,65535'],
             'plays.*.seed' => ['nullable', 'integer', 'between:-2147483648,2147483647'],
+            'plays.*.ai_won' => ['required_if:plays.*.mode,ai_battle', 'nullable', 'boolean'],
+            'plays.*.ai_sections' => ['required_if:plays.*.mode,ai_battle', 'nullable', 'string', 'regex:/\A[WL]{1,8}\z/'],
+            'plays.*.ai_support' => ['nullable', 'integer', 'between:0,20'],
+            'plays.*.ai_points' => ['nullable', 'integer', 'between:0,3'],
+            'plays.*.hit_median_ms' => ['nullable', 'numeric', 'between:-1000,1000'],
+            'plays.*.hit_variance' => ['nullable', 'numeric', 'between:0,1000000'],
         ]);
 
         $ownBaid = $cabinet ? null : $request->user()->player?->baid;
@@ -335,6 +360,24 @@ class WaddamburoController extends Controller
             }
             if ($cabinet && ! Player::query()->whereKey($baid)->exists()) {
                 continue;
+            }
+            // An AI battle keeps its battle (rank and wins derive from them), failed or not; a restricted player's don't count.
+            if ($play['mode'] === 'ai_battle' && ! ($banned[$baid] ??= Sanction::activeFor($baid, SanctionType::Ban) !== null)) {
+                $chart = $charts[$play['chart_sha256']] ??= WdbChart::query()->firstOrCreate(['sha256' => $play['chart_sha256']]);
+                DB::table('wdb_ai_battles')->insertOrIgnore([
+                    'id' => $play['id'],
+                    'baid' => $baid,
+                    'wdb_chart_id' => $chart->id,
+                    'won' => filter_var($play['ai_won'], FILTER_VALIDATE_BOOLEAN),
+                    'sections' => $play['ai_sections'],
+                    'support_level' => $play['ai_support'] ?? 0,
+                    'points' => $play['ai_points'] ?? 0,
+                    'hit_median' => $play['hit_median_ms'] ?? null,
+                    'hit_variance' => $play['hit_variance'] ?? null,
+                    'played_at' => Carbon::parse($play['played_at']),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
             }
             // Failed plays aren't kept: accepted, so a client still sending them stops.
             if (! filter_var($play['cleared'], FILTER_VALIDATE_BOOLEAN)) {
