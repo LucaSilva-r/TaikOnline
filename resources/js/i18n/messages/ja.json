@@ -1,0 +1,22 @@
+{
+    "$schema": "https://inlang.com/schema/inlang-message-format",
+    "language": "言語",
+    "cabinet_terms_title": "筐体トークンを発行する前に",
+    "cabinet_terms_intro": "筐体トークンを使うと、アーケード筐体から Waddamburo のプレイ記録を TaikOnline に送信できます。よくお読みください。同意しない限り、この機能は利用できません。",
+    "cabinet_terms_money_purpose": "アーケードモードは、楽しむため、そしてオリジナルのアーケード体験を再現するためのものです。",
+    "cabinet_terms_money_forbidden": "これを使って収益を得ることは固く禁止されています。",
+    "cabinet_terms_money_detail": "コイン投入による営業、有料プレイ、商業施設での設置など、いかなる形でも料金を取ることは禁止です。収益目的で使われたトークンは停止されます。",
+    "cabinet_terms_one_title": "1筐体につき1トークン。",
+    "cabinet_terms_one_text": "所有・運営する筐体ごとに専用のトークンを発行してください。複数の筐体で使い回さないでください。",
+    "cabinet_terms_share_title": "トークンを共有・販売・公開しないでください。必ず発覚します。",
+    "cabinet_terms_share_text": "トークンはすべてあなたのアカウントに紐づいており、その通信はすべて記録されています。コピー、拡散、海賊版環境での使用は、あなたまで追跡されます。",
+    "cabinet_terms_terminate_title": "トークンは停止されることがあります。",
+    "cabinet_terms_terminate_text": "いつでも、理由を問わず、予告なく停止されます。アカウントが BAN されると、すべてのトークンも使えなくなります。",
+    "cabinet_terms_liability_title": "免責事項。",
+    "cabinet_terms_liability_text": "TaikOnline および Waddamburo は、筐体トークンの使用・悪用について一切の責任を負いません。あなたのトークンで動作するすべての筐体の責任は、あなた自身にあります。",
+    "cabinet_terms_misuse": "不正使用が発覚した場合、トークン、新規発行の権利、そしてアカウントを失うことがあります。",
+    "cabinet_terms_checkbox": "上記の規約を読んで同意し、発行するすべてのトークンについて全責任を負います。",
+    "cabinet_terms_checkbox_money": "アーケードモードを収益目的で使用することは決してありません。",
+    "cabinet_terms_accept": "同意する",
+    "cabinet_terms_decline": "同意しない"
+}

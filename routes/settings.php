@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Settings\AvatarController;
+use App\Http\Controllers\Settings\CabinetTokenController;
 use App\Http\Controllers\Settings\CostumeController;
 use App\Http\Controllers\Settings\CustomizeController;
 use App\Http\Controllers\Settings\DeviceController;
@@ -55,4 +56,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('user-password.update');
 
     Route::inertia('settings/appearance', 'settings/Appearance')->name('appearance.edit');
+
+    Route::get('settings/cabinets', [CabinetTokenController::class, 'index'])->name('cabinet-tokens.index');
+    Route::post('settings/cabinets/terms', [CabinetTokenController::class, 'acceptTerms'])->name('cabinet-tokens.terms');
+    Route::post('settings/cabinets', [CabinetTokenController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('cabinet-tokens.store');
+    Route::patch('settings/cabinets/{cabinet}/revoke', [CabinetTokenController::class, 'revoke'])->name('cabinet-tokens.revoke');
 });

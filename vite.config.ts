@@ -1,3 +1,4 @@
+import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import inertia from '@inertiajs/vite';
 import { wayfinder } from '@laravel/vite-plugin-wayfinder';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
@@ -16,6 +17,13 @@ export default defineConfig({
                     weights: [400, 500, 600],
                 }),
             ],
+        }),
+        paraglideVitePlugin({
+            project: './project.inlang',
+            outdir: './resources/js/paraglide',
+            // Saved choice, then the browser's languages (custom-navigator maps zh-TW/HK to zh-Hant).
+            strategy: ['localStorage', 'custom-navigator', 'baseLocale'],
+            emitTsDeclarations: true,
         }),
         inertia(),
         tailwindcss(),

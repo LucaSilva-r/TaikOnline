@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * Deletes an account and what is about its owner: the player and all their plays, cards and progress
- * (foreign keys cascade from the player), and what no foreign key reaches. The moderation log stays, with the
+ * (foreign keys cascade from the player), their cabinet tokens (cascade from the user), and what no foreign key reaches. The moderation log stays, with the
  * player unlinked: it records what staff did and why. A BAID never linked to an account is not touched.
  * Deleting while banned leaves a hash of the email (BlockedEmail), so it cannot sign up again until the ban ends.
  */

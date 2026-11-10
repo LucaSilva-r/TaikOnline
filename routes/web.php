@@ -117,7 +117,8 @@ Route::prefix('{taikoVersion}')
                 Route::get('waddamburo-cabinets', [WaddamburoCabinetController::class, 'index'])->name('waddamburo-cabinets.index');
                 Route::post('waddamburo-cabinets', [WaddamburoCabinetController::class, 'store'])->name('waddamburo-cabinets.store');
                 Route::patch('waddamburo-cabinets/{cabinet}/revoke', [WaddamburoCabinetController::class, 'revoke'])->name('waddamburo-cabinets.revoke');
-                Route::patch('waddamburo-cabinets/{cabinet}/restore', [WaddamburoCabinetController::class, 'restore'])->name('waddamburo-cabinets.restore');
+                Route::patch('waddamburo-cabinets/{cabinet}/disable', [WaddamburoCabinetController::class, 'disable'])->name('waddamburo-cabinets.disable');
+                Route::patch('waddamburo-cabinets/{cabinet}/enable', [WaddamburoCabinetController::class, 'enable'])->name('waddamburo-cabinets.enable');
                 Route::get('waddamburo-dan', [AdminWaddamburoDanController::class, 'index'])->name('waddamburo-dan.index');
                 Route::patch('waddamburo-dan/{series}', [AdminWaddamburoDanController::class, 'update'])->name('waddamburo-dan.update');
                 Route::get('dan-dojo', [DanDojoController::class, 'index'])->name('dan-dojo.index');

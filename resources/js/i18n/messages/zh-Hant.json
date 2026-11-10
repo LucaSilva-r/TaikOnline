@@ -1,0 +1,22 @@
+{
+    "$schema": "https://inlang.com/schema/inlang-message-format",
+    "language": "語言",
+    "cabinet_terms_title": "產生機台權杖之前",
+    "cabinet_terms_intro": "機台權杖可讓街機機台將 Waddamburo 的遊玩紀錄傳送到 TaikOnline。請仔細閱讀。不同意以下條款將無法使用此功能。",
+    "cabinet_terms_money_purpose": "街機模式是為了娛樂、重現原版街機體驗而製作的。",
+    "cabinet_terms_money_forbidden": "嚴禁利用此模式營利。",
+    "cabinet_terms_money_detail": "禁止投幣營業、付費遊玩、在商業場所使用，或以任何方式向任何人收費。任何被用於營利的權杖都將被終止。",
+    "cabinet_terms_one_title": "一台機台一個權杖。",
+    "cabinet_terms_one_text": "你擁有或經營的每台實體機台都需要單獨的權杖。切勿在多台機器上重複使用。",
+    "cabinet_terms_share_title": "切勿分享、出售或公開權杖。我們一定會發現。",
+    "cabinet_terms_share_text": "每個權杖都與你的帳號綁定，其每一次請求都會被記錄。權杖一旦被複製、散布或用於盜版設備，都將追溯到你。",
+    "cabinet_terms_terminate_title": "權杖隨時可能被終止。",
+    "cabinet_terms_terminate_text": "可能因任何理由、在不另行通知的情況下終止。若你的帳號被封鎖，你的所有權杖也會隨之失效。",
+    "cabinet_terms_liability_title": "免責聲明。",
+    "cabinet_terms_liability_text": "TaikOnline 與 Waddamburo 對機台權杖的使用或濫用概不負責。所有使用你權杖的機台均由你本人承擔全部責任。",
+    "cabinet_terms_misuse": "濫用可能導致你失去權杖、產生新權杖的資格以及你的帳號。",
+    "cabinet_terms_checkbox": "我已閱讀並同意以上條款，並對我產生的每個權杖承擔全部責任。",
+    "cabinet_terms_checkbox_money": "我絕不會利用街機模式營利。",
+    "cabinet_terms_accept": "我同意",
+    "cabinet_terms_decline": "不同意"
+}

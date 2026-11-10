@@ -4,6 +4,7 @@ import AuthLayout from '@/layouts/AuthLayout.svelte';
 import PlayerLayout from '@/layouts/PlayerLayout.svelte';
 import SettingsLayout from '@/layouts/settings/Layout.svelte';
 import { initializeFlashToast } from '@/lib/flash-toast';
+import { initializeI18n } from '@/lib/i18n';
 import {
     currentTaikoScope,
     initializeTaikoRouteDefaults,
@@ -14,6 +15,7 @@ import { initializeTheme } from '@/lib/theme.svelte';
 
 const appName = import.meta.env.VITE_APP_NAME || 'TaikOnline';
 
+initializeI18n();
 initializeTaikoRouteDefaults();
 initializeTaikoVersionAccent();
 

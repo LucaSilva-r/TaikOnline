@@ -47,6 +47,7 @@ research captures, account credentials, and private paths out of published media
   format, and how to author courses without a dump.
 - [Waddamburo multiplayer](features/multiplayer.md) — player status so far; peer-to-peer play is planned.
 - [Rules and Privacy](features/legal.md) — what players must accept, and how it blocks the site and uploads.
+- [Cabinet tokens](features/cabinet-tokens.md) — admin- and player-issued Waddamburo cabinet tokens, terms gate, disable/revoke/ban.
 - [Moderation](features/moderation.md) — moderator role, sanctions and shadowbans,
   play hiding, reports, the replay inspector (design).
 

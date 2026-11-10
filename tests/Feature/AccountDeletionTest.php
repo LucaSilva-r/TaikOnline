@@ -10,6 +10,7 @@ use App\Models\Player;
 use App\Models\PlayerVersionStats;
 use App\Models\Sanction;
 use App\Models\User;
+use App\Models\WdbCabinet;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
 use App\Models\WdbUploadWarning;
@@ -107,6 +108,17 @@ it('deletes an account without a player', function (): void {
     $this->actingAs($user)->delete(route('profile.destroy'), ['password' => 'password'])->assertRedirect('/');
 
     expect(User::query()->find($user->id))->toBeNull();
+});
+
+it('deletes the account\'s cabinet tokens', function (): void {
+    $user = User::factory()->create();
+    [, $token] = WdbCabinet::issue('My cab', $user->id, $user->id);
+    [$staffCabinet] = WdbCabinet::issue('Staff cab', null);
+
+    $this->actingAs($user)->delete(route('profile.destroy'), ['password' => 'password'])->assertRedirect('/');
+
+    expect(WdbCabinet::forToken($token))->toBeNull()
+        ->and(WdbCabinet::query()->pluck('id')->all())->toBe([$staffCabinet->id]);
 });
 
 it('leaves a BAID that was never linked to an account alone', function (): void {

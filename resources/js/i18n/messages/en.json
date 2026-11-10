@@ -1,0 +1,22 @@
+{
+    "$schema": "https://inlang.com/schema/inlang-message-format",
+    "language": "Language",
+    "cabinet_terms_title": "Before you make a cabinet token",
+    "cabinet_terms_intro": "A cabinet token lets an arcade cabinet send Waddamburo plays to TaikOnline. Read this carefully. You can't use this feature unless you accept it.",
+    "cabinet_terms_money_purpose": "Arcade mode is made for fun and to recreate the experience of the original arcade.",
+    "cabinet_terms_money_forbidden": "USING IT TO MAKE MONEY IS STRICTLY FORBIDDEN.",
+    "cabinet_terms_money_detail": "No coin-op, no paid plays, no commercial venues, no charging anyone in any way. Any token used to make money will be terminated.",
+    "cabinet_terms_one_title": "One token per cabinet.",
+    "cabinet_terms_one_text": "Each physical cabinet you own or operate gets its own token. Never reuse one across machines.",
+    "cabinet_terms_share_title": "Never share, sell or publish a token. We will know.",
+    "cabinet_terms_share_text": "Every token is tied to your account and every request it makes is logged. If a token is copied, spread around or used on bootleg setups, it will be traced back to you.",
+    "cabinet_terms_terminate_title": "Tokens can and will be terminated.",
+    "cabinet_terms_terminate_text": "At any time, for any reason, without warning. If your account is banned, all your tokens stop working with it.",
+    "cabinet_terms_liability_title": "No responsibility.",
+    "cabinet_terms_liability_text": "TaikOnline and Waddamburo take no responsibility for how a cabinet token is used or misused. You alone are responsible for every cabinet running your tokens.",
+    "cabinet_terms_misuse": "Misuse can cost you your tokens, the ability to make new ones, and your account.",
+    "cabinet_terms_checkbox": "I have read and accept these terms, and I take full responsibility for every token I make.",
+    "cabinet_terms_checkbox_money": "I will never use arcade mode to make money.",
+    "cabinet_terms_accept": "I accept",
+    "cabinet_terms_decline": "No thanks"
+}

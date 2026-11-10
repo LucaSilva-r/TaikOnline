@@ -50,3 +50,5 @@ frankenphp-worker.php
 
 # Local scorer builds and their backups (deploy artefacts).
 /storage/waddamburo-scorer*/
+/resources/js/paraglide
+/project.inlang/cache

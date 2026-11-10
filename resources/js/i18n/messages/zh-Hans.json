@@ -1,0 +1,22 @@
+{
+    "$schema": "https://inlang.com/schema/inlang-message-format",
+    "language": "语言",
+    "cabinet_terms_title": "生成机台令牌之前",
+    "cabinet_terms_intro": "机台令牌可让街机机台将 Waddamburo 的游玩记录发送到 TaikOnline。请仔细阅读。不同意以下条款将无法使用此功能。",
+    "cabinet_terms_money_purpose": "街机模式是为了娱乐、重现原版街机体验而制作的。",
+    "cabinet_terms_money_forbidden": "严禁利用此模式牟利。",
+    "cabinet_terms_money_detail": "禁止投币经营、付费游玩、在商业场所使用，或以任何方式向任何人收费。任何被用于牟利的令牌都将被终止。",
+    "cabinet_terms_one_title": "一台机台一个令牌。",
+    "cabinet_terms_one_text": "你拥有或经营的每台实体机台都需要单独的令牌。切勿在多台机器上重复使用。",
+    "cabinet_terms_share_title": "切勿分享、出售或公开令牌。我们一定会发现。",
+    "cabinet_terms_share_text": "每个令牌都与你的账号绑定，其每一次请求都会被记录。令牌一旦被复制、传播或用于盗版设备，都将追溯到你。",
+    "cabinet_terms_terminate_title": "令牌随时可能被终止。",
+    "cabinet_terms_terminate_text": "可能因任何理由、在不另行通知的情况下终止。若你的账号被封禁，你的所有令牌也会随之失效。",
+    "cabinet_terms_liability_title": "免责声明。",
+    "cabinet_terms_liability_text": "TaikOnline 与 Waddamburo 对机台令牌的使用或滥用概不负责。所有使用你令牌的机台均由你本人承担全部责任。",
+    "cabinet_terms_misuse": "滥用可能导致你失去令牌、生成新令牌的资格以及你的账号。",
+    "cabinet_terms_checkbox": "我已阅读并同意以上条款，并对我生成的每个令牌承担全部责任。",
+    "cabinet_terms_checkbox_money": "我绝不会利用街机模式牟利。",
+    "cabinet_terms_accept": "我同意",
+    "cabinet_terms_decline": "不同意"
+}
