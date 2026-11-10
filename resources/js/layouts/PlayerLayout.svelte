@@ -38,6 +38,7 @@
     import { show as boardShow } from '@/routes/board';
     import { create as createPlay } from '@/routes/play';
     import songsRoutes from '@/routes/songs';
+    import { show as wikiShow } from '@/routes/wiki';
 
     let {
         children,
@@ -81,6 +82,11 @@
             featured: false,
         },
         {
+            title: 'Wiki',
+            href: toUrl(wikiShow(taikoParam)),
+            featured: false,
+        },
+        {
             title: 'Community',
             href: toUrl(community(taikoParam)),
             featured: false,
@@ -105,10 +111,11 @@
 
             <nav class="mt-6 grid gap-1">
                 {#each navItems as item (item.href)}
-                    {@const active = url.isCurrentUrl(
-                        item.href,
-                        url.currentUrl,
-                    )}
+                    {@const active = (
+                        item.title === 'Wiki'
+                            ? url.isCurrentOrParentUrl
+                            : url.isCurrentUrl
+                    )(item.href, url.currentUrl)}
                     <Link
                         href={item.href}
                         onclick={() => (mobileMenuOpen = false)}
@@ -125,14 +132,13 @@
         </SheetContent>
     </Sheet>
 
-
     <header
         class="relative z-50 border-b border-border/60 bg-background/80 backdrop-blur"
     >
         <div
             class="mx-auto flex h-14 w-full max-w-7xl items-center gap-2 px-4 sm:gap-4 lg:gap-6"
         >
-            <div class="lg:hidden">
+            <div class="xl:hidden">
                 <Button
                     variant="ghost"
                     size="icon"
@@ -153,12 +159,13 @@
                 <span class="hidden font-semibold sm:inline">TaikOnline</span>
             </Link>
 
-            <nav class="hidden h-full items-center gap-1 lg:flex">
+            <nav class="hidden h-full items-center gap-1 xl:flex">
                 {#each navItems as item (item.href)}
-                    {@const active = url.isCurrentUrl(
-                        item.href,
-                        url.currentUrl,
-                    )}
+                    {@const active = (
+                        item.title === 'Wiki'
+                            ? url.isCurrentOrParentUrl
+                            : url.isCurrentUrl
+                    )(item.href, url.currentUrl)}
                     <Link
                         href={item.href}
                         class={item.featured
@@ -255,7 +262,6 @@
     </main>
 
     <SiteDisclaimer />
-
 
     <Toaster />
 </div>

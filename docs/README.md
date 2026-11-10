@@ -9,6 +9,21 @@ These documents describe how the server is built and how each game feature is
 implemented. They are reference material, kept close to the code — when a document
 and the code disagree, the code wins and the document should be fixed.
 
+## Player wiki
+
+The public Waddamburo player wiki is served at `/waddamburo/wiki`. Its guides live
+in [`resources/wiki`](../resources/wiki); `WikiController` holds their titles,
+summaries, search keywords, and reading order. Edit the Markdown for content changes.
+Use relative article slugs for links between guides so navigation keeps the selected
+site scope. Level-two headings become the article section links automatically.
+
+Wiki screenshots are deployment media in `storage/app/public/wiki/`, served as
+`/storage/wiki/`; they are ignored by Git, like the site's other game media. Copy
+that directory when deploying the wiki. Use descriptive filenames and Markdown
+image links with alt text, followed by an italic caption. Link each image to its
+full-size file so readers can inspect the controls. Images load lazily. Keep raw
+research captures, account credentials, and private paths out of published media.
+
 ## Index
 
 ### Architecture

@@ -20,6 +20,7 @@ use App\Http\Controllers\SongCatalogController;
 use App\Http\Controllers\WaddamburoDanPlayController;
 use App\Http\Controllers\WaddamburoDanRankController;
 use App\Http\Controllers\WaddamburoPlayController;
+use App\Http\Controllers\WikiController;
 use App\Http\Middleware\ResolveTaikoVersion;
 use App\Services\WaddamburoStatus;
 use Illuminate\Support\Facades\Route;
@@ -51,6 +52,7 @@ Route::prefix('{taikoVersion}')
         Route::get('songs', [SongCatalogController::class, 'index'])->name('songs.index');
         Route::get('songs/{song}', [SongCatalogController::class, 'show'])->name('songs.show');
         Route::inertia('community', 'Community')->name('community');
+        Route::get('wiki/{article?}', [WikiController::class, 'show'])->where('article', '[a-z0-9-]+')->name('wiki.show');
         Route::get('users/{user}/board', [BoardController::class, 'show'])->name('board.show');
         Route::get('plays/{id}', [WaddamburoPlayController::class, 'show'])->name('plays.show');
         Route::get('dan-plays/{id}', [WaddamburoDanPlayController::class, 'show'])->name('dan-plays.show');

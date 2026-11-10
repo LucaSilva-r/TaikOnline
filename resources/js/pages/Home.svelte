@@ -6,6 +6,7 @@
     import { toUrl } from '@/lib/utils';
     import { rankings } from '@/routes';
     import { create as createPlay } from '@/routes/play';
+    import { show as wikiShow } from '@/routes/wiki';
 
     let { waddamburoOnline = 0 }: { waddamburoOnline?: number } = $props();
 
@@ -23,9 +24,12 @@
     <p class="mt-4 max-w-2xl text-balance text-muted-foreground">
         Online play, rankings, and community for the rhythm cabinet.
     </p>
-    <p class="mt-3 inline-flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400">
+    <p
+        class="mt-3 inline-flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400"
+    >
         <span class="size-2 rounded-full bg-green-500"></span>
-        {waddamburoOnline} {waddamburoOnline === 1 ? 'player' : 'players'} online in Waddamburo
+        {waddamburoOnline}
+        {waddamburoOnline === 1 ? 'player' : 'players'} online in Waddamburo
     </p>
 
     <div class="mt-8 flex flex-wrap justify-center gap-3">
@@ -40,6 +44,12 @@
             class={buttonVariants({ variant: 'outline' })}
         >
             Browse Rankings
+        </Link>
+        <Link
+            href={toUrl(wikiShow(taikoParam))}
+            class={buttonVariants({ variant: 'outline' })}
+        >
+            Waddamburo Wiki
         </Link>
     </div>
 </section>
