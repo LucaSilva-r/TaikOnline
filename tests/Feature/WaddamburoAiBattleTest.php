@@ -14,6 +14,7 @@ use App\Services\WaddamburoScorer;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Notifications\Events\BroadcastNotificationCreated;
 use Illuminate\Process\PendingProcess;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Process;
@@ -162,11 +163,43 @@ it('keeps an unapproved chart score but awards no AI progression', function (): 
             ->where('aiBattle.won', true)->where('aiBattle.counted', false)->where('aiBattle.progress.wins', 0));
 });
 
+it('verifies an offline battle from the setup it uploads with, in play order', function (): void {
+    [$player, $chart, $token] = ai_fixture();
+    ai_scorer();
+    $offline = ['id' => '00000000-0000-0000-0000-000000000000', 'seed' => 4321, 'chart_sha256' => $chart->sha256,
+        'course' => 3, 'options' => 0, 'support_level' => 0];
+    $play = ai_play($offline, ['ai_session_id' => null, 'ai_prior_median_ms' => 4.5, 'ai_prior_variance' => 300,
+        'played_at' => now()->subHour()->toIso8601String()]);
+
+    $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [$play]])->assertOk()->assertJsonPath('accepted', [$play['id']]);
+
+    $this->assertDatabaseHas('wdb_ai_sessions', ['play_id' => $play['id'], 'seed' => 4321, 'version' => 1,
+        'base_sha256' => $chart->sha256, 'hit_median' => 4.5, 'hit_variance' => 300]);
+    $this->assertDatabaseHas('wdb_ai_battles', ['id' => $play['id'], 'eligible' => true, 'sections' => 'WWW', 'points' => 3]);
+    Process::assertRan(fn (PendingProcess $process): bool => json_decode(trim((string) $process->input), true)['ai_battle']['hit_median_ms'] === 4.5);
+    // A retried upload keeps its one setup.
+    $this->postJson('/api/wdb/plays', ['plays' => [$play]])->assertOk();
+    expect(DB::table('wdb_ai_sessions')->where('play_id', $play['id'])->count())->toBe(1);
+});
+
+it('does not create an offline setup for an intermediate chart without its base', function (): void {
+    [$player, $chart, $token] = ai_fixture();
+    ai_scorer();
+    $play = ai_play(['id' => null, 'seed' => 1, 'chart_sha256' => $chart->sha256, 'course' => 3, 'options' => 0, 'support_level' => 11],
+        ['ai_session_id' => null]);
+
+    $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [$play]])->assertOk();
+
+    expect(DB::table('wdb_ai_sessions')->where('play_id', $play['id'])->exists())->toBeFalse();
+    $this->assertDatabaseHas('wdb_ai_battles', ['id' => $play['id'], 'verified_at' => null, 'points' => 0]);
+});
+
 it('does not trust legacy battle claims even when the ordinary score is verified', function (): void {
     [$player, $chart, $token] = ai_fixture();
     ai_scorer();
     $session = $this->withToken($token)->postJson('/api/wdb/ai/battles', ai_setup($chart))->assertOk()->json();
-    $play = ai_play($session, ['ai_session_id' => null, 'ai_won' => true, 'ai_sections' => 'WWW']);
+    // An older client: no setup and no seed, nothing the server can replay.
+    $play = ai_play($session, ['ai_session_id' => null, 'seed' => null, 'ai_won' => true, 'ai_sections' => 'WWW']);
 
     $this->postJson('/api/wdb/plays', ['plays' => [$play]])->assertOk();
 
@@ -301,7 +334,8 @@ it('does not expose unverified battle claims as section wins on the board', func
     [$player, $chart, $token] = ai_fixture();
     ai_scorer();
     $session = $this->withToken($token)->postJson('/api/wdb/ai/battles', ai_setup($chart))->assertOk()->json();
-    $play = ai_play($session, ['ai_session_id' => null, 'ai_won' => true, 'ai_sections' => 'WWW']);
+    // An older client: no setup and no seed, nothing the server can replay.
+    $play = ai_play($session, ['ai_session_id' => null, 'seed' => null, 'ai_won' => true, 'ai_sections' => 'WWW']);
     $this->postJson('/api/wdb/plays', ['plays' => [$play]])->assertOk();
 
     $this->actingAs($player->user)->get("/waddamburo/users/{$player->user_id}/board")

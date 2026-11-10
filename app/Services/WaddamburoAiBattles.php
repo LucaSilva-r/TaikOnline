@@ -43,7 +43,7 @@ class WaddamburoAiBattles
                 $this->rebuild($baid);
                 $progress = $this->progress($baid);
                 $prior = $this->verified($baid)->where('eligible', true)->join('wdb_ai_sessions', 'wdb_ai_sessions.id', '=', 'wdb_ai_battles.session_id')
-                    ->whereNotNull('wdb_ai_battles.hit_median')->whereNotNull('wdb_ai_battles.hit_variance')->orderByDesc('wdb_ai_sessions.sequence')
+                    ->whereNotNull('wdb_ai_battles.hit_median')->whereNotNull('wdb_ai_battles.hit_variance')->orderByDesc('wdb_plays.played_at')
                     ->first(['wdb_ai_battles.hit_median', 'wdb_ai_battles.hit_variance']);
                 $base = WdbChart::query()->where('sha256', $setup['base_sha256'])->first();
                 $ranked = $base?->ranked_at !== null && Sanction::activeFor($baid, SanctionType::Ban) === null;
@@ -70,7 +70,7 @@ class WaddamburoAiBattles
     public function reserve(int $baid, array $play): ?string
     {
         if (($play['ai_session_id'] ?? null) === null) {
-            return null;
+            return $this->offline($baid, $play);
         }
 
         return DB::transaction(function () use ($baid, $play): string {
@@ -89,6 +89,50 @@ class WaddamburoAiBattles
             DB::table('wdb_ai_sessions')->where('id', $session->id)->update(['play_id' => $play['id'], 'updated_at' => now()]);
 
             return (string) $session->id;
+        });
+    }
+
+    /**
+     * A battle played without a server setup (offline): its setup is what the client played with, created on upload and
+     * verified the same way. ponytail: the client's starting timing is trusted (range-checked); with AI-don perfect
+     * until the player's first slip, it only matters for a slip within the first few hits.
+     */
+    private function offline(int $baid, array $play): ?string
+    {
+        if ($play['mode'] !== 'ai_battle' || ! isset($play['seed'])) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($baid, $play): ?string {
+            Player::query()->whereKey($baid)->lockForUpdate()->firstOrFail();
+            $existing = DB::table('wdb_ai_sessions')->where('play_id', $play['id'])->first();
+            if ($existing !== null) {
+                return (int) $existing->baid === $baid ? (string) $existing->id : null;
+            }
+            if (WdbPlay::query()->whereKey($play['id'])->exists()) {
+                return null;
+            }
+            $support = (int) ($play['ai_support'] ?? 0);
+            $base = $support === 0 ? $play['chart_sha256'] : ($play['ai_base_sha256'] ?? null);
+            if ($base === null) {
+                return null;
+            }
+            $progress = $this->progress($baid);
+            $id = (string) Str::uuid();
+            DB::table('wdb_ai_sessions')->insert([
+                'id' => $id, 'baid' => $baid, 'sequence' => 1 + (int) DB::table('wdb_ai_sessions')->where('baid', $baid)->max('sequence'),
+                'chart_sha256' => $play['chart_sha256'], 'base_sha256' => $base, 'course' => (int) $play['course'],
+                'options' => (int) ($play['options'] ?? 0), 'support_level' => $support, 'version' => self::VERSION,
+                'seed' => (int) $play['seed'],
+                'ranked' => WdbChart::query()->where('sha256', $base)->whereNotNull('ranked_at')->exists()
+                    && Sanction::activeFor($baid, SanctionType::Ban) === null,
+                'points' => $progress['points'], 'wins' => $progress['wins'],
+                'hit_median' => isset($play['ai_prior_median_ms'], $play['ai_prior_variance']) ? (float) $play['ai_prior_median_ms'] : null,
+                'hit_variance' => isset($play['ai_prior_median_ms'], $play['ai_prior_variance']) ? (float) $play['ai_prior_variance'] : null,
+                'play_id' => $play['id'], 'created_at' => now(), 'updated_at' => now(),
+            ]);
+
+            return $id;
         });
     }
 
@@ -220,7 +264,8 @@ class WaddamburoAiBattles
     private function rebuild(int $baid): void
     {
         $battles = $this->verified($baid)->join('wdb_ai_sessions', 'wdb_ai_sessions.id', '=', 'wdb_ai_battles.session_id')
-            ->where('eligible', true)->orderBy('wdb_ai_sessions.sequence')
+            // Play order, not setup order: an offline battle's setup is only created when it uploads.
+            ->where('eligible', true)->orderBy('wdb_plays.played_at')->orderBy('wdb_ai_sessions.sequence')
             ->get(['wdb_ai_battles.id', 'wdb_ai_battles.wdb_chart_id', 'won', 'cleared', 'wdb_ai_battles.support_level', 'chart_level', 'wdb_plays.course']);
         $points = 0;
         $won = [];

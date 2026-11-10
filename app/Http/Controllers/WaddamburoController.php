@@ -369,6 +369,10 @@ class WaddamburoController extends Controller
             'plays.*.options' => ['nullable', 'integer', 'between:0,65535'],
             'plays.*.seed' => ['nullable', 'integer', 'between:-2147483648,2147483647'],
             'plays.*.ai_session_id' => ['nullable', 'uuid'],
+            // An offline battle's setup (no ai_session_id): the unsimplified chart and AI-don's starting timing.
+            'plays.*.ai_base_sha256' => ['nullable', 'string', 'regex:/\A[0-9a-f]{64}\z/'],
+            'plays.*.ai_prior_median_ms' => ['nullable', 'numeric', 'between:-1000,1000'],
+            'plays.*.ai_prior_variance' => ['nullable', 'numeric', 'between:0,1000000'],
             'plays.*.ai_won' => ['required_if:plays.*.mode,ai_battle', 'nullable', 'boolean'],
             'plays.*.ai_sections' => ['required_if:plays.*.mode,ai_battle', 'nullable', 'string', 'regex:/\A[WL]{1,8}\z/'],
             'plays.*.ai_support' => ['nullable', 'integer', 'between:0,20'],

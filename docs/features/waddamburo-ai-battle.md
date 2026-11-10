@@ -6,13 +6,21 @@ and prior verified timing. An unplayed setup is reused for the same selection;
 once uploaded it is bound to that play ID and player. Home tokens cannot select
 another BAID; cabinet tokens use their existing player-upload permissions.
 
+A signed-in player without a connection still plays ranked: the client picks the
+seed, plays the frozen online tuning and uploads the play later with its seed,
+base chart hash (`ai_base_sha256`) and AI-don's starting timing
+(`ai_prior_median_ms`, `ai_prior_variance`). The server creates the setup from
+those on upload and verifies it like any other. The starting timing is trusted
+(range-checked): AI-don plays perfectly until the player's first 可 or 不可 and
+learns from the play's own hits, so it rarely matters.
+
 All AI plays and replays are retained, including losses and failed gauge clears.
 Failed normal plays and Dan runs remain local. AI ordinary scores use the same
 scoring and leaderboards as normal plays.
 
 `WaddamburoScorer` sends trusted setup context to the game's `--rescore` process.
 The shared simulator returns sections, timing and counts; client claims do not
-award anything. A missing setup, older client or incompatible simulator leaves
+award anything. An older client (no setup and no seed) or incompatible simulator leaves
 the battle unverified while retaining its ordinary score. Derived support charts
 must match the approved base's deterministic simplification.
 
@@ -21,7 +29,7 @@ for progression. The base must still be approved when verification runs. Support
 wins and wins without a gauge clear count toward the win total, but rank points
 require the standard chart, a win, a clear, and the current rank's star threshold.
 First-win and high-level bonuses follow the Green ladder. Awards are recalculated
-in setup sequence order after delayed uploads, rescores, and moderation; hidden
+in play order after delayed uploads, rescores, and moderation; hidden
 and restricted plays are excluded. Synced `ai_plays` contains only verified,
 eligible results. The play page shows the checked sections, points and progress;
 unverified claims are labelled and do not appear as wins.
