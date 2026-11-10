@@ -8,6 +8,7 @@ use App\Models\Sanction;
 use App\Models\WdbPlay;
 use App\Services\ModerationService;
 use App\Services\PlayerRankAggregateService;
+use App\Services\WaddamburoAiBattles;
 use App\Services\WaddamburoDanRank;
 use App\Services\WaddamburoRankAggregateService;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -24,7 +25,7 @@ use Inertia\Response;
  */
 class WaddamburoPlayController extends Controller
 {
-    public function show(Request $request, string $id): Response
+    public function show(Request $request, string $id, WaddamburoAiBattles $battles): Response
     {
         abort_unless((bool) $request->attributes->get('taikoVersionIsWaddamburo', false), 404);
         abort_unless(preg_match('/\A[0-9a-f-]{36}\z/i', $id) === 1, 404);
@@ -39,7 +40,21 @@ class WaddamburoPlayController extends Controller
         $shinuchi = ((int) $play->options & WdbPlay::SHINUCHI) !== 0;
         $visibleBests = fn (QueryBuilder $query) => $query->where('wdb_plays.wdb_chart_id', $chart->id);
 
+        $battle = $play->mode === 'ai_battle' ? DB::table('wdb_ai_battles')->where('id', $play->id)->first() : null;
+        $verified = $battle?->verified_at !== null;
+        $counted = $verified && $battles->verified((int) $play->baid)->where('wdb_ai_battles.id', $play->id)->where('eligible', true)->exists();
+
         return Inertia::render('WaddamburoPlay', [
+            'aiBattle' => $play->mode !== 'ai_battle' ? null : [
+                'verified' => $verified, 'counted' => $counted,
+                // Legacy and offline claims remain in storage, but are never presented as checked results.
+                'won' => $verified ? (bool) $battle->won : null,
+                'sections' => $verified ? $battle->sections : '',
+                'counts' => $verified ? json_decode($battle->section_counts ?? '[]', true) : [],
+                'points' => $counted ? (int) $battle->points : 0,
+                'support_level' => $verified ? (int) $battle->support_level : null,
+                'progress' => $battles->progress((int) $play->baid),
+            ],
             'danRanks' => app(WaddamburoDanRank::class)->forUsers([$user?->id]),
             'play' => [
                 'id' => $play->id,

@@ -488,14 +488,78 @@ it('keeps every AI battle, failed or not, and lists them with the bests', functi
     $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [$cleared, $failed, $cleared]])
         ->assertOk()->assertJsonPath('accepted', [$cleared['id'], $failed['id'], $cleared['id']]);
 
-    // The failed battle is no play (bests and boards never see it), but it is a battle.
-    expect(WdbPlay::query()->pluck('id')->all())->toBe([$cleared['id']])
+    // Both battles retain their replays, with duplicate uploads counted once.
+    expect(WdbPlay::query()->orderByDesc('played_at')->pluck('id')->all())->toBe([$cleared['id'], $failed['id']])
+        ->and(gzdecode(WdbPlay::query()->findOrFail($failed['id'])->replay))->toBe(WDB_REPLAY)
         ->and(DB::table('wdb_ai_battles')->count())->toBe(2);
     $plays = $this->withToken($token)->getJson('/api/wdb/bests')->assertOk()->json('ai_plays');
-    expect($plays)->toHaveCount(2)
-        ->and($plays[0])->toMatchArray(['id' => $cleared['id'], 'sha256' => str_repeat('a', 64), 'won' => true, 'points' => 3,
-            'hit_median_ms' => 12.5, 'hit_variance' => 400.0])
-        ->and($plays[1])->toMatchArray(['id' => $failed['id'], 'won' => true, 'points' => 0]);
+    // Legacy client outcomes remain recorded, but never become verified online progression.
+    expect($plays)->toBe([]);
+});
+
+it('rescores a failed AI clear and makes its retained replay available', function (): void {
+    config(['services.waddamburo.scorer' => PHP_BINARY]);
+    Process::fake(function (PendingProcess $process) {
+        $play = json_decode(trim((string) $process->input), true);
+
+        return Process::result(json_encode(['id' => $play['id'], 'course' => 3, 'score' => 1000, 'great' => 2, 'good' => 1,
+            'miss' => 3, 'max_combo' => 2, 'rolls' => 0, 'gauge' => 10, 'cleared' => false, 'scoring_version' => 1]));
+    });
+    $player = wdb_player();
+    $sha = str_repeat('a', 64);
+    WdbChart::query()->create(['sha256' => $sha, 'notes' => gzencode('synthetic chart')]);
+    $play = wdb_play($sha, ['mode' => 'ai_battle', 'cleared' => false, 'score' => 1000, 'great' => 2, 'good' => 1,
+        'miss' => 3, 'max_combo' => 2, 'rolls' => 0, 'gauge' => 10, 'seed' => 1234,
+        'ai_won' => true, 'ai_sections' => 'WLWWL', 'ai_support' => 0, 'ai_points' => 0]);
+
+    $this->withToken(wdb_token($player))->postJson('/api/wdb/plays', ['plays' => [$play]])
+        ->assertOk()->assertJsonPath('accepted', [$play['id']]);
+
+    expect(WdbPlay::query()->findOrFail($play['id']))->cleared->toBeFalse()->score->toBe(1000)
+        ->rescored_at->not->toBeNull()->seed->toBe(1234);
+    Process::assertRan(function (PendingProcess $process) use ($play): bool {
+        $sent = json_decode(trim((string) $process->input), true);
+
+        return $sent['id'] === $play['id'] && $sent['seed'] === 1234 && $sent['replay'] === $play['replay'];
+    });
+    $this->getJson("/api/wdb/plays/{$play['id']}/replay")
+        ->assertOk()->assertJsonPath('replay', $play['replay'])->assertJsonPath('cleared', false);
+});
+
+it('rejects a failed AI battle with a malformed replay before keeping its outcome', function (): void {
+    Notification::fake();
+    $player = wdb_player();
+    $play = wdb_play(str_repeat('a', 64), ['mode' => 'ai_battle', 'cleared' => false,
+        'ai_won' => true, 'ai_sections' => 'WWW', 'ai_points' => 3, 'replay' => base64_encode('not a replay')]);
+
+    $this->withToken(wdb_token($player))->postJson('/api/wdb/plays', ['plays' => [$play]])
+        ->assertOk()->assertJsonPath('accepted', []);
+
+    $this->assertDatabaseCount('wdb_plays', 0);
+    $this->assertDatabaseCount('wdb_ai_battles', 0);
+    Notification::assertSentTo($player->user, WaddamburoNotice::class,
+        fn (WaddamburoNotice $notice): bool => $notice->kind === 'play_rejected');
+});
+
+it('keeps failed AI battle replays when culling ordinary failed plays', function (): void {
+    $player = wdb_player();
+    $sha = str_repeat('a', 64);
+    $battle = wdb_play($sha, ['mode' => 'ai_battle', 'cleared' => false,
+        'ai_won' => false, 'ai_sections' => 'LLL', 'ai_points' => 0]);
+    $this->withToken(wdb_token($player))->postJson('/api/wdb/plays', ['plays' => [$battle]])->assertOk();
+    $chart = WdbChart::query()->where('sha256', $sha)->firstOrFail();
+    $normal = WdbPlay::query()->create([
+        ...Arr::except(wdb_play($sha, ['cleared' => false]), ['chart_sha256', 'replay']),
+        'baid' => $player->baid, 'wdb_chart_id' => $chart->id, 'replay' => gzencode(WDB_REPLAY),
+    ]);
+
+    $this->artisan('app:cull-failed-waddamburo-plays --dry-run')->assertSuccessful();
+    $this->assertModelExists($normal);
+    $this->artisan('app:cull-failed-waddamburo-plays')->assertSuccessful();
+
+    $this->assertModelMissing($normal);
+    expect(gzdecode(WdbPlay::query()->findOrFail($battle['id'])->replay))->toBe(WDB_REPLAY);
+    $this->assertDatabaseHas('wdb_ai_battles', ['id' => $battle['id']]);
 });
 
 it('refuses an AI battle without its outcome', function (): void {

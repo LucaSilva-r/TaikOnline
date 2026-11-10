@@ -1,5 +1,7 @@
 <script lang="ts">
     import AccountStanding, { type Standing } from '@/components/AccountStanding.svelte';
+    import AiBattleBoard from '@/components/AiBattleBoard.svelte';
+    import type { AiBattleBoardData } from '@/components/AiBattleBoard.svelte';
     import AppHead from '@/components/AppHead.svelte';
     import DanRankTag from '@/components/DanRankTag.svelte';
     import {
@@ -194,6 +196,7 @@
         rankHistory,
         recentPlays,
         bestPerformances,
+        aiBattleData = null,
         blueBattleData = null,
         greenGhostData = null,
         tokkunData = null,
@@ -211,6 +214,7 @@
         rankHistory: RankHistoryPoint[];
         recentPlays: RecentPlay[];
         bestPerformances: BestPerformance[];
+        aiBattleData?: AiBattleBoardData | null;
         blueBattleData?: BlueBattleData | null;
         greenGhostData?: GreenGhostData | null;
         tokkunData?: TokkunData | null;
@@ -1146,6 +1150,10 @@
                 </div>
             {/if}
         </section>
+    {/if}
+
+    {#if aiBattleData}
+        <AiBattleBoard data={aiBattleData} />
     {/if}
 
     {#if danProgress.length > 0}

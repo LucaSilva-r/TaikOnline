@@ -13,9 +13,11 @@ use App\Models\WdbDanPlay;
 use App\Models\WdbPlay;
 use App\Models\WdbSong;
 use App\Services\PlayerRankAggregateService;
+use App\Services\WaddamburoAiBattles;
 use App\Services\WaddamburoDanRank;
 use App\Services\WaddamburoRankAggregateService;
 use App\Services\WaddamburoStatus;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
@@ -40,6 +42,8 @@ class WaddamburoWebController extends Controller
     /** shownSource() in SQL, over a wdb_chart_song link joined to its chart. */
     private const SHOWN_SOURCE_SQL = "CASE WHEN wdb_chart_song.source = 'OsuLazer' THEN 'OsuLazer' "
         ."WHEN wdb_chart_song.source IN ('Stock', 'Nijiiro') AND wdb_charts.is_stock THEN wdb_chart_song.source ELSE 'Custom' END";
+
+    public function __construct(private readonly WaddamburoAiBattles $battles) {}
 
     public function rankings(WaddamburoRankAggregateService $aggregates): Response
     {
@@ -205,6 +209,7 @@ class WaddamburoWebController extends Controller
             'rankHistory' => PlayerRankSnapshot::query()->where('user_id', $user->id)->where('game_version', WaddamburoRankAggregateService::SCOPE)->latest('snapshot_date')->limit(90)->get()->sortBy('snapshot_date')->map(fn ($row): array => ['date' => $row->snapshot_date->toDateString(), 'rank' => (int) $row->rank, 'total_score' => (int) $row->total_score])->values()->all(),
             'recentPlays' => $player instanceof Player ? $this->playerRecentPlays($player, $visible) : [],
             'bestPerformances' => $player instanceof Player ? $this->playerBests($player, $visible) : [],
+            'aiBattleData' => $player instanceof Player ? $this->aiBattleData($player, $visible) : null,
             'blueBattleData' => null, 'greenGhostData' => null, 'tokkunData' => null, 'daniData' => null,
             // Staff get a way into the player's moderation page.
             'danProgress' => $player instanceof Player ? $this->danProgress($player) : [],
@@ -252,7 +257,7 @@ class WaddamburoWebController extends Controller
         $players = Player::query()->whereIn('baid', $rows->pluck('baid')->merge($shinuchi->pluck('baid')))->with('user')->get()->keyBy('baid');
         // Each player's best play itself (the earlier one on a tie, as the game's leaderboard), for its counts.
         $bestPlays = fn (bool $shinuchi): Collection => WdbPlay::query()
-            ->fromSub(WdbPlay::query()->select(['id', 'baid', 'great', 'good', 'miss', 'max_combo', 'rolls'])
+            ->fromSub(WdbPlay::query()->select(['id', 'baid', 'mode', 'great', 'good', 'miss', 'max_combo', 'rolls'])
                 ->selectRaw('ROW_NUMBER() OVER (PARTITION BY baid ORDER BY score DESC, played_at ASC) AS player_best')
                 ->where('wdb_chart_id', $chart->id)->whereNotNull('rescored_at')->visibleTo($viewerBaid)
                 ->whereRaw('(options & ?) '.($shinuchi ? '<>' : '=').' 0', [WdbPlay::SHINUCHI]), 'wdb_plays')
@@ -262,7 +267,7 @@ class WaddamburoWebController extends Controller
             $play = $plays->get($row->baid);
 
             return [
-                'rank' => $index + 1, 'user_id' => (int) $user->id, 'play_id' => $play?->id,
+                'rank' => $index + 1, 'user_id' => (int) $user->id, 'play_id' => $play?->id, 'mode' => $play?->mode,
                 'player_name' => $user->name, 'avatar' => $user->avatar,
                 'score' => (int) $row->best_score, 'score_rank' => 0,
                 'crown' => (int) $row->best_crown,
@@ -327,6 +332,42 @@ class WaddamburoWebController extends Controller
                 'awaiting_verification' => $play->rescored_at === null,
                 'options' => WdbPlay::optionLabels((int) $play->options),
             ])->all();
+    }
+
+    /** @return array{progress: array<string, int>, recent: list<array<string, mixed>>} */
+    private function aiBattleData(Player $player, QueryBuilder $visible): array
+    {
+        $recent = DB::table('wdb_plays')
+            ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_plays.wdb_chart_id')
+            ->leftJoin('wdb_ai_battles', 'wdb_ai_battles.id', '=', 'wdb_plays.id')
+            ->where('wdb_plays.baid', $player->baid)->where('wdb_plays.mode', 'ai_battle')
+            ->whereIn('wdb_plays.wdb_chart_id', $visible)
+            ->tap(fn (QueryBuilder $query) => WdbPlay::visibility($query, $this->viewerBaid()))
+            ->orderByDesc('wdb_plays.played_at')->orderByDesc('wdb_plays.id')->limit(20)
+            ->get(['wdb_plays.id', 'wdb_plays.course', 'wdb_plays.score', 'wdb_plays.cleared',
+                'wdb_plays.played_at', 'wdb_plays.options', 'wdb_charts.title', 'wdb_charts.title_en', 'wdb_charts.level',
+                'wdb_ai_battles.verified_at', 'wdb_ai_battles.eligible', 'wdb_ai_battles.won',
+                'wdb_ai_battles.sections', 'wdb_ai_battles.points', 'wdb_ai_battles.support_level'])
+            ->map(function (object $play): array {
+                $verified = $play->verified_at !== null;
+                $counted = $verified && (bool) $play->eligible;
+
+                return [
+                    'play_id' => $play->id, 'title' => $play->title ?? $play->title_en ?? 'Unknown chart',
+                    'course' => (int) $play->course, 'stars' => $play->level === null ? null : (int) $play->level,
+                    'score' => (int) $play->score, 'cleared' => (bool) $play->cleared,
+                    'played_at' => Carbon::parse($play->played_at)->toIso8601String(),
+                    'options' => WdbPlay::optionLabels((int) $play->options),
+                    'verified' => $verified, 'counted' => $counted,
+                    'won' => $verified ? (bool) $play->won : null,
+                    'sections' => $verified ? $play->sections : '',
+                    'points' => $counted ? (int) $play->points : 0,
+                    'support_level' => $verified ? (int) $play->support_level : null,
+                ];
+            })->all();
+
+        return ['progress' => $this->battles->progress((int) $player->baid, public: $this->viewerBaid() !== (int) $player->baid),
+            'recent' => $recent];
     }
 
     /**

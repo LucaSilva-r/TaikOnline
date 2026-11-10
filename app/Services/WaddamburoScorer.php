@@ -6,8 +6,8 @@ use App\Enums\UploadWarningKind;
 use App\Jobs\AnalyzeWaddamburoPlays;
 use App\Models\WdbChart;
 use App\Models\WdbPlay;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Process\Pool;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
@@ -70,10 +70,11 @@ class WaddamburoScorer
         $scorer = config('services.waddamburo.scorer');
         if (! is_string($scorer) || $scorer === '' || ! is_executable($scorer)) {
             Log::warning('WADDAMBURO_SCORER is not set to an executable: plays are not rescored.');
+            $plays->where('mode', 'ai_battle')->each(fn (WdbPlay $play) => app(WaddamburoAiBattles::class)->verificationFailed($play));
 
             return $summary;
         }
-        $plays->loadMissing('chart:id,notes,source,roll_max');
+        $plays->loadMissing('chart:id,sha256,notes,source,roll_max');
         $plays = $plays->filter(fn (WdbPlay $play): bool => $play->chart?->notes !== null)->keyBy('id');
         $changed = [];
         $rollMax = [];
@@ -142,6 +143,7 @@ class WaddamburoScorer
                 $plays->each(fn (WdbPlay $play) => $this->scoreBatch($scorer, new Collection([$play->id => $play]), $summary, $changed, $rollMax));
             } else {
                 $summary['failed']++;
+                $plays->each(fn (WdbPlay $play) => app(WaddamburoAiBattles::class)->verificationFailed($play));
             }
 
             return;
@@ -159,6 +161,7 @@ class WaddamburoScorer
                 Log::warning('Waddamburo play did not score from its replay.', ['play' => $play->id, 'error' => $error]);
                 if ($play->rescored_at === null) {
                     WaddamburoUploadWarnings::record((int) $play->baid, UploadWarningKind::UnscorableReplay, $play->id, $error);
+                    app(WaddamburoAiBattles::class)->verificationFailed($play);
                 }
                 $summary['failed']++;
 
@@ -184,6 +187,7 @@ class WaddamburoScorer
                 // For moderators: how fast it drummed on rolls and balloons (raw hits, capped ones too).
                 ...(isset($result['timeline']) ? WdbPlay::rollSpeed($result['timeline']) : ['roll_hits' => null, 'roll_peak_rate' => null, 'roll_pad_peak_rate' => null, 'roll_steady_rate' => null]),
             ]);
+            app(WaddamburoAiBattles::class)->apply($play, $result['ai_battle'] ?? null);
             // The chart's own (the same for all its plays): its drumrolls' most hits.
             if (isset($result['roll_max']) && $play->chart->roll_max !== (int) $result['roll_max']) {
                 $rollMax[$play->wdb_chart_id] = (int) $result['roll_max'];
@@ -203,6 +207,7 @@ class WaddamburoScorer
             'options' => (int) $play->options,
             'seed' => $play->seed === null ? null : (int) $play->seed,
             'replay' => base64_encode((string) $play->replay),
+            'ai_battle' => app(WaddamburoAiBattles::class)->context($play),
         ], JSON_THROW_ON_ERROR);
     }
 }

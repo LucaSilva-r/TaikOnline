@@ -16,6 +16,7 @@ use App\Models\WdbChart;
 use App\Models\WdbPlay;
 use App\Notifications\WaddamburoNotice;
 use App\Services\CabinetPairingService;
+use App\Services\WaddamburoAiBattles;
 use App\Services\WaddamburoDanRank;
 use App\Services\WaddamburoDeviceLoginService;
 use App\Services\WaddamburoRankAggregateService;
@@ -277,7 +278,10 @@ class WaddamburoController extends Controller
         // Every AI battle (any machine): the client derives the rank, wins and AI-don's starting timing from them.
         $aiPlays = DB::table('wdb_ai_battles')
             ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_ai_battles.wdb_chart_id')
+            ->join('wdb_plays', 'wdb_plays.id', '=', 'wdb_ai_battles.id')
             ->where('wdb_ai_battles.baid', $baid)
+            ->whereNotNull('wdb_ai_battles.verified_at')->where('wdb_ai_battles.eligible', true)
+            ->tap(fn ($query) => WdbPlay::visibility($query, $baid))
             ->orderByDesc('wdb_ai_battles.played_at')
             ->get(['wdb_ai_battles.id', 'wdb_charts.sha256', 'won', 'points', 'hit_median', 'hit_variance', 'wdb_ai_battles.played_at'])
             ->map(fn ($battle): array => [
@@ -292,6 +296,31 @@ class WaddamburoController extends Controller
             ->all();
 
         return response()->json(['bests' => $bests, 'recent' => $recent, 'ai_plays' => $aiPlays]);
+    }
+
+    /** A seed and prior performance fixed before play, bound to this player's exact chart and options. */
+    public function beginAiBattle(Request $request, WaddamburoAiBattles $battles): JsonResponse
+    {
+        $cabinet = $this->isCabinet($request);
+        $setup = $request->validate([
+            'baid' => [$cabinet ? 'required' : 'nullable', 'integer'],
+            'chart_sha256' => ['required', 'string', 'regex:/\A[0-9a-f]{64}\z/'],
+            'base_sha256' => ['required', 'string', 'regex:/\A[0-9a-f]{64}\z/'],
+            'course' => ['required', 'integer', 'between:0,4'],
+            'options' => ['required', 'integer', 'between:0,65535'],
+            'support_level' => ['required', 'integer', 'between:0,12'],
+            'version' => ['required', 'integer', 'between:1,'.WaddamburoAiBattles::VERSION],
+        ]);
+        $baid = $cabinet ? (int) $setup['baid'] : $request->user()->player?->baid;
+        abort_if($baid === null, 403);
+        if (! $cabinet && isset($setup['baid']) && (int) $setup['baid'] !== $baid) {
+            abort(403);
+        }
+        if ((int) $setup['support_level'] === 0 && $setup['base_sha256'] !== $setup['chart_sha256']) {
+            throw ValidationException::withMessages(['base_sha256' => 'A standard battle must use its base chart.']);
+        }
+
+        return response()->json($battles->begin($baid, Arr::only($setup, ['chart_sha256', 'base_sha256', 'course', 'options', 'support_level', 'version'])));
     }
 
     /** How many of a player's last plays the bests carry (the client keeps the newest 20 songs). */
@@ -313,7 +342,7 @@ class WaddamburoController extends Controller
      * notes for are scored from their replays (the client's numbers are not kept); the response lists
      * the charts it has no notes for yet, which the client then uploads (and those plays score then).
      */
-    public function storePlays(Request $request, WaddamburoRankAggregateService $aggregates, WaddamburoScorer $scorer): JsonResponse
+    public function storePlays(Request $request, WaddamburoRankAggregateService $aggregates, WaddamburoScorer $scorer, WaddamburoAiBattles $battles): JsonResponse
     {
         $cabinet = $this->isCabinet($request);
         $validated = $request->validate([
@@ -339,6 +368,7 @@ class WaddamburoController extends Controller
             'plays.*.input_offset_ms' => ['nullable', 'integer', 'between:-5000,5000'],
             'plays.*.options' => ['nullable', 'integer', 'between:0,65535'],
             'plays.*.seed' => ['nullable', 'integer', 'between:-2147483648,2147483647'],
+            'plays.*.ai_session_id' => ['nullable', 'uuid'],
             'plays.*.ai_won' => ['required_if:plays.*.mode,ai_battle', 'nullable', 'boolean'],
             'plays.*.ai_sections' => ['required_if:plays.*.mode,ai_battle', 'nullable', 'string', 'regex:/\A[WL]{1,8}\z/'],
             'plays.*.ai_support' => ['nullable', 'integer', 'between:0,20'],
@@ -361,26 +391,9 @@ class WaddamburoController extends Controller
             if ($cabinet && ! Player::query()->whereKey($baid)->exists()) {
                 continue;
             }
-            // An AI battle keeps its battle (rank and wins derive from them), failed or not; a restricted player's don't count.
-            if ($play['mode'] === 'ai_battle' && ! ($banned[$baid] ??= Sanction::activeFor($baid, SanctionType::Ban) !== null)) {
-                $chart = $charts[$play['chart_sha256']] ??= WdbChart::query()->firstOrCreate(['sha256' => $play['chart_sha256']]);
-                DB::table('wdb_ai_battles')->insertOrIgnore([
-                    'id' => $play['id'],
-                    'baid' => $baid,
-                    'wdb_chart_id' => $chart->id,
-                    'won' => filter_var($play['ai_won'], FILTER_VALIDATE_BOOLEAN),
-                    'sections' => $play['ai_sections'],
-                    'support_level' => $play['ai_support'] ?? 0,
-                    'points' => $play['ai_points'] ?? 0,
-                    'hit_median' => $play['hit_median_ms'] ?? null,
-                    'hit_variance' => $play['hit_variance'] ?? null,
-                    'played_at' => Carbon::parse($play['played_at']),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-            // Failed plays aren't kept: accepted, so a client still sending them stops.
-            if (! filter_var($play['cleared'], FILTER_VALIDATE_BOOLEAN)) {
+            // Every AI battle keeps its replay, including a failed clear: it can still be a battle win.
+            // Normal failed plays remain local; acknowledge older clients that still send them.
+            if (! filter_var($play['cleared'], FILTER_VALIDATE_BOOLEAN) && $play['mode'] !== 'ai_battle') {
                 $accepted[] = $play['id'];
 
                 continue;
@@ -393,6 +406,7 @@ class WaddamburoController extends Controller
                 continue;
             }
 
+            $sessionId = $battles->reserve($baid, $play);
             $chart = $charts[$play['chart_sha256']] ??= WdbChart::query()->firstOrCreate(['sha256' => $play['chart_sha256']]);
             $replayHash = WaddamburoReplay::hash($replay);
             // Another player's inputs: kept hidden (a moderator can restore it), and the uploader is not told.
@@ -426,6 +440,25 @@ class WaddamburoController extends Controller
                 ...(($banned[$baid] ??= Sanction::activeFor($baid, SanctionType::Ban) !== null)
                     ? ['hidden_at' => now(), 'hidden_reason' => 'Played while restricted'] : []),
             ]);
+            // Keep every owned battle summary beside its replay, including hidden evidence. Visibility controls awards.
+            if ($play['mode'] === 'ai_battle' && $stored->mode === 'ai_battle' && (int) $stored->baid === $baid) {
+                $chart = $charts[$play['chart_sha256']] ??= WdbChart::query()->firstOrCreate(['sha256' => $play['chart_sha256']]);
+                DB::table('wdb_ai_battles')->insertOrIgnore([
+                    'id' => $play['id'],
+                    'baid' => $baid,
+                    'session_id' => $sessionId,
+                    'wdb_chart_id' => $stored->wdb_chart_id,
+                    'won' => filter_var($play['ai_won'], FILTER_VALIDATE_BOOLEAN),
+                    'sections' => $play['ai_sections'],
+                    'support_level' => $play['ai_support'] ?? 0,
+                    'points' => $play['ai_points'] ?? 0,
+                    'hit_median' => $play['hit_median_ms'] ?? null,
+                    'hit_variance' => $play['hit_variance'] ?? null,
+                    'played_at' => Carbon::parse($play['played_at']),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
             if ($stored->wasRecentlyCreated) {
                 $created->push($stored);
                 if ($original !== null) {

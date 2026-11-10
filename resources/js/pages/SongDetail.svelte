@@ -31,6 +31,7 @@
     type LeaderboardEntry = {
         /** Waddamburo: the best play's own page (the row links there instead of the board). */
         play_id?: string | null;
+        mode?: string | null;
         rank: number;
         user_id: number;
         player_name: string;
@@ -251,7 +252,10 @@
                 <span class="min-w-0">
                     <span class="flex min-w-0 items-center gap-2">
                         <DanRankTag userId={entry.user_id} size="compact" />
-                        <span class="truncate text-sm font-medium hover:underline">{entry.player_name}</span>
+                        <span
+                            class="truncate text-sm font-medium hover:underline"
+                            >{entry.player_name}</span
+                        >
                     </span>
                     {#if entry.counts}
                         <!-- Good / Ok / Bad in the game's colours (良 orange, 可 white, 不可 blue). -->
@@ -288,6 +292,12 @@
                                         : ''}</b
                                 ></span
                             >
+                            {#if entry.mode === 'ai_battle'}
+                                <span
+                                    class="inline-flex items-center rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 text-2xs font-medium text-cyan-700 dark:text-cyan-300"
+                                    >AI Battle</span
+                                >
+                            {/if}
                         </span>
                     {/if}
                 </span>
@@ -609,9 +619,17 @@
                                     {/if}
                                 </Avatar>
                                 <div class="min-w-0">
-                                    <div class="flex min-w-0 items-center gap-2">
-                                        <DanRankTag userId={play.user_id} size="compact" />
-                                        <span class="truncate text-sm font-medium hover:underline">{play.player_name}</span>
+                                    <div
+                                        class="flex min-w-0 items-center gap-2"
+                                    >
+                                        <DanRankTag
+                                            userId={play.user_id}
+                                            size="compact"
+                                        />
+                                        <span
+                                            class="truncate text-sm font-medium hover:underline"
+                                            >{play.player_name}</span
+                                        >
                                     </div>
                                     <div class="text-xs text-muted-foreground">
                                         {play.difficulty ??

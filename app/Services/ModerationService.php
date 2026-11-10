@@ -287,6 +287,9 @@ class ModerationService
 
     private function recompute(WdbPlay $play): void
     {
+        if ($play->mode === 'ai_battle') {
+            app(WaddamburoAiBattles::class)->recompute((int) $play->baid);
+        }
         if ($play->player !== null) {
             $this->aggregates->recompute($play->player);
         }

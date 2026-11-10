@@ -16,7 +16,7 @@ it('lets an issued cabinet in until it is revoked', function (): void {
 });
 
 it('issues, shows once and revokes cabinets from the admin page', function (): void {
-    $admin = User::factory()->create(['role' => 'admin']);
+    $admin = User::factory()->admin()->create();
 
     $this->actingAs($admin)->post('/waddamburo/admin/waddamburo-cabinets', ['name' => 'Right cab'])->assertRedirect();
     $cabinet = WdbCabinet::query()->sole();

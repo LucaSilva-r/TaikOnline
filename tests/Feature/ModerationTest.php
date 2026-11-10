@@ -127,10 +127,11 @@ it('restricts a banned player: still logged in and playing, but unseen, uncounte
 
     // A play while restricted is kept but hidden for good.
     $id = (string) Str::uuid();
+    $replay = gzencode("\x01\x01\x02\x00"); // version 1: one left Don, two ticks in.
     $this->withToken($token)->postJson('/api/wdb/plays', ['plays' => [[
         'id' => $id, 'chart_sha256' => $chart->sha256, 'mode' => 'normal', 'course' => 3, 'score' => 1_000_000,
         'great' => 100, 'good' => 0, 'miss' => 0, 'max_combo' => 100, 'rolls' => 0, 'gauge' => 50, 'cleared' => true,
-        'scoring_version' => 1, 'engine_version' => 'test', 'played_at' => now()->toIso8601String(), 'replay' => base64_encode(gzencode(WDB_REPLAY)),
+        'scoring_version' => 1, 'engine_version' => 'test', 'played_at' => now()->toIso8601String(), 'replay' => base64_encode($replay),
     ]]])->assertOk()->assertJsonPath('accepted', [$id]);
     expect(WdbPlay::query()->find($id))->hidden_reason->toBe('Played while restricted');
     expect($player->user->notifications()->sole()->data['message'])->toBe('Your play of Song will not count: your account is restricted.');
@@ -170,9 +171,11 @@ it('hides and restores a play, logging both', function (): void {
 
 it('lists every player for moderators to jump to, paged and sortable', function (): void {
     $moderator = User::factory()->moderator()->create();
-    $named = mod_player(User::factory()->create(['name' => 'Aaron Don']));
+    $named = mod_player(User::factory()->create(['name' => 'Aaron Don', 'username' => 'aaron-don']));
     foreach (range(1, 55) as $index) {
-        mod_player();
+        mod_player(User::factory()->create([
+            'name' => "Player {$index}", 'username' => "player-{$index}",
+        ]));
     }
     Player::query()->create(['mydon_name' => 'カード']); // a cabinet card never linked to an account
 

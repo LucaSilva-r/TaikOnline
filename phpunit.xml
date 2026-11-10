@@ -25,6 +25,8 @@
         <env name="CACHE_STORE" value="array"/>
         <env name="STATUS_CACHE_DRIVER" value="array"/>
         <env name="REGISTRATION_OPEN" value="true"/>
+        <env name="TURNSTILE_SITE_KEY" value="" force="true"/>
+        <env name="TURNSTILE_SECRET_KEY" value="" force="true"/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>

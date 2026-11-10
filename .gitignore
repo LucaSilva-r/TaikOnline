@@ -47,3 +47,6 @@ frankenphp-worker.php
 
 # This instance's own Rules and Privacy Policy: the repository holds only the templates, resources/legal.
 /storage/legal/
+
+# Local scorer builds and their backups (deploy artefacts).
+/storage/waddamburo-scorer*/

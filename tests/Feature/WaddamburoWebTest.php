@@ -76,7 +76,7 @@ it('no longer serves the retired Extra pages', function (): void {
 });
 
 it('lets admins rank a chart, which recomputes its players\' standings', function (): void {
-    $admin = User::factory()->create(['role' => 'admin']);
+    $admin = User::factory()->admin()->create();
     $player = wdb_web_player();
     $chart = wdb_web_chart(['sha256' => str_repeat('c', 64), 'title' => 'Ranked', 'course' => 3]);
     wdb_web_play($player, $chart, 850000);
@@ -92,7 +92,7 @@ it('lets admins rank a chart, which recomputes its players\' standings', functio
 });
 
 it('lists Waddamburo songs with their charts for ranking, filtered by source and ranking state', function (): void {
-    $admin = User::factory()->create(['role' => 'admin']);
+    $admin = User::factory()->admin()->create();
     $player = wdb_web_player();
     $hard = wdb_web_chart(['sha256' => str_repeat('d', 64), 'title' => 'Song', 'source' => 'Stock', 'course' => 2, 'level' => 5], 'song');
     $oni = wdb_web_chart(['sha256' => str_repeat('e', 64), 'title' => 'Song', 'source' => 'Stock', 'course' => 3, 'level' => 8, 'ranked_at' => now()], 'song');
@@ -247,7 +247,7 @@ it('shows custom charts only to the players who played them, with everyone\'s sc
         ->has('bestPerformances', 2)->where('bestPerformances.0.counts_for_leaderboard', false));
 
     // Admins see every played chart.
-    $this->actingAs(User::factory()->create(['role' => 'admin']))->get("/waddamburo/songs/{$official}")
+    $this->actingAs(User::factory()->admin()->create())->get("/waddamburo/songs/{$official}")
         ->assertInertia(fn (Assert $page) => $page->has('difficulties', 2));
 
     // Ranking a custom chart publishes it.
@@ -343,7 +343,7 @@ it('keeps custom charts ranked when the unranking is not confirmed', function ()
 });
 
 it('lets admins mark charts and songs official, which ranks them, or custom, which keeps their ranking', function (): void {
-    $admin = User::factory()->create(['role' => 'admin']);
+    $admin = User::factory()->admin()->create();
     $player = wdb_web_player();
     $oni = wdb_web_chart(['sha256' => str_repeat('a', 64), 'title' => 'Late', 'source' => 'Nijiiro', 'course' => 3], 'late');
     $ura = wdb_web_chart(['sha256' => str_repeat('b', 64), 'title' => 'Late', 'source' => 'Nijiiro', 'course' => 4, 'ranked_at' => now()], 'late');
@@ -398,3 +398,23 @@ it('marks the charts a branched chart replaces legacy, unranked for good, their 
         ->where('difficulties.0.legacy.0.id', $old->id)->where('difficulties.0.legacy.0.entries.0.score', 990000));
     $this->get('/waddamburo/rankings')->assertInertia(fn (Assert $page) => $page->has('entries', 0));
 });
+
+it('identifies AI battles from the displayed best play on each score board', function (int $options, string $entries): void {
+    $chart = wdb_web_chart(['sha256' => str_repeat('a', 64), 'title' => 'Synthetic battle', 'course' => 3, 'ranked_at' => now()]);
+    $normalWinner = wdb_web_player();
+    $aiWinner = wdb_web_player();
+    wdb_web_play($normalWinner, $chart, 900000);
+    wdb_web_play($normalWinner, $chart, 800000);
+    wdb_web_play($aiWinner, $chart, 850000);
+    wdb_web_play($aiWinner, $chart, 700000);
+    WdbPlay::query()->whereIn('score', [800000, 850000])->update(['mode' => 'ai_battle']);
+    WdbPlay::query()->update(['options' => $options]);
+    $song = $chart->songs()->value('wdb_songs.id');
+
+    $this->get("/waddamburo/songs/{$song}")->assertInertia(fn (Assert $page) => $page
+        ->has("difficulties.0.{$entries}", 2)
+        ->where("difficulties.0.{$entries}.0.user_id", $normalWinner->user_id)
+        ->where("difficulties.0.{$entries}.0.mode", 'normal')
+        ->where("difficulties.0.{$entries}.1.user_id", $aiWinner->user_id)
+        ->where("difficulties.0.{$entries}.1.mode", 'ai_battle'));
+})->with(['standard scores' => [0, 'entries'], 'Shin-uchi scores' => [2, 'shinuchi_entries']]);

@@ -10,7 +10,7 @@ use Illuminate\Console\Command;
 
 /**
  * Deletes failed plays and dan runs, including those the server's own scoring failed after upload. Hidden or
- * reported ones stay: they are evidence.
+ * reported ones stay: they are evidence. AI battles keep their replays for battle verification.
  */
 class CullFailedWaddamburoPlaysCommand extends Command
 {
@@ -20,7 +20,7 @@ class CullFailedWaddamburoPlaysCommand extends Command
 
     public function handle(WaddamburoRankAggregateService $aggregates): int
     {
-        $plays = WdbPlay::query()->where('cleared', false)->whereNull('hidden_at')
+        $plays = WdbPlay::query()->where('cleared', false)->where('mode', '!=', 'ai_battle')->whereNull('hidden_at')
             ->whereDoesntHave('reports')
             ->whereNotIn('id', fn ($actions) => $actions->select('wdb_play_id')->from('moderation_actions')->whereNotNull('wdb_play_id'));
         $runs = WdbDanPlay::query()->where('result_level', 0)->whereNull('hidden_at')

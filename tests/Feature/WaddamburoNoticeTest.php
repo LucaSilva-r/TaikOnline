@@ -81,7 +81,7 @@ it('signs only the player\'s own private channel and keeps their notices until r
 
 it('lets admins send, end and delete system notices, pushing each change', function (): void {
     Event::fake([WdbNoticePosted::class, WdbNoticeEnded::class]);
-    $admin = User::factory()->create(['role' => 'admin']);
+    $admin = User::factory()->admin()->create();
 
     $this->actingAs($admin)->get('/waddamburo/admin/waddamburo-notices')->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page->component('admin/WaddamburoNotices')->has('notices', 0));

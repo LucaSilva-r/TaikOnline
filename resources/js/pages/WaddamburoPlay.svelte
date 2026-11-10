@@ -1,24 +1,23 @@
 <script lang="ts">
     import { Deferred, Form, Link, router } from '@inertiajs/svelte';
-    import Flag from 'lucide-svelte/icons/flag';
     import ArrowLeft from 'lucide-svelte/icons/arrow-left';
     import Crown from 'lucide-svelte/icons/crown';
     import ExternalLink from 'lucide-svelte/icons/external-link';
+    import Flag from 'lucide-svelte/icons/flag';
     import Gavel from 'lucide-svelte/icons/gavel';
     import AnalysisPanel from '@/components/AnalysisPanel.svelte';
     import AppHead from '@/components/AppHead.svelte';
     import DanRankTag from '@/components/DanRankTag.svelte';
-    import PlayInspection, {
-        type Inspection,
-    } from '@/components/PlayInspection.svelte';
+    import InputError from '@/components/InputError.svelte';
+    import PlayInspection from '@/components/PlayInspection.svelte';
+    import type { Inspection } from '@/components/PlayInspection.svelte';
+    import ReplayPlayer from '@/components/ReplayPlayer.svelte';
+    import type { Replay } from '@/components/ReplayPlayer.svelte';
     import {
         Avatar,
         AvatarFallback,
         AvatarImage,
     } from '@/components/ui/avatar';
-    import ReplayPlayer, {
-        type Replay,
-    } from '@/components/ReplayPlayer.svelte';
     import { Badge } from '@/components/ui/badge';
     import { Button, buttonVariants } from '@/components/ui/button';
     import { Skeleton } from '@/components/ui/skeleton';
@@ -29,7 +28,6 @@
     import moderationPlayers from '@/routes/mod/players';
     import moderationPlays from '@/routes/mod/plays';
     import { report as reportPlay, show as playsShow } from '@/routes/plays';
-    import InputError from '@/components/InputError.svelte';
     import songs from '@/routes/songs';
 
     type Play = {
@@ -52,6 +50,27 @@
         input_offset_ms: number | null;
         scored: boolean;
         placement: number | null;
+    };
+    type BattleCounts = {
+        great: number;
+        good: number;
+        miss: number;
+        rolls: number;
+    };
+    type AiBattle = {
+        verified: boolean;
+        counted: boolean;
+        won: boolean | null;
+        sections: string;
+        counts: { player: BattleCounts; ai: BattleCounts }[];
+        points: number;
+        support_level: number | null;
+        progress: {
+            rank: number;
+            points: number;
+            wins: number;
+            points_to_next: number;
+        };
     };
     type Stats = {
         mean_offset: number | null;
@@ -83,6 +102,7 @@
         player,
         chart,
         otherPlays,
+        aiBattle,
         stats,
         replay,
         report,
@@ -100,6 +120,7 @@
             external_url: string | null;
         };
         otherPlays: OtherPlay[];
+        aiBattle: AiBattle | null;
         stats?: Stats;
         replay?: Replay | null;
         report: {
@@ -163,6 +184,7 @@
         const reason = prompt(
             'Dismiss the open reports on this play? Reason (optional):',
         );
+
         if (reason !== null) {
             router.patch(
                 moderationPlays.dismissReports({ ...taikoParam, play: play.id })
@@ -175,6 +197,7 @@
 
     function hide() {
         const reason = prompt('Hide this play from every board. Reason:');
+
         if (reason) {
             router.patch(
                 moderationPlays.hide({ ...taikoParam, play: play.id }).url,
@@ -186,6 +209,7 @@
 
     function restore() {
         const reason = prompt('Restore this play? Reason (optional):');
+
         if (reason !== null) {
             router.patch(
                 moderationPlays.restore({ ...taikoParam, play: play.id }).url,
@@ -237,7 +261,9 @@
                 <div class="min-w-0">
                     <div class="flex min-w-0 items-center gap-2">
                         <DanRankTag userId={player.user_id} />
-                        <span class="truncate text-xl font-bold tracking-tight">{player.name}</span>
+                        <span class="truncate text-xl font-bold tracking-tight"
+                            >{player.name}</span
+                        >
                     </div>
                     <div
                         class="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
@@ -359,6 +385,86 @@
             The server has not scored this play from its replay yet (its chart
             is not uploaded): these are the numbers the game sent.
         </p>
+    {/if}
+
+    {#if aiBattle}
+        <section class="rounded-xl border bg-card p-6" aria-label="AI battle">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 class="text-lg font-semibold">AI battle</h2>
+                <Badge variant={aiBattle.verified ? 'outline' : 'secondary'}>
+                    {aiBattle.verified ? 'Verified' : 'Unverified'}
+                </Badge>
+            </div>
+            {#if aiBattle.verified}
+                <p class="mt-2 text-lg font-semibold">
+                    {aiBattle.won ? 'Battle won' : 'Battle lost'}
+                </p>
+                <p class="mt-1 text-sm text-muted-foreground">
+                    {#if aiBattle.counted}
+                        +{aiBattle.points} rank points
+                        {#if aiBattle.points === 0 && !play.cleared}
+                            · A gauge clear is required for rank points.
+                        {:else if aiBattle.support_level}
+                            · Support charts earn wins, but no rank points.
+                        {/if}
+                    {:else}
+                        This battle does not count toward online AI progress.
+                    {/if}
+                </p>
+                <div class="mt-4 overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="text-muted-foreground">
+                            <tr
+                                ><th class="py-2">Section</th><th>Result</th><th
+                                    >You · Good / OK / Bad</th
+                                ><th>AI · Good / OK / Bad</th></tr
+                            >
+                        </thead>
+                        <tbody>
+                            {#each aiBattle.sections.split('') as result, index (index)}
+                                <tr class="border-t">
+                                    <td class="py-2">{index + 1}</td>
+                                    <td class="font-medium"
+                                        >{result === 'W' ? 'Win' : 'Loss'}</td
+                                    >
+                                    <td class="tabular-nums"
+                                        >{#if aiBattle.counts[index]}{aiBattle
+                                                .counts[index].player.great} / {aiBattle
+                                                .counts[index].player.good} / {aiBattle
+                                                .counts[index].player
+                                                .miss}{:else}—{/if}</td
+                                    >
+                                    <td class="tabular-nums"
+                                        >{#if aiBattle.counts[index]}{aiBattle
+                                                .counts[index].ai.great} / {aiBattle
+                                                .counts[index].ai.good} / {aiBattle
+                                                .counts[index].ai
+                                                .miss}{:else}—{/if}</td
+                                    >
+                                </tr>
+                            {/each}
+                        </tbody>
+                    </table>
+                </div>
+            {:else}
+                <p class="mt-2 text-sm text-muted-foreground">
+                    This battle has no verified AI result. Offline plays and
+                    older clients do not earn online AI points or reward wins.
+                </p>
+            {/if}
+            <p class="mt-4 border-t pt-4 text-sm">
+                Current AI rank {aiBattle.progress.rank} · {numberFormatter.format(
+                    aiBattle.progress.points,
+                )} points · {numberFormatter.format(aiBattle.progress.wins)} battle
+                wins
+                {#if aiBattle.progress.rank >= 10}
+                    · Higher ranks need challenge progression, which is not
+                    available yet.
+                {:else if aiBattle.progress.points_to_next > 0}
+                    · {aiBattle.progress.points_to_next} points to the next rank
+                {/if}
+            </p>
+        </section>
     {/if}
 
     <!-- Counts -->
@@ -537,7 +643,9 @@
                         bind:time={
                             () => (replay ? replayTime : null),
                             (value) => {
-                                if (value !== null) replayTime = value;
+                                if (value !== null) {
+                                    replayTime = value;
+                                }
                             }
                         }
                     />
