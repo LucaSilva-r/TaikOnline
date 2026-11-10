@@ -21,6 +21,15 @@ it('inflates play result payloads with optional headers', function (): void {
         ->and($payloads->inflatePlayResultData(str_repeat("\0", 32).$compressed))->toBe('abc');
 });
 
+it('keeps uncompressed play result payloads unchanged', function (string $payload): void {
+    expect((new ProtocolPayloads)->inflatePlayResultData($payload))->toBe($payload);
+})->with([
+    'empty' => [''],
+    'short' => ['plain result'],
+    'long' => [str_repeat('x', 64)],
+    'header and plain data' => [str_repeat("\0", 32).'plain result'],
+]);
+
 it('maps score ranks conservatively', function (): void {
     $mapper = new ScoreMapper;
 

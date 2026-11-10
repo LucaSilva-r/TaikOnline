@@ -52,6 +52,10 @@ class ProtocolPayloads
 
     private function decodeGzip(string $payload): ?string
     {
+        if (! str_starts_with($payload, "\x1f\x8b")) {
+            return null;
+        }
+
         $decoded = @gzdecode($payload);
         if ($decoded !== false) {
             return $decoded;
