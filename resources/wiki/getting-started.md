@@ -1,4 +1,4 @@
-Waddamburo is an independent, open-source Taiko no Tatsujin simulator for Windows x64 and Linux x64. It uses a new engine to recreate the Gen3 arcade experience, with TaikOnline accounts, extra song libraries, and tools for customising the gameplay screen.
+Waddamburo is an independent, open-source Taiko no Tatsujin simulator for Windows x64 and Linux x64. It uses a new engine to recreate the Gen3 arcade experience, with TaikOnline accounts, extra song libraries (custom TJA, osu!, other arcade releases, Nijiiro, and the Wii and Wii U games; see [Songs and libraries](song-libraries)), and tools for customising the gameplay screen.
 
 ## What you need
 

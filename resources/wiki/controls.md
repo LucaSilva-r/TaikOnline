@@ -25,12 +25,14 @@ These are the defaults; the buttons beside the drum can be rebound in **Settings
 | Song Select              | Tab                 | Search songs                                        |
 | Song Select              | L                   | Open or close scores and rankings, in single-player |
 | Song Select              | P                   | Toggle a favourite                                  |
+| Menus                    | E                   | Open notifications                                  |
+| Menus                    | Backspace           | Go back                                             |
 | Song Select              | Page Up / Page Down | Skip songs with Fast Song Scrolling enabled         |
 | Song or results          | Hold Q              | Restart the song; the hold duration is configurable |
 | Local single-player song | F8                  | Open the modchart editor; this run becomes unranked |
 | Gameplay                 | F12                 | Save a screenshot in the local screenshots folder   |
 
-See [Practice and replays](practice-and-replays) for playback and loop controls. Escape works as a **test switch** in Arcade mode; see [Home and Arcade modes](home-and-arcade).
+See [Practice and replays](practice-and-replays) for playback and loop controls. Escape works as a **test switch** in Arcade mode, where **F2** inserts a coin and **F3** adds a service credit; see [Home and Arcade modes](home-and-arcade).
 
 ## Bind a keyboard or drum
 

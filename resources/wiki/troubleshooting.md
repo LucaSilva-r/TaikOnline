@@ -10,15 +10,23 @@ If you built from source and see an incompatible native-library ABI or a missing
 
 ## A song or library is missing
 
-Check **Settings → Song Libraries** for a rejected folder and its reason. Follow the restart prompt after changing libraries.
+A library that could not load shows a **Library not loaded** notice at startup. Open **Settings → Song Libraries**: its row is red, and its hint gives the reason, such as a folder not found or no songs in it. Official libraries are on the Arcade releases, Wii / Wii U, and Nijiiro pages. Follow the restart prompt after changing libraries.
 
-For TJA, verify the course declaration, positive BPM, and WAVE filename. Audio paths are relative to the chart and must remain inside the selected library. On Linux, filename case matters. Missing audio or an unsupported or incomplete chart can keep the song out of the catalog.
+For TJA, verify the course declaration, positive BPM, and WAVE filename. Audio paths are relative to the chart and must remain inside the selected library. On Linux, filename case matters. Missing audio or an unsupported or incomplete chart keeps that song out of the catalog; the rest of the library still loads.
 
-For osu!lazer, select its data folder and check the beatmap is native osu!taiko. Close lazer while retrying the scan. For Nijiiro audio, install vgmstream-cli separately as described in [Songs and libraries](song-libraries).
+For osu!lazer or osu!stable, check the install was found (a green row) or select its folder, and check the beatmap is native osu!taiko. Close osu! while retrying the scan.
+
+For Nijiiro, install vgmstream-cli and, for encrypted installations, set the decryption keys in config.cfg; both are described in [Songs and libraries](song-libraries).
+
+For Wii, select the extraction that contains **files**, **game-1/files**, or **DATA/files**. For Wii U, select the game's **[Game]** folder in the decrypted Cemu layout, not the update or DLC folder; DLC songs appear when the DLC folder sits next to it. A song with the same charts on several discs of one platform is listed once, from the newest disc.
 
 ## Audio crackles or a song stops
 
-Raise **Audio Buffer** and restart. Check Master and Music volumes, the system output device, and whether Mute in Background is active. A warning that song audio could not keep up means the play was stopped; include the session log if it repeats.
+In **Settings → Sound → Advanced Audio**, raise the buffer for your output mode: **Audio Buffer** in Shared mode, **Exclusive Period** in Exclusive mode, or **ASIO Buffer** in ASIO mode. Choose **Apply Now** when leaving the settings. If Exclusive or ASIO keeps stuttering, return to Shared to check whether the device or driver is the cause.
+
+No sound at all: check **Output Device** (an unplugged device falls back to the system default, and the game shows a notice), the ASIO driver and output pair, Master and Music volumes, and whether Mute in Background is active. In Exclusive mode, other programs are silent while the game runs; that is expected.
+
+A warning that song audio could not keep up means the play was stopped; include the session log if it repeats. The first play of a Nijiiro song decodes it with vgmstream-cli and can take a moment; later plays use the cached copy.
 
 For consistent early or late timing, use [Settings and timing](settings-and-timing). For one hit registering twice, check the drum and then try a small Drum Debounce value. Increasing debounce too far also suppresses valid fast hits.
 

@@ -2,16 +2,16 @@ Home and Arcade are two play modes in the same engine. Choose Home for normal PC
 
 ## Compare the modes
 
-| Feature                     | Home                                                | Arcade                                                 |
-| --------------------------- | --------------------------------------------------- | ------------------------------------------------------ |
-| Sessions                    | Free play without cabinet countdowns                | Free play or coins, credits, and songs per session     |
-| Escape                      | Pause or open the Home menu                         | Test switch: stops the game and opens the service menu |
-| Player login                | Remembered accounts, Guest, or Join with code       | Card or cabinet pairing for the upcoming credit        |
-| Online credentials          | Each player's account token                         | An operator-issued cabinet token                       |
-| Extra song libraries        | TJA, osu!lazer, and additional official libraries   | The cabinet's own game library                         |
-| Online rooms                | Quick Play, public rooms, and joining by code       | Unavailable                                            |
-| Layouts and editing         | Named layouts and local editing tools               | Player layouts and editors are unavailable             |
-| Practice and replay browser | Available in the supported local single-player flow | Unavailable                                            |
+| Feature                     | Home                                                                       | Arcade                                                 |
+| --------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Sessions                    | Free play without cabinet countdowns                                       | Free play or coins, credits, and songs per session     |
+| Escape                      | Pause or open the Home menu                                                | Test switch: stops the game and opens the service menu |
+| Player login                | Remembered accounts, Guest, or Join with code                              | Card or cabinet pairing for the upcoming credit        |
+| Online credentials          | Each player's account token                                                | An operator-issued cabinet token                       |
+| Extra song libraries        | TJA, osu!lazer, osu!stable, other arcade releases, Nijiiro, Wii, and Wii U | The game's own songs only                              |
+| Online rooms                | Quick Play, public rooms, and joining by code                              | Unavailable                                            |
+| Layouts and editing         | Named layouts and local editing tools                                      | Player layouts and editors are unavailable             |
+| Practice and replay browser | Available in the supported local single-player flow                        | Unavailable                                            |
 
 The **Arcade Timer & Song Number** display option in Home mode changes the HUD. It does not switch the game to Arcade mode or start charging credits.
 
