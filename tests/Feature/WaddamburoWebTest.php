@@ -178,8 +178,8 @@ it('finds songs by English title, filters by source and names osu! difficulties 
     $this->get('/waddamburo/songs?source=Nijiiro')->assertInertia(fn (Assert $page) => $page
         ->has('songs.data', 1)->where('songs.data.0.title', 'Unplayed'));
     // Wii/Wii U songs are official too, their own source.
-    wdb_web_chart(['sha256' => str_repeat('4', 64), 'title' => 'さいたま２０００', 'source' => 'Console', 'is_stock' => true, 'course' => 3, 'ranked_at' => now()]);
-    $this->get('/waddamburo/songs?source=Console')->assertInertia(fn (Assert $page) => $page
+    wdb_web_chart(['sha256' => str_repeat('4', 64), 'title' => 'さいたま２０００', 'source' => 'Wii', 'is_stock' => true, 'course' => 3, 'ranked_at' => now()]);
+    $this->get('/waddamburo/songs?source=Wii')->assertInertia(fn (Assert $page) => $page
         ->has('songs.data', 1)->where('songs.data.0.genre.label', 'Wii/Wii U'));
     $this->get('/waddamburo/songs?source=OsuLazer')->assertInertia(fn (Assert $page) => $page
         ->has('songs.data', 1)->where('songs.data.0.genre.label', 'osu!lazer')->where('filters.source', 'OsuLazer'));

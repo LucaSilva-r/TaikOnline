@@ -126,7 +126,7 @@
         childrens_songs: 'bg-lime-500/15 text-lime-600 dark:text-lime-400',
         wdb_stock: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
         wdb_nijiiro: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
-        wdb_console: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-300',
+        wdb_wii: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-300',
         wdb_osulazer: 'bg-pink-500/15 text-pink-600 dark:text-pink-400',
         wdb_custom: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
         wdb_stock_nijiiro: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',

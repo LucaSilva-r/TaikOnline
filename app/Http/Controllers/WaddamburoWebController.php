@@ -37,11 +37,11 @@ use Inertia\Response;
 class WaddamburoWebController extends Controller
 {
     /** Chart sources as the pages show them (see shownSource) => label. */
-    private const SOURCES = ['Stock' => 'Stock', 'Nijiiro' => 'Nijiiro', 'Console' => 'Wii/Wii U', 'OsuLazer' => 'osu!lazer', 'Custom' => 'Custom'];
+    private const SOURCES = ['Stock' => 'Stock', 'Nijiiro' => 'Nijiiro', 'Wii' => 'Wii/Wii U', 'OsuLazer' => 'osu!lazer', 'Custom' => 'Custom'];
 
     /** shownSource() in SQL, over a wdb_chart_song link joined to its chart. */
     private const SHOWN_SOURCE_SQL = "CASE WHEN wdb_chart_song.source = 'OsuLazer' THEN 'OsuLazer' "
-        ."WHEN wdb_chart_song.source IN ('Stock', 'Nijiiro', 'Console') AND wdb_charts.is_stock THEN wdb_chart_song.source ELSE 'Custom' END";
+        ."WHEN wdb_chart_song.source IN ('Stock', 'Nijiiro', 'Wii') AND wdb_charts.is_stock THEN wdb_chart_song.source ELSE 'Custom' END";
 
     public function __construct(private readonly WaddamburoAiBattles $battles) {}
 
@@ -475,14 +475,14 @@ class WaddamburoWebController extends Controller
     }
 
     /**
-     * A chart link's source as the pages show it: Stock, Nijiiro and Console (Wii/Wii U) for official charts only, osu! for
+     * A chart link's source as the pages show it: Stock, Nijiiro and Wii (Wii/Wii U) for official charts only, osu! for
      * osu! beatmaps (their own ranked maps), and Custom for the rest (TJA, charts added to a game install).
      */
     private static function shownSource(string $source, bool $isStock): string
     {
         return match (true) {
             $source === 'OsuLazer' => 'OsuLazer',
-            in_array($source, ['Stock', 'Nijiiro', 'Console'], true) && $isStock => $source,
+            in_array($source, ['Stock', 'Nijiiro', 'Wii'], true) && $isStock => $source,
             default => 'Custom',
         };
     }
