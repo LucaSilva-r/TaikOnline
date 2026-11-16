@@ -10,14 +10,16 @@ use Illuminate\Support\Facades\DB;
  * share the game's song ids and most charts, so a song lists both, and each chart link records which
  * source shipped it. Charts without a key (TJA, uploads from before keys) are grouped by title and
  * subtitle under a "title:" key; once a chart arrives with a real key it leaves its title songs of
- * that family, and songs left without charts go.
+ * that family, and songs left without charts go. Wii and Wii U songs are the game's songs too: the client keys them
+ * "<release>:<id>" ("wiiu3:anp"); the link records the system (Wii or WiiU) and the release, the song is the Namco one
+ * of the id, and their titles only fill a song that has none (the arcade's and Nijiiro's are the ones shown).
  */
 class WaddamburoSongs
 {
     private const TITLE_KEY = 'title:';
 
     /** Sources sharing one song id space => their family. */
-    private const FAMILIES = ['Stock' => 'Namco', 'Nijiiro' => 'Namco'];
+    private const FAMILIES = ['Stock' => 'Namco', 'Nijiiro' => 'Namco', 'Wii' => 'Namco', 'WiiU' => 'Namco'];
 
     public static function family(string $source): string
     {
@@ -36,14 +38,17 @@ class WaddamburoSongs
     {
         $songs = [];
         $pairs = [];
+        // Songs a non-Wii link names: their titles are the arcade's or Nijiiro's.
+        $strong = [];
         foreach ($links as $link) {
             $source = self::text($link['source'] ?? null) ?? '';
+            [$source, $release, $wiiKey] = self::wii($source, self::text($link['song_key'] ?? null));
             $family = self::family($source);
             // Stock writes Latin titles in full-width letters, Nijiiro in plain ones: one title for both.
             $plain = fn (?string $text): ?string => $family === 'Namco' && $text !== null ? self::halfWidth($text) : $text;
             $title = $plain(self::text($link['title'] ?? null));
             $subtitle = $plain(self::text($link['subtitle'] ?? null));
-            $key = self::text($link['song_key'] ?? null);
+            $key = $wiiKey ?? self::text($link['song_key'] ?? null);
             if ($key === null && $title === null) {
                 continue;
             }
@@ -54,23 +59,37 @@ class WaddamburoSongs
                 'title_en' => self::text($link['title_en'] ?? null), 'subtitle_en' => self::text($link['subtitle_en'] ?? null),
                 'osu_beatmapset_id' => ($link['osu_beatmapset_id'] ?? null) ?: null,
             ];
-            // Postgres refuses an upsert touching the same row twice: merge links to one song first.
-            $songs[$id] = isset($songs[$id]) ? array_merge($songs[$id], array_filter($new, fn ($value) => $value !== null)) : $new;
-            $pairs[] = [$id, (int) $link['wdb_chart_id'], $source];
+            // Postgres refuses an upsert touching the same row twice: merge links to one song first (a Wii link only
+            // fills what a stronger one left empty).
+            $weak = $release !== '';
+            $songs[$id] = match (true) {
+                ! isset($songs[$id]) => $new,
+                $weak && isset($strong[$id]) => array_merge($new, array_filter($songs[$id], fn ($value) => $value !== null)),
+                default => array_merge($songs[$id], array_filter($new, fn ($value) => $value !== null)),
+            };
+            if (! $weak) {
+                $strong[$id] = true;
+            }
+            $pairs[] = [$id, (int) $link['wdb_chart_id'], $source, $release];
         }
         if ($songs === []) {
             return;
         }
 
         $now = now();
-        $refresh = fn (string $column) => DB::raw("COALESCE(excluded.{$column}, wdb_songs.{$column})");
-        foreach (array_chunk($songs, 500, true) as $chunk) {
-            DB::table('wdb_songs')->upsert(
-                array_map(fn (array $song): array => [...$song, 'created_at' => $now, 'updated_at' => $now], array_values($chunk)),
-                ['family', 'song_key'],
-                ['title' => $refresh('title'), 'subtitle' => $refresh('subtitle'), 'title_en' => $refresh('title_en'),
-                    'subtitle_en' => $refresh('subtitle_en'), 'osu_beatmapset_id' => $refresh('osu_beatmapset_id'),
-                    'updated_at' => DB::raw('excluded.updated_at')]);
+        // A Wii-only song keeps the titles it has.
+        foreach ([true, false] as $isStrong) {
+            $refresh = fn (string $column) => DB::raw($isStrong
+                ? "COALESCE(excluded.{$column}, wdb_songs.{$column})" : "COALESCE(wdb_songs.{$column}, excluded.{$column})");
+            $part = array_filter($songs, fn (string $id): bool => isset($strong[$id]) === $isStrong, ARRAY_FILTER_USE_KEY);
+            foreach (array_chunk($part, 500, true) as $chunk) {
+                DB::table('wdb_songs')->upsert(
+                    array_map(fn (array $song): array => [...$song, 'created_at' => $now, 'updated_at' => $now], array_values($chunk)),
+                    ['family', 'song_key'],
+                    ['title' => $refresh('title'), 'subtitle' => $refresh('subtitle'), 'title_en' => $refresh('title_en'),
+                        'subtitle_en' => $refresh('subtitle_en'), 'osu_beatmapset_id' => $refresh('osu_beatmapset_id'),
+                        'updated_at' => DB::raw('excluded.updated_at')]);
+            }
         }
 
         $ids = [];
@@ -87,7 +106,7 @@ class WaddamburoSongs
                 });
         }
 
-        $rows = array_map(fn (array $pair): array => ['wdb_chart_id' => $pair[1], 'wdb_song_id' => $ids[$pair[0]], 'source' => $pair[2]], $pairs);
+        $rows = array_map(fn (array $pair): array => ['wdb_chart_id' => $pair[1], 'wdb_song_id' => $ids[$pair[0]], 'source' => $pair[2], 'release' => $pair[3]], $pairs);
         foreach (array_chunk($rows, 1000) as $chunk) {
             DB::table('wdb_chart_song')->insertOrIgnore($chunk);
         }
@@ -109,6 +128,21 @@ class WaddamburoSongs
         }
         DB::table('wdb_songs')->whereNotExists(fn ($query) => $query->from('wdb_chart_song')
             ->whereColumn('wdb_chart_song.wdb_song_id', 'wdb_songs.id'))->delete();
+    }
+
+    /**
+     * A Wii link's system, release and song id from its "<release>:<id>" key ("wiiu3:anp" → WiiU, wiiu3, anp); other
+     * links as they are.
+     *
+     * @return array{string, string, ?string}
+     */
+    public static function wii(string $source, ?string $key): array
+    {
+        if (! in_array($source, ['Wii', 'WiiU'], true) || $key === null || ! preg_match('/^(wii[a-z0-9-]{0,14}):(.+)$/', $key, $match)) {
+            return [$source, '', null];
+        }
+
+        return [str_starts_with($match[1], 'wiiu') ? 'WiiU' : 'Wii', $match[1], $match[2]];
     }
 
     /** Full-width ASCII (Ｄｒｅａｄｎｏｕｇｈｔ) as plain ASCII. */

@@ -13,7 +13,7 @@ class WdbSong extends Model
 {
     public function charts(): BelongsToMany
     {
-        return $this->belongsToMany(WdbChart::class, 'wdb_chart_song')->withPivot('source');
+        return $this->belongsToMany(WdbChart::class, 'wdb_chart_song')->withPivot('source', 'release');
     }
 
     /** The song's beatmap set on osu.ppy.sh, for osu! songs. */

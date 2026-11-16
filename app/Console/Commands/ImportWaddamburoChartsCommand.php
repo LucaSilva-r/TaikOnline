@@ -28,12 +28,15 @@ use Illuminate\Support\Facades\DB;
  * only as Green's unless a dump has it. --unrank-custom then unranks every chart not marked stock, admin-ranked ones
  * too (their scores stay, out of the standings), after a confirmation that --force skips. A line's legacy_sha256 names
  * the chart older clients played in its place (a 譜面分岐 chart read as its normal route): that chart is marked legacy
- * and unranked, its plays kept apart.
+ * and unranked, its plays kept apart. --prune-stock says the files list every arcade chart (the client exports the
+ * charts the game plays: a song several releases have is the newest one's, Green's): Stock links to charts they don't
+ * list go, unless someone played the chart or it is legacy.
  */
 #[Signature('app:import-waddamburo-charts
     {files* : The files written by Waddamburo --export-charts=FILE on unmodified installs}
     {--nijiiro-dumps : The files are exports of unmodified Nijiiro dumps: only their Nijiiro charts are official}
     {--unrank-custom : Unrank every chart that is not stock, including ones an admin ranked}
+    {--prune-stock : The files list every arcade chart: drop Stock links to unplayed charts they do not list}
     {--force : Unrank without asking}')]
 #[Description('Import, mark stock and rank the official Waddamburo charts by hash')]
 class ImportWaddamburoChartsCommand extends Command
@@ -52,6 +55,7 @@ class ImportWaddamburoChartsCommand extends Command
         }
         $dumps = (bool) $this->option('nijiiro-dumps');
         $dumped = [];
+        $stock = [];
         $official = 0;
         $now = now();
         $imported = 0;
@@ -85,7 +89,7 @@ class ImportWaddamburoChartsCommand extends Command
         };
 
         foreach ($files as $file) {
-            $this->importLines($file, $rows, $links, $legacy, $dumps, $dumped, $imported, $official, $skipped, $now, $flush);
+            $this->importLines($file, $rows, $links, $legacy, $dumps, $dumped, $stock, $imported, $official, $skipped, $now, $flush);
             fclose($file);
         }
         if ($rows !== []) {
@@ -103,6 +107,25 @@ class ImportWaddamburoChartsCommand extends Command
                 $greenOnly += DB::table('wdb_chart_song')->where('source', 'Nijiiro')->whereIn('wdb_chart_id', $others)
                     ->whereIn('wdb_chart_id', $links('Stock'))->delete();
             });
+        }
+        $pruned = 0;
+        if ($this->option('prune-stock')) {
+            if ($stock === []) {
+                $this->error('--prune-stock needs an export with the arcade charts; nothing pruned.');
+
+                return self::FAILURE;
+            }
+            // Charts the files list, played or legacy ones are kept.
+            DB::table('wdb_chart_song')->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_chart_song.wdb_chart_id')
+                ->where('wdb_chart_song.source', 'Stock')->whereNull('wdb_charts.legacy_at')
+                ->whereNotExists(fn ($query) => $query->from('wdb_plays')->whereColumn('wdb_plays.wdb_chart_id', 'wdb_charts.id'))
+                ->distinct()->get(['wdb_charts.id', 'wdb_charts.sha256'])
+                ->reject(fn (object $chart): bool => isset($stock[$chart->sha256]))->pluck('id')
+                ->chunk(1000)->each(function ($gone) use (&$pruned): void {
+                    $pruned += DB::table('wdb_chart_song')->where('source', 'Stock')->whereIn('wdb_chart_id', $gone->values())->delete();
+                });
+            DB::table('wdb_songs')->whereNotExists(fn ($query) => $query->from('wdb_chart_song')
+                ->whereColumn('wdb_chart_song.wdb_song_id', 'wdb_songs.id'))->delete();
         }
         $legacyCharts = 0;
         foreach (array_chunk(array_keys($legacy), 1000) as $chunk) {
@@ -126,6 +149,9 @@ class ImportWaddamburoChartsCommand extends Command
             ->each(fn (Player $player) => $aggregates->recompute($player));
 
         $this->info("Imported {$imported} charts, {$official} official and ranked ({$skipped} invalid lines skipped).");
+        if ($this->option('prune-stock')) {
+            $this->info("Dropped {$pruned} Stock links to arcade charts the game no longer plays.");
+        }
         if ($legacyCharts > 0) {
             $this->info("Marked {$legacyCharts} charts legacy (older clients' reading of a branched chart).");
         }
@@ -148,7 +174,7 @@ class ImportWaddamburoChartsCommand extends Command
      * @param  array<string, true>  $legacy  the legacy_sha256 values seen
      * @param  array<string, int>  $listed  the official Nijiiro song ids (keys)
      */
-    private function importLines($file, array &$rows, array &$links, array &$legacy, bool $dumps, array &$dumped, int &$imported, int &$official, int &$skipped, CarbonInterface $now, Closure $flush): void
+    private function importLines($file, array &$rows, array &$links, array &$legacy, bool $dumps, array &$dumped, array &$stock, int &$imported, int &$official, int &$skipped, CarbonInterface $now, Closure $flush): void
     {
         while (($line = fgets($file)) !== false) {
             if (trim($line) === '') {
@@ -169,6 +195,9 @@ class ImportWaddamburoChartsCommand extends Command
                 $legacy[$old] = true;
             }
 
+            if (($chart['source'] ?? '') === 'Stock') {
+                $stock[$sha256] = true;
+            }
             $isOfficial = ($chart['source'] ?? '') !== 'Nijiiro' || $dumps;
             if ($dumps && ($chart['source'] ?? '') === 'Nijiiro') {
                 $dumped[$sha256] = true;

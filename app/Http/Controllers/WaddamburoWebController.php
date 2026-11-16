@@ -37,11 +37,15 @@ use Inertia\Response;
 class WaddamburoWebController extends Controller
 {
     /** Chart sources as the pages show them (see shownSource) => label. */
-    private const SOURCES = ['Stock' => 'Stock', 'Nijiiro' => 'Nijiiro', 'Wii' => 'Wii/Wii U', 'OsuLazer' => 'osu!lazer', 'Custom' => 'Custom'];
+    private const SOURCES = ['Stock' => 'Stock', 'Nijiiro' => 'Nijiiro', 'Wii' => 'Wii', 'WiiU' => 'Wii U', 'OsuLazer' => 'osu!lazer', 'Custom' => 'Custom'];
+
+    /** The Wii and Wii U releases (a chart link's release, see WaddamburoSongs::wii) => name. */
+    private const RELEASES = ['wii1' => 'Wii (2008)', 'wii2' => 'Wii 2', 'wii3' => 'Wii 3', 'wii4' => 'Wii Ketteiban',
+        'wii5' => 'Wii Chou Goukaban', 'wiiu' => 'Wii U', 'wiiu2' => 'Wii U Tokumori', 'wiiu3' => 'Wii U Atsumete'];
 
     /** shownSource() in SQL, over a wdb_chart_song link joined to its chart. */
     private const SHOWN_SOURCE_SQL = "CASE WHEN wdb_chart_song.source = 'OsuLazer' THEN 'OsuLazer' "
-        ."WHEN wdb_chart_song.source IN ('Stock', 'Nijiiro', 'Wii') AND wdb_charts.is_stock THEN wdb_chart_song.source ELSE 'Custom' END";
+        ."WHEN wdb_chart_song.source IN ('Stock', 'Nijiiro', 'Wii', 'WiiU') AND wdb_charts.is_stock THEN wdb_chart_song.source ELSE 'Custom' END";
 
     public function __construct(private readonly WaddamburoAiBattles $battles) {}
 
@@ -135,6 +139,8 @@ class WaddamburoWebController extends Controller
         $charts = $visible->groupBy('id')->map(function (Collection $links): WdbChart {
             $chart = $links->first();
             $chart->setAttribute('sources', self::ordered($links->map(fn (WdbChart $link): string => self::shownSource($link->pivot->source, $link->is_stock))->all()));
+            $chart->setAttribute('releases', $links->map(fn (WdbChart $link): string => $link->pivot->release ?? '')->filter()->unique()
+                ->sortBy(fn (string $release): int|false => array_search($release, array_keys(self::RELEASES), true))->values()->all());
 
             return $chart;
         })->values();
@@ -142,9 +148,9 @@ class WaddamburoWebController extends Controller
         $songSources = self::ordered($charts->pluck('sources')->flatten()->all());
         $plays = WdbPlay::query()->whereIn('wdb_chart_id', $chartIds)->visibleTo($this->viewerBaid());
 
-        $difficulties = $this->difficultyBoards($charts);
+        [$difficulties, $versions, $boards] = $this->difficultyBoards($charts);
         $recentPlays = $this->songRecentPlays($chartIds);
-        $userIds = collect($difficulties)->flatMap(fn (array $board): array => [
+        $userIds = collect($difficulties)->concat($boards)->flatMap(fn (array $board): array => [
             ...$board['entries'], ...$board['shinuchi_entries'],
             ...collect($board['legacy'] ?? [])->flatMap(fn (array $legacy): array => [...$legacy['entries'], ...$legacy['shinuchi_entries']])->all(),
         ])->merge($recentPlays)->pluck('user_id');
@@ -170,6 +176,9 @@ class WaddamburoWebController extends Controller
                 'last_played_at' => (clone $plays)->max('played_at'),
             ],
             'difficulties' => $difficulties,
+            // The systems charting the song differently: Standard (what they share) first, then each outlier; boards by id.
+            'versions' => $versions,
+            'boards' => $boards,
             'recentPlays' => $recentPlays,
             'isFavorite' => false,
             'favoritesSupported' => false,
@@ -222,27 +231,114 @@ class WaddamburoWebController extends Controller
     }
 
     /**
-     * The song's boards by course. A legacy chart's (played before Waddamburo read the chart right, e.g. a
-     * 譜面分岐 chart as its normal route) goes under the first current chart of its course as `legacy`; one
-     * whose course has none stands alone, marked legacy.
+     * The song's boards, one card per course: the chart most systems share. A legacy chart's (played before
+     * Waddamburo read the chart right, e.g. a 譜面分岐 chart as its normal route) goes under its course's card as
+     * `legacy`; one whose course has none stands alone, marked legacy. When the systems chart the song differently,
+     * also its versions (see versions()) and every current chart's board by id.
+     *
+     * @return array{list<array<string, mixed>>, list<array<string, mixed>>, array<int, array<string, mixed>>}
      */
     private function difficultyBoards(Collection $charts): array
     {
         $sorted = $charts->sortBy(fn (WdbChart $chart): array => [
-            $chart->course, array_search($chart->sources[0] ?? '', array_keys(self::SOURCES), true), $chart->id,
+            $chart->course, -count($chart->sources ?? []), array_search($chart->sources[0] ?? '', array_keys(self::SOURCES), true), $chart->id,
         ]);
         [$legacy, $current] = $sorted->partition(fn (WdbChart $chart): bool => $chart->legacy_at !== null);
-        $hosts = $current->unique('course')->keyBy('course');
-        $boards = $current->map(fn (WdbChart $chart): array => [
-            ...$this->difficultyBoard($chart),
-            'legacy' => $hosts->get($chart->course)?->is($chart)
-                ? $legacy->where('course', $chart->course)->map(fn (WdbChart $old): array => $this->difficultyBoard($old))->values()->all()
-                : [],
+        $courses = $current->groupBy('course')->map(fn (Collection $course): Collection => $course->values());
+        $versions = self::versions($courses);
+        $boards = $versions === [] ? [] : $current->mapWithKeys(fn (WdbChart $chart): array => [$chart->id => $this->difficultyBoard($chart)])->all();
+        $cards = $courses->map(fn (Collection $course): array => [
+            ...($boards[$course->first()->id] ?? $this->difficultyBoard($course->first())),
+            'legacy' => $legacy->where('course', $course->first()->course)->map(fn (WdbChart $old): array => $this->difficultyBoard($old))->values()->all(),
         ]);
-        $orphans = $legacy->reject(fn (WdbChart $chart): bool => $hosts->has($chart->course))
+        $orphans = $legacy->reject(fn (WdbChart $chart): bool => $cards->has($chart->course))
             ->map(fn (WdbChart $chart): array => [...$this->difficultyBoard($chart), 'is_legacy' => true]);
 
-        return $boards->concat($orphans)->sortBy('level')->values()->all();
+        return [$cards->values()->concat($orphans)->sortBy('level')->values()->all(), $versions, $boards];
+    }
+
+    /**
+     * The song's versions, empty when every system ships the same charts. A system is a source, or a Wii/Wii U
+     * release; Standard is the systems whose every course is the course's most shared chart, each outlier the systems
+     * with the same charts as each other. Each version: key (for the URL), label, its chart id by level, and the
+     * levels where it differs from Standard.
+     *
+     * @param  Collection<int, Collection<int, WdbChart>>  $courses  the current charts by course, most shared first
+     * @return list<array{key: string, label: string, charts: array<int, int>, differs: list<int>}>
+     */
+    private static function versions(Collection $courses): array
+    {
+        // Each system's chart per level; a system with two charts of a course has its second as "Stock#2".
+        $systems = [];
+        foreach ($courses as $course => $charts) {
+            foreach ($charts as $chart) {
+                $releases = $chart->releases ?? [];
+                $keys = [...array_diff($chart->sources ?? [], ['Wii', 'WiiU']), ...$releases];
+                foreach ($keys as $key) {
+                    $n = 1;
+                    while (isset($systems[$n === 1 ? $key : "{$key}#{$n}"][$course + 1])) {
+                        $n++;
+                    }
+                    $systems[$n === 1 ? $key : "{$key}#{$n}"][$course + 1] = (int) $chart->id;
+                }
+            }
+        }
+        $standard = $courses->mapWithKeys(fn (Collection $charts, int $course): array => [$course + 1 => (int) $charts->first()->id])->all();
+        $groups = ['standard' => []];
+        foreach ($systems as $key => $charts) {
+            $same = array_intersect_assoc($charts, $standard) === $charts;
+            $groups[$same ? 'standard' : json_encode($charts)][] = $key;
+        }
+        if (count($groups) === 1) {
+            return [];
+        }
+        $releases = array_keys(array_filter($systems, fn (string $key): bool => isset(self::RELEASES[$key]), ARRAY_FILTER_USE_KEY));
+
+        return array_values(array_map(function (string $group, array $members) use ($systems, $standard, $releases): array {
+            $charts = $group === 'standard' ? $standard : $systems[$members[0]];
+            ksort($charts);
+
+            return [
+                'key' => $group === 'standard' ? 'standard' : strtolower(str_replace('#', '-', implode('_', $members))),
+                'label' => ($group === 'standard' ? 'Standard: ' : '').self::systemsLabel($members, $releases),
+                'charts' => $charts,
+                'differs' => array_keys(array_diff_assoc($charts, $standard)),
+            ];
+        }, array_keys($groups), $groups));
+    }
+
+    /**
+     * Systems as a version reads them: sources by name, a system's Wii releases as "Wii" when it has them all, else
+     * each release's name; a second chart of a source as "Stock (2)".
+     *
+     * @param  list<string>  $members
+     * @param  list<string>  $releases  every release of the song
+     */
+    private static function systemsLabel(array $members, array $releases): string
+    {
+        $names = [];
+        foreach (['Wii' => false, 'WiiU' => true] as $system => $isU) {
+            $all = array_filter($releases, fn (string $release): bool => str_starts_with($release, 'wiiu') === $isU);
+            $mine = array_values(array_intersect($all, $members));
+            if ($mine !== [] && count($mine) === count($all)) {
+                $members = array_diff($members, $mine);
+                $members[] = $system;
+            }
+        }
+        // Sources in SOURCES order, a release with its system.
+        $rank = function (string $member): array {
+            $key = explode('#', $member)[0];
+            $system = isset(self::RELEASES[$key]) ? (str_starts_with($key, 'wiiu') ? 'WiiU' : 'Wii') : $key;
+
+            return [array_search($system, array_keys(self::SOURCES), true), array_search($key, array_keys(self::RELEASES), true), $member];
+        };
+        usort($members, fn (string $a, string $b): int => $rank($a) <=> $rank($b));
+        foreach ($members as $member) {
+            [$key, $n] = [...explode('#', $member), null];
+            $names[] = (self::SOURCES[$key] ?? self::RELEASES[$key] ?? $key).($n === null ? '' : " ({$n})");
+        }
+
+        return implode(' · ', $names);
     }
 
     private function difficultyBoard(WdbChart $chart): array
@@ -475,14 +571,14 @@ class WaddamburoWebController extends Controller
     }
 
     /**
-     * A chart link's source as the pages show it: Stock, Nijiiro and Wii (Wii/Wii U) for official charts only, osu! for
+     * A chart link's source as the pages show it: Stock, Nijiiro, Wii and WiiU for official charts only, osu! for
      * osu! beatmaps (their own ranked maps), and Custom for the rest (TJA, charts added to a game install).
      */
     private static function shownSource(string $source, bool $isStock): string
     {
         return match (true) {
             $source === 'OsuLazer' => 'OsuLazer',
-            in_array($source, ['Stock', 'Nijiiro', 'Wii'], true) && $isStock => $source,
+            in_array($source, ['Stock', 'Nijiiro', 'Wii', 'WiiU'], true) && $isStock => $source,
             default => 'Custom',
         };
     }

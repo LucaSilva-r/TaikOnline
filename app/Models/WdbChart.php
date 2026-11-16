@@ -66,7 +66,7 @@ class WdbChart extends Model
     /** The songs this chart is a course of (once per source that ships it in the song). */
     public function songs(): BelongsToMany
     {
-        return $this->belongsToMany(WdbSong::class, 'wdb_chart_song')->withPivot('source');
+        return $this->belongsToMany(WdbSong::class, 'wdb_chart_song')->withPivot('source', 'release');
     }
 
     public function plays(): HasMany

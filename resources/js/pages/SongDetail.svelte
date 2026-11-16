@@ -1,4 +1,14 @@
 <script lang="ts">
+    import { Link, router } from '@inertiajs/svelte';
+    import ArrowLeft from 'lucide-svelte/icons/arrow-left';
+    import CalendarDays from 'lucide-svelte/icons/calendar-days';
+    import Crown from 'lucide-svelte/icons/crown';
+    import ExternalLink from 'lucide-svelte/icons/external-link';
+    import Music2 from 'lucide-svelte/icons/music-2';
+    import Play from 'lucide-svelte/icons/play';
+    import Star from 'lucide-svelte/icons/star';
+    import Users from 'lucide-svelte/icons/users';
+    import { toast } from 'svelte-sonner';
     import AppHead from '@/components/AppHead.svelte';
     import DanRankTag from '@/components/DanRankTag.svelte';
     import {
@@ -13,16 +23,6 @@
     import { show as boardShow } from '@/routes/board';
     import { show as playsShow } from '@/routes/plays';
     import songs from '@/routes/songs';
-    import { Link, router } from '@inertiajs/svelte';
-    import ArrowLeft from 'lucide-svelte/icons/arrow-left';
-    import CalendarDays from 'lucide-svelte/icons/calendar-days';
-    import Crown from 'lucide-svelte/icons/crown';
-    import ExternalLink from 'lucide-svelte/icons/external-link';
-    import Music2 from 'lucide-svelte/icons/music-2';
-    import Play from 'lucide-svelte/icons/play';
-    import Star from 'lucide-svelte/icons/star';
-    import Users from 'lucide-svelte/icons/users';
-    import { toast } from 'svelte-sonner';
 
     type Genre = { value: string; label: string; label_jp: string };
 
@@ -71,6 +71,15 @@
         is_legacy?: boolean;
     };
 
+    /** Waddamburo: one way the systems chart the song (Standard first), its chart id by level. */
+    type Version = {
+        key: string;
+        label: string;
+        charts: Record<number, number>;
+        /** The levels where its chart is not Standard's. */
+        differs: number[];
+    };
+
     type RecentPlay = {
         play_id?: string;
         user_id: number;
@@ -94,6 +103,8 @@
         song,
         summary,
         difficulties,
+        versions = [],
+        boards = {},
         recentPlays,
         isFavorite,
         canFavorite,
@@ -119,6 +130,8 @@
             last_played_at: string | null;
         };
         difficulties: Difficulty[];
+        versions?: Version[];
+        boards?: Record<number, Difficulty>;
         recentPlays: RecentPlay[];
         isFavorite: boolean;
         canFavorite: boolean;
@@ -128,8 +141,74 @@
 
     const taikoParam = taikoRouteParam();
 
-    // Per difficulty: the Shin-uchi board shown instead of the normal one.
-    let shinuchiBoards = $state<Record<string, boolean>>({});
+    // The page's view, kept in its URL (?version=wii1&shinuchi=1) so a link opens on it.
+    const query =
+        typeof window === 'undefined'
+            ? new URLSearchParams()
+            : new URLSearchParams(window.location.search);
+    let versionKey = $state(query.get('version') ?? 'standard');
+    let shinuchi = $state(query.get('shinuchi') === '1');
+
+    const version = $derived(
+        versions.find((candidate) => candidate.key === versionKey) ??
+            versions[0],
+    );
+
+    // Each course's card in the chosen version: its board, and whether it is Standard's.
+    const cards = $derived(
+        difficulties.flatMap((difficulty) => {
+            if (
+                !version ||
+                version.key === 'standard' ||
+                difficulty.is_legacy
+            ) {
+                return [{ difficulty, board: difficulty, standard: false }];
+            }
+
+            const id = version.charts[difficulty.level];
+            const board = id === undefined ? undefined : boards[id];
+
+            return board
+                ? [
+                      {
+                          difficulty,
+                          board,
+                          standard: !version.differs.includes(difficulty.level),
+                      },
+                  ]
+                : [];
+        }),
+    );
+
+    const hasShinuchi = $derived(
+        cards.some(({ board }) => (board.shinuchi_entries?.length ?? 0) > 0),
+    );
+
+    function setView(key: string, withShinuchi: boolean): void {
+        versionKey = key;
+        shinuchi = withShinuchi;
+        const url = new URL(window.location.href);
+
+        if (key === 'standard') {
+            url.searchParams.delete('version');
+        } else {
+            url.searchParams.set('version', key);
+        }
+
+        if (withShinuchi) {
+            url.searchParams.set('shinuchi', '1');
+        } else {
+            url.searchParams.delete('shinuchi');
+        }
+
+        window.history.replaceState(window.history.state, '', url);
+    }
+
+    function differsLabel(candidate: Version): string {
+        return candidate.differs.length === 0
+            ? 'Same charts as Standard'
+            : `Differs on ${candidate.differs.map(difficultyLabel).join(', ')}`;
+    }
 
     function legacyPlayers(difficulty: Difficulty): number {
         return (difficulty.legacy ?? []).reduce(
@@ -138,17 +217,15 @@
         );
     }
 
-    function boardKey(difficulty: Difficulty): string {
-        return String(difficulty.id ?? difficulty.level);
-    }
-
     function toggleFavorite(): void {
         if (!isFavorite && favoriteCount >= favoriteLimit) {
             toast.error(
                 `You can only favourite ${favoriteLimit} songs in ${gameVersion.label}. Remove one first.`,
             );
+
             return;
         }
+
         router.post(
             toUrl(songs.favorite({ ...taikoParam, song: song.id })),
             {},
@@ -455,6 +532,72 @@
     <div class="grid gap-6 lg:grid-cols-[1fr_22rem]">
         <!-- Difficulty leaderboards -->
         <div class="flex min-w-0 flex-col gap-6">
+            {#if versions.length > 1 || hasShinuchi}
+                <!-- The view for every difficulty: which systems' charts, and the normal or Shin-uchi boards. -->
+                <div class="flex flex-wrap items-center gap-3">
+                    {#if versions.length > 3}
+                        <select
+                            class="h-8 rounded-md border bg-card px-2 text-sm"
+                            value={version?.key}
+                            onchange={(event) =>
+                                setView(event.currentTarget.value, shinuchi)}
+                        >
+                            {#each versions as candidate (candidate.key)}
+                                <option value={candidate.key}
+                                    >{candidate.label}</option
+                                >
+                            {/each}
+                        </select>
+                    {:else if versions.length > 1}
+                        <div
+                            class="flex flex-wrap overflow-hidden rounded-md border text-sm"
+                        >
+                            {#each versions as candidate (candidate.key)}
+                                <button
+                                    type="button"
+                                    class="px-3 py-1 {version?.key ===
+                                    candidate.key
+                                        ? 'bg-muted font-semibold'
+                                        : 'text-muted-foreground'}"
+                                    title={candidate.key === 'standard'
+                                        ? 'The charts these systems share'
+                                        : differsLabel(candidate)}
+                                    onclick={() =>
+                                        setView(candidate.key, shinuchi)}
+                                >
+                                    {candidate.label}
+                                </button>
+                            {/each}
+                        </div>
+                    {/if}
+                    {#if version && version.key !== 'standard'}
+                        <span class="text-xs text-muted-foreground"
+                            >{differsLabel(version)}</span
+                        >
+                    {/if}
+                    {#if hasShinuchi}
+                        <div
+                            class="ml-auto flex overflow-hidden rounded-md border text-sm"
+                        >
+                            {#each [false, true] as option (option)}
+                                <button
+                                    type="button"
+                                    class="px-3 py-1 {shinuchi === option
+                                        ? 'bg-muted font-semibold'
+                                        : 'text-muted-foreground'}"
+                                    onclick={() =>
+                                        setView(
+                                            version?.key ?? 'standard',
+                                            option,
+                                        )}
+                                >
+                                    {option ? 'Shin-uchi' : 'Normal'}
+                                </button>
+                            {/each}
+                        </div>
+                    {/if}
+                </div>
+            {/if}
             {#if difficulties.length === 0}
                 <div
                     class="rounded-lg border p-6 text-sm text-muted-foreground"
@@ -462,7 +605,7 @@
                     No ranked scores for this song yet.
                 </div>
             {:else}
-                {#each difficulties as difficulty (difficulty.id ?? difficulty.level)}
+                {#each cards as { difficulty, board, standard } (difficulty.id ?? difficulty.level)}
                     <section class="overflow-hidden rounded-xl border bg-card">
                         <div
                             class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4"
@@ -476,7 +619,14 @@
                                     {difficulty.name ??
                                         difficultyLabel(difficulty.level)}
                                 </span>
-                                {#if (song.sources?.length ?? 0) > 1 && difficulty.sources && difficulty.sources.length < (song.sources?.length ?? 0)}
+                                {#if standard}
+                                    <Badge
+                                        variant="outline"
+                                        class="text-xs"
+                                        title="The same chart as Standard: one leaderboard"
+                                        >Same as Standard</Badge
+                                    >
+                                {:else if versions.length === 0 && (song.sources?.length ?? 0) > 1 && difficulty.sources && difficulty.sources.length < (song.sources?.length ?? 0)}
                                     <Badge variant="outline" class="text-xs"
                                         >{difficulty.sources.join(' · ')} only</Badge
                                     >
@@ -489,9 +639,9 @@
                                         >Legacy</Badge
                                     >
                                 {/if}
-                                {#if difficulty.external_url}
+                                {#if board.external_url}
                                     <a
-                                        href={difficulty.external_url}
+                                        href={board.external_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         class="text-muted-foreground hover:text-foreground"
@@ -501,36 +651,11 @@
                                     </a>
                                 {/if}
                                 <span class="text-sm text-muted-foreground">
-                                    {numberFormatter.format(
-                                        difficulty.play_count,
-                                    )} plays · {numberFormatter.format(
-                                        difficulty.player_count,
+                                    {numberFormatter.format(board.play_count)} plays
+                                    · {numberFormatter.format(
+                                        board.player_count,
                                     )} players
                                 </span>
-                                {#if (difficulty.shinuchi_entries?.length ?? 0) > 0}
-                                    <div
-                                        class="flex overflow-hidden rounded-md border text-xs"
-                                    >
-                                        {#each [false, true] as shinuchi (shinuchi)}
-                                            <button
-                                                type="button"
-                                                class="px-2 py-0.5 {(shinuchiBoards[
-                                                    boardKey(difficulty)
-                                                ] ?? false) === shinuchi
-                                                    ? 'bg-muted font-semibold'
-                                                    : 'text-muted-foreground'}"
-                                                onclick={() =>
-                                                    (shinuchiBoards[
-                                                        boardKey(difficulty)
-                                                    ] = shinuchi)}
-                                            >
-                                                {shinuchi
-                                                    ? 'Shin-uchi'
-                                                    : 'Normal'}
-                                            </button>
-                                        {/each}
-                                    </div>
-                                {/if}
                             </div>
                             <div class="flex items-center gap-3 text-sm">
                                 <span
@@ -538,33 +663,33 @@
                                     title="Dondaful"
                                 >
                                     <Crown class="size-4" />
-                                    {difficulty.crown_counts.dondaful}
+                                    {board.crown_counts.dondaful}
                                 </span>
                                 <span
                                     class="flex items-center gap-1 text-amber-500"
                                     title="Full combo"
                                 >
                                     <Crown class="size-4" />
-                                    {difficulty.crown_counts.gold}
+                                    {board.crown_counts.gold}
                                 </span>
                                 <span
                                     class="flex items-center gap-1 text-sky-500"
                                     title="Clear"
                                 >
                                     <Crown class="size-4" />
-                                    {difficulty.crown_counts.clear}
+                                    {board.crown_counts.clear}
                                 </span>
                             </div>
                         </div>
 
                         <div class="divide-y">
                             {@render entryRows(
-                                shinuchiBoards[boardKey(difficulty)]
-                                    ? (difficulty.shinuchi_entries ?? [])
-                                    : difficulty.entries,
+                                shinuchi
+                                    ? (board.shinuchi_entries ?? [])
+                                    : board.entries,
                             )}
                         </div>
-                        {#if (difficulty.legacy?.length ?? 0) > 0}
+                        {#if board === difficulty && (difficulty.legacy?.length ?? 0) > 0}
                             <!-- Plays from before Waddamburo read this chart right (e.g. 譜面分岐 as its normal route): kept, unranked. -->
                             <details class="border-t">
                                 <summary

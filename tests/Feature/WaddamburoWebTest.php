@@ -7,6 +7,7 @@ use App\Models\WdbPlay;
 use App\Models\WdbSong;
 use App\Services\WaddamburoRankAggregateService;
 use App\Services\WaddamburoSongs;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -172,15 +173,15 @@ it('finds songs by English title, filters by source and names osu! difficulties 
     $this->actingAs($player->user);
     $this->get('/waddamburo/songs?q=senbon')->assertInertia(fn (Assert $page) => $page
         ->has('songs.data', 1)->where('songs.data.0.title_en', 'Senbonzakura')
-        ->where('songs.data.0.genre.label', 'Stock')->has('sources', 5));
+        ->where('songs.data.0.genre.label', 'Stock')->has('sources', 6));
     // Ranked songs are listed before anyone plays them.
     wdb_web_chart(['sha256' => str_repeat('3', 64), 'title' => 'Unplayed', 'source' => 'Nijiiro', 'is_stock' => true, 'course' => 3, 'ranked_at' => now()]);
     $this->get('/waddamburo/songs?source=Nijiiro')->assertInertia(fn (Assert $page) => $page
         ->has('songs.data', 1)->where('songs.data.0.title', 'Unplayed'));
-    // Wii/Wii U songs are official too, their own source.
+    // Wii songs are official too, their own source.
     wdb_web_chart(['sha256' => str_repeat('4', 64), 'title' => 'さいたま２０００', 'source' => 'Wii', 'is_stock' => true, 'course' => 3, 'ranked_at' => now()]);
     $this->get('/waddamburo/songs?source=Wii')->assertInertia(fn (Assert $page) => $page
-        ->has('songs.data', 1)->where('songs.data.0.genre.label', 'Wii/Wii U'));
+        ->has('songs.data', 1)->where('songs.data.0.genre.label', 'Wii'));
     $this->get('/waddamburo/songs?source=OsuLazer')->assertInertia(fn (Assert $page) => $page
         ->has('songs.data', 1)->where('songs.data.0.genre.label', 'osu!lazer')->where('filters.source', 'OsuLazer'));
     $this->get("/waddamburo/songs/{$osu->songs()->value('wdb_songs.id')}")->assertInertia(fn (Assert $page) => $page
@@ -422,3 +423,61 @@ it('identifies AI battles from the displayed best play on each score board', fun
         ->where("difficulties.0.{$entries}.1.user_id", $aiWinner->user_id)
         ->where("difficulties.0.{$entries}.1.mode", 'ai_battle'));
 })->with(['standard scores' => [0, 'entries'], 'Shin-uchi scores' => [2, 'shinuchi_entries']]);
+
+it('files Wii and Wii U charts under the game\'s song, Standard and the outlier versions when the systems chart it differently', function (): void {
+    $chart = fn (string $sha, int $course, string $source = 'Stock') => WdbChart::query()->create(
+        ['sha256' => str_repeat($sha, 64), 'title' => 'アンパンマン', 'source' => $source, 'is_stock' => true, 'course' => $course, 'ranked_at' => now()]);
+    $link = fn (WdbChart $chart, string $source, string $key, string $title = 'アンパンマンのマーチ') => WaddamburoSongs::attach(
+        [['wdb_chart_id' => $chart->id, 'song_key' => $key, 'source' => $source, 'title' => $title]]);
+    // Easy: one chart everywhere. Oni: the arcade's, also on Wii U and two Wii discs; another on the 2008 Wii disc.
+    $easy = $chart('1', 0);
+    $oni = $chart('2', 3);
+    $wiiOni = $chart('3', 3, 'Wii');
+    // A Wii disc's title (full-width, first) does not replace the arcade's.
+    $link($easy, 'Wii', 'wii4:anp', 'ＡＮＰ　Ｗｉｉ');
+    $link($easy, 'Stock', 'anp');
+    $link($easy, 'Wii', 'wiiu3:anp', 'ＡＮＰ　Ｗｉｉ');
+    $link($oni, 'Stock', 'anp');
+    $link($oni, 'Wii', 'wiiu3:anp', 'ＡＮＰ　Ｗｉｉ');
+    $link($oni, 'Wii', 'wii4:anp');
+    $link($oni, 'Wii', 'wii5:anp');
+    $link($wiiOni, 'Wii', 'wii1:anp');
+
+    $song = WdbSong::query()->sole();
+    expect($song)->family->toBe('Namco')->song_key->toBe('anp')->title->toBe('アンパンマンのマーチ')
+        ->and(DB::table('wdb_chart_song')->where('wdb_chart_id', $oni->id)->orderBy('release')->pluck('source', 'release')->all())
+        ->toBe(['' => 'Stock', 'wii4' => 'Wii', 'wii5' => 'Wii', 'wiiu3' => 'WiiU']);
+    $this->get("/waddamburo/songs/{$song->id}")->assertInertia(fn (Assert $page) => $page
+        ->where('song.sources', ['Stock', 'Wii', 'Wii U'])->has('difficulties', 2)
+        ->where('difficulties.0.id', $easy->id)
+        ->where('difficulties.1.id', $oni->id)
+        // Standard: the systems sharing every chart they have; the 2008 disc's other Oni is the one outlier.
+        ->where('versions', [
+            ['key' => 'standard', 'label' => 'Standard: Stock · Wii Ketteiban · Wii Chou Goukaban · Wii U',
+                'charts' => [1 => $easy->id, 4 => $oni->id], 'differs' => []],
+            ['key' => 'wii1', 'label' => 'Wii (2008)', 'charts' => [4 => $wiiOni->id], 'differs' => [4]],
+        ])
+        ->has('boards', 3)->where("boards.{$wiiOni->id}.id", $wiiOni->id));
+    // Wii and Wii U each filter the song list.
+    $this->get('/waddamburo/songs?source=WiiU')->assertInertia(fn (Assert $page) => $page->has('songs.data', 1));
+});
+
+it('drops Stock links to arcade charts an export no longer lists, keeping played and legacy ones', function (): void {
+    $player = wdb_web_player();
+    $stock = fn (string $sha, array $extra = []) => wdb_web_chart(['sha256' => str_repeat($sha, 64), 'title' => 'Song', 'source' => 'Stock', 'is_stock' => true, 'course' => 3, ...$extra], 'song');
+    $older = $stock('1');
+    $played = $stock('2');
+    $retired = $stock('3', ['legacy_at' => now()]);
+    wdb_web_play($player, $played, 900000);
+    $notes = 'WDBC green';
+    $export = tempnam(sys_get_temp_dir(), 'wdb');
+    file_put_contents($export, gzencode(json_encode(['sha256' => hash('sha256', $notes), 'notes' => base64_encode(gzencode($notes)),
+        'title' => 'Song', 'song_key' => 'song', 'source' => 'Stock', 'course' => 3, 'level' => 9])."\n"));
+
+    $this->artisan('app:import-waddamburo-charts', ['files' => [$export], '--prune-stock' => true])
+        ->expectsOutput('Dropped 1 Stock links to arcade charts the game no longer plays.')->assertSuccessful();
+
+    expect($older->songs()->count())->toBe(0)
+        ->and($played->songs()->count())->toBe(1)
+        ->and($retired->songs()->count())->toBe(1);
+});

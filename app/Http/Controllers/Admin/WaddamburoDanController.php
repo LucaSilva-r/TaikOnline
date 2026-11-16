@@ -27,6 +27,8 @@ class WaddamburoDanController extends Controller
             ->join('wdb_songs', 'wdb_songs.id', '=', 'wdb_chart_song.wdb_song_id')
             ->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_chart_song.wdb_chart_id')
             ->where('wdb_songs.family', WaddamburoSongs::family('Stock'))->whereIn('wdb_songs.song_key', $songKeys)
+            // The dan courses are the arcade's: a Wii/Wii U chart of the song is not one of them.
+            ->whereIn('wdb_chart_song.source', ['Stock', 'Nijiiro'])
             ->get(['wdb_songs.song_key', 'wdb_charts.course'])
             ->mapWithKeys(fn (object $chart): array => [$chart->song_key."\0".$chart->course => true]);
         $runs = WdbDanPlay::query()->groupBy('content_hash')->selectRaw('content_hash, COUNT(*) AS runs')->pluck('runs', 'content_hash');
