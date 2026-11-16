@@ -87,6 +87,18 @@ it('imports a series with its requirements', function (): void {
         ->and($course->songs->pluck('song_key')->all())->toBe(['umzaso', 'saibou', 'eva']);
 });
 
+it('reads the hidden Oni of the older lists as Ura', function (): void {
+    $file = dan_xml();
+    File::put($file, str_replace(
+        '<musicid>eva</musicid><uniqueid>135</uniqueid><difficulty>0</difficulty>',
+        '<musicid>eva</musicid><uniqueid>135</uniqueid><difficulty>3</difficulty><hidden>1</hidden>',
+        File::get($file)));
+
+    dan_import('momoiro', $file)->assertSuccessful();
+
+    expect(WdbDanCourse::query()->sole()->songs->pluck('course')->all())->toBe([0, 0, 4]);
+});
+
 it('turns KATSU-DON\'s or-less counts into the under limits of later lists', function (): void {
     $file = dan_xml();
     File::put($file, str_replace(

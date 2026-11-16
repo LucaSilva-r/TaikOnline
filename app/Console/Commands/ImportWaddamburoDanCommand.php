@@ -125,7 +125,8 @@ class ImportWaddamburoDanCommand extends Command
             foreach ($course->Content as $content) {
                 $songs[] = [
                     'song_key' => (string) $content->musicid,
-                    'course' => (int) $content->difficulty,
+                    // Older lists (Katsudon to Momoiro) mark Ura as the hidden Oni: difficulty 3 with hidden 1.
+                    'course' => (int) $content->difficulty === 3 && (int) $content->hidden === 1 ? 4 : (int) $content->difficulty,
                     'notes' => (int) $content->notes,
                 ];
             }

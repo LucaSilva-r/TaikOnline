@@ -362,12 +362,12 @@
             },
             {
                 "song_key": "clspvn",
-                "course": 3,
+                "course": 4,
                 "notes": 612
             },
             {
                 "song_key": "mikuse",
-                "course": 3,
+                "course": 4,
                 "notes": 1000
             }
         ]
@@ -457,12 +457,12 @@
         "songs": [
             {
                 "song_key": "metro",
-                "course": 3,
+                "course": 4,
                 "notes": 765
             },
             {
                 "song_key": "aya10",
-                "course": 3,
+                "course": 4,
                 "notes": 765
             },
             {
@@ -507,7 +507,7 @@
         "songs": [
             {
                 "song_key": "goth",
-                "course": 3,
+                "course": 4,
                 "notes": 754
             },
             {
@@ -517,7 +517,7 @@
             },
             {
                 "song_key": "haryu",
-                "course": 3,
+                "course": 4,
                 "notes": 833
             }
         ]
@@ -567,7 +567,7 @@
             },
             {
                 "song_key": "tktime",
-                "course": 3,
+                "course": 4,
                 "notes": 876
             }
         ]
@@ -607,7 +607,7 @@
         "songs": [
             {
                 "song_key": "mggrev",
-                "course": 3,
+                "course": 4,
                 "notes": 777
             },
             {
@@ -617,7 +617,7 @@
             },
             {
                 "song_key": "aonose",
-                "course": 3,
+                "course": 4,
                 "notes": 976
             }
         ]
@@ -707,7 +707,7 @@
         "songs": [
             {
                 "song_key": "nmsurv",
-                "course": 3,
+                "course": 4,
                 "notes": 876
             },
             {
@@ -757,7 +757,7 @@
         "songs": [
             {
                 "song_key": "mikuer",
-                "course": 3,
+                "course": 4,
                 "notes": 999
             },
             {

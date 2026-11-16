@@ -408,7 +408,7 @@
             },
             {
                 "song_key": "mikuse",
-                "course": 3,
+                "course": 4,
                 "notes": 1000
             }
         ]
@@ -548,7 +548,7 @@
         "songs": [
             {
                 "song_key": "tank",
-                "course": 3,
+                "course": 4,
                 "notes": 889
             },
             {
@@ -603,12 +603,12 @@
             },
             {
                 "song_key": "tktime",
-                "course": 3,
+                "course": 4,
                 "notes": 876
             },
             {
                 "song_key": "mggrev",
-                "course": 3,
+                "course": 4,
                 "notes": 777
             }
         ]
@@ -648,12 +648,12 @@
         "songs": [
             {
                 "song_key": "cls12r",
-                "course": 3,
+                "course": 4,
                 "notes": 948
             },
             {
                 "song_key": "castle",
-                "course": 3,
+                "course": 4,
                 "notes": 915
             },
             {
