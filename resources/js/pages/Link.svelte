@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Form, Link, router } from '@inertiajs/svelte';
+    import DeviceLinkController from '@/actions/App/Http/Controllers/Settings/DeviceLinkController';
     import AppHead from '@/components/AppHead.svelte';
     import InputError from '@/components/InputError.svelte';
     import { Button } from '@/components/ui/button';
@@ -11,15 +12,18 @@
     import { Label } from '@/components/ui/label';
     import { taikoRouteParam } from '@/lib/taiko-version';
     import { edit as editProfile } from '@/routes/profile';
-    import DeviceLinkController from '@/actions/App/Http/Controllers/Settings/DeviceLinkController';
 
     let {
         hasPlayer,
+        account,
+        done,
         code: pendingCode,
         device,
         codeInvalid,
     }: {
         hasPlayer: boolean;
+        account: string;
+        done: 'approved' | 'refused' | null;
         code: string | null;
         device: string | null;
         codeInvalid: boolean;
@@ -43,15 +47,35 @@
             Link a device
         </p>
         <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">
-            Log in to Waddamburo
+            {#if done === 'approved'}
+                You're logged in
+            {:else if done === 'refused'}
+                Device refused
+            {:else if device && pendingCode}
+                Log in on this device?
+            {:else}
+                Log in to Waddamburo
+            {/if}
         </h1>
         <p class="mx-auto mt-3 max-w-xl text-balance text-muted-foreground">
-            Enter the six-digit code the game shows. The game then keeps you
-            logged in on that computer; you can revoke it any time.
+            {#if done === 'approved'}
+                Go back to Waddamburo: it logs you in within a few seconds. You
+                can close this page.
+            {:else if done === 'refused'}
+                The game was not logged in. You can close this page.
+            {:else if device && pendingCode}
+                Only approve if you just chose Sign in on this game yourself.
+                You can revoke it any time in your settings.
+            {:else}
+                Enter the six-digit code the game shows. The game then keeps you
+                logged in on that computer; you can revoke it any time.
+            {/if}
         </p>
     </div>
 
-    {#if !hasPlayer}
+    {#if done}
+        <!-- Nothing more to do here. -->
+    {:else if !hasPlayer}
         <div
             class="flex flex-col items-center gap-5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-6 text-center sm:p-8"
         >
@@ -72,11 +96,11 @@
     {:else if device && pendingCode}
         <div class="flex flex-col items-center gap-6 text-center">
             <p class="text-lg">
-                Allow <span class="font-semibold">{device}</span> to play as you and
-                upload your scores?
+                <span class="font-semibold">{device}</span> will play as
+                <span class="font-semibold">{account}</span> and upload your scores.
             </p>
             <div class="flex gap-3">
-                {#each [{ approve: '1', label: 'Approve' }, { approve: '0', label: 'Deny' }] as choice (choice.approve)}
+                {#each [{ approve: '1', label: 'Approve' }, { approve: '0', label: 'Refuse' }] as choice (choice.approve)}
                     <Form
                         {...DeviceLinkController.store.form(taikoRouteParam())}
                     >
@@ -108,6 +132,21 @@
                     </Form>
                 {/each}
             </div>
+            <Form
+                {...DeviceLinkController.switchAccount.form(taikoRouteParam())}
+            >
+                {#snippet children({ processing })}
+                    <input type="hidden" name="code" value={pendingCode} />
+                    <Button
+                        type="submit"
+                        variant="link"
+                        class="text-muted-foreground"
+                        disabled={processing}
+                    >
+                        Not {account}? Change account
+                    </Button>
+                {/snippet}
+            </Form>
         </div>
     {:else}
         <form

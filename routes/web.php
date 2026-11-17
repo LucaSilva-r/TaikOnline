@@ -73,6 +73,7 @@ Route::prefix('{taikoVersion}')
             Route::post('link', [DeviceLinkController::class, 'store'])
                 ->middleware('throttle:cabinet-login')
                 ->name('link.store');
+            Route::post('link/switch', [DeviceLinkController::class, 'switchAccount'])->name('link.switch');
         });
 
         Route::middleware(['auth', 'verified'])->group(function (): void {

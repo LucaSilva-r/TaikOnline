@@ -294,8 +294,12 @@ it('logs a device in once the player approves its code on the website', function
     $this->postJson('/api/wdb/device/token', ['device_code' => $deviceCode])->assertOk()->assertJson(['status' => 'pending']);
 
     $this->actingAs($player->user)->get("/green/link?code={$userCode}")
-        ->assertInertia(fn (Assert $page) => $page->component('Link')->where('device', 'Waddamburo on den-pc'));
-    $this->actingAs($player->user)->post('/green/link', ['code' => $userCode, 'approve' => true])->assertRedirect();
+        ->assertInertia(fn (Assert $page) => $page->component('Link')->where('device', 'Waddamburo on den-pc')
+            ->where('account', $player->user->name));
+    $this->actingAs($player->user)->post('/green/link', ['code' => $userCode, 'approve' => true])
+        ->assertRedirect('/green/link?done=approved');
+    $this->actingAs($player->user)->get('/green/link?done=approved')
+        ->assertInertia(fn (Assert $page) => $page->component('Link')->where('done', 'approved'));
 
     $approved = $this->postJson('/api/wdb/device/token', ['device_code' => $deviceCode])
         ->assertOk()->assertJson(['status' => 'approved', 'baid' => $player->baid]);
@@ -307,6 +311,17 @@ it('logs a device in once the player approves its code on the website', function
     $this->postJson('/api/wdb/device/token', ['device_code' => $deviceCode])->assertJson(['status' => 'expired']);
     $this->actingAs($player->user)->post('/green/link', ['code' => $userCode, 'approve' => true])
         ->assertSessionHasErrors('code');
+});
+
+it('logs out and returns to the code after "change account"', function (): void {
+    $player = wdb_player();
+    $start = $this->postJson('/api/wdb/device', ['device' => 'Phone'])->assertOk();
+    $code = $start->json('user_code');
+
+    $this->actingAs($player->user)->post('/green/link/switch', ['code' => $code])->assertRedirect(route('login'));
+
+    $this->assertGuest('web');
+    expect(session('url.intended'))->toEndWith("/green/link?code={$code}");
 });
 
 it('tells the device when the player denies it', function (): void {
