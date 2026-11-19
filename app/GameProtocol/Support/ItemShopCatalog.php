@@ -123,6 +123,9 @@ class ItemShopCatalog
 
         return [
             ...$season,
+            // The cabinet caches the shop (updates/<ver>/rewardshopdata.bin) and only downloads it
+            // again when initialdatacheck's verup_no changes: one per cycle.
+            'verup_no' => (int) $start->format('Ymd'),
             'start_datetime' => $start->format('YmdHis'),
             'end_datetime' => $end->format('YmdHis'),
         ];

@@ -116,7 +116,9 @@ it('dates the active season into the current cycle so the cabinet sees last play
     // Pinned winter (data: 2019-12-05 .. 2020-03-23): the latest start, the first end after now.
     $pinned = post_protobuf('/v11r01/chassis/getitemshopinfo.php', $request, GetitemshopinfoResponse::class);
     expect($pinned->getStartDatetime())->toBe('20251205000000')
-        ->and($pinned->getEndDatetime())->toBe('20270323235959');
+        ->and($pinned->getEndDatetime())->toBe('20270323235959')
+        // New cycle, new verup_no: the cabinet only re-downloads its cached shop when it changes.
+        ->and($pinned->getVerupNo())->toBe(20251205);
 
     // 0 follows the calendar: November is the fall shop (data: 09-04 .. 12-04).
     config()->set('taiko_green.active_shop_season_id', 0);
