@@ -13,6 +13,7 @@ use App\Models\PlayerCosmetic;
 use App\Models\Sanction;
 use App\Models\User;
 use App\Models\WdbChart;
+use App\Models\WdbMedalCredit;
 use App\Models\WdbPlay;
 use App\Notifications\WaddamburoNotice;
 use App\Services\CabinetPairingService;
@@ -634,6 +635,11 @@ class WaddamburoController extends Controller
             'title_plate' => (int) ($cosmetics?->titleplate_id ?? 0),
             'dan_rank' => $dan['rank'] ?? 0,
             'dan_gold' => $dan['gold'] ?? false,
+            // Don Medals to spend, and the day of the last paid credit: the game shows a credit's medals
+            // (Green's bonuses) at its end; the server pays the same from the songs.
+            'medals' => app(WaddamburoMedals::class)->wallet((int) $player->baid),
+            'last_medal_day' => ($day = WdbMedalCredit::query()->where('baid', $player->baid)->max('local_day')) === null
+                ? null : substr((string) $day, 0, 10),
             'look' => [
                 'costume' => array_map(fn (int $slot): int => $slot === 1 ? $kigurumi((int) ($cosmetics?->costume_1 ?? 0))
                     : (int) ($cosmetics?->{"costume_{$slot}"} ?? 0), [1, 2, 3, 4, 5]),

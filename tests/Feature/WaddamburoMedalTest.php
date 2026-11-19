@@ -67,3 +67,13 @@ it('takes a cabinet\'s songs for the card on each song', function (): void {
 
     expect($player->refresh()->total_get_donmedal)->toBe(550);
 });
+
+it('tells the game the wallet and the last paid day in the profile', function (): void {
+    [$player, $token] = medal_fixture();
+    $this->withToken($token)->getJson('/api/wdb/me')->assertOk()->assertJsonPath('medals', 0)->assertJsonPath('last_medal_day', null);
+
+    $at = '2026-11-19T20:00:00+01:00';
+    $this->withToken($token)->postJson('/api/wdb/medals/songs', ['songs' => [medal_song($at), medal_song($at), medal_song($at)]]);
+    $this->withToken($token)->getJson('/api/wdb/me')->assertOk()->assertJsonPath('medals', 550)
+        ->assertJsonPath('last_medal_day', '2026-11-19');
+});
