@@ -41,8 +41,9 @@ it('maps score ranks conservatively', function (): void {
 it('maps song numbers to flag bytes', function (): void {
     $flags = (new ScoreMapper)->songFlagBytes([1, 8, 9], 2);
 
-    expect(ord($flags[0]))->toBe(129)
-        ->and(ord($flags[1]))->toBe(1);
+    // Bit n = song_no n (Green's shop proved it: bit n-1 locked the wrong songs).
+    expect(ord($flags[0]))->toBe(2)
+        ->and(ord($flags[1]))->toBe(3);
 });
 
 it('unlocks every song for legacy release flags', function (string $version): void {
@@ -57,8 +58,8 @@ it('keeps the song_no-indexed flag for newer release flags', function (): void {
     $flags = (new ScoreMapper)->releaseSongFlagBytes('green', [1, 8, 9]);
 
     expect(strlen($flags))->toBe(512)
-        ->and(ord($flags[0]))->toBe(129)
-        ->and(ord($flags[1]))->toBe(1);
+        ->and(ord($flags[0]))->toBe(2)
+        ->and(ord($flags[1]))->toBe(3);
 });
 
 it('maps katsudon default songs directly by unique id', function (): void {

@@ -369,11 +369,14 @@ class ScoreMapper
         foreach ($songNumbers as $songNo) {
             $songNo = (int) $songNo;
 
-            if ($songNo < 1) {
+            if ($songNo < 0) {
                 continue;
             }
 
-            $bitIndex = $songNo - 1;
+            // Bit n = song_no n (0-based), as Green reads it: with n-1 the shop showed
+            // bought song 865 as locked and unbought 858/866 as owned (TaikoLocalServer's
+            // AC15 codec agrees).
+            $bitIndex = $songNo;
             $byteIndex = intdiv($bitIndex, 8);
 
             if ($byteIndex >= $bytes) {

@@ -68,18 +68,12 @@ class PlayerProfileService
         $unlockedCostumeIdsBySlot = [1 => [], 2 => [], 3 => [], 4 => [], 5 => []];
 
         if ($catalog->isEnabled && $activeSeason) {
-            $seasonState = PlayerShopSeasonState::query()->firstOrCreate([
-                'baid' => $player->baid,
-                'game_version' => $version->value,
-                'season_id' => $activeSeason['season_id'],
-            ]);
-            $totalGet = $seasonState->total_get_donmedal;
-            $totalUse = $seasonState->total_use_donmedal;
+            ['get' => $totalGet, 'use' => $totalUse] = PlayerShopSeasonState::wallet($player->baid, $version->value);
 
+            // Owned whichever season it was bought in (seasons come round again).
             $items = PlayerShopItem::query()
                 ->where('baid', $player->baid)
                 ->where('game_version', $version->value)
-                ->where('season_id', $activeSeason['season_id'])
                 ->get();
 
             foreach ($items as $item) {

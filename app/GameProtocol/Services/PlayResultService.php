@@ -174,7 +174,9 @@ class PlayResultService
 
         $catalog = new ItemShopCatalog($version);
         $activeSeason = $catalog->getActiveSeason();
-        $totalGetDonmedal = (int) $player->total_get_donmedal;
+        // The player row keeps the lifetime total across versions (the Board shows it); the
+        // season row is the version's spendable wallet.
+        $totalGetDonmedal = (int) $player->total_get_donmedal + $getDonmedal;
 
         if ($catalog->isEnabled && $activeSeason) {
             $seasonState = PlayerShopSeasonState::query()->firstOrCreate([
@@ -184,8 +186,6 @@ class PlayResultService
             ]);
             $seasonState->total_get_donmedal += $getDonmedal;
             $seasonState->save();
-        } else {
-            $totalGetDonmedal += $getDonmedal;
         }
 
         $attributes = [

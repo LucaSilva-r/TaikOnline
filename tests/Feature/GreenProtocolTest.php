@@ -306,8 +306,8 @@ it('returns default released songs during initial data check', function (): void
 
     expect($response->getResult())->toBe(1)
         ->and($response->getSongHashVer())->toBe(1)
-        ->and(ord($response->getHashDefaultSongFlg()[0]))->toBe(129)
-        ->and(ord($response->getHashDefaultSongFlg()[1]))->toBe(0);
+        ->and(ord($response->getHashDefaultSongFlg()[0]))->toBe(2)
+        ->and(ord($response->getHashDefaultSongFlg()[1]))->toBe(1);
 });
 
 it('advertises version-scoped dan course revisions during initial data check', function (): void {
@@ -353,7 +353,7 @@ it('uses the blue catalog for blue power on route revisions', function (): void 
 
         expect(bin2hex(substr($body, 0, 7)))->toBe('080110011a8004')
             ->and(ord($body[7]))->toBe(0)
-            ->and(ord($body[8]))->toBe(1)
+            ->and(ord($body[8]))->toBe(2)
             ->and(str_contains($body, hex2bin('7001')))->toBeTrue()
             ->and(str_contains($body, hex2bin('6801')))->toBeFalse();
     }
@@ -377,10 +377,10 @@ it('returns carded player released songs from the route catalog version', functi
     $greenResponse = post_protobuf('/v11r01/chassis/userdata.php', $request, UserDataResponse::class);
     $blueResponse = post_protobuf('/v08r00/chassis/userdata.php', $request, UserDataResponse::class);
 
-    expect(ord($greenResponse->getHashReleaseSongFlg()[0]))->toBe(1)
+    expect(ord($greenResponse->getHashReleaseSongFlg()[0]))->toBe(2)
         ->and(ord($greenResponse->getHashReleaseSongFlg()[1]))->toBe(0)
         ->and(ord($blueResponse->getHashReleaseSongFlg()[0]))->toBe(0)
-        ->and(ord($blueResponse->getHashReleaseSongFlg()[1]))->toBe(1);
+        ->and(ord($blueResponse->getHashReleaseSongFlg()[1]))->toBe(2);
 });
 
 it('sends the safe disp_taikojuku_dan sentinel to avoid a client crash', function (): void {

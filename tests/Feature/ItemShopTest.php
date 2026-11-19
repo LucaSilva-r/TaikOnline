@@ -387,8 +387,8 @@ it('accrues medals from play results to the active season state', function (): v
         ->and($seasonState->total_get_donmedal)->toBe(50);
 
     $player->refresh();
-    // Global total should NOT have changed
-    expect($player->total_get_donmedal)->toBe(10);
+    // The player row keeps the lifetime total
+    expect($player->total_get_donmedal)->toBe(60);
 });
 
 it('accrues medals globally if shop is disabled', function (): void {
@@ -460,6 +460,52 @@ it('locks and unlocks active season songs in user data response', function (): v
     $flagAfter = $responseAfter->getHashReleaseSongFlg();
 
     expect($flag)->not->toBe($flagAfter);
+
+    // Bit n = song_no n: 865 is byte 108 bit 1, and only the bought song flips.
+    expect(ord($flag[108]) & 0b10)->toBe(0)
+        ->and(ord($flagAfter[108]) & 0b10)->toBe(0b10)
+        ->and(ord($flagAfter[1]) & 0b100)->toBe(0b100); // song 10, not in the shop
+});
+
+it('spends medals carried over from earlier seasons and keeps past purchases owned', function (): void {
+    $player = Player::query()->create();
+    test_create_song('green', 865);
+
+    // Earned in the fall season; the active season (winter, 4) has none yet.
+    PlayerShopSeasonState::query()->create([
+        'baid' => $player->baid,
+        'game_version' => 'green',
+        'season_id' => 3,
+        'total_get_donmedal' => 1500,
+        'total_use_donmedal' => 0,
+    ]);
+
+    $purchase = (new ItempurchaseRequest)
+        ->setBaid($player->baid)
+        ->setChassisId('chassis')
+        ->setShopId('shop')
+        ->setItemNo(5)
+        ->setItemType(1)
+        ->setItemId(865)
+        ->setItemPrice(1300);
+
+    $response = post_protobuf('/v11r01/chassis/itempurchase.php', $purchase, ItempurchaseResponse::class);
+    expect($response->getResult())->toBe(1)
+        ->and($response->getTotalGetDonmedal())->toBe(1500)
+        ->and($response->getTotalUseDonmedal())->toBe(1300);
+
+    // 200 left: a second buy is a duplicate anyway, and the balance stays 200.
+    $again = post_protobuf('/v11r01/chassis/itempurchase.php', $purchase, ItempurchaseResponse::class);
+    expect($again->getResult())->toBe(0);
+
+    $player->refresh();
+    expect($player->total_use_donmedal)->toBe(1300);
+
+    // Bought in an earlier cycle of this season id: still owned.
+    PlayerShopItem::query()->where('baid', $player->baid)->update(['season_id' => 1]);
+    $user = post_protobuf('/v11r01/chassis/userdata.php', (new UserDataRequest)
+        ->setBaid($player->baid)->setChassisId('chassis')->setShopId('shop'), UserDataResponse::class);
+    expect(ord($user->getHashReleaseSongFlg()[108]) & 0b10)->toBe(0b10);
 });
 
 it('stub endpoints return successful responses for Banacoin', function (): void {

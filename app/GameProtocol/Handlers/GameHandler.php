@@ -992,13 +992,7 @@ class GameHandler
             $totalGet = 0;
             $totalUse = 0;
             if ($catalog->isEnabled && $activeSeason) {
-                $seasonState = PlayerShopSeasonState::query()->firstOrCreate([
-                    'baid' => $player->baid,
-                    'game_version' => $game->value,
-                    'season_id' => $activeSeason['season_id'],
-                ]);
-                $totalGet = $seasonState->total_get_donmedal;
-                $totalUse = $seasonState->total_use_donmedal;
+                ['get' => $totalGet, 'use' => $totalUse] = PlayerShopSeasonState::wallet($player->baid, $game->value);
             }
 
             return $this->payloads->response(
@@ -1053,24 +1047,24 @@ class GameHandler
         }
 
         return DB::transaction(function () use ($player, $game, $activeSeason, $catalogItem): Response {
-            $seasonState = PlayerShopSeasonState::query()->lockForUpdate()->firstOrCreate([
+            $seasonState = PlayerShopSeasonState::query()->firstOrCreate([
                 'baid' => $player->baid,
                 'game_version' => $game->value,
                 'season_id' => $activeSeason['season_id'],
             ]);
 
-            $available = $seasonState->total_get_donmedal - $seasonState->total_use_donmedal;
-            if ($available < $catalogItem['item_price']) {
+            // Medals carry over between seasons: spend from the whole wallet (rows locked).
+            $wallet = PlayerShopSeasonState::wallet($player->baid, $game->value, lock: true);
+            if ($catalogItem['item_price'] > $wallet['get'] - $wallet['use']) {
                 return $this->payloads->response(
                     $this->writer->set($this->messages->make($game, 'ItempurchaseResponse'), 'setResult', 0)
                 );
             }
 
-            // Rejects duplicate unlocked
+            // Rejects duplicate unlocked (bought in any season)
             $exists = PlayerShopItem::query()
                 ->where('baid', $player->baid)
                 ->where('game_version', $game->value)
-                ->where('season_id', $activeSeason['season_id'])
                 ->where('item_type', $catalogItem['item_type'])
                 ->where('item_id', $catalogItem['item_id'])
                 ->exists();
@@ -1081,9 +1075,11 @@ class GameHandler
                 );
             }
 
-            // Spend medals
+            // Spend medals: recorded on this season's row; the player row keeps the lifetime total.
             $seasonState->total_use_donmedal += $catalogItem['item_price'];
             $seasonState->save();
+            $player->total_use_donmedal = (int) $player->total_use_donmedal + $catalogItem['item_price'];
+            $player->save();
 
             // Persist item purchase
             PlayerShopItem::query()->create([
@@ -1137,8 +1133,8 @@ class GameHandler
             return $this->payloads->response(
                 $this->writer->fill($this->messages->make($game, 'ItempurchaseResponse'), [
                     'setResult' => 1,
-                    'setTotalGetDonmedal' => $seasonState->total_get_donmedal,
-                    'setTotalUseDonmedal' => $seasonState->total_use_donmedal,
+                    'setTotalGetDonmedal' => $wallet['get'],
+                    'setTotalUseDonmedal' => $wallet['use'] + $catalogItem['item_price'],
                 ])
             );
         });
