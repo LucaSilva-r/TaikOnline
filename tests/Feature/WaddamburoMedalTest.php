@@ -77,3 +77,22 @@ it('tells the game the wallet and the last paid day in the profile', function ()
     $this->withToken($token)->getJson('/api/wdb/me')->assertOk()->assertJsonPath('medals', 550)
         ->assertJsonPath('last_medal_day', '2026-11-19');
 });
+
+it('sells this season\'s goods for medals, once each', function (): void {
+    $this->travelTo('2026-11-19 12:00:00'); // the fall shop: 4 costumes at 500, 4 songs at 1300-1500
+    [$player, $token] = medal_fixture();
+    $at = '2026-11-19T20:00:00+01:00';
+    $this->withToken($token)->postJson('/api/wdb/medals/songs', ['songs' => [medal_song($at), medal_song($at), medal_song($at)]]);
+
+    $this->withToken($token)->getJson('/api/wdb/shop')->assertOk()
+        ->assertJsonPath('season_id', 3)->assertJsonPath('telop', 'Fall reward shop')->assertJsonPath('medals', 550)
+        ->assertJsonPath('goods.0', ['no' => 1, 'type' => 5, 'id' => 53, 'price' => 500, 'owned' => false]);
+
+    $buy = fn (int $no) => $this->withToken($token)->postJson('/api/wdb/shop/purchase', ['no' => $no]);
+    $buy(1)->assertOk()->assertJson(['result' => 'ok', 'medals' => 50]);
+    $buy(1)->assertStatus(409)->assertJson(['result' => 'owned']);
+    $buy(2)->assertStatus(409)->assertJson(['result' => 'short', 'medals' => 50]);
+
+    $this->withToken($token)->getJson('/api/wdb/shop')->assertJsonPath('goods.0.owned', true)->assertJsonPath('goods.1.owned', false);
+    expect($player->refresh()->total_use_donmedal)->toBe(500);
+});

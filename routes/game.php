@@ -8,6 +8,7 @@ use App\Http\Controllers\WaddamburoDanController;
 use App\Http\Controllers\WaddamburoNoticeController;
 use App\Http\Controllers\WaddamburoRoomController;
 use App\Http\Controllers\WaddamburoScoreController;
+use App\Http\Controllers\WaddamburoShopController;
 use App\Http\Controllers\WaddamburoStatusController;
 use App\Http\Controllers\ZucchiniCardController;
 use App\Http\Controllers\ZucchiniExtraBestController;
@@ -65,6 +66,8 @@ Route::middleware(['wdb.auth', 'throttle:wdb'])->prefix('api/wdb')->group(functi
     Route::post('ai/battles', [WaddamburoController::class, 'beginAiBattle'])->middleware('wdb.rules');
     Route::post('plays', [WaddamburoController::class, 'storePlays'])->middleware('wdb.rules');
     Route::post('medals/songs', [WaddamburoController::class, 'storeMedalSongs'])->middleware('wdb.rules');
+    Route::get('shop', [WaddamburoShopController::class, 'show']);
+    Route::post('shop/purchase', [WaddamburoShopController::class, 'purchase'])->middleware('wdb.rules');
     Route::post('dan/plays', [WaddamburoDanController::class, 'storePlays'])->middleware('wdb.rules');
     Route::post('rankings', [WaddamburoController::class, 'rankings']);
     Route::get('bests', [WaddamburoController::class, 'bests']);
