@@ -108,6 +108,25 @@ it('returns item shop info for Green', function (): void {
         ->and($items[0]->getItemPrice())->toBe(500);
 });
 
+it('dates the active season into the current cycle so the cabinet sees last plays in season', function (): void {
+    // The cabinet gives every medal bonus when the last play is outside [start, end).
+    $this->travelTo('2026-11-19 16:00:00');
+    $request = (new GetitemshopinfoRequest)->setChassisId('chassis')->setShopId('shop');
+
+    // Pinned winter (data: 2019-12-05 .. 2020-03-23): the latest start, the first end after now.
+    $pinned = post_protobuf('/v11r01/chassis/getitemshopinfo.php', $request, GetitemshopinfoResponse::class);
+    expect($pinned->getStartDatetime())->toBe('20251205000000')
+        ->and($pinned->getEndDatetime())->toBe('20270323235959');
+
+    // 0 follows the calendar: November is the fall shop (data: 09-04 .. 12-04).
+    config()->set('taiko_green.active_shop_season_id', 0);
+    $calendar = post_protobuf('/v11r01/chassis/getitemshopinfo.php', $request, GetitemshopinfoResponse::class);
+    expect($calendar->getSeasonId())->toBe(3)
+        ->and($calendar->getTelop())->toBe('Fall reward shop')
+        ->and($calendar->getStartDatetime())->toBe('20260904000000')
+        ->and($calendar->getEndDatetime())->toBe('20261204235959');
+});
+
 it('returns item shop info for Blue', function (): void {
     $request = (new BlueGetitemshopinfoRequest)
         ->setChassisId('chassis')

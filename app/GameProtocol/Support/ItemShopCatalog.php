@@ -3,6 +3,7 @@
 namespace App\GameProtocol\Support;
 
 use App\Enums\TaikoGameVersion;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\File;
 
 class ItemShopCatalog
@@ -91,9 +92,53 @@ class ItemShopCatalog
             ];
         }
 
+        // 0 = follow the calendar: the season whose start (month/day) came last.
+        if ($this->activeSeasonId === 0 && $this->seasons !== []) {
+            $this->activeSeasonId = collect($this->seasons)
+                ->sortByDesc(fn (array $season) => $this->lastStart($season['start_datetime']))
+                ->keys()->first();
+        }
+
         if (! isset($this->seasons[$this->activeSeasonId])) {
             $this->isEnabled = false;
+
+            return;
         }
+
+        $this->seasons[$this->activeSeasonId] = $this->inCurrentCycle($this->seasons[$this->activeSeasonId]);
+    }
+
+    /**
+     * The data keeps Green's real dates (2019-20). The cabinet gives every bonus (daily, weekly,
+     * monthly) when the card's last play is outside [start, end), so the active season is moved
+     * into the current cycle: same month/day, the latest start before now, the first end after now.
+     */
+    private function inCurrentCycle(array $season): array
+    {
+        $start = $this->lastStart($season['start_datetime']);
+        $end = $this->project($season['end_datetime'], now()->year - 1);
+        while ($end <= now() || $end <= $start) {
+            $end = $end->addYear();
+        }
+
+        return [
+            ...$season,
+            'start_datetime' => $start->format('YmdHis'),
+            'end_datetime' => $end->format('YmdHis'),
+        ];
+    }
+
+    private function lastStart(string $datetime): CarbonImmutable
+    {
+        $start = $this->project($datetime, now()->year);
+
+        return $start > now() ? $start->subYear() : $start;
+    }
+
+    /** A YmdHis date moved to another year (Feb 29 falls to Mar 1). */
+    private function project(string $datetime, int $year): CarbonImmutable
+    {
+        return CarbonImmutable::createFromFormat('YmdHis', $year.substr($datetime, 4));
     }
 
     public function getActiveSeason(): ?array
