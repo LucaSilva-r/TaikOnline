@@ -116,3 +116,25 @@ it('starts the wallet again each shop season, and pays every bonus on the season
     $send('2026-12-06T10:00:00+01:00')->assertJson(['credits' => [['medals' => 550, 'daily' => true, 'weekly' => true, 'monthly' => true]]]);
     $this->withToken($token)->getJson('/api/wdb/me')->assertJsonPath('medals', 550);
 });
+
+it('fills the shop with the day\'s goods Green gives no way to earn, and locks them until bought', function (): void {
+    $this->travelTo('2026-11-19 12:00:00'); // the fall shop's 8 goods, then 10 from the pool
+    [$player, $token] = medal_fixture();
+    $shop = fn () => $this->withToken($token)->getJson('/api/wdb/shop')->assertOk()->json('goods');
+    $pool = app(\App\Services\WaddamburoShopPool::class);
+    $today = $shop();
+    expect($today)->toHaveCount(18)->and($today[8]['no'])->toBe(9)
+        ->and(array_map(fn (array $goods) => [$goods['type'], $goods['id']], array_slice($today, 8)))
+        ->toBe(array_map(fn (array $item) => [$item['item_type'], $item['item_id']], $pool->today(array_fill(0, 8, []))));
+
+    // Tomorrow: the next 10 of the pool; a client still showing today's goods is not sold tomorrow's.
+    $this->travelTo('2026-11-20 00:05:00');
+    expect($shop()[8])->not->toBe($today[8]);
+    $this->withToken($token)->postJson('/api/wdb/shop/purchase', ['no' => 9, 'type' => $today[8]['type'], 'id' => $today[8]['id']])
+        ->assertNotFound();
+
+    // Pool goods lock in "Only what I earned" (songs need their stock row to show up as musicids).
+    \App\Models\PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_earned_only' => true]);
+    [$type, $id] = collect($pool->items())->first(fn (array $item) => $item[0] !== 1);
+    expect(app(\App\Services\WaddamburoUnlocks::class)->locked($player->refresh())[\App\Services\WaddamburoUnlocks::TYPES[$type]])->toContain($id);
+})->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_shop_pool.json'), 'needs the shop pool data file');

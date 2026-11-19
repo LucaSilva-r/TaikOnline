@@ -37,7 +37,7 @@ it('locks the reward shop\'s goods in "Only what I earned" until bought here or 
     $set = fn (int $body): array => ['active_preset' => 0, 'presets' => array_fill(0, 3,
         ['costume_1' => 0, 'costume_2' => 0, 'costume_3' => $body, 'costume_5' => 0])];
     $this->actingAs($user)->patch('/waddamburo/settings/costumes', $set(132))->assertSessionHasErrors('presets');
-    $this->actingAs($user)->patch('/waddamburo/settings/costumes', $set(1))->assertSessionHasNoErrors();
+    $this->actingAs($user)->patch('/waddamburo/settings/costumes', $set(0))->assertSessionHasNoErrors(); // body 1 is a pool item now
 });
 
 it('unlocks Green\'s AI battle rewards at their win counts', function (): void {

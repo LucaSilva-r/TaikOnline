@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\File;
  * Waddamburo's "Only what I earned" mode: what a player has not earned yet. Only items with a known way to earn
  * them in Green lock (research/wiki in the lab repo): the goods Green's reward shop sold, every season, and the AI battle
  * win rewards, and what Green's condition titles give (green_reward_table.json: title → song, tone, costume parts);
- * everything else stays free (Katsu Medal goods too: Green had no way to earn those). Owned: bought in Waddamburo's
+ * and the goods with no way to earn them in Green that Waddamburo's shop sells by the day (WaddamburoShopPool: Katsu
+ * Medal goods, older versions', expired campaigns'); everything else stays free (make, puchi, tones 6+). Owned: bought in Waddamburo's
  * shop, AI battle wins (verified), the item's title earned (here or on a cabinet), or unlocked on a real Green cabinet
  * (the card's Green row). Off (the default): nothing locks.
  */
@@ -80,7 +81,7 @@ class WaddamburoUnlocks
     }
 
     /**
-     * Every item Green let a player earn: the shop's goods (any season) and the AI battle rewards.
+     * Every item that locks: Green's shop goods (any season), the AI battle and title rewards, Waddamburo's shop pool.
      *
      * @return list<array{int, int}>
      */
@@ -91,6 +92,9 @@ class WaddamburoUnlocks
             $items["{$type}:{$id}"] = [$type, $id];
         }
         foreach ($this->titleRewards() as [$type, $id]) {
+            $items["{$type}:{$id}"] = [$type, $id];
+        }
+        foreach (app(WaddamburoShopPool::class)->items() as [$type, $id]) {
             $items["{$type}:{$id}"] = [$type, $id];
         }
         foreach ((new ItemShopCatalog(TaikoGameVersion::Green, 0))->seasons as $season) {

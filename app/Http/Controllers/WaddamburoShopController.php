@@ -11,6 +11,7 @@ use App\Models\PlayerCosmetic;
 use App\Models\PlayerShopItem;
 use App\Models\Song;
 use App\Services\WaddamburoMedals;
+use App\Services\WaddamburoShopPool;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -18,7 +19,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Waddamburo's reward shop (Green's ごほうびショップ): this calendar season's goods from Green's shop data, bought
- * with the player's Don Medals. Owned goods stay owned whatever the season.
+ * with the player's Don Medals, and the day's share of the goods Green gives no way to earn (WaddamburoShopPool) in
+ * the slots left. Owned goods stay owned whatever the season.
  */
 class WaddamburoShopController extends Controller
 {
@@ -51,10 +53,13 @@ class WaddamburoShopController extends Controller
     public function purchase(Request $request, WaddamburoMedals $medals): JsonResponse
     {
         $baid = $this->baid($request);
-        $no = (int) $request->validate(['no' => ['required', 'integer', 'min:1']])['no'];
+        $input = $request->validate(['no' => ['required', 'integer', 'min:1'], 'type' => ['nullable', 'integer'], 'id' => ['nullable', 'integer']]);
         $season = $this->season();
-        $item = collect($season['items'] ?? [])->firstWhere('item_no', $no);
-        abort_if($item === null, 404, 'No such goods this season.');
+        $item = collect($season['items'] ?? [])->firstWhere('item_no', (int) $input['no']);
+        // The pool's goods change at midnight: a client that says what it bought is not sold the next day's goods.
+        $changed = $item !== null && isset($input['type'], $input['id'])
+            && [$item['item_type'], $item['item_id']] !== [(int) $input['type'], (int) $input['id']];
+        abort_if($item === null || $changed, 404, 'No such goods today.');
 
         return DB::transaction(function () use ($baid, $season, $item, $medals): JsonResponse {
             Player::query()->lockForUpdate()->findOrFail($baid);
@@ -96,9 +101,15 @@ class WaddamburoShopController extends Controller
         return (int) $player->baid;
     }
 
+    /** This calendar season's goods, then today's pool goods. */
     private function season(): ?array
     {
-        return (new ItemShopCatalog(TaikoGameVersion::Green, 0))->getActiveSeason();
+        $season = (new ItemShopCatalog(TaikoGameVersion::Green, 0))->getActiveSeason();
+        if ($season !== null) {
+            $season['items'] = [...$season['items'], ...app(WaddamburoShopPool::class)->today($season['items'])];
+        }
+
+        return $season;
     }
 
     /** @return Collection<int, string> "type:id" of every goods bought */
