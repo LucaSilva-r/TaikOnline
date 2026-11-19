@@ -98,3 +98,21 @@ it('sells this season\'s goods for medals, once each', function (): void {
     $this->withToken($token)->getJson('/api/wdb/shop')->assertJsonPath('goods.0.owned', true)->assertJsonPath('goods.1.owned', false);
     expect($player->refresh()->total_use_donmedal)->toBe(500);
 });
+
+it('starts the wallet again each shop season, and pays every bonus on the season\'s first credit', function (): void {
+    $this->travelTo('2026-11-19 12:00:00'); // fall (from 09-04)
+    [$player, $token] = medal_fixture();
+    $send = fn (string $at) => $this->withToken($token)->postJson('/api/wdb/medals/songs',
+        ['songs' => [medal_song($at), medal_song($at), medal_song($at)]])->assertOk();
+    $send('2026-11-19T20:00:00+01:00');
+    $this->withToken($token)->getJson('/api/wdb/me')->assertJsonPath('medals', 550);
+
+    // A last fall credit on Friday 12-04; winter starts on 12-05: the fall medals are gone, and Sunday's credit (same week
+    // and month as Friday's) still pays every bonus, being the season's first.
+    $this->travelTo('2026-12-04 12:00:00');
+    $send('2026-12-04T20:00:00+01:00');
+    $this->travelTo('2026-12-06 12:00:00');
+    $this->withToken($token)->getJson('/api/wdb/me')->assertJsonPath('medals', 0);
+    $send('2026-12-06T10:00:00+01:00')->assertJson(['credits' => [['medals' => 550, 'daily' => true, 'weekly' => true, 'monthly' => true]]]);
+    $this->withToken($token)->getJson('/api/wdb/me')->assertJsonPath('medals', 550);
+});

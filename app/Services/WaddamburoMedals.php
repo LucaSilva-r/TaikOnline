@@ -86,10 +86,23 @@ class WaddamburoMedals
     }
 
     /** Medals to spend: everything earned minus the Waddamburo shop's prices. */
+    /** This season's medals: Green's wallet starts again at zero when the shop's lineup changes. */
     public function wallet(int $baid): int
     {
-        return (int) WdbMedalCredit::query()->where('baid', $baid)->sum('medals')
-            - (int) PlayerShopItem::query()->where('baid', $baid)->where('game_version', PlayerCosmetic::WADDAMBURO)->sum('item_price');
+        $start = $this->seasonStart();
+
+        return (int) WdbMedalCredit::query()->where('baid', $baid)->where('local_day', '>=', $start->toDateString())->sum('medals')
+            - (int) PlayerShopItem::query()->where('baid', $baid)->where('game_version', PlayerCosmetic::WADDAMBURO)
+                ->where('created_at', '>=', $start)->sum('item_price');
+    }
+
+    /** The day the active shop season started (its dates moved into the current cycle by ItemShopCatalog). */
+    public function seasonStart(): CarbonImmutable
+    {
+        $season = (new ItemShopCatalog(TaikoGameVersion::Green, 0))->getActiveSeason();
+
+        return $season === null ? CarbonImmutable::createFromTimestamp(0)
+            : CarbonImmutable::createFromFormat('YmdHis', $season['start_datetime'])->startOfDay();
     }
 
     private function pay(Player $player, CarbonImmutable $day): void
@@ -97,9 +110,11 @@ class WaddamburoMedals
         $last = WdbMedalCredit::query()->where('baid', $player->baid)->max('local_day');
         $last = $last === null ? null : CarbonImmutable::parse($last);
         // ponytail: weeks start on Monday; Green's own week start is not known.
-        $daily = $last === null || $last < $day;
-        $weekly = $last === null || $last < $day->startOfWeek(CarbonImmutable::MONDAY);
-        $monthly = $last === null || $last < $day->startOfMonth();
+        // Green: a last credit from before this season pays every bonus (research/ghidra/rewards-green.md).
+        $fresh = $last === null || $last < $this->seasonStart();
+        $daily = $fresh || $last < $day;
+        $weekly = $fresh || $last < $day->startOfWeek(CarbonImmutable::MONDAY);
+        $monthly = $fresh || $last < $day->startOfMonth();
         $medals = 100 + ($daily ? 50 : 0) + ($weekly ? 100 : 0) + ($monthly ? 300 : 0);
 
         WdbMedalCredit::query()->create([

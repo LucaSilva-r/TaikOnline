@@ -126,7 +126,7 @@ class CostumeController extends Controller
                 foreach ($presets as $set) {
                     foreach (self::SLOTS as $slot => $kind) {
                         if (in_array((int) $set["costume_{$slot}"], $locked[$kind] ?? [], true)) {
-                            throw ValidationException::withMessages(['presets' => __('That costume is not unlocked yet: buy it in the reward shop.')]);
+                            throw ValidationException::withMessages(['presets' => __('That costume is not unlocked yet.')]);
                         }
                     }
                 }

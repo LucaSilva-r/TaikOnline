@@ -39,3 +39,20 @@ it('locks the reward shop\'s goods in "Only what I earned" until bought here or 
     $this->actingAs($user)->patch('/waddamburo/settings/costumes', $set(132))->assertSessionHasErrors('presets');
     $this->actingAs($user)->patch('/waddamburo/settings/costumes', $set(1))->assertSessionHasNoErrors();
 });
+
+it('unlocks Green\'s AI battle rewards at their win counts', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_earned_only' => true]);
+    foreach ([[819, 'csmclr'], [833, 'gfish']] as [$unique, $music]) {
+        Song::query()->create(['version' => 'green', 'song_no' => $unique, 'music_id' => $music, 'unique_id' => $unique,
+            'title' => $music, 'genre' => 'namco_original', 'partsset' => 'A3']);
+    }
+    $this->mock(\App\Services\WaddamburoAiBattles::class, fn ($mock) => $mock->shouldReceive('progress')
+        ->andReturn(['points' => 0, 'wins' => 30, 'rank' => 0, 'points_to_next' => 1]));
+
+    // 30 wins: カラフルボイス (3) is had, Goldfish City (55) and マンガ目 (85) are not.
+    $locked = app(\App\Services\WaddamburoUnlocks::class)->locked($player);
+    expect($locked['songs'])->toContain('gfish')->not->toContain('csmclr')
+        ->and($locked['head'])->toContain(119);
+});
