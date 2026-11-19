@@ -8,13 +8,15 @@ use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Models\PlayerShopItem;
 use App\Models\Song;
+use Illuminate\Support\Facades\File;
 
 /**
  * Waddamburo's "Only what I earned" mode: what a player has not earned yet. Only items with a known way to earn
  * them in Green lock (research/wiki in the lab repo): the goods Green's reward shop sold, every season, and the AI battle
- * win rewards; everything else stays free (Katsu Medal goods too: Green had no way to earn those). Owned: bought in
- * Waddamburo's shop, AI battle wins (verified), or unlocked on a real Green cabinet (the card's Green row). Off (the
- * default): nothing locks.
+ * win rewards, and what Green's condition titles give (green_reward_table.json: title → song, tone, costume parts);
+ * everything else stays free (Katsu Medal goods too: Green had no way to earn those). Owned: bought in Waddamburo's
+ * shop, AI battle wins (verified), the item's title earned (here or on a cabinet), or unlocked on a real Green cabinet
+ * (the card's Green row). Off (the default): nothing locks.
  */
 class WaddamburoUnlocks
 {
@@ -34,6 +36,9 @@ class WaddamburoUnlocks
         [1, 826, 225], // アムピト♢リーテー
         [5, 104, 275], // head ふきだし
     ];
+
+    /** The reward table's columns → item type. */
+    private const REWARD_COLUMNS = ['song' => 1, 'tone' => 2, 'kigurumi' => 3, 'body' => 4, 'head' => 5];
 
     /** Item type → the name the client and the website use. */
     public const TYPES = [1 => 'songs', 2 => 'tones', 3 => 'kigurumi', 4 => 'body', 5 => 'head', 6 => 'face', 7 => 'puchi'];
@@ -85,6 +90,9 @@ class WaddamburoUnlocks
         foreach (self::AI_BATTLE_REWARDS as [$type, $id]) {
             $items["{$type}:{$id}"] = [$type, $id];
         }
+        foreach ($this->titleRewards() as [$type, $id]) {
+            $items["{$type}:{$id}"] = [$type, $id];
+        }
         foreach ((new ItemShopCatalog(TaikoGameVersion::Green, 0))->seasons as $season) {
             foreach ($season['items'] as $item) {
                 $items[$item['item_type'].':'.$item['item_id']] = [(int) $item['item_type'], (int) $item['item_id']];
@@ -92,6 +100,30 @@ class WaddamburoUnlocks
         }
 
         return array_values($items);
+    }
+
+    /**
+     * Green's reward table: [type, id, title] for every item a condition title gives (none when the data file is missing).
+     *
+     * @return list<array{int, int, int}>
+     */
+    private function titleRewards(): array
+    {
+        static $rewards = null;
+        if ($rewards !== null) {
+            return $rewards;
+        }
+        $path = config('taiko_green.data_path').DIRECTORY_SEPARATOR.'green'.DIRECTORY_SEPARATOR.'green_reward_table.json';
+        $rewards = [];
+        foreach (File::exists($path) ? (json_decode(File::get($path), true)['rewards'] ?? []) : [] as $row) {
+            foreach (self::REWARD_COLUMNS as $column => $type) {
+                if ((int) ($row[$column] ?? 0) > 0) {
+                    $rewards[] = [$type, (int) $row[$column], (int) $row['title_id']];
+                }
+            }
+        }
+
+        return $rewards;
     }
 
     /**
@@ -114,6 +146,13 @@ class WaddamburoUnlocks
         }
         $owned[1] = [...($owned[1] ?? []), ...array_map('intval', $player->unlocked_song_numbers ?? [])];
         $green = $player->cosmetics()->where('game_version', TaikoGameVersion::Green->value)->first();
+        $titles = array_map('intval', [...($green?->unlocked_titles ?? []),
+            ...($player->cosmetics()->where('game_version', PlayerCosmetic::WADDAMBURO)->first()?->unlocked_titles ?? [])]);
+        foreach ($this->titleRewards() as [$type, $id, $title]) {
+            if (in_array($title, $titles, true)) {
+                $owned[$type][] = $id;
+            }
+        }
         $owned[2] = [...($owned[2] ?? []), ...array_map('intval', $green?->unlocked_tones ?? [])];
         foreach (self::COSTUME_SLOTS as $type => $slot) {
             $owned[$type] = [...($owned[$type] ?? []), ...array_map('intval', ($green?->unlocked_costumes ?? [])[(string) $slot] ?? [])];

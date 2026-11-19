@@ -56,3 +56,17 @@ it('unlocks Green\'s AI battle rewards at their win counts', function (): void {
     expect($locked['songs'])->toContain('gfish')->not->toContain('csmclr')
         ->and($locked['head'])->toContain(119);
 });
+
+it('locks what Green\'s condition titles give until the title is earned', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_earned_only' => true]);
+    $unlocks = fn () => app(\App\Services\WaddamburoUnlocks::class)->locked($player->refresh());
+    $this->mock(\App\Services\WaddamburoAiBattles::class, fn ($mock) => $mock->shouldReceive('progress')
+        ->andReturn(['points' => 0, 'wins' => 0, 'rank' => 0, 'points_to_next' => 1]));
+
+    // Title 152 (clear a credit of katakana-titled songs) gives kigurumi 56 チリチリロープ.
+    expect($unlocks()['kigurumi'])->toContain(56);
+    PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'green', 'unlocked_titles' => [152]]);
+    expect($unlocks()['kigurumi'])->not->toContain(56);
+})->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_reward_table.json'), 'needs the Green reward table data file');

@@ -509,7 +509,7 @@
                         <Heading
                             variant="small"
                             title="Unlocks"
-                            description="Unlock everything, or only what you earned as in Green: the reward shop's songs and costumes until you buy them, and the AI battle rewards until you reach their win counts (in Waddamburo or on a real cabinet). Custom songs are never locked."
+                            description="Unlock everything, or only what you earned as in Green: the reward shop's songs and costumes until you buy them, the AI battle rewards until you reach their win counts, and what Green's titles give until you earn the title (in Waddamburo or on a real cabinet). Custom songs are never locked."
                         />
                         <Form
                             {...WaddamburoUnlockModeController.update.form(
@@ -1055,7 +1055,7 @@
                                                                   item.id,
                                                               )
                                                                 ? 'Dan costume: clear a dan course in Waddamburo and display its rank on your profile to unlock it'
-                                                                : 'Not earned yet: a reward shop item or an AI battle reward'
+                                                                : 'Not earned yet: a reward shop item, an AI battle reward or a title reward'
                                                             : `ID: ${item.id}`}
                                                         aria-label="{slot.label} {item.id}"
                                                     >
