@@ -19,6 +19,7 @@ use App\Services\CabinetPairingService;
 use App\Services\WaddamburoAiBattles;
 use App\Services\WaddamburoDanRank;
 use App\Services\WaddamburoDeviceLoginService;
+use App\Services\WaddamburoMedals;
 use App\Services\WaddamburoRankAggregateService;
 use App\Services\WaddamburoReplay;
 use App\Services\WaddamburoScorer;
@@ -342,6 +343,42 @@ class WaddamburoController extends Controller
      * notes for are scored from their replays (the client's numbers are not kept); the response lists
      * the charts it has no notes for yet, which the client then uploads (and those plays score then).
      */
+    /**
+     * Finished songs for Don Medals, every result (failed songs keep no replay, so they come only here).
+     * Answers the credits paid since the last call (for the game's medal toast) and the wallet.
+     */
+    public function storeMedalSongs(Request $request, WaddamburoMedals $medals): JsonResponse
+    {
+        $cabinet = $this->isCabinet($request);
+        $validated = $request->validate([
+            'songs' => ['present', 'array', 'max:100'],
+            'songs.*.id' => ['required', 'uuid'],
+            'songs.*.baid' => [$cabinet ? 'required' : 'nullable', 'integer'],
+            'songs.*.played_at' => ['required', 'date'],
+            'songs.*.credit_id' => ['nullable', 'uuid'],
+            'songs.*.kind' => ['required', 'string', 'in:song,dan'],
+        ]);
+
+        $ownBaid = $cabinet ? null : $request->user()->player?->baid;
+        abort_if(! $cabinet && $ownBaid === null, 403, 'Your account does not have a Banapass yet.');
+
+        $accepted = [];
+        $byBaid = collect($validated['songs'])->groupBy(fn (array $song): int => $ownBaid ?? (int) $song['baid']);
+        foreach ($byBaid as $baid => $songs) {
+            if (! Player::query()->whereKey($baid)->exists()) {
+                continue;
+            }
+            $accepted = [...$accepted, ...$medals->record($baid, $songs->values()->all())];
+        }
+
+        // A cabinet serves many cards and has no single wallet to show.
+        return response()->json([
+            'accepted' => $accepted,
+            'credits' => $ownBaid === null ? [] : $medals->announce($ownBaid),
+            'wallet' => $ownBaid === null ? null : $medals->wallet($ownBaid),
+        ]);
+    }
+
     public function storePlays(Request $request, WaddamburoRankAggregateService $aggregates, WaddamburoScorer $scorer, WaddamburoAiBattles $battles): JsonResponse
     {
         $cabinet = $this->isCabinet($request);

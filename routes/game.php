@@ -64,6 +64,7 @@ Route::middleware(['wdb.auth', 'throttle:wdb'])->prefix('api/wdb')->group(functi
     Route::post('pairing', [WaddamburoController::class, 'homePairing']);
     Route::post('ai/battles', [WaddamburoController::class, 'beginAiBattle'])->middleware('wdb.rules');
     Route::post('plays', [WaddamburoController::class, 'storePlays'])->middleware('wdb.rules');
+    Route::post('medals/songs', [WaddamburoController::class, 'storeMedalSongs'])->middleware('wdb.rules');
     Route::post('dan/plays', [WaddamburoDanController::class, 'storePlays'])->middleware('wdb.rules');
     Route::post('rankings', [WaddamburoController::class, 'rankings']);
     Route::get('bests', [WaddamburoController::class, 'bests']);

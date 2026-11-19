@@ -14,10 +14,11 @@ class ItemShopCatalog
 
     public array $seasons = []; // seasonId => seasonInfo
 
-    public function __construct(TaikoGameVersion $version)
+    /** @param  int|null  $seasonId  the season to open (0: by calendar); null takes the cabinets' setting */
+    public function __construct(TaikoGameVersion $version, ?int $seasonId = null)
     {
         $this->isEnabled = (bool) config('taiko_green.enable_shop', true);
-        $this->activeSeasonId = (int) config('taiko_green.active_shop_season_id', 4);
+        $this->activeSeasonId = $seasonId ?? (int) config('taiko_green.active_shop_season_id', 4);
 
         if (! $this->isEnabled) {
             return;
