@@ -83,10 +83,12 @@ it('sells this season\'s goods for medals, once each', function (): void {
     [$player, $token] = medal_fixture();
     $at = '2026-11-19T20:00:00+01:00';
     $this->withToken($token)->postJson('/api/wdb/medals/songs', ['songs' => [medal_song($at), medal_song($at), medal_song($at)]]);
+    \App\Models\Song::query()->create(['version' => 'green', 'song_no' => 855, 'music_id' => 'shopsong', 'unique_id' => 855, 'title' => 'Shop song', 'genre' => 'namco_original', 'partsset' => 'A3']);
 
     $this->withToken($token)->getJson('/api/wdb/shop')->assertOk()
         ->assertJsonPath('season_id', 3)->assertJsonPath('telop', 'Fall reward shop')->assertJsonPath('medals', 550)
-        ->assertJsonPath('goods.0', ['no' => 1, 'type' => 5, 'id' => 53, 'price' => 500, 'owned' => false]);
+        ->assertJsonPath('goods.0', ['no' => 1, 'type' => 5, 'id' => 53, 'price' => 500, 'owned' => false, 'music_id' => null])
+        ->assertJsonPath('goods.4.music_id', 'shopsong');
 
     $buy = fn (int $no) => $this->withToken($token)->postJson('/api/wdb/shop/purchase', ['no' => $no]);
     $buy(1)->assertOk()->assertJson(['result' => 'ok', 'medals' => 50]);

@@ -8,6 +8,7 @@ use App\Http\Middleware\AuthenticateWaddamburo;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Models\PlayerShopItem;
+use App\Models\Song;
 use App\Services\WaddamburoMedals;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,9 @@ class WaddamburoShopController extends Controller
         $season = $this->season();
         abort_if($season === null, 404, 'The shop is closed.');
         $owned = $this->owned($baid);
+        $musicIds = Song::query()->where('version', TaikoGameVersion::Green->value)
+            ->whereIn('unique_id', collect($season['items'])->where('item_type', 1)->pluck('item_id'))
+            ->pluck('music_id', 'unique_id');
 
         return response()->json([
             'season_id' => $season['season_id'],
@@ -37,6 +41,8 @@ class WaddamburoShopController extends Controller
                 'id' => $item['item_id'],
                 'price' => $item['item_price'],
                 'owned' => $owned->contains($item['item_type'].':'.$item['item_id']),
+                // Songs: the stock song's musicid (the client's key); null for costumes.
+                'music_id' => $item['item_type'] === 1 ? $musicIds->get($item['item_id']) : null,
             ], $season['items']),
         ]);
     }
