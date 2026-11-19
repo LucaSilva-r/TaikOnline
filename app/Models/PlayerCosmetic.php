@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'title',
     'titleplate_id',
     'wdb_dan_series',
+    'wdb_earned_only',
     'default_tone_setting',
     'default_option_setting',
     'costume_1',
@@ -46,6 +47,7 @@ class PlayerCosmetic extends Model
             'unlocked_costumes' => 'array',
             'unlocked_tones' => 'array',
             'unlocked_titles' => 'array',
+            'wdb_earned_only' => 'boolean',
         ];
     }
 

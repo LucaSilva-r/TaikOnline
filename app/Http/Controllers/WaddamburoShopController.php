@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TaikoGameVersion;
+use App\Events\WdbProfileChanged;
 use App\GameProtocol\Support\ItemShopCatalog;
 use App\Http\Middleware\AuthenticateWaddamburo;
 use App\Models\Player;
@@ -73,6 +74,8 @@ class WaddamburoShopController extends Controller
                 'item_price' => $item['item_price'],
             ]);
             Player::query()->whereKey($baid)->increment('total_use_donmedal', $item['item_price']);
+            // The games signed in as this player re-read the profile: what was bought unlocks.
+            DB::afterCommit(fn () => WdbProfileChanged::dispatch(Player::query()->findOrFail($baid)));
 
             return response()->json(['result' => 'ok', 'medals' => $medals->wallet($baid)]);
         });

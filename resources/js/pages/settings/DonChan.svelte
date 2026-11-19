@@ -18,6 +18,7 @@
     import { onMount } from 'svelte';
     import CostumeController from '@/actions/App/Http/Controllers/Settings/CostumeController';
     import CustomizeController from '@/actions/App/Http/Controllers/Settings/CustomizeController';
+    import WaddamburoUnlockModeController from '@/actions/App/Http/Controllers/WaddamburoUnlockModeController';
     import AppHead from '@/components/AppHead.svelte';
     import Heading from '@/components/Heading.svelte';
     import InputError from '@/components/InputError.svelte';
@@ -181,6 +182,9 @@
         colorBody = 0,
         colorLimb = 0,
         danCostumeLocked = false,
+        isWaddamburo = false,
+        earnedOnly = false,
+        lockedCostumes = {},
         preview = null,
     }: {
         supported?: boolean;
@@ -200,6 +204,10 @@
         colorBody?: number;
         colorLimb?: number;
         danCostumeLocked?: boolean;
+        isWaddamburo?: boolean;
+        earnedOnly?: boolean;
+        // "Only what I earned": costume ids by slot that are not bought yet.
+        lockedCostumes?: Record<string, number[]>;
         preview?: Preview | null;
     } = $props();
 
@@ -332,8 +340,12 @@
 
     // Green's dan costume (Full body 36): Waddamburo draws the model of the displayed dan rank.
     const DAN_COSTUME = 36;
-    const isLocked = (slotKey: string, id: number): boolean =>
+    const isDanLocked = (slotKey: string, id: number): boolean =>
         danCostumeLocked && slotKey === 'kigurumi' && id === DAN_COSTUME;
+    const isUnearned = (slotKey: string, id: number): boolean =>
+        lockedCostumes[slotKey]?.includes(id) ?? false;
+    const isLocked = (slotKey: string, id: number): boolean =>
+        isDanLocked(slotKey, id) || isUnearned(slotKey, id);
 
     let donChanName = $state(mydonName);
     let donChanTitle = $derived(title);
@@ -492,6 +504,46 @@
             {/if}
 
             <div class="flex min-w-0 flex-col space-y-10">
+                {#if isWaddamburo && hasAccessCode}
+                    <section class="w-full space-y-4">
+                        <Heading
+                            variant="small"
+                            title="Unlocks"
+                            description="Unlock everything, or only what you earned: the reward shop's songs and costumes stay locked until you buy them (in Waddamburo or on a real cabinet). Custom songs are never locked."
+                        />
+                        <Form
+                            {...WaddamburoUnlockModeController.update.form(
+                                taikoRouteParam(),
+                            )}
+                            options={{ preserveScroll: true }}
+                        >
+                            {#snippet children({ processing })}
+                                <input
+                                    type="hidden"
+                                    name="earned_only"
+                                    value={earnedOnly ? '0' : '1'}
+                                />
+                                <div class="flex items-center gap-4">
+                                    <span class="text-sm"
+                                        >{earnedOnly
+                                            ? 'Only what I earned'
+                                            : 'Unlock everything'}</span
+                                    >
+                                    <Button
+                                        type="submit"
+                                        variant="outline"
+                                        disabled={processing}
+                                        data-test="unlock-mode-button"
+                                    >
+                                        {earnedOnly
+                                            ? 'Unlock everything'
+                                            : 'Only what I earned'}
+                                    </Button>
+                                </div>
+                            {/snippet}
+                        </Form>
+                    </section>
+                {/if}
                 {#if !showDonChanName}
                     <p class="text-sm text-muted-foreground">
                         {versionLabel} shows your public display name, set in your
@@ -998,7 +1050,12 @@
                                                             slot.key,
                                                             item.id,
                                                         )
-                                                            ? 'Dan costume: clear a dan course in Waddamburo and display its rank on your profile to unlock it'
+                                                            ? isDanLocked(
+                                                                  slot.key,
+                                                                  item.id,
+                                                              )
+                                                                ? 'Dan costume: clear a dan course in Waddamburo and display its rank on your profile to unlock it'
+                                                                : 'Not earned yet: buy it in the reward shop'
                                                             : `ID: ${item.id}`}
                                                         aria-label="{slot.label} {item.id}"
                                                     >

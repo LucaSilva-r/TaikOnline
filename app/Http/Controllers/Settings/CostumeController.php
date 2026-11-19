@@ -10,6 +10,7 @@ use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Services\WaddamburoDanRank;
+use App\Services\WaddamburoUnlocks;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -80,6 +81,11 @@ class CostumeController extends Controller
             // Waddamburo's dan costume needs a displayed, server-verified rank (the costume draws that rank).
             'danCostumeLocked' => $request->attributes->get('taikoVersionIsWaddamburo') === true
                 && ! $this->hasDanRank($card?->player),
+            // Waddamburo's unlock mode, and the costumes it keeps locked (bought in the reward shop to unlock).
+            'isWaddamburo' => $request->attributes->get('taikoVersionIsWaddamburo') === true,
+            'earnedOnly' => $card !== null && app(WaddamburoUnlocks::class)->earnedOnly($card->player),
+            'lockedCostumes' => $card !== null && $request->attributes->get('taikoVersionIsWaddamburo') === true
+                ? array_intersect_key(app(WaddamburoUnlocks::class)->locked($card->player), array_flip(self::SLOTS)) : (object) [],
             'preview' => $this->preview($version, $request->attributes->get('taikoVersionIsWaddamburo') === true ? $card?->player : null),
             'status' => $request->session()->get('status'),
         ]);
@@ -113,6 +119,17 @@ class CostumeController extends Controller
             if ($request->attributes->get('taikoVersionIsWaddamburo') === true && ! $this->hasDanRank($card->player)
                 && in_array(PlayerCosmetic::DAN_COSTUME, array_column($presets, 'costume_1'), true)) {
                 throw ValidationException::withMessages(['presets' => __('The dan costume needs a cleared dan rank displayed on your profile.')]);
+            }
+
+            if ($request->attributes->get('taikoVersionIsWaddamburo') === true) {
+                $locked = app(WaddamburoUnlocks::class)->locked($card->player);
+                foreach ($presets as $set) {
+                    foreach (self::SLOTS as $slot => $kind) {
+                        if (in_array((int) $set["costume_{$slot}"], $locked[$kind] ?? [], true)) {
+                            throw ValidationException::withMessages(['presets' => __('That costume is not unlocked yet: buy it in the reward shop.')]);
+                        }
+                    }
+                }
             }
 
             $active = (int) $request->validated('active_preset');

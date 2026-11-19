@@ -21,6 +21,7 @@ use App\Services\WaddamburoAiBattles;
 use App\Services\WaddamburoDanRank;
 use App\Services\WaddamburoDeviceLoginService;
 use App\Services\WaddamburoMedals;
+use App\Services\WaddamburoUnlocks;
 use App\Services\WaddamburoRankAggregateService;
 use App\Services\WaddamburoReplay;
 use App\Services\WaddamburoScorer;
@@ -640,6 +641,9 @@ class WaddamburoController extends Controller
             'medals' => app(WaddamburoMedals::class)->wallet((int) $player->baid),
             'last_medal_day' => ($day = WdbMedalCredit::query()->where('baid', $player->baid)->max('local_day')) === null
                 ? null : substr((string) $day, 0, 10),
+            // "Only what I earned": what stays hidden (stock songs by musicid, costumes by id); all empty when off.
+            'earned_only' => (bool) $cosmetics?->wdb_earned_only,
+            'locked' => app(WaddamburoUnlocks::class)->locked($player),
             'look' => [
                 'costume' => array_map(fn (int $slot): int => $slot === 1 ? $kigurumi((int) ($cosmetics?->costume_1 ?? 0))
                     : (int) ($cosmetics?->{"costume_{$slot}"} ?? 0), [1, 2, 3, 4, 5]),
