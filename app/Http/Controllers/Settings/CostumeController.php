@@ -10,6 +10,7 @@ use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Services\WaddamburoDanRank;
+use App\Services\WaddamburoTitles;
 use App\Services\WaddamburoUnlocks;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -73,7 +74,11 @@ class CostumeController extends Controller
             'showDonChanName' => ! $request->attributes->get('taikoVersionIsWaddamburo'),
             'title' => $title,
             'titlePlateId' => $titlePlateId,
-            'officialTitles' => $officialTitles,
+            // Waddamburo's "Only what I earned": the titles earned (here or on a Green cabinet) only.
+            'officialTitles' => $card !== null && $request->attributes->get('taikoVersionIsWaddamburo') === true
+                && app(WaddamburoUnlocks::class)->earnedOnly($card->player)
+                ? array_values(array_filter($officialTitles, fn (array $title): bool => in_array($title['id'], app(WaddamburoTitles::class)->owned($card->player), true)))
+                : $officialTitles,
             'officialTitleId' => $officialTitleId,
             'colorFace' => $card?->player->color_face ?? 0,
             'colorBody' => $card?->player->color_body ?? 0,

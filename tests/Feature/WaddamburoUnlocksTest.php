@@ -88,3 +88,23 @@ it('lists rewards earned in Waddamburo until the game has shown them', function 
     $this->withToken($token)->postJson('/api/wdb/rewards/seen', ['items' => [[1, 819], [1, 834]]])->assertOk();
     expect($pending())->toBe([['type' => 1, 'id' => 833, 'music_id' => null]]);
 });
+
+it('does not count wearing an official title as earning it, and earned-only wears earned titles only', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    GameCard::query()->create(['access_code' => '12345678901234567891', 'baid' => $player->baid]);
+    $wear = fn (int $id) => $this->actingAs($user)->patch('/waddamburo/settings/donchan-official-title', ['title_id' => $id]);
+
+    // Unlock everything: any title can be worn, and it is not earned (253 would unlock the IA kigurumi).
+    $wear(253)->assertRedirect();
+    expect(PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'waddamburo')->value('unlocked_titles') ?? [])
+        ->not->toContain(253);
+
+    // Only what I earned: an unearned title is refused, an earned one worn.
+    $this->actingAs($user)->patch('/waddamburo/settings/unlock-mode', ['earned_only' => true]);
+    $wear(106)->assertStatus(422);
+    PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'waddamburo')->update(['unlocked_titles' => json_encode([106])]);
+    $wear(106)->assertRedirect();
+    $this->actingAs($user)->get('/waddamburo/settings/costumes')->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('officialTitles', fn ($titles) => collect($titles)->pluck('id')->all() === [106]));
+});

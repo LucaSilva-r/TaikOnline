@@ -41,6 +41,7 @@ class WaddamburoTitles
                 'song' => $info[$song->chart_sha256 ?? ''] ?? null,
                 'cleared' => $cleared,
                 'fc' => $cleared && (int) $play->miss === 0,
+                'ryo' => $cleared && (int) $play->miss === 0 && (int) $play->good === 0,
                 'course' => $play?->course,
                 'hits' => $play === null ? 0 : (int) $play->great + (int) $play->good,
                 'options' => (int) ($play?->options ?? 0),
@@ -82,9 +83,16 @@ class WaddamburoTitles
         };
         // How the song was played: its course, an option (WdbPlay::$options bits), the drum, where the pick stopped the timer.
         $how = fn (array $song): bool => (! isset($condition['course']) || $song['course'] === (int) $condition['course'])
+            && (! isset($condition['max_course']) || ($song['course'] !== null && $song['course'] <= (int) $condition['max_course']))
             && (! isset($condition['option']) || match ($condition['option']) {
                 'speed' => ($song['options'] >> 9) > 0 || ($song['options'] & 28) !== 0,
+                // ばいそく / さんばい / よんばい: Green's x2 / x3 / x4 (Nijiiro's speed index 10 / 12 / 14, or the old bits).
+                'speed2' => ($song['options'] >> 9) === 10 || ($song['options'] & 4) !== 0,
+                'speed3' => ($song['options'] >> 9) === 12 || ($song['options'] & 8) !== 0,
+                'speed4' => ($song['options'] >> 9) === 14 || ($song['options'] & 16) !== 0,
+                'hidden' => ($song['options'] & 32) !== 0,
                 'reversed' => ($song['options'] & 64) !== 0,
+                'random' => ($song['options'] & 256) === 0 && ($song['options'] & 128) !== 0,
                 'chaos' => ($song['options'] & 256) !== 0,
                 default => false,
             })
@@ -96,6 +104,7 @@ class WaddamburoTitles
             'credit' => true,
             // all_uids: each listed song is among them; fc: each one full combo.
             'clear_all' => collect($credit)->every(fn (array $song): bool => $song['cleared'] && (empty($condition['fc']) || $song['fc'])
+                && (empty($condition['ryo']) || $song['ryo'])
                 && $how($song) && $in($song['song']))
                 && (empty($condition['all_uids']) || array_diff($condition['uids'], $songUids) === []),
             'select_all' => collect($credit)->every(fn (array $song): bool => $song['song'] !== null && $in($song['song'])),
@@ -119,7 +128,7 @@ class WaddamburoTitles
     }
 
     /** @return list<int> titles the player has: earned here or on a Green cabinet */
-    private function owned(Player $player): array
+    public function owned(Player $player): array
     {
         return array_map('intval', $player->cosmetics()->whereIn('game_version', [PlayerCosmetic::WADDAMBURO, TaikoGameVersion::Green->value])
             ->pluck('unlocked_titles')->flatten()->filter()->all());

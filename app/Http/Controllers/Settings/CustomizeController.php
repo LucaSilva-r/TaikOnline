@@ -11,6 +11,8 @@ use App\Http\Requests\Settings\UpdateDonChanTitleRequest;
 use App\Http\Requests\Settings\UpdateOfficialDonChanTitleRequest;
 use App\Models\GameCard;
 use App\Models\PlayerCosmetic;
+use App\Services\WaddamburoTitles;
+use App\Services\WaddamburoUnlocks;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 
@@ -112,18 +114,24 @@ class CustomizeController extends Controller
             ->whereHas('player', fn ($query) => $query->where('user_id', $request->user()->id))
             ->with('player')
             ->first();
+        // Waddamburo: wearing a title is not earning it (its titles unlock items); "Only what I earned" wears earned ones only.
+        $waddamburo = $request->attributes->get('taikoVersionIsWaddamburo') === true;
+        abort_if($waddamburo && $card !== null && app(WaddamburoUnlocks::class)->earnedOnly($card->player)
+            && ! in_array($title['id'], app(WaddamburoTitles::class)->owned($card->player), true), 422);
 
         if ($card !== null) {
             $cosmetic = PlayerCosmetic::resolve($card->player->baid, $request->attributes->get('cosmeticVersion'));
             $cosmetic->title = $title['name'];
             $cosmetic->titleplate_id = $title['plate'];
-            $cosmetic->unlocked_titles = collect($cosmetic->unlocked_titles ?? [])
-                ->map(fn (mixed $id): int => (int) $id)
-                ->push($title['id'])
-                ->unique()
-                ->sort()
-                ->values()
-                ->all();
+            if (! $waddamburo) {
+                $cosmetic->unlocked_titles = collect($cosmetic->unlocked_titles ?? [])
+                    ->map(fn (mixed $id): int => (int) $id)
+                    ->push($title['id'])
+                    ->unique()
+                    ->sort()
+                    ->values()
+                    ->all();
+            }
             $cosmetic->save();
         }
 
