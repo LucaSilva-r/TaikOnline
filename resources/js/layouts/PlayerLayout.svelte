@@ -36,6 +36,7 @@
     import { dashboard } from '@/routes/admin';
     import moderation from '@/routes/mod';
     import { show as boardShow } from '@/routes/board';
+    import katsuShop from '@/routes/katsu-shop';
     import { create as createPlay } from '@/routes/play';
     import songsRoutes from '@/routes/songs';
     import { show as wikiShow } from '@/routes/wiki';
@@ -67,6 +68,15 @@
                       href: toUrl(
                           boardShow({ ...taikoParam, user: auth.user.id }),
                       ),
+                      featured: false,
+                  },
+              ]
+            : []),
+        ...(auth?.user && taikoParam.taikoVersion === 'waddamburo'
+            ? [
+                  {
+                      title: 'Katsu Shop',
+                      href: toUrl(katsuShop.index(taikoParam)),
                       featured: false,
                   },
               ]

@@ -65,7 +65,7 @@ class CostumeController extends Controller
             'supportsTitlePlates' => $supportsTitlePlates,
             'hasAccessCode' => $card !== null,
             'versionLabel' => $request->attributes->get('taikoVersionIsWaddamburo') ? 'Waddamburo' : ($version?->label() ?? ''),
-            'sheet' => $this->spritesheet($version),
+            'sheet' => self::spritesheet($version),
             'presets' => $presets,
             'activePreset' => $activePreset,
             'mydonName' => $card?->player->mydon_name ?? '',
@@ -197,7 +197,8 @@ class CostumeController extends Controller
      *
      * @return array{url: string, cell: int, width: int, height: int, slots: array<string, array<int, array{id: int, x: int, y: int}>>}|null
      */
-    private function spritesheet(?TaikoGameVersion $version): ?array
+    /** A version's costume icon sheet (storage/app/public/costumes/<version>), for the pages that show costumes. */
+    public static function spritesheet(?TaikoGameVersion $version): ?array
     {
         if (! $version instanceof TaikoGameVersion) {
             return null;

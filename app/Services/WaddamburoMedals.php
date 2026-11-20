@@ -62,7 +62,7 @@ class WaddamburoMedals
                         ->where('kind', 'song')->count() % self::HOME_CREDIT_SONGS === 0,
                 };
                 if ($pays) {
-                    $this->pay($player, $playedAt->startOfDay());
+                    $this->pay($player, $playedAt->startOfDay(), $song['kind'] === 'song');
                     // Condition titles, as Green checks them at a credit's end (a dan course gives none): a home credit is
                     // complete now; an arcade one when the next one starts (so the one before this).
                     if ($song['kind'] === 'song' && ($previous = $creditId === null ? null : $this->previousCredit($baid, $creditId)) !== false) {
@@ -101,7 +101,7 @@ class WaddamburoMedals
 
         return (int) WdbMedalCredit::query()->where('baid', $baid)->where('local_day', '>=', $start->toDateString())->sum('medals')
             - (int) PlayerShopItem::query()->where('baid', $baid)->where('game_version', PlayerCosmetic::WADDAMBURO)
-                ->where('created_at', '>=', $start)->sum('item_price');
+                ->where('created_at', '>=', $start)->where('season_id', '!=', WaddamburoKatsuShop::SEASON)->sum('item_price');
     }
 
     /** The day the active shop season started (its dates moved into the current cycle by ItemShopCatalog). */
@@ -139,7 +139,8 @@ class WaddamburoMedals
             ->get()->sortBy('played_at')->values()->all();
     }
 
-    private function pay(Player $player, CarbonImmutable $day): void
+    /** A credit's Don Medals (with Green's bonuses) and, for a play (not a dan course), its Katsu Medals. */
+    private function pay(Player $player, CarbonImmutable $day, bool $katsu): void
     {
         $last = WdbMedalCredit::query()->where('baid', $player->baid)->max('local_day');
         $last = $last === null ? null : CarbonImmutable::parse($last);
@@ -159,6 +160,7 @@ class WaddamburoMedals
             'daily' => $daily,
             'weekly' => $weekly,
             'monthly' => $monthly,
+            'katsu' => $katsu ? WaddamburoKatsuShop::MEDALS_PER_CREDIT : 0,
         ]);
         $player->total_get_donmedal = (int) $player->total_get_donmedal + $medals;
         $player->save();

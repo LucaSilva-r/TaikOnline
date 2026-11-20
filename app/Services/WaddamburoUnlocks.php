@@ -151,6 +151,9 @@ class WaddamburoUnlocks
         foreach (app(WaddamburoShopPool::class)->items() as [$type, $id]) {
             $items["{$type}:{$id}"] = [$type, $id];
         }
+        foreach (app(WaddamburoKatsuShop::class)->items() as [$type, $id]) {
+            $items["{$type}:{$id}"] = [$type, $id];
+        }
         foreach ((new ItemShopCatalog(TaikoGameVersion::Green, 0))->seasons as $season) {
             foreach ($season['items'] as $item) {
                 $items[$item['item_type'].':'.$item['item_id']] = [(int) $item['item_type'], (int) $item['item_id']];

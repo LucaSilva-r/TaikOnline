@@ -19,6 +19,7 @@ use App\Http\Controllers\Settings\DeviceLinkController;
 use App\Http\Controllers\SongCatalogController;
 use App\Http\Controllers\WaddamburoDanPlayController;
 use App\Http\Controllers\WaddamburoDanRankController;
+use App\Http\Controllers\WaddamburoKatsuShopController;
 use App\Http\Controllers\WaddamburoUnlockModeController;
 use App\Http\Controllers\WaddamburoPlayController;
 use App\Http\Controllers\WikiController;
@@ -66,6 +67,8 @@ Route::prefix('{taikoVersion}')
         Route::middleware('auth')->group(function (): void {
             Route::patch('settings/dan-rank', [WaddamburoDanRankController::class, 'update'])->name('dan-rank.update');
             Route::patch('settings/unlock-mode', [WaddamburoUnlockModeController::class, 'update'])->name('unlock-mode.update');
+            Route::get('katsu-shop', [WaddamburoKatsuShopController::class, 'index'])->name('katsu-shop.index');
+            Route::post('katsu-shop', [WaddamburoKatsuShopController::class, 'purchase'])->name('katsu-shop.purchase');
             Route::post('notifications/read', [NotificationController::class, 'read'])->name('notifications.read');
             Route::get('play', [CabinetLoginController::class, 'create'])->name('play.create');
             Route::post('play', [CabinetLoginController::class, 'store'])
