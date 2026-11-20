@@ -100,7 +100,7 @@
         {/if}
     </header>
 
-    {#each versions as version (version.key)}
+    {#each [...versions].reverse() as version (version.key)}
         {@const accent = taikoVersionAccent(version.key)}
         <section
             class="space-y-6 rounded-xl border-2 p-4"

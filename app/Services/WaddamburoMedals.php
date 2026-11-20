@@ -114,10 +114,21 @@ class WaddamburoMedals
     }
 
     /**
+     * An arcade credit's end, as the game reports it once its songs are uploaded: its condition titles now (Green's
+     * medal screen shows what they give). Checking again later (the next credit's start) finds nothing new.
+     */
+    public function endCredit(Player $player, string $creditId): void
+    {
+        $songs = $this->creditSongs((int) $player->baid, $creditId);
+        if ($songs !== []) {
+            app(WaddamburoTitles::class)->checkCredit($player, $songs);
+        }
+    }
+
+    /**
      * The arcade credit played before <paramref name="creditId"/> (false: none).
      *
-     * ponytail: an arcade credit's titles wait for the next credit; showing them at the credit's end (Green's medal screen)
-     * needs the client to report the end.
+     * A game that reports the credit's end (endCredit) has had them checked already; this catches the ones that did not.
      */
     private function previousCredit(int $baid, string $creditId): string|false
     {

@@ -200,3 +200,24 @@ it('checks the condition titles that ask for an option, the drum or the timer', 
     $upload([$song('2026-11-20T11:00:00+01:00', 64, 88), $song('2026-11-20T11:05:00+01:00', 0, 77), $song('2026-11-20T11:10:00+01:00', 0, 50)]);
     expect($titles())->toContain(297, 298);
 })->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_title_conditions.json'), 'needs the Green title conditions data file');
+
+it('checks an arcade credit\'s titles when the game reports its end', function (): void {
+    [$player, $token] = medal_fixture();
+    // Lemon (ynzlmn): J-POP, the FOOD tag; clearing it as the whole credit earns 144 (kigurumi 43) and 181 (kigurumi 44).
+    $chart = \App\Models\WdbChart::query()->create(['sha256' => str_repeat('e', 64), 'notes' => 'x', 'title' => 'Lemon', 'course' => 3, 'source' => 'Stock']);
+    $songId = DB::table('wdb_songs')->insertGetId(['family' => 'Namco', 'song_key' => 'ynzlmn', 'title' => 'Lemon', 'created_at' => now(), 'updated_at' => now()]);
+    DB::table('wdb_chart_song')->insert(['wdb_chart_id' => $chart->id, 'wdb_song_id' => $songId, 'source' => 'Stock', 'release' => '']);
+    $credit = (string) Str::uuid();
+    $id = (string) Str::uuid();
+    \App\Models\WdbPlay::query()->create([
+        'id' => $id, 'baid' => $player->baid, 'wdb_chart_id' => $chart->id, 'mode' => 'normal', 'course' => 3, 'score' => 1,
+        'great' => 100, 'good' => 0, 'miss' => 0, 'max_combo' => 100, 'rolls' => 0, 'gauge' => 50, 'cleared' => true,
+        'scoring_version' => 1, 'engine_version' => 'test', 'played_at' => '2026-11-20T10:00:00+01:00', 'replay' => 'inputs',
+    ]);
+    $this->withToken($token)->postJson('/api/wdb/medals/songs', ['songs' => [
+        medal_song('2026-11-20T10:00:00+01:00', ['id' => $id, 'credit_id' => $credit, 'chart_sha256' => $chart->sha256]),
+    ]])->assertOk();
+
+    $rewards = $this->withToken($token)->postJson('/api/wdb/medals/credit-end', ['credit_id' => $credit])->assertOk()->json('rewards');
+    expect(collect($rewards)->map(fn (array $reward) => [$reward['type'], $reward['id']])->all())->toContain([3, 43], [3, 44]);
+})->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_title_conditions.json'), 'needs the Green title conditions data file');

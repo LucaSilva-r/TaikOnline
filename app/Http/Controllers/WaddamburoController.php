@@ -384,6 +384,22 @@ class WaddamburoController extends Controller
         ]);
     }
 
+    /**
+     * An arcade credit ended (its songs uploaded first): its condition titles are checked now, and the answer is every
+     * reward the player has not seen, for Green's medal screen to show.
+     */
+    public function endCredit(Request $request, WaddamburoMedals $medals, WaddamburoUnlocks $unlocks): JsonResponse
+    {
+        $cabinet = $this->isCabinet($request);
+        $validated = $request->validate(['credit_id' => ['required', 'uuid'], 'baid' => [$cabinet ? 'required' : 'nullable', 'integer']]);
+        $baid = $cabinet ? (int) $validated['baid'] : $request->user()->player?->baid;
+        abort_if($baid === null, 403, 'Your account does not have a Banapass yet.');
+        $player = Player::query()->findOrFail($baid);
+        $medals->endCredit($player, $validated['credit_id']);
+
+        return response()->json(['rewards' => $unlocks->pending($player->refresh())]);
+    }
+
     public function storePlays(Request $request, WaddamburoRankAggregateService $aggregates, WaddamburoScorer $scorer, WaddamburoAiBattles $battles): JsonResponse
     {
         $cabinet = $this->isCabinet($request);
