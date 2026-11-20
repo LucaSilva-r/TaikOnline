@@ -48,6 +48,7 @@ class WaddamburoMedals
                     'baid' => $baid,
                     'credit_id' => $creditId,
                     'kind' => $song['kind'],
+                    'chart_sha256' => $song['chart_sha256'] ?? null,
                     'local_day' => $playedAt->toDateString(),
                     'played_at' => $playedAt,
                 ]);
@@ -60,6 +61,11 @@ class WaddamburoMedals
                 };
                 if ($pays) {
                     $this->pay($player, $playedAt->startOfDay());
+                    // Condition titles, as Green checks them at a credit's end (a dan course gives none): a home credit is
+                    // complete now; an arcade one when the next one starts (so the one before this).
+                    if ($song['kind'] === 'song' && ($previous = $creditId === null ? null : $this->previousCredit($baid, $creditId)) !== false) {
+                        app(WaddamburoTitles::class)->checkCredit($player, $this->creditSongs($baid, $previous ?? $creditId));
+                    }
                 }
             }
 
@@ -103,6 +109,32 @@ class WaddamburoMedals
 
         return $season === null ? CarbonImmutable::createFromTimestamp(0)
             : CarbonImmutable::createFromFormat('YmdHis', $season['start_datetime'])->startOfDay();
+    }
+
+    /**
+     * The arcade credit played before <paramref name="creditId"/> (false: none).
+     *
+     * ponytail: an arcade credit's titles wait for the next credit; showing them at the credit's end (Green's medal screen)
+     * needs the client to report the end.
+     */
+    private function previousCredit(int $baid, string $creditId): string|false
+    {
+        return WdbMedalSong::query()->where('baid', $baid)->where('kind', 'song')->whereNotNull('credit_id')
+            ->where('credit_id', '!=', $creditId)->orderByDesc('played_at')->value('credit_id') ?? false;
+    }
+
+    /**
+     * A credit's songs: an arcade credit's by its id, at home the last three.
+     *
+     * @return list<WdbMedalSong>
+     */
+    private function creditSongs(int $baid, ?string $creditId): array
+    {
+        $songs = WdbMedalSong::query()->where('baid', $baid)->where('kind', 'song');
+
+        return ($creditId !== null ? $songs->where('credit_id', $creditId)->orderBy('played_at')
+            : $songs->whereNull('credit_id')->orderByDesc('played_at')->orderByDesc('created_at')->limit(self::HOME_CREDIT_SONGS))
+            ->get()->sortBy('played_at')->values()->all();
     }
 
     private function pay(Player $player, CarbonImmutable $day): void

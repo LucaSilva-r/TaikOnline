@@ -3,6 +3,7 @@
 use App\Models\Player;
 use App\Models\User;
 use App\Models\WdbCabinet;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 function medal_fixture(): array
@@ -139,3 +140,34 @@ it('fills the shop with the day\'s goods Green gives no way to earn, and locks t
     [$type, $id] = collect($pool->items())->first(fn (array $item) => $item[0] !== 1);
     expect(app(\App\Services\WaddamburoUnlocks::class)->locked($player->refresh())[\App\Services\WaddamburoUnlocks::TYPES[$type]])->toContain($id);
 })->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_shop_pool.json'), 'needs the shop pool data file');
+
+it('checks Green\'s condition titles at the end of a home credit', function (): void {
+    [$player, $token] = medal_fixture();
+    // Lemon (ynzlmn): J-POP, an alphabet title, the FOOD tag (60).
+    $chart = \App\Models\WdbChart::query()->create(['sha256' => str_repeat('c', 64), 'notes' => 'x', 'title' => 'Lemon', 'course' => 3, 'source' => 'Stock']);
+    $songId = DB::table('wdb_songs')->insertGetId(['family' => 'Namco', 'song_key' => 'ynzlmn', 'title' => 'Lemon', 'created_at' => now(), 'updated_at' => now()]);
+    DB::table('wdb_chart_song')->insert(['wdb_chart_id' => $chart->id, 'wdb_song_id' => $songId, 'source' => 'Stock', 'release' => '']);
+    $song = function (bool $cleared, string $at) use ($player, $chart): array {
+        $id = (string) Str::uuid();
+        if ($cleared) {
+            \App\Models\WdbPlay::query()->create([
+                'id' => $id, 'baid' => $player->baid, 'wdb_chart_id' => $chart->id, 'mode' => 'normal', 'course' => 3, 'score' => 1,
+                'great' => 100, 'good' => 0, 'miss' => 0, 'max_combo' => 100, 'rolls' => 0, 'gauge' => 50, 'cleared' => true,
+                'scoring_version' => 1, 'engine_version' => 'test', 'played_at' => $at, 'replay' => 'inputs',
+            ]);
+        }
+
+        return medal_song($at, ['id' => $id, 'chart_sha256' => $chart->sha256]);
+    };
+    $titles = fn () => array_map('intval', \App\Models\PlayerCosmetic::query()->where('baid', $player->baid)
+        ->where('game_version', 'waddamburo')->value('unlocked_titles') ?? []);
+    $upload = fn (array $songs) => $this->withToken($token)->postJson('/api/wdb/medals/songs', ['songs' => $songs])->assertOk();
+
+    // A credit with a failed song: only the first play's title (106).
+    $upload([$song(true, '2026-11-20T10:00:00+01:00'), $song(false, '2026-11-20T10:05:00+01:00'), $song(true, '2026-11-20T10:10:00+01:00')]);
+    expect($titles())->toBe([106]);
+
+    // Every song cleared (and full combo): clear all (131), all J-POP (144), all FOOD (181), all alphabet titles (151).
+    $upload([$song(true, '2026-11-20T11:00:00+01:00'), $song(true, '2026-11-20T11:05:00+01:00'), $song(true, '2026-11-20T11:10:00+01:00')]);
+    expect($titles())->toContain(106, 131, 144, 181, 151)->not->toContain(146);
+})->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_title_conditions.json'), 'needs the Green title conditions data file');
