@@ -45,6 +45,10 @@ class WaddamburoTitles
                 'course' => $play?->course,
                 'hits' => $play === null ? 0 : (int) $play->great + (int) $play->good,
                 'options' => (int) ($play?->options ?? 0),
+                'chart' => $song->chart_sha256,
+                // A new personal best: no earlier play of the chart scored as much.
+                'best' => $play !== null && ! WdbPlay::query()->where('baid', $play->baid)->where('wdb_chart_id', $play->wdb_chart_id)
+                    ->where('id', '!=', $play->id)->where('played_at', '<', $play->played_at)->where('score', '>=', $play->score)->exists(),
                 'side' => (int) $song->side,
                 'seconds' => $song->select_seconds,
             ];
@@ -67,7 +71,7 @@ class WaddamburoTitles
         return $earned;
     }
 
-    /** @param  list<array{song: ?array, cleared: bool, fc: bool, course: ?int, hits: int, options: int, side: int, seconds: ?int}>  $credit */
+    /** @param  list<array{song: ?array, cleared: bool, fc: bool, ryo: bool, best: bool, course: ?int, hits: int, options: int, chart: ?string, side: int, seconds: ?int}>  $credit */
     private function met(array $condition, array $credit, Player $player): bool
     {
         // A song of the condition's set: its genre, tag, title script or uniqueId.
@@ -81,6 +85,14 @@ class WaddamburoTitles
                 && (! isset($condition['script']) || ($song['tags'][0] ?? 0) === (int) $condition['script'])
                 && (! isset($condition['uids']) || in_array($song['uid'], $condition['uids'], true));
         };
+        // The player's name (Green's My Don name): any of the condition's spellings.
+        if (isset($condition['name'])) {
+            $names = array_map(fn (?string $name): string => mb_strtolower(trim((string) $name)),
+                [$player->mydon_name, $player->user?->name, $player->user?->username]);
+            if (array_intersect($names, array_map('mb_strtolower', $condition['name'])) === []) {
+                return false;
+            }
+        }
         // How the song was played: its course, an option (WdbPlay::$options bits), the drum, where the pick stopped the timer.
         $how = fn (array $song): bool => (! isset($condition['course']) || $song['course'] === (int) $condition['course'])
             && (! isset($condition['max_course']) || ($song['course'] !== null && $song['course'] <= (int) $condition['max_course']))
@@ -104,7 +116,7 @@ class WaddamburoTitles
             'credit' => true,
             // all_uids: each listed song is among them; fc: each one full combo.
             'clear_all' => collect($credit)->every(fn (array $song): bool => $song['cleared'] && (empty($condition['fc']) || $song['fc'])
-                && (empty($condition['ryo']) || $song['ryo'])
+                && (empty($condition['ryo']) || $song['ryo']) && (empty($condition['best']) || $song['best'])
                 && $how($song) && $in($song['song']))
                 && (empty($condition['all_uids']) || array_diff($condition['uids'], $songUids) === []),
             'select_all' => collect($credit)->every(fn (array $song): bool => $song['song'] !== null && $in($song['song'])),
@@ -112,6 +124,9 @@ class WaddamburoTitles
             'clear_any' => collect($credit)->contains(fn (array $song): bool => $song['song'] !== null && $song['cleared'] && $how($song) && $in($song['song'])),
             'fc_any' => collect($credit)->contains(fn (array $song): bool => $song['song'] !== null && $song['fc'] && $how($song) && $in($song['song'])),
             'hits' => collect($credit)->contains(fn (array $song): bool => $song['hits'] >= (int) $condition['count']),
+            // The arcade's first-song revival: the first song failed and played again at once, that second try's result.
+            'revival' => count($credit) >= 2 && ! $credit[0]['cleared'] && $credit[0]['chart'] !== null
+                && $credit[1]['chart'] === $credit[0]['chart'] && $credit[1]['cleared'] === (bool) $condition['success'],
             'genre_plays' => $this->genrePlays($player, $condition['genre']) >= (int) $condition['count'],
             default => false,
         };
