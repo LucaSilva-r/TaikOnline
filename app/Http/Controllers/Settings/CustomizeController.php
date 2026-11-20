@@ -11,9 +11,11 @@ use App\Http\Requests\Settings\UpdateDonChanTitleRequest;
 use App\Http\Requests\Settings\UpdateOfficialDonChanTitleRequest;
 use App\Models\GameCard;
 use App\Models\PlayerCosmetic;
+use App\Services\WaddamburoTitleGacha;
 use App\Services\WaddamburoTitles;
 use App\Services\WaddamburoUnlocks;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class CustomizeController extends Controller
@@ -81,6 +83,10 @@ class CustomizeController extends Controller
             ->with('player')
             ->first();
 
+        // Waddamburo's "Only what I earned" builds titles from parts (updateTitleParts), not free text.
+        abort_if($card !== null && $request->attributes->get('taikoVersionIsWaddamburo') === true
+            && app(WaddamburoUnlocks::class)->earnedOnly($card->player), 422);
+
         if ($card !== null) {
             $title = $request->validated('title');
             $cosmetic = PlayerCosmetic::resolve($card->player->baid, $request->attributes->get('cosmeticVersion'));
@@ -93,6 +99,29 @@ class CustomizeController extends Controller
             $cosmetic->save();
         }
 
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Title updated.')]);
+
+        return to_route('costumes.edit');
+    }
+
+    /** Waddamburo's title from parts (Donder Hiroba's 称号パーツ設定): part + connector + part, owned parts only. */
+    public function updateTitleParts(Request $request, WaddamburoTitleGacha $gacha): RedirectResponse
+    {
+        abort_unless($request->attributes->get('taikoVersionIsWaddamburo') === true, 404);
+        $input = $request->validate([
+            'first' => ['nullable', 'string', 'max:12'],
+            'connector' => ['required', 'integer', 'min:0'],
+            'second' => ['nullable', 'string', 'max:12'],
+            'titleplate_id' => ['required', 'integer', 'min:0', 'max:'.PlayerCosmetic::CUSTOM_TITLE_PLATE_MAX_ID],
+        ]);
+        $card = GameCard::query()->whereHas('player', fn ($query) => $query->where('user_id', $request->user()->id))->with('player')->firstOrFail();
+        $title = $gacha->compose($card->player, $input['first'] ?? null, (int) $input['connector'], $input['second'] ?? null);
+        abort_if($title === null, 422);
+
+        $cosmetic = PlayerCosmetic::resolve($card->player->baid, PlayerCosmetic::WADDAMBURO);
+        $cosmetic->title = $title === '' ? null : $title;
+        $cosmetic->titleplate_id = (int) $input['titleplate_id'];
+        $cosmetic->save();
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Title updated.')]);
 
         return to_route('costumes.edit');

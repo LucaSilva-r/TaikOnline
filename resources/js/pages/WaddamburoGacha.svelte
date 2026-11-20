@@ -1,12 +1,12 @@
 <script lang="ts">
-    import { Form, Link, router } from '@inertiajs/svelte';
+    import { Form, router } from '@inertiajs/svelte';
     import { onMount } from 'svelte';
     import WaddamburoKatsuShopController from '@/actions/App/Http/Controllers/WaddamburoKatsuShopController';
     import AppHead from '@/components/AppHead.svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
     import { Button } from '@/components/ui/button';
     import { taikoRouteParam, taikoVersionAccent } from '@/lib/taiko-version';
-    import katsuShop from '@/routes/katsu-shop';
+    import KatsuShopLayout from '@/components/KatsuShopLayout.svelte';
 
     type Banner = {
         key: string;
@@ -52,9 +52,21 @@
     const newestFirst = $derived(
         [...banners].sort((a, b) => b.start.localeCompare(a.start)),
     );
-    let selected = $state(newestFirst[0]?.key ?? '');
+    let selection = $state<string>();
+    const selected = $derived(selection ?? newestFirst[0]?.key);
     const banner = $derived(banners.find((entry) => entry.key === selected));
-    const ownedSet = $derived(new Set(owned));
+    let confirmedKeys = $state<string[]>([]);
+    let beforePull = $state<string[] | null>(null);
+    const ownedSet = $derived(
+        new Set(beforePull ?? [...owned, ...confirmedKeys]),
+    );
+    const highlightedKeys = $derived(
+        new Set(
+            phase === 'idle'
+                ? drawn.filter((part) => part.new).map((part) => part.key)
+                : [],
+        ),
+    );
     const accent = $derived(
         taikoVersionAccent(banner?.version ?? 'waddamburo'),
     );
@@ -108,10 +120,25 @@
     const dropColour = $derived(accent.swatch);
 
     function play(parts: Drawn[]): void {
+        selection = parts[0].key.split(':')[0];
+        if (beforePull === null) {
+            const unlocked = new Set(
+                parts.filter((part) => part.new).map((part) => part.key),
+            );
+            beforePull = [...ownedSet].filter((key) => !unlocked.has(key));
+        }
         drawn = parts;
         phase = 'turn';
         setTimeout(() => (phase = 'drop'), 900);
         setTimeout(() => (phase = 'results'), 1950);
+    }
+
+    function dismissResults(): void {
+        confirmedKeys = [
+            ...new Set([...confirmedKeys, ...drawn.map((part) => part.key)]),
+        ];
+        beforePull = null;
+        phase = 'idle';
     }
 
     onMount(() =>
@@ -134,39 +161,11 @@
 
 <AppHead title="Title Parts Gacha" />
 
-<section class="mx-auto w-full max-w-5xl space-y-8 px-4 py-10">
-    <nav class="flex gap-2">
-        <Link
-            href={katsuShop.index(taikoRouteParam()).url}
-            class="rounded-full border px-4 py-1 text-sm">Katsu Shop</Link
-        >
-        <span
-            class="rounded-full bg-sky-600 px-4 py-1 text-sm font-semibold text-white"
-            >Gacha</span
-        >
-    </nav>
-
-    <header
-        class="space-y-2 rounded-xl border-l-8 bg-gradient-to-r from-amber-100 to-sky-100 p-6 dark:from-amber-950/40 dark:to-sky-950/40"
-        style="border-color: hsl(195 89% 42%)"
-    >
-        <h1 class="text-2xl font-semibold">Title Parts Gacha</h1>
-        <p class="text-sm text-muted-foreground">
-            Donder Hiroba's gachas from Momoiro to Yellow, all open. Each pull
-            costs {price} Katsu Medals and gives one title part from that gacha; you
-            can draw a part you already have.
-        </p>
-        {#if hasPlayer}
-            <p
-                class="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-1 text-lg font-semibold text-white"
-            >
-                {medals.toLocaleString()} Katsu Medals
-            </p>
-        {:else}
-            <p class="text-sm">Link a card to earn and spend Katsu Medals.</p>
-        {/if}
-    </header>
-
+<KatsuShopLayout active="Gacha" {hasPlayer} {medals}>
+    <p class="max-w-3xl text-sm text-muted-foreground">
+        Draw title parts from Momoiro through Yellow. Each pull costs {price} Katsu
+        Medals and can include a part you already own.
+    </p>
     <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
         <ul class="space-y-2">
             {#each newestFirst as entry (entry.key)}
@@ -174,34 +173,35 @@
                 <li>
                     <button
                         type="button"
-                        class="w-full rounded-lg border-2 p-3 text-left transition {selected ===
-                        entry.key
-                            ? 'shadow-md'
-                            : 'opacity-80 hover:opacity-100'}"
-                        style="border-color: {colours.swatch}; background: {selected ===
-                        entry.key
-                            ? colours.swatch
-                            : 'transparent'}; color: {selected === entry.key
-                            ? colours.primaryForeground
-                            : 'inherit'}"
-                        onclick={() => (selected = entry.key)}
+                        aria-pressed={selected === entry.key}
+                        disabled={phase !== 'idle'}
+                        class="flex w-full items-center gap-3 rounded-lg border bg-card p-4 text-left text-card-foreground transition-colors hover:bg-muted/40 aria-pressed:border-primary aria-pressed:bg-accent"
+                        onclick={() => (selection = entry.key)}
                     >
-                        <span class="block font-semibold"
-                            >{entry.version.toUpperCase()} · {bannerTitles[
-                                entry.key
-                            ] ?? entry.name}</span
-                        >
-                        <span class="text-xs"
-                            >{entry.start} · {ownedCount(entry)}/{entry.parts
-                                .length}</span
-                        >
+                        <AppLogoIcon
+                            class="size-8 shrink-0"
+                            accent={colours.swatch}
+                        />
+                        <span>
+                            <span class="block font-semibold"
+                                >{entry.version.toUpperCase()} · {bannerTitles[
+                                    entry.key
+                                ] ?? entry.name}</span
+                            >
+                            <span class="text-xs text-muted-foreground"
+                                >{entry.start} · {ownedCount(entry)}/{entry
+                                    .parts.length}</span
+                            >
+                        </span>
                     </button>
                 </li>
             {/each}
         </ul>
 
         {#if banner}
-            <div class="space-y-6">
+            <div
+                class="space-y-6 self-start rounded-lg border bg-card p-4 text-card-foreground sm:p-6"
+            >
                 <div
                     class="machine"
                     style="--paint: {accent.swatch}"
@@ -255,6 +255,12 @@
                                 {...WaddamburoKatsuShopController.pull.form(
                                     taikoRouteParam(),
                                 )}
+                                onStart={() => {
+                                    beforePull = [...ownedSet];
+                                }}
+                                onFinish={() => {
+                                    if (phase === 'idle') beforePull = null;
+                                }}
                                 options={{ preserveScroll: true }}
                             >
                                 {#snippet children({ processing })}
@@ -271,8 +277,7 @@
                                     <Button
                                         type="submit"
                                         disabled={processing ||
-                                            (phase !== 'idle' &&
-                                                phase !== 'results') ||
+                                            beforePull !== null ||
                                             medals < price * count}
                                         style="background: {accent.primary}; color: {accent.primaryForeground}"
                                     >
@@ -284,16 +289,14 @@
                     </div>
                 {/if}
 
-                <section class="space-y-2">
-                    <h2 class="font-semibold" style="color: {accent.label}">
-                        Parts in this gacha
-                    </h2>
+                <section class="space-y-3 border-t pt-4">
+                    <h2 class="font-semibold">Parts in this gacha</h2>
                     <ul class="flex flex-wrap gap-1.5">
                         {#each banner.parts as part, index (index)}
-                            {@const have = ownedSet.has(
-                                `${banner.key}:${index}`,
-                            )}
+                            {@const partKey = `${banner.key}:${index}`}
+                            {@const have = ownedSet.has(partKey)}
                             <li
+                                class:unlocked={highlightedKeys.has(partKey)}
                                 class="rounded border px-2 py-0.5 text-sm {have
                                     ? 'font-medium'
                                     : 'text-muted-foreground opacity-60'}"
@@ -302,6 +305,10 @@
                                     : ''}
                             >
                                 {part}
+                                {#if highlightedKeys.has(partKey)}<span
+                                        class="ml-1 text-xs font-semibold"
+                                        >New</span
+                                    >{/if}
                             </li>
                         {/each}
                     </ul>
@@ -309,7 +316,7 @@
             </div>
         {/if}
     </div>
-</section>
+</KatsuShopLayout>
 
 {#if phase === 'results'}
     <div
@@ -342,12 +349,28 @@
                     </li>
                 {/each}
             </ul>
-            <Button class="w-full" onclick={() => (phase = 'idle')}>OK</Button>
+            <Button class="w-full" onclick={dismissResults}>OK</Button>
         </div>
     </div>
 {/if}
 
 <style>
+    @media (prefers-reduced-motion: no-preference) {
+        .unlocked {
+            animation: unlock 1.6s ease-out both;
+        }
+        @keyframes unlock {
+            0%,
+            30% {
+                background-color: var(--accent);
+                box-shadow: 0 0 0 2px var(--primary);
+            }
+            100% {
+                box-shadow: 0 0 0 0 transparent;
+            }
+        }
+    }
+
     .machine {
         position: relative;
         width: 216px;

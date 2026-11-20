@@ -69,4 +69,46 @@ class WaddamburoTitleGacha
             return $drawn;
         });
     }
+
+    /**
+     * The player's parts for Donder Hiroba's title editor (part + connector + part): each owned part's key, text and
+     * banner, in the gacha's order.
+     *
+     * @return list<array{key: string, text: string, banner: string}>
+     */
+    public function ownedParts(Player $player): array
+    {
+        $owned = array_flip($this->owned($player));
+        $parts = [];
+        foreach ($this->data()['banners'] as $banner) {
+            foreach ($banner['parts'] as $index => $text) {
+                if (isset($owned["{$banner['key']}:{$index}"])) {
+                    $parts[] = ['key' => "{$banner['key']}:{$index}", 'text' => $text, 'banner' => $banner['key']];
+                }
+            }
+        }
+
+        return $parts;
+    }
+
+    /**
+     * A title built from parts: an owned part (or none), a connector (index into the B parts; (なし) none, (スペース) a
+     * space), an owned part (or none). Null when a part is not owned or the connector is unknown.
+     */
+    public function compose(Player $player, ?string $first, int $connector, ?string $second): ?string
+    {
+        $owned = array_column($this->ownedParts($player), 'text', 'key');
+        $connectors = $this->data()['b'];
+        if (($first !== null && ! isset($owned[$first])) || ($second !== null && ! isset($owned[$second])) || ! isset($connectors[$connector])) {
+            return null;
+        }
+        $middle = match ($connectors[$connector]) {
+            '(なし)' => '',
+            '(スペース)' => '　',
+            default => $connectors[$connector],
+        };
+
+        // A space connector between nothing is nothing (trim() is byte-wise: the ideographic space needs the regex).
+        return (string) preg_replace('/^[\s\x{3000}]+|[\s\x{3000}]+$/u', '', ($first === null ? '' : $owned[$first]).$middle.($second === null ? '' : $owned[$second]));
+    }
 }

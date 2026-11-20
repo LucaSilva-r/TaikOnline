@@ -22,6 +22,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('settings/customize', [CustomizeController::class, 'update'])->name('customize.update');
     Route::patch('settings/donchan-name', [CustomizeController::class, 'updateName'])->name('donchan-name.update');
     Route::patch('settings/donchan-title', [CustomizeController::class, 'updateTitle'])->name('donchan-title.update');
+    Route::patch('settings/donchan-title-parts', [CustomizeController::class, 'updateTitleParts'])->name('donchan-title-parts.update');
     Route::patch('settings/donchan-official-title', [CustomizeController::class, 'updateOfficialTitle'])
         ->name('donchan-official-title.update');
 

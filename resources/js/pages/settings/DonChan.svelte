@@ -184,6 +184,7 @@
         danCostumeLocked = false,
         isWaddamburo = false,
         earnedOnly = false,
+        titleParts = null,
         lockedCostumes = {},
         preview = null,
     }: {
@@ -206,6 +207,11 @@
         danCostumeLocked?: boolean;
         isWaddamburo?: boolean;
         earnedOnly?: boolean;
+        titleParts?: {
+            owned: { key: string; text: string; banner: string }[];
+            connectors: string[];
+            banners: { key: string; name: string }[];
+        } | null;
         // "Only what I earned": costume ids by slot that are not bought yet.
         lockedCostumes?: Record<string, number[]>;
         preview?: Preview | null;
@@ -386,6 +392,30 @@
     function updateDonChanTitle(event: Event): void {
         donChanTitle = (event.currentTarget as HTMLInputElement).value;
     }
+
+    // Donder Hiroba's title parts editor: part + connector + part (an empty part is "").
+    let partFirst = $state('');
+    let partConnector = $state(0);
+    let partSecond = $state('');
+    let partBanner = $state('');
+    const partChoices = $derived(
+        (titleParts?.owned ?? []).filter(
+            (part) => partBanner === '' || part.banner === partBanner,
+        ),
+    );
+    const partText = (key: string): string =>
+        titleParts?.owned.find((part) => part.key === key)?.text ?? '';
+    const partsTitle = $derived.by(() => {
+        const connector = titleParts?.connectors[partConnector] ?? '';
+        const middle =
+            connector === '(なし)'
+                ? ''
+                : connector === '(スペース)'
+                  ? '　'
+                  : connector;
+
+        return (partText(partFirst) + middle + partText(partSecond)).trim();
+    });
 
     function titlePlateById(id: number): TitlePlate {
         return (
@@ -613,112 +643,245 @@
                         description="Choose a custom or official title for {versionLabel}."
                     />
 
-                    <Form
-                        {...CustomizeController.updateTitle.form(
-                            taikoRouteParam(),
-                        )}
-                        class="space-y-6 rounded-lg border p-4"
-                        options={{ preserveScroll: true }}
-                    >
-                        {#snippet children({ errors, processing })}
-                            <div>
-                                <h3 class="font-medium">Custom title</h3>
-                                <p class="text-sm text-muted-foreground">
-                                    Custom text and its plate are saved only for {versionLabel}.
-                                </p>
-                            </div>
-
-                            <div class="grid max-w-md gap-2">
-                                <Label for="title">Title text</Label>
-                                <Input
-                                    id="title"
-                                    name="title"
-                                    value={donChanTitle}
-                                    oninput={updateDonChanTitle}
-                                    maxlength={20}
-                                    autocomplete="off"
-                                    placeholder="ほんのきもち"
-                                    aria-describedby="title-help"
-                                />
-                                <p
-                                    id="title-help"
-                                    class="text-sm text-muted-foreground"
-                                >
-                                    Leave it empty to remove this version's
-                                    title.
-                                </p>
-                                <InputError message={errors.title} />
-                            </div>
-
-                            {#if supportsTitlePlates}
+                    {#if isWaddamburo && earnedOnly && titleParts}
+                        <Form
+                            {...CustomizeController.updateTitleParts.form(
+                                taikoRouteParam(),
+                            )}
+                            class="space-y-6 rounded-lg border p-4"
+                            options={{ preserveScroll: true }}
+                        >
+                            {#snippet children({ processing })}
+                                <div>
+                                    <h3 class="font-medium">
+                                        Title from parts
+                                    </h3>
+                                    <p class="text-sm text-muted-foreground">
+                                        As on Donder Hiroba: a part, a
+                                        connector, a part. Parts come from the
+                                        Katsu Medal gacha ({titleParts.owned
+                                            .length} owned).
+                                    </p>
+                                </div>
                                 <div class="grid max-w-md gap-2">
-                                    <Label for="titleplate_id"
+                                    <Label for="part_banner"
+                                        >Show parts from</Label
+                                    >
+                                    <select
+                                        id="part_banner"
+                                        bind:value={partBanner}
+                                        class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                                    >
+                                        <option value="">Every gacha</option>
+                                        {#each titleParts.banners as banner (banner.key)}
+                                            <option value={banner.key}
+                                                >{banner.name}</option
+                                            >
+                                        {/each}
+                                    </select>
+                                </div>
+                                <div class="grid max-w-md grid-cols-3 gap-2">
+                                    <select
+                                        name="first"
+                                        bind:value={partFirst}
+                                        aria-label="First part"
+                                        class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                                    >
+                                        <option value="">(なし)</option>
+                                        {#if partFirst && !partChoices.some((part) => part.key === partFirst)}
+                                            <option value={partFirst}
+                                                >{partText(partFirst)}</option
+                                            >
+                                        {/if}
+                                        {#each partChoices as part (part.key)}
+                                            <option value={part.key}
+                                                >{part.text}</option
+                                            >
+                                        {/each}
+                                    </select>
+                                    <select
+                                        name="connector"
+                                        bind:value={partConnector}
+                                        aria-label="Connector"
+                                        class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                                    >
+                                        {#each titleParts.connectors as connector, index (index)}
+                                            <option value={index}
+                                                >{connector}</option
+                                            >
+                                        {/each}
+                                    </select>
+                                    <select
+                                        name="second"
+                                        bind:value={partSecond}
+                                        aria-label="Second part"
+                                        class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                                    >
+                                        <option value="">(なし)</option>
+                                        {#if partSecond && !partChoices.some((part) => part.key === partSecond)}
+                                            <option value={partSecond}
+                                                >{partText(partSecond)}</option
+                                            >
+                                        {/if}
+                                        {#each partChoices as part (part.key)}
+                                            <option value={part.key}
+                                                >{part.text}</option
+                                            >
+                                        {/each}
+                                    </select>
+                                </div>
+                                <div class="grid max-w-md gap-2">
+                                    <Label for="parts_titleplate_id"
                                         >Title plate background</Label
                                     >
                                     <select
-                                        id="titleplate_id"
+                                        id="parts_titleplate_id"
                                         name="titleplate_id"
                                         bind:value={selectedTitlePlateId}
-                                        class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                        aria-describedby="titleplate-help"
+                                        class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                                     >
                                         {#each TITLE_PLATES as plate (plate.id)}
-                                            <option
-                                                value={plate.id}
-                                                class="bg-popover text-popover-foreground"
+                                            <option value={plate.id}
+                                                >{plate.label} (ID {plate.id})</option
                                             >
-                                                {plate.label} (ID {plate.id})
-                                            </option>
                                         {/each}
                                     </select>
-                                    <p
-                                        id="titleplate-help"
-                                        class="text-sm text-muted-foreground"
+                                </div>
+                                <div
+                                    class="flex min-h-28 max-w-md items-center justify-center overflow-hidden rounded-md border bg-muted/30 p-4"
+                                >
+                                    <div
+                                        class="relative flex aspect-[8.5/1] w-full max-w-72 items-center justify-center overflow-hidden rounded-full border-2 border-zinc-900 px-7 {selectedTitlePlate.backgroundClass}"
+                                        role="img"
+                                        aria-label="{selectedTitlePlate.label} title plate preview"
                                     >
-                                        These are the four backgrounds GEN 3
-                                        accepts for custom text.
+                                        <span
+                                            class="truncate text-center text-sm font-black text-zinc-950 sm:text-base"
+                                            >{partsTitle ||
+                                                'Title preview'}</span
+                                        >
+                                    </div>
+                                </div>
+                                <Button
+                                    type="submit"
+                                    disabled={processing}
+                                    data-test="update-donchan-title-parts-button"
+                                >
+                                    Save title
+                                </Button>
+                            {/snippet}
+                        </Form>
+                    {:else}
+                        <Form
+                            {...CustomizeController.updateTitle.form(
+                                taikoRouteParam(),
+                            )}
+                            class="space-y-6 rounded-lg border p-4"
+                            options={{ preserveScroll: true }}
+                        >
+                            {#snippet children({ errors, processing })}
+                                <div>
+                                    <h3 class="font-medium">Custom title</h3>
+                                    <p class="text-sm text-muted-foreground">
+                                        Custom text and its plate are saved only
+                                        for {versionLabel}.
                                     </p>
-                                    <InputError
-                                        message={errors.titleplate_id}
-                                    />
                                 </div>
 
                                 <div class="grid max-w-md gap-2">
-                                    <span class="text-sm font-medium"
-                                        >Preview</span
+                                    <Label for="title">Title text</Label>
+                                    <Input
+                                        id="title"
+                                        name="title"
+                                        value={donChanTitle}
+                                        oninput={updateDonChanTitle}
+                                        maxlength={20}
+                                        autocomplete="off"
+                                        placeholder="ほんのきもち"
+                                        aria-describedby="title-help"
+                                    />
+                                    <p
+                                        id="title-help"
+                                        class="text-sm text-muted-foreground"
                                     >
-                                    <div
-                                        class="flex min-h-28 items-center justify-center overflow-hidden rounded-md border bg-muted/30 p-4"
-                                    >
-                                        <div
-                                            class="relative flex aspect-[8.5/1] w-full max-w-72 items-center justify-center overflow-hidden rounded-full border-2 border-zinc-900 px-7 shadow-[inset_0_2px_0_rgba(255,255,255,0.7),inset_0_-2px_0_rgba(0,0,0,0.22),0_2px_0_rgba(0,0,0,0.2)] {selectedTitlePlate.backgroundClass}"
-                                            role="img"
-                                            aria-label="{selectedTitlePlate.label} title plate preview"
-                                        >
-                                            <span
-                                                class="truncate text-center text-sm font-black tracking-wide text-zinc-950 [text-shadow:0_1px_0_rgba(255,255,255,0.65)] sm:text-base"
-                                            >
-                                                {donChanTitle ||
-                                                    'Title preview'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <p class="text-xs text-muted-foreground">
-                                        CSS approximation; the game renders its
-                                        own background artwork.
+                                        Leave it empty to remove this version's
+                                        title.
                                     </p>
+                                    <InputError message={errors.title} />
                                 </div>
-                            {/if}
 
-                            <Button
-                                type="submit"
-                                disabled={processing}
-                                data-test="update-donchan-title-button"
-                            >
-                                Save custom title
-                            </Button>
-                        {/snippet}
-                    </Form>
+                                {#if supportsTitlePlates}
+                                    <div class="grid max-w-md gap-2">
+                                        <Label for="titleplate_id"
+                                            >Title plate background</Label
+                                        >
+                                        <select
+                                            id="titleplate_id"
+                                            name="titleplate_id"
+                                            bind:value={selectedTitlePlateId}
+                                            class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                            aria-describedby="titleplate-help"
+                                        >
+                                            {#each TITLE_PLATES as plate (plate.id)}
+                                                <option
+                                                    value={plate.id}
+                                                    class="bg-popover text-popover-foreground"
+                                                >
+                                                    {plate.label} (ID {plate.id})
+                                                </option>
+                                            {/each}
+                                        </select>
+                                        <p
+                                            id="titleplate-help"
+                                            class="text-sm text-muted-foreground"
+                                        >
+                                            These are the four backgrounds GEN 3
+                                            accepts for custom text.
+                                        </p>
+                                        <InputError
+                                            message={errors.titleplate_id}
+                                        />
+                                    </div>
+
+                                    <div class="grid max-w-md gap-2">
+                                        <span class="text-sm font-medium"
+                                            >Preview</span
+                                        >
+                                        <div
+                                            class="flex min-h-28 items-center justify-center overflow-hidden rounded-md border bg-muted/30 p-4"
+                                        >
+                                            <div
+                                                class="relative flex aspect-[8.5/1] w-full max-w-72 items-center justify-center overflow-hidden rounded-full border-2 border-zinc-900 px-7 shadow-[inset_0_2px_0_rgba(255,255,255,0.7),inset_0_-2px_0_rgba(0,0,0,0.22),0_2px_0_rgba(0,0,0,0.2)] {selectedTitlePlate.backgroundClass}"
+                                                role="img"
+                                                aria-label="{selectedTitlePlate.label} title plate preview"
+                                            >
+                                                <span
+                                                    class="truncate text-center text-sm font-black tracking-wide text-zinc-950 [text-shadow:0_1px_0_rgba(255,255,255,0.65)] sm:text-base"
+                                                >
+                                                    {donChanTitle ||
+                                                        'Title preview'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            CSS approximation; the game renders
+                                            its own background artwork.
+                                        </p>
+                                    </div>
+                                {/if}
+
+                                <Button
+                                    type="submit"
+                                    disabled={processing}
+                                    data-test="update-donchan-title-button"
+                                >
+                                    Save custom title
+                                </Button>
+                            {/snippet}
+                        </Form>
+                    {/if}
 
                     {#if officialTitles.length > 0}
                         <Form

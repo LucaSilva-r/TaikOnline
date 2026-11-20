@@ -10,6 +10,7 @@ use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Services\WaddamburoDanRank;
+use App\Services\WaddamburoTitleGacha;
 use App\Services\WaddamburoTitles;
 use App\Services\WaddamburoUnlocks;
 use Illuminate\Http\RedirectResponse;
@@ -75,6 +76,13 @@ class CostumeController extends Controller
             'title' => $title,
             'titlePlateId' => $titlePlateId,
             // Waddamburo's "Only what I earned": the titles earned (here or on a Green cabinet) only.
+            // Waddamburo's title parts (Donder Hiroba's editor): the player's parts, the connectors, the gachas' names.
+            'titleParts' => $card !== null && $request->attributes->get('taikoVersionIsWaddamburo') === true ? [
+                'owned' => app(WaddamburoTitleGacha::class)->ownedParts($card->player),
+                'connectors' => app(WaddamburoTitleGacha::class)->data()['b'],
+                'banners' => array_map(fn (array $banner): array => ['key' => $banner['key'], 'name' => $banner['name']],
+                    app(WaddamburoTitleGacha::class)->data()['banners']),
+            ] : null,
             'officialTitles' => $card !== null && $request->attributes->get('taikoVersionIsWaddamburo') === true
                 && app(WaddamburoUnlocks::class)->earnedOnly($card->player)
                 ? array_values(array_filter($officialTitles, fn (array $title): bool => in_array($title['id'], app(WaddamburoTitles::class)->owned($card->player), true)))

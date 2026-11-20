@@ -57,3 +57,24 @@ it('pulls the title parts gacha for Katsu Medals', function (): void {
     $this->actingAs($user)->get('/waddamburo/gacha')->assertOk()
         ->assertInertia(fn ($page) => $page->component('WaddamburoGacha')->where('medals', 10)->has('banners', 14));
 })->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_title_parts.json'), 'needs the title parts data file');
+
+it('builds a title from owned parts, as Donder Hiroba did', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    \App\Models\GameCard::query()->create(['access_code' => '12345678901234567892', 'baid' => $player->baid]);
+    \App\Models\PlayerCosmetic::query()->create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_earned_only' => true,
+        'wdb_title_parts' => ['G01:75', 'G01:93'], 'unlocked_titles' => []]); // 地元, スーパー
+    $gacha = app(\App\Services\WaddamburoTitleGacha::class);
+    $of = array_search('の', $gacha->data()['b'], true);
+    $title = fn () => \App\Models\PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'waddamburo')->value('title');
+
+    $this->actingAs($user)->patch('/waddamburo/settings/donchan-title-parts', ['first' => 'G01:75', 'connector' => $of, 'second' => 'G01:93', 'titleplate_id' => 1])
+        ->assertRedirect();
+    expect($title())->toBe('地元のスーパー');
+
+    // A part not owned, or free text in Only what I earned: refused.
+    $this->actingAs($user)->patch('/waddamburo/settings/donchan-title-parts', ['first' => 'G01:0', 'connector' => 0, 'second' => null, 'titleplate_id' => 0])
+        ->assertStatus(422);
+    $this->actingAs($user)->patch('/waddamburo/settings/donchan-title', ['title' => 'anything', 'titleplate_id' => 0])->assertStatus(422);
+    expect($title())->toBe('地元のスーパー');
+})->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_title_parts.json'), 'needs the title parts data file');
