@@ -135,24 +135,28 @@ class WaddamburoTitles
         return $info;
     }
 
-    /** @return array<string, array{uid: int, genre: string, tags: list<int>}> by musicid */
+    /**
+     * By musicid, from every Green revision's musicinfo: musicinfo.xml (the latest) first, then older ones
+     * (musicinfo-*.xml) for the songs later revisions dropped. A song's facts are the same in every revision.
+     *
+     * @return array<string, array{uid: int, genre: string, tags: list<int>}>
+     */
     private function musicInfo(): array
     {
         static $music = null;
         if ($music !== null) {
             return $music;
         }
-        $path = config('taiko_green.data_path').DIRECTORY_SEPARATOR.'green'.DIRECTORY_SEPARATOR.'musicinfo.xml';
+        $dir = config('taiko_green.data_path').DIRECTORY_SEPARATOR.'green'.DIRECTORY_SEPARATOR;
         $music = [];
-        if (! File::exists($path)) {
-            return $music;
-        }
-        foreach (simplexml_load_string(File::get($path))->MusicInfo->Data as $data) {
-            $music[(string) $data->musicid] = [
-                'uid' => (int) $data->uniqueid,
-                'genre' => (string) $data->genrename,
-                'tags' => array_map('intval', iterator_to_array($data->tag, false)),
-            ];
+        foreach (array_merge(File::glob($dir.'musicinfo.xml'), File::glob($dir.'musicinfo-*.xml')) as $path) {
+            foreach (simplexml_load_string(File::get($path))->MusicInfo->Data as $data) {
+                $music[(string) $data->musicid] ??= [
+                    'uid' => (int) $data->uniqueid,
+                    'genre' => (string) $data->genrename,
+                    'tags' => array_map('intval', iterator_to_array($data->tag, false)),
+                ];
+            }
         }
 
         return $music;
