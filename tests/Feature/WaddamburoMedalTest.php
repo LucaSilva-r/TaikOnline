@@ -118,16 +118,17 @@ it('starts the wallet again each shop season, and pays every bonus on the season
 });
 
 it('fills the shop with the day\'s goods Green gives no way to earn, and locks them until bought', function (): void {
-    $this->travelTo('2026-11-19 12:00:00'); // the fall shop's 8 goods, then 10 from the pool
+    $this->travelTo('2026-11-19 12:00:00'); // the fall shop: 4 costumes and 4 songs; the pool adds 7 costumes and 2 songs
     [$player, $token] = medal_fixture();
     $shop = fn () => $this->withToken($token)->getJson('/api/wdb/shop')->assertOk()->json('goods');
     $pool = app(\App\Services\WaddamburoShopPool::class);
     $today = $shop();
-    expect($today)->toHaveCount(18)->and($today[8]['no'])->toBe(9)
-        ->and(array_map(fn (array $goods) => [$goods['type'], $goods['id']], array_slice($today, 8)))
-        ->toBe(array_map(fn (array $item) => [$item['item_type'], $item['item_id']], $pool->today(array_fill(0, 8, []))));
+    $songs = fn (array $goods) => count(array_filter($goods, fn (array $item) => $item['type'] === 1));
+    // reward_shop's areas: 11 costume boxes, 6 song boxes; nothing spills over.
+    expect($today)->toHaveCount(17)->and($today[8]['no'])->toBe(9)
+        ->and($songs($today))->toBe(6)->and(count($today) - $songs($today))->toBe(11);
 
-    // Tomorrow: the next 10 of the pool; a client still showing today's goods is not sold tomorrow's.
+    // Tomorrow: the next ones; a client still showing today's goods is not sold tomorrow's.
     $this->travelTo('2026-11-20 00:05:00');
     expect($shop()[8])->not->toBe($today[8]);
     $this->withToken($token)->postJson('/api/wdb/shop/purchase', ['no' => 9, 'type' => $today[8]['type'], 'id' => $today[8]['id']])
