@@ -70,3 +70,21 @@ it('locks what Green\'s condition titles give until the title is earned', functi
     PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'green', 'unlocked_titles' => [152]]);
     expect($unlocks()['kigurumi'])->not->toContain(56);
 })->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_reward_table.json'), 'needs the Green reward table data file');
+
+it('lists rewards earned in Waddamburo until the game has shown them', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    Song::query()->create(['version' => 'green', 'song_no' => 819, 'music_id' => 'csmclr', 'unique_id' => 819,
+        'title' => 'csmclr', 'genre' => 'namco_original', 'partsset' => 'A3']);
+    $this->mock(\App\Services\WaddamburoAiBattles::class, fn ($mock) => $mock->shouldReceive('progress')
+        ->andReturn(['points' => 0, 'wins' => 90, 'rank' => 0, 'points_to_next' => 1]));
+    $token = $user->createToken('rewards', ['wdb'])->plainTextToken;
+    $pending = fn () => $this->withToken($token)->getJson('/api/wdb/me')->assertOk()->json('pending_rewards');
+
+    // 90 wins: カラフルボイス (3), 疾風怒濤 (25), Goldfish City (55) and head マンガ目 (85); the head was had on a cabinet.
+    PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'green', 'unlocked_costumes' => ['2' => [119]]]);
+    expect($pending())->toHaveCount(3)->and($pending()[0])->toBe(['type' => 1, 'id' => 819, 'music_id' => 'csmclr']);
+
+    $this->withToken($token)->postJson('/api/wdb/rewards/seen', ['items' => [[1, 819], [1, 834]]])->assertOk();
+    expect($pending())->toBe([['type' => 1, 'id' => 833, 'music_id' => null]]);
+});

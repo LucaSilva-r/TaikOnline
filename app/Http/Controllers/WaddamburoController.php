@@ -644,6 +644,8 @@ class WaddamburoController extends Controller
             // "Only what I earned": what stays hidden (stock songs by musicid, costumes by id); all empty when off.
             'earned_only' => (bool) $cosmetics?->wdb_earned_only,
             'locked' => app(WaddamburoUnlocks::class)->locked($player),
+            // Earned rewards not shown yet: Song Select's menu offers their animation (reward_shop) while there are some.
+            'pending_rewards' => app(WaddamburoUnlocks::class)->pending($player),
             'look' => [
                 'costume' => array_map(fn (int $slot): int => $slot === 1 ? $kigurumi((int) ($cosmetics?->costume_1 ?? 0))
                     : (int) ($cosmetics?->{"costume_{$slot}"} ?? 0), [1, 2, 3, 4, 5]),

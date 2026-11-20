@@ -68,6 +68,7 @@ Route::middleware(['wdb.auth', 'throttle:wdb'])->prefix('api/wdb')->group(functi
     Route::post('medals/songs', [WaddamburoController::class, 'storeMedalSongs'])->middleware('wdb.rules');
     Route::get('shop', [WaddamburoShopController::class, 'show']);
     Route::post('shop/purchase', [WaddamburoShopController::class, 'purchase'])->middleware('wdb.rules');
+    Route::post('rewards/seen', [WaddamburoShopController::class, 'rewardsSeen']);
     Route::post('dan/plays', [WaddamburoDanController::class, 'storePlays'])->middleware('wdb.rules');
     Route::post('rankings', [WaddamburoController::class, 'rankings']);
     Route::get('bests', [WaddamburoController::class, 'bests']);

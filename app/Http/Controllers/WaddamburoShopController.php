@@ -12,6 +12,7 @@ use App\Models\PlayerShopItem;
 use App\Models\Song;
 use App\Services\WaddamburoMedals;
 use App\Services\WaddamburoShopPool;
+use App\Services\WaddamburoUnlocks;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -84,6 +85,16 @@ class WaddamburoShopController extends Controller
 
             return response()->json(['result' => 'ok', 'medals' => $medals->wallet($baid)]);
         });
+    }
+
+    /** The game showed these earned rewards (reward_shop's animation): they leave the profile's pending_rewards. */
+    public function rewardsSeen(Request $request, WaddamburoUnlocks $unlocks): JsonResponse
+    {
+        $baid = $this->baid($request);
+        $items = $request->validate(['items' => ['required', 'array', 'max:200'], 'items.*' => ['array', 'size:2'], 'items.*.*' => ['integer']])['items'];
+        $unlocks->markSeen(Player::query()->findOrFail($baid), $items);
+
+        return response()->json(['result' => 'ok']);
     }
 
     /** The account's own card, or a cabinet's card by its baid. */
