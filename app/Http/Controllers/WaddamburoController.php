@@ -360,6 +360,8 @@ class WaddamburoController extends Controller
             'songs.*.credit_id' => ['nullable', 'uuid'],
             'songs.*.kind' => ['required', 'string', 'in:song,dan'],
             'songs.*.chart_sha256' => ['nullable', 'string', 'regex:/\A[0-9a-f]{64}\z/'],
+            'songs.*.side' => ['nullable', 'integer', 'in:0,1'],
+            'songs.*.select_seconds' => ['nullable', 'integer', 'between:0,999'],
         ]);
 
         $ownBaid = $cabinet ? null : $request->user()->player?->baid;

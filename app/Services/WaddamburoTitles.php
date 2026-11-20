@@ -43,6 +43,9 @@ class WaddamburoTitles
                 'fc' => $cleared && (int) $play->miss === 0,
                 'course' => $play?->course,
                 'hits' => $play === null ? 0 : (int) $play->great + (int) $play->good,
+                'options' => (int) ($play?->options ?? 0),
+                'side' => (int) $song->side,
+                'seconds' => $song->select_seconds,
             ];
         }, $songs);
 
@@ -63,7 +66,7 @@ class WaddamburoTitles
         return $earned;
     }
 
-    /** @param  list<array{song: ?array, cleared: bool, fc: bool, course: ?int, hits: int}>  $credit */
+    /** @param  list<array{song: ?array, cleared: bool, fc: bool, course: ?int, hits: int, options: int, side: int, seconds: ?int}>  $credit */
     private function met(array $condition, array $credit, Player $player): bool
     {
         // A song of the condition's set: its genre, tag, title script or uniqueId.
@@ -77,15 +80,28 @@ class WaddamburoTitles
                 && (! isset($condition['script']) || ($song['tags'][0] ?? 0) === (int) $condition['script'])
                 && (! isset($condition['uids']) || in_array($song['uid'], $condition['uids'], true));
         };
-        $course = fn (array $song): bool => ! isset($condition['course']) || $song['course'] === (int) $condition['course'];
+        // How the song was played: its course, an option (WdbPlay::$options bits), the drum, where the pick stopped the timer.
+        $how = fn (array $song): bool => (! isset($condition['course']) || $song['course'] === (int) $condition['course'])
+            && (! isset($condition['option']) || match ($condition['option']) {
+                'speed' => ($song['options'] >> 9) > 0 || ($song['options'] & 28) !== 0,
+                'reversed' => ($song['options'] & 64) !== 0,
+                'chaos' => ($song['options'] & 256) !== 0,
+                default => false,
+            })
+            && (! isset($condition['side']) || $song['side'] === (int) $condition['side'])
+            && (! isset($condition['seconds']) || in_array($song['seconds'], $condition['seconds'], true));
+        $songUids = array_map(fn (array $song): ?int => $song['song']['uid'] ?? null, $credit);
 
         return match ($condition['kind']) {
             'credit' => true,
-            'clear_all' => collect($credit)->every(fn (array $song): bool => $song['cleared'] && $in($song['song'])),
+            // all_uids: each listed song is among them; fc: each one full combo.
+            'clear_all' => collect($credit)->every(fn (array $song): bool => $song['cleared'] && (empty($condition['fc']) || $song['fc'])
+                && $how($song) && $in($song['song']))
+                && (empty($condition['all_uids']) || array_diff($condition['uids'], $songUids) === []),
             'select_all' => collect($credit)->every(fn (array $song): bool => $song['song'] !== null && $in($song['song'])),
-            'play_any' => collect($credit)->contains(fn (array $song): bool => $song['song'] !== null && $in($song['song'])),
-            'clear_any' => collect($credit)->contains(fn (array $song): bool => $song['song'] !== null && $song['cleared'] && $in($song['song'])),
-            'fc_any' => collect($credit)->contains(fn (array $song): bool => $song['song'] !== null && $song['fc'] && $course($song) && $in($song['song'])),
+            'play_any' => collect($credit)->contains(fn (array $song): bool => $song['song'] !== null && $how($song) && $in($song['song'])),
+            'clear_any' => collect($credit)->contains(fn (array $song): bool => $song['song'] !== null && $song['cleared'] && $how($song) && $in($song['song'])),
+            'fc_any' => collect($credit)->contains(fn (array $song): bool => $song['song'] !== null && $song['fc'] && $how($song) && $in($song['song'])),
             'hits' => collect($credit)->contains(fn (array $song): bool => $song['hits'] >= (int) $condition['count']),
             'genre_plays' => $this->genrePlays($player, $condition['genre']) >= (int) $condition['count'],
             default => false,

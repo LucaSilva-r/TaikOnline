@@ -171,3 +171,32 @@ it('checks Green\'s condition titles at the end of a home credit', function (): 
     $upload([$song(true, '2026-11-20T11:00:00+01:00'), $song(true, '2026-11-20T11:05:00+01:00'), $song(true, '2026-11-20T11:10:00+01:00')]);
     expect($titles())->toContain(106, 131, 144, 181, 151)->not->toContain(146);
 })->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_title_conditions.json'), 'needs the Green title conditions data file');
+
+it('checks the condition titles that ask for an option, the drum or the timer', function (): void {
+    [$player, $token] = medal_fixture();
+    // セイクリッド ルイン (struin, uniqueId 400): 白の覚醒 (297) stops the timer on another repdigit, 黒の覚醒 (298) on
+    // 66/88/99 with あべこべ (option bit 64).
+    $chart = \App\Models\WdbChart::query()->create(['sha256' => str_repeat('d', 64), 'notes' => 'x', 'title' => 'Sacred Ruin', 'course' => 3, 'source' => 'Stock']);
+    $songId = DB::table('wdb_songs')->insertGetId(['family' => 'Namco', 'song_key' => 'struin', 'title' => 'Sacred Ruin', 'created_at' => now(), 'updated_at' => now()]);
+    DB::table('wdb_chart_song')->insert(['wdb_chart_id' => $chart->id, 'wdb_song_id' => $songId, 'source' => 'Stock', 'release' => '']);
+    $song = function (string $at, int $options, ?int $seconds) use ($player, $chart): array {
+        $id = (string) Str::uuid();
+        \App\Models\WdbPlay::query()->create([
+            'id' => $id, 'baid' => $player->baid, 'wdb_chart_id' => $chart->id, 'mode' => 'normal', 'course' => 3, 'score' => 1,
+            'great' => 100, 'good' => 0, 'miss' => 0, 'max_combo' => 100, 'rolls' => 0, 'gauge' => 50, 'cleared' => true,
+            'scoring_version' => 1, 'engine_version' => 'test', 'played_at' => $at, 'replay' => 'inputs', 'options' => $options,
+        ]);
+
+        return medal_song($at, ['id' => $id, 'chart_sha256' => $chart->sha256, 'side' => 0, 'select_seconds' => $seconds]);
+    };
+    $titles = fn () => array_map('intval', \App\Models\PlayerCosmetic::query()->where('baid', $player->baid)
+        ->where('game_version', 'waddamburo')->value('unlocked_titles') ?? []);
+    $upload = fn (array $songs) => $this->withToken($token)->postJson('/api/wdb/medals/songs', ['songs' => $songs])->assertOk();
+
+    // 88 without あべこべ: neither.
+    $upload([$song('2026-11-20T10:00:00+01:00', 0, 88), $song('2026-11-20T10:05:00+01:00', 0, null), $song('2026-11-20T10:10:00+01:00', 0, 50)]);
+    expect($titles())->not->toContain(297)->not->toContain(298);
+
+    $upload([$song('2026-11-20T11:00:00+01:00', 64, 88), $song('2026-11-20T11:05:00+01:00', 0, 77), $song('2026-11-20T11:10:00+01:00', 0, 50)]);
+    expect($titles())->toContain(297, 298);
+})->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_title_conditions.json'), 'needs the Green title conditions data file');

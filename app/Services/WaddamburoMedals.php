@@ -49,6 +49,8 @@ class WaddamburoMedals
                     'credit_id' => $creditId,
                     'kind' => $song['kind'],
                     'chart_sha256' => $song['chart_sha256'] ?? null,
+                    'side' => (int) ($song['side'] ?? 0),
+                    'select_seconds' => $song['select_seconds'] ?? null,
                     'local_day' => $playedAt->toDateString(),
                     'played_at' => $playedAt,
                 ]);
