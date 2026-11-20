@@ -38,12 +38,13 @@
         sheet: Sheet;
     } = $props();
 
-    // Shop types: 1 song, 3 kigurumi, 5 head, 4 body; the sheet's slots for the costumes.
+    // Shop types: 1 song, 3 kigurumi, 5 head, 4 body, 2 tone; the sheet's slots for the costumes.
     const SECTIONS: { type: number; title: string; slot?: string }[] = [
         { type: 1, title: 'Songs' },
         { type: 3, title: 'Kigurumi', slot: 'kigurumi' },
         { type: 5, title: 'Heads', slot: 'head' },
         { type: 4, title: 'Bodies', slot: 'body' },
+        { type: 2, title: 'Drum sounds' },
     ];
     const ICON = 48;
 
