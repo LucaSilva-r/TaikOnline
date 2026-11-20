@@ -31,7 +31,11 @@ class WaddamburoKatsuShopController extends Controller
                 'name' => $item[2],
                 'price' => WaddamburoKatsuShop::PRICES[$item[0]],
                 'owned' => isset($owned[$item[0].':'.$item[1]]),
+                'version' => $item[3],
             ], $shop->items()),
+            // Donder Hiroba's shop by version, oldest first.
+            'versions' => array_values(array_map(fn (TaikoGameVersion $version): array => ['key' => $version->value, 'label' => $version->label()],
+                array_filter(TaikoGameVersion::cases(), fn (TaikoGameVersion $version): bool => in_array($version->value, array_column($shop->items(), 3), true)))),
             'sheet' => CostumeController::spritesheet(TaikoGameVersion::Green),
         ]);
     }

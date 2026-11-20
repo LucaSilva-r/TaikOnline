@@ -25,9 +25,10 @@ class WaddamburoKatsuShop
     public const PRICES = [1 => 1500, 3 => 500, 4 => 500, 5 => 500];
 
     /**
-     * Every good: [type, id, name] (songs by uniqueId); empty when the data file is missing.
+     * Every good: [type, id, name, version] (songs by uniqueId; the version it comes from, a TaikoGameVersion value);
+     * empty when the data file is missing.
      *
-     * @return list<array{int, int, string}>
+     * @return list<array{int, int, string, string}>
      */
     public function items(): array
     {
@@ -37,7 +38,7 @@ class WaddamburoKatsuShop
         }
         $path = config('taiko_green.data_path').DIRECTORY_SEPARATOR.'green'.DIRECTORY_SEPARATOR.'green_katsu_shop.json';
 
-        return $items = array_map(fn (array $item): array => [(int) $item[0], (int) $item[1], (string) ($item[2] ?? '')],
+        return $items = array_map(fn (array $item): array => [(int) $item[0], (int) $item[1], (string) ($item[2] ?? ''), (string) ($item[3] ?? 'green')],
             File::exists($path) ? (json_decode(File::get($path), true)['items'] ?? []) : []);
     }
 
