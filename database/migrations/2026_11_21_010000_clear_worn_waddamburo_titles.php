@@ -12,7 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::table('player_cosmetics')->where('game_version', 'waddamburo')->update(['unlocked_titles' => null]);
+        DB::table('player_cosmetics')->where('game_version', 'waddamburo')->update(['unlocked_titles' => '[]']);
     }
 
     /** Not reversible: which titles were worn is gone. */
