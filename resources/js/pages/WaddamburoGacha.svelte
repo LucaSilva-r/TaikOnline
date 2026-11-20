@@ -4,9 +4,9 @@
     import WaddamburoKatsuShopController from '@/actions/App/Http/Controllers/WaddamburoKatsuShopController';
     import AppHead from '@/components/AppHead.svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
+    import KatsuShopLayout from '@/components/KatsuShopLayout.svelte';
     import { Button } from '@/components/ui/button';
     import { taikoRouteParam, taikoVersionAccent } from '@/lib/taiko-version';
-    import KatsuShopLayout from '@/components/KatsuShopLayout.svelte';
 
     type Banner = {
         key: string;
@@ -55,6 +55,9 @@
     let selection = $state<string>();
     const selected = $derived(selection ?? newestFirst[0]?.key);
     const banner = $derived(banners.find((entry) => entry.key === selected));
+    // idle → turn (the handle) → drop (a capsule rolls out) → results
+    let phase = $state<'idle' | 'turn' | 'drop' | 'results'>('idle');
+    let drawn = $state<Drawn[]>([]);
     let confirmedKeys = $state<string[]>([]);
     let beforePull = $state<string[] | null>(null);
     const ownedSet = $derived(
@@ -115,18 +118,18 @@
     }));
 
     // idle → turn (the handle) → drop (a capsule rolls out) → results
-    let phase = $state<'idle' | 'turn' | 'drop' | 'results'>('idle');
-    let drawn = $state<Drawn[]>([]);
     const dropColour = $derived(accent.swatch);
 
     function play(parts: Drawn[]): void {
         selection = parts[0].key.split(':')[0];
+
         if (beforePull === null) {
             const unlocked = new Set(
                 parts.filter((part) => part.new).map((part) => part.key),
             );
             beforePull = [...ownedSet].filter((key) => !unlocked.has(key));
         }
+
         drawn = parts;
         phase = 'turn';
         setTimeout(() => (phase = 'drop'), 900);
@@ -259,7 +262,9 @@
                                     beforePull = [...ownedSet];
                                 }}
                                 onFinish={() => {
-                                    if (phase === 'idle') beforePull = null;
+                                    if (phase === 'idle') {
+                                        beforePull = null;
+                                    }
                                 }}
                                 options={{ preserveScroll: true }}
                             >

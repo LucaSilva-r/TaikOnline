@@ -3,10 +3,10 @@
     import WaddamburoKatsuShopController from '@/actions/App/Http/Controllers/WaddamburoKatsuShopController';
     import AppHead from '@/components/AppHead.svelte';
     import AppLogoIcon from '@/components/AppLogoIcon.svelte';
+    import KatsuShopLayout from '@/components/KatsuShopLayout.svelte';
     import SideModeAccordion from '@/components/SideModeAccordion.svelte';
     import { Button } from '@/components/ui/button';
     import { taikoRouteParam, taikoVersionAccent } from '@/lib/taiko-version';
-    import KatsuShopLayout from '@/components/KatsuShopLayout.svelte';
 
     type Item = {
         type: number;
