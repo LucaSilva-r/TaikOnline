@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'wdb_dan_series',
     'wdb_earned_only',
     'wdb_seen_rewards',
+    'wdb_title_parts',
+    'wdb_gacha_spent',
     'default_tone_setting',
     'default_option_setting',
     'costume_1',
@@ -50,6 +52,7 @@ class PlayerCosmetic extends Model
             'unlocked_titles' => 'array',
             'wdb_earned_only' => 'boolean',
             'wdb_seen_rewards' => 'array',
+            'wdb_title_parts' => 'array',
         ];
     }
 

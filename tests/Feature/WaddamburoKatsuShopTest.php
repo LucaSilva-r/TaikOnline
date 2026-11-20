@@ -38,3 +38,22 @@ it('pays Katsu Medals per credit and sells the Katsu shop on the website', funct
     $this->actingAs($user)->get('/waddamburo/katsu-shop')->assertOk()
         ->assertInertia(fn ($page) => $page->component('WaddamburoKatsuShop')->where('medals', 700));
 })->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_katsu_shop.json'), 'needs the Katsu shop data file');
+
+it('pulls the title parts gacha for Katsu Medals', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    \App\Models\WdbMedalCredit::query()->create(['baid' => $player->baid, 'local_day' => '2026-11-20', 'season_id' => 0,
+        'medals' => 100, 'daily' => false, 'weekly' => false, 'monthly' => false, 'katsu' => 110]);
+    $shop = app(WaddamburoKatsuShop::class);
+
+    // Five pulls: 100; then one more is 20, with 10 left: refused.
+    $this->actingAs($user)->post('/waddamburo/gacha', ['banner' => 'G01', 'count' => 5])->assertRedirect();
+    $parts = \App\Models\PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'waddamburo')->value('wdb_title_parts');
+    expect($shop->wallet($player->baid))->toBe(10)
+        ->and($parts)->not->toBeEmpty()
+        ->and(collect($parts)->every(fn (string $key) => str_starts_with($key, 'G01:')))->toBeTrue();
+    $this->actingAs($user)->post('/waddamburo/gacha', ['banner' => 'G01', 'count' => 1]);
+    expect($shop->wallet($player->baid))->toBe(10);
+    $this->actingAs($user)->get('/waddamburo/gacha')->assertOk()
+        ->assertInertia(fn ($page) => $page->component('WaddamburoGacha')->where('medals', 10)->has('banners', 14));
+})->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_title_parts.json'), 'needs the title parts data file');

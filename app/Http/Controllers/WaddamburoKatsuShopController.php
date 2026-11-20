@@ -7,6 +7,7 @@ use App\Events\WdbProfileChanged;
 use App\Http\Controllers\Settings\CostumeController;
 use App\Models\Player;
 use App\Services\WaddamburoKatsuShop;
+use App\Services\WaddamburoTitleGacha;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -57,6 +58,39 @@ class WaddamburoKatsuShopController extends Controller
             'short' => ['type' => 'error', 'message' => __('Not enough Katsu Medals.')],
             default => ['type' => 'error', 'message' => __('That is not sold here.')],
         });
+
+        return back();
+    }
+
+    /** Donder Hiroba's title parts gacha page: the banners, the player's parts, what the last pull drew (flash). */
+    public function gacha(Request $request, WaddamburoKatsuShop $shop, WaddamburoTitleGacha $gacha): Response
+    {
+        abort_unless($request->attributes->get('taikoVersionIsWaddamburo') === true, 404);
+        $player = Player::query()->where('user_id', $request->user()->id)->first();
+        $data = $gacha->data();
+
+        return Inertia::render('WaddamburoGacha', [
+            'hasPlayer' => $player !== null,
+            'medals' => $player === null ? 0 : $shop->wallet($player->baid),
+            'price' => WaddamburoTitleGacha::PRICE,
+            'banners' => $data['banners'],
+            'connectors' => $data['b'],
+            'owned' => $player === null ? [] : $gacha->owned($player),
+        ]);
+    }
+
+    public function pull(Request $request, WaddamburoTitleGacha $gacha): RedirectResponse
+    {
+        abort_unless($request->attributes->get('taikoVersionIsWaddamburo') === true, 404);
+        $player = Player::query()->where('user_id', $request->user()->id)->firstOrFail();
+        $input = $request->validate(['banner' => ['required', 'string', 'max:8'], 'count' => ['required', 'integer', 'in:1,5']]);
+
+        $drawn = $gacha->pull($player, $input['banner'], (int) $input['count']);
+        if ($drawn === null) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => __('Not enough Katsu Medals.')]);
+        } else {
+            Inertia::flash('gacha', $drawn);
+        }
 
         return back();
     }

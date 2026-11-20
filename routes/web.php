@@ -69,6 +69,8 @@ Route::prefix('{taikoVersion}')
             Route::patch('settings/unlock-mode', [WaddamburoUnlockModeController::class, 'update'])->name('unlock-mode.update');
             Route::get('katsu-shop', [WaddamburoKatsuShopController::class, 'index'])->name('katsu-shop.index');
             Route::post('katsu-shop', [WaddamburoKatsuShopController::class, 'purchase'])->name('katsu-shop.purchase');
+            Route::get('gacha', [WaddamburoKatsuShopController::class, 'gacha'])->name('gacha.index');
+            Route::post('gacha', [WaddamburoKatsuShopController::class, 'pull'])->name('gacha.pull');
             Route::post('notifications/read', [NotificationController::class, 'read'])->name('notifications.read');
             Route::get('play', [CabinetLoginController::class, 'create'])->name('play.create');
             Route::post('play', [CabinetLoginController::class, 'store'])

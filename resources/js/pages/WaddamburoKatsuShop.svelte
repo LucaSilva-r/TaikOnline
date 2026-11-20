@@ -1,9 +1,10 @@
 <script lang="ts">
-    import { Form } from '@inertiajs/svelte';
+    import { Form, Link } from '@inertiajs/svelte';
     import WaddamburoKatsuShopController from '@/actions/App/Http/Controllers/WaddamburoKatsuShopController';
     import AppHead from '@/components/AppHead.svelte';
     import { Button } from '@/components/ui/button';
     import { taikoRouteParam, taikoVersionAccent } from '@/lib/taiko-version';
+    import gacha from '@/routes/gacha';
 
     type Item = {
         type: number;
@@ -52,9 +53,11 @@
         const item = slot
             ? sheet?.slots[slot]?.find((entry) => entry.id === id)
             : undefined;
+
         if (!sheet || !item) {
             return '';
         }
+
         const scale = ICON / sheet.cell;
 
         return `width:${ICON}px;height:${ICON}px;background-image:url(${sheet.url});background-size:${Math.round(sheet.width * scale)}px ${Math.round(sheet.height * scale)}px;background-position:-${Math.round(item.x * scale)}px -${Math.round(item.y * scale)}px;background-repeat:no-repeat;image-rendering:pixelated;`;
@@ -64,6 +67,16 @@
 <AppHead title="Katsu Medal Shop" />
 
 <section class="mx-auto w-full max-w-5xl space-y-8 px-4 py-10">
+    <nav class="flex gap-2">
+        <span
+            class="rounded-full bg-sky-600 px-4 py-1 text-sm font-semibold text-white"
+            >Katsu Shop</span
+        >
+        <Link
+            href={gacha.index(taikoRouteParam()).url}
+            class="rounded-full border px-4 py-1 text-sm">Gacha</Link
+        >
+    </nav>
     <header
         class="space-y-2 rounded-xl border-l-8 bg-gradient-to-r from-amber-100 to-sky-100 p-6 dark:from-amber-950/40 dark:to-sky-950/40"
         style="border-color: hsl(195 89% 42%)"

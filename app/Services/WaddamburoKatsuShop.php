@@ -46,7 +46,8 @@ class WaddamburoKatsuShop
     {
         return (int) WdbMedalCredit::query()->where('baid', $baid)->sum('katsu')
             - (int) PlayerShopItem::query()->where('baid', $baid)->where('game_version', PlayerCosmetic::WADDAMBURO)
-                ->where('season_id', self::SEASON)->sum('item_price');
+                ->where('season_id', self::SEASON)->sum('item_price')
+            - (int) PlayerCosmetic::query()->where('baid', $baid)->where('game_version', PlayerCosmetic::WADDAMBURO)->value('wdb_gacha_spent');
     }
 
     /** @return array<string, true> "type:id" of every good the player has (bought here or on a cabinet, or a Green unlock) */
