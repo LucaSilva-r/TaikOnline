@@ -8,9 +8,8 @@ use Illuminate\Support\Facades\File;
 /**
  * The goods Green gives no way to earn (Katsu Medal shop, older versions, expired campaigns; lab
  * research/ghidra/green_item_routes.tsv): kigurumi, heads, bodies and stock songs, in the fixed order of
- * green_shop_pool.json. Waddamburo's shop fills its free slots with them, a new set every day, so the
- * costumes come round in about seven weeks and songs in
- * about six (fall shop; it depends on the season's own goods).
+ * green_shop_pool.json. Waddamburo's shop fills its free slots with them, a new set every week (Monday; Green's own
+ * season goods stay as Green had them), so the whole pool comes round in about a season.
  */
 class WaddamburoShopPool
 {
@@ -46,18 +45,19 @@ class WaddamburoShopPool
     }
 
     /**
-     * The day's share of the pool in the season's goods format, numbered after them.
+     * The week's share of the pool in the season's goods format, numbered after them.
      *
      * @param  list<array<string, mixed>>  $seasonItems
      * @return list<array<string, mixed>>
      */
     public function today(array $seasonItems, ?CarbonImmutable $day = null): array
     {
-        $days = (int) CarbonImmutable::parse('2026-01-01')->diffInDays(($day ?? CarbonImmutable::now())->startOfDay());
+        // Weeks since a Monday: a new set each Monday.
+        $days = intdiv((int) CarbonImmutable::parse('2025-12-29')->diffInDays(($day ?? CarbonImmutable::now())->startOfDay()), 7);
         $isSong = fn (int $type): bool => in_array($type, [1, 2], true);
         $seasonSongs = count(array_filter($seasonItems, fn (array $item): bool => $isSong((int) $item['item_type'])));
         $picked = [];
-        // Each area fills up to its end with its own kind, the next ones each day.
+        // Each area fills up to its end with its own kind, the next ones each week.
         foreach ([[false, self::COSTUME_SLOTS - (count($seasonItems) - $seasonSongs)], [true, self::SONG_SLOTS - $seasonSongs]] as [$songs, $slots]) {
             $pool = array_values(array_filter($this->items(), fn (array $item): bool => $isSong($item[0]) === $songs));
             $slots = min($slots, count($pool));

@@ -60,7 +60,7 @@ class WaddamburoShopController extends Controller
         // The pool's goods change at midnight: a client that says what it bought is not sold the next day's goods.
         $changed = $item !== null && isset($input['type'], $input['id'])
             && [$item['item_type'], $item['item_id']] !== [(int) $input['type'], (int) $input['id']];
-        abort_if($item === null || $changed, 404, 'No such goods today.');
+        abort_if($item === null || $changed, 404, 'No such goods this week.');
 
         return DB::transaction(function () use ($baid, $season, $item, $medals): JsonResponse {
             Player::query()->lockForUpdate()->findOrFail($baid);

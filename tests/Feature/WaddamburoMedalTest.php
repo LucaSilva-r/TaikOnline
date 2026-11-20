@@ -118,7 +118,7 @@ it('starts the wallet again each shop season, and pays every bonus on the season
     $this->withToken($token)->getJson('/api/wdb/me')->assertJsonPath('medals', 550);
 });
 
-it('fills the shop with the day\'s goods Green gives no way to earn, and locks them until bought', function (): void {
+it('fills the shop with the week\'s goods Green gives no way to earn, and locks them until bought', function (): void {
     $this->travelTo('2026-11-19 12:00:00'); // the fall shop: 4 costumes and 4 songs; the pool adds 7 costumes and 2 songs
     [$player, $token] = medal_fixture();
     $shop = fn () => $this->withToken($token)->getJson('/api/wdb/shop')->assertOk()->json('goods');
@@ -129,8 +129,10 @@ it('fills the shop with the day\'s goods Green gives no way to earn, and locks t
     expect($today)->toHaveCount(17)->and($today[8]['no'])->toBe(9)
         ->and($songs($today))->toBe(6)->and(count($today) - $songs($today))->toBe(11);
 
-    // Tomorrow: the next ones; a client still showing today's goods is not sold tomorrow's.
-    $this->travelTo('2026-11-20 00:05:00');
+    // The same all week (Thursday to Sunday); Monday the next ones, and a client still showing last week's is not sold them.
+    $this->travelTo('2026-11-22 23:00:00');
+    expect($shop()[8])->toBe($today[8]);
+    $this->travelTo('2026-11-23 00:05:00');
     expect($shop()[8])->not->toBe($today[8]);
     $this->withToken($token)->postJson('/api/wdb/shop/purchase', ['no' => 9, 'type' => $today[8]['type'], 'id' => $today[8]['id']])
         ->assertNotFound();

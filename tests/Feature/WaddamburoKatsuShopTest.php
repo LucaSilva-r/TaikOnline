@@ -1,10 +1,15 @@
 <?php
 
+use App\Models\GameCard;
 use App\Models\Player;
+use App\Models\PlayerCosmetic;
 use App\Models\PlayerShopItem;
 use App\Models\User;
+use App\Models\WdbMedalCredit;
 use App\Services\WaddamburoKatsuShop;
 use App\Services\WaddamburoMedals;
+use App\Services\WaddamburoTitleGacha;
+use App\Services\WaddamburoUnlocks;
 use Illuminate\Support\Str;
 
 it('pays Katsu Medals per credit and sells the Katsu shop on the website', function (): void {
@@ -25,7 +30,7 @@ it('pays Katsu Medals per credit and sells the Katsu shop on the website', funct
     $this->actingAs($user)->post('/waddamburo/katsu-shop', ['type' => $type, 'id' => $id])->assertRedirect();
     expect(PlayerShopItem::query()->where('baid', $player->baid)->count())->toBe(0); // 500 needed
 
-    \App\Models\WdbMedalCredit::query()->where('baid', $player->baid)->update(['katsu' => 600]);
+    WdbMedalCredit::query()->where('baid', $player->baid)->update(['katsu' => 600]);
     $donBefore = app(WaddamburoMedals::class)->wallet($player->baid);
     $this->actingAs($user)->post('/waddamburo/katsu-shop', ['type' => $type, 'id' => $id])->assertRedirect();
     expect(PlayerShopItem::query()->where('baid', $player->baid)->where('season_id', WaddamburoKatsuShop::SEASON)->count())->toBe(1)
@@ -42,13 +47,13 @@ it('pays Katsu Medals per credit and sells the Katsu shop on the website', funct
 it('pulls the title parts gacha for Katsu Medals', function (): void {
     $user = User::factory()->create();
     $player = Player::query()->create(['user_id' => $user->id]);
-    \App\Models\WdbMedalCredit::query()->create(['baid' => $player->baid, 'local_day' => '2026-11-20', 'season_id' => 0,
+    WdbMedalCredit::query()->create(['baid' => $player->baid, 'local_day' => '2026-11-20', 'season_id' => 0,
         'medals' => 100, 'daily' => false, 'weekly' => false, 'monthly' => false, 'katsu' => 110]);
     $shop = app(WaddamburoKatsuShop::class);
 
     // Five pulls: 100; then one more is 20, with 10 left: refused.
     $this->actingAs($user)->post('/waddamburo/gacha', ['banner' => 'G01', 'count' => 5])->assertRedirect();
-    $parts = \App\Models\PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'waddamburo')->value('wdb_title_parts');
+    $parts = PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'waddamburo')->value('wdb_title_parts');
     expect($shop->wallet($player->baid))->toBe(10)
         ->and($parts)->not->toBeEmpty()
         ->and(collect($parts)->every(fn (string $key) => str_starts_with($key, 'G01:')))->toBeTrue();
@@ -61,12 +66,12 @@ it('pulls the title parts gacha for Katsu Medals', function (): void {
 it('builds a title from owned parts, as Donder Hiroba did', function (): void {
     $user = User::factory()->create();
     $player = Player::query()->create(['user_id' => $user->id]);
-    \App\Models\GameCard::query()->create(['access_code' => '12345678901234567892', 'baid' => $player->baid]);
-    \App\Models\PlayerCosmetic::query()->create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_earned_only' => true,
+    GameCard::query()->create(['access_code' => '12345678901234567892', 'baid' => $player->baid]);
+    PlayerCosmetic::query()->create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_earned_only' => true,
         'wdb_title_parts' => ['G01:75', 'G01:93'], 'unlocked_titles' => []]); // 地元, スーパー
-    $gacha = app(\App\Services\WaddamburoTitleGacha::class);
+    $gacha = app(WaddamburoTitleGacha::class);
     $of = array_search('の', $gacha->data()['b'], true);
-    $title = fn () => \App\Models\PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'waddamburo')->value('title');
+    $title = fn () => PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'waddamburo')->value('title');
 
     $this->actingAs($user)->patch('/waddamburo/settings/donchan-title-parts', ['first' => 'G01:75', 'connector' => $of, 'second' => 'G01:93', 'titleplate_id' => 1])
         ->assertRedirect();
@@ -78,3 +83,12 @@ it('builds a title from owned parts, as Donder Hiroba did', function (): void {
     $this->actingAs($user)->patch('/waddamburo/settings/donchan-title', ['title' => 'anything', 'titleplate_id' => 0])->assertStatus(422);
     expect($title())->toBe('地元のスーパー');
 })->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_title_parts.json'), 'needs the title parts data file');
+
+it('sells the puchi charas in the Katsu shop and keeps them locked until bought', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    PlayerCosmetic::query()->create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_earned_only' => true, 'unlocked_titles' => []]);
+    $puchi = collect(app(WaddamburoKatsuShop::class)->items())->where(0, 7);
+    expect($puchi->count())->toBeGreaterThan(100)
+        ->and(app(WaddamburoUnlocks::class)->locked($player)['puchi'])->toContain($puchi->first()[1]);
+})->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_katsu_shop.json'), 'needs the Katsu shop data file');

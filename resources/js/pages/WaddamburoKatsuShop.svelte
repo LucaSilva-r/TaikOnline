@@ -48,6 +48,7 @@
         { type: 5, title: 'Heads', slot: 'head' },
         { type: 4, title: 'Bodies', slot: 'body' },
         { type: 2, title: 'Drum sounds' },
+        { type: 7, title: 'Puchi charas', slot: 'puchi' },
     ];
     const ICON = 48;
 
@@ -128,8 +129,10 @@
                                             {/if}
                                             <span
                                                 class="min-w-0 flex-1 truncate text-sm"
-                                                title={item.name}
-                                                >{item.name}</span
+                                                title={item.name ||
+                                                    `Puchi #${item.id}`}
+                                                >{item.name ||
+                                                    `Puchi #${item.id}`}</span
                                             >
                                             {#if item.owned}
                                                 <span
