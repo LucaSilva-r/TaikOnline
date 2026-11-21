@@ -21,11 +21,11 @@ use App\Services\WaddamburoAiBattles;
 use App\Services\WaddamburoDanRank;
 use App\Services\WaddamburoDeviceLoginService;
 use App\Services\WaddamburoMedals;
-use App\Services\WaddamburoUnlocks;
 use App\Services\WaddamburoRankAggregateService;
 use App\Services\WaddamburoReplay;
 use App\Services\WaddamburoScorer;
 use App\Services\WaddamburoSongs;
+use App\Services\WaddamburoUnlocks;
 use App\Services\WaddamburoUploadWarnings;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
@@ -661,7 +661,7 @@ class WaddamburoController extends Controller
             'last_medal_day' => ($day = WdbMedalCredit::query()->where('baid', $player->baid)->max('local_day')) === null
                 ? null : substr((string) $day, 0, 10),
             // "Only what I earned": what stays hidden (stock songs by musicid, costumes by id); all empty when off.
-            'earned_only' => (bool) $cosmetics?->wdb_earned_only,
+            'earned_only' => (bool) ($cosmetics?->wdb_earned_only ?? true), // the default
             'locked' => app(WaddamburoUnlocks::class)->locked($player),
             // Earned rewards not shown yet: Song Select's menu offers their animation (reward_shop) while there are some.
             'pending_rewards' => app(WaddamburoUnlocks::class)->pending($player),

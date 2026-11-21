@@ -46,7 +46,8 @@ class WaddamburoUnlocks
 
     public function earnedOnly(Player $player): bool
     {
-        return (bool) $player->cosmetics()->where('game_version', PlayerCosmetic::WADDAMBURO)->value('wdb_earned_only');
+        // A player with no Waddamburo row yet starts earned-only too (the column's default).
+        return (bool) ($player->cosmetics()->where('game_version', PlayerCosmetic::WADDAMBURO)->value('wdb_earned_only') ?? true);
     }
 
     /**

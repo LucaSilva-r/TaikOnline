@@ -107,6 +107,8 @@ it('sends the waddamburo loadout: title, plate and costume sets', function (): v
 
 it('saves the waddamburo scope\'s title to its own loadout, not green\'s', function (): void {
     $player = wdb_player();
+    // Free text is Unlock everything's (Only what I earned, the default, builds titles from parts).
+    $this->actingAs($player->user)->patch('/waddamburo/settings/unlock-mode', ['earned_only' => false]);
     $this->actingAs($player->user)
         ->patch('/waddamburo/settings/donchan-title', ['title' => 'わだんぶろ', 'titleplate_id' => 1])
         ->assertRedirect();

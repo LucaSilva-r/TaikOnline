@@ -3,8 +3,11 @@
 use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
+use App\Models\PlayerShopItem;
 use App\Models\Song;
 use App\Models\User;
+use App\Services\WaddamburoAiBattles;
+use App\Services\WaddamburoUnlocks;
 use Inertia\Testing\AssertableInertia as Assert;
 
 it('locks the reward shop\'s goods in "Only what I earned" until bought here or on a cabinet', function (): void {
@@ -17,7 +20,9 @@ it('locks the reward shop\'s goods in "Only what I earned" until bought here or 
     $token = $user->createToken('unlocks', ['wdb'])->plainTextToken;
     $me = fn () => $this->withToken($token)->getJson('/api/wdb/me')->assertOk();
 
-    // Unlock everything (the default): nothing locked.
+    // Only what I earned is the default; Unlock everything locks nothing.
+    $me()->assertJsonPath('earned_only', true);
+    $this->actingAs($user)->patch('/waddamburo/settings/unlock-mode', ['earned_only' => false])->assertRedirect();
     $me()->assertJsonPath('earned_only', false)->assertJsonPath('locked.head', [])->assertJsonPath('locked.songs', []);
 
     $this->actingAs($user)->patch('/waddamburo/settings/unlock-mode', ['earned_only' => true])->assertRedirect();
@@ -26,7 +31,7 @@ it('locks the reward shop\'s goods in "Only what I earned" until bought here or 
 
     // A real Green cabinet's unlock (head 51, costume slot 2) and a Waddamburo purchase (head 53) both count.
     PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'green', 'unlocked_costumes' => ['2' => [51]]]);
-    \App\Models\PlayerShopItem::query()->create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'season_id' => 3,
+    PlayerShopItem::query()->create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'season_id' => 3,
         'item_type' => 5, 'item_id' => 53, 'item_no' => 1, 'item_price' => 500]);
     $me()->assertJsonPath('locked.head', fn (array $heads) => ! in_array(53, $heads, true) && ! in_array(51, $heads, true))
         ->assertJsonPath('locked.body', fn (array $bodies) => in_array(132, $bodies, true));
@@ -48,11 +53,11 @@ it('unlocks Green\'s AI battle rewards at their win counts', function (): void {
         Song::query()->create(['version' => 'green', 'song_no' => $unique, 'music_id' => $music, 'unique_id' => $unique,
             'title' => $music, 'genre' => 'namco_original', 'partsset' => 'A3']);
     }
-    $this->mock(\App\Services\WaddamburoAiBattles::class, fn ($mock) => $mock->shouldReceive('progress')
+    $this->mock(WaddamburoAiBattles::class, fn ($mock) => $mock->shouldReceive('progress')
         ->andReturn(['points' => 0, 'wins' => 30, 'rank' => 0, 'points_to_next' => 1]));
 
     // 30 wins: カラフルボイス (3) is had, Goldfish City (55) and マンガ目 (85) are not.
-    $locked = app(\App\Services\WaddamburoUnlocks::class)->locked($player);
+    $locked = app(WaddamburoUnlocks::class)->locked($player);
     expect($locked['songs'])->toContain('gfish')->not->toContain('csmclr')
         ->and($locked['head'])->toContain(119);
 });
@@ -61,8 +66,8 @@ it('locks what Green\'s condition titles give until the title is earned', functi
     $user = User::factory()->create();
     $player = Player::query()->create(['user_id' => $user->id]);
     PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_earned_only' => true]);
-    $unlocks = fn () => app(\App\Services\WaddamburoUnlocks::class)->locked($player->refresh());
-    $this->mock(\App\Services\WaddamburoAiBattles::class, fn ($mock) => $mock->shouldReceive('progress')
+    $unlocks = fn () => app(WaddamburoUnlocks::class)->locked($player->refresh());
+    $this->mock(WaddamburoAiBattles::class, fn ($mock) => $mock->shouldReceive('progress')
         ->andReturn(['points' => 0, 'wins' => 0, 'rank' => 0, 'points_to_next' => 1]));
 
     // Title 152 (clear a credit of katakana-titled songs) gives kigurumi 56 チリチリロープ.
@@ -76,7 +81,7 @@ it('lists rewards earned in Waddamburo until the game has shown them', function 
     $player = Player::query()->create(['user_id' => $user->id]);
     Song::query()->create(['version' => 'green', 'song_no' => 819, 'music_id' => 'csmclr', 'unique_id' => 819,
         'title' => 'csmclr', 'genre' => 'namco_original', 'partsset' => 'A3']);
-    $this->mock(\App\Services\WaddamburoAiBattles::class, fn ($mock) => $mock->shouldReceive('progress')
+    $this->mock(WaddamburoAiBattles::class, fn ($mock) => $mock->shouldReceive('progress')
         ->andReturn(['points' => 0, 'wins' => 90, 'rank' => 0, 'points_to_next' => 1]));
     $token = $user->createToken('rewards', ['wdb'])->plainTextToken;
     $pending = fn () => $this->withToken($token)->getJson('/api/wdb/me')->assertOk()->json('pending_rewards');
@@ -96,6 +101,7 @@ it('does not count wearing an official title as earning it, and earned-only wear
     $wear = fn (int $id) => $this->actingAs($user)->patch('/waddamburo/settings/donchan-official-title', ['title_id' => $id]);
 
     // Unlock everything: any title can be worn, and it is not earned (253 would unlock the IA kigurumi).
+    $this->actingAs($user)->patch('/waddamburo/settings/unlock-mode', ['earned_only' => false]);
     $wear(253)->assertRedirect();
     expect(PlayerCosmetic::query()->where('baid', $player->baid)->where('game_version', 'waddamburo')->value('unlocked_titles') ?? [])
         ->not->toContain(253);
