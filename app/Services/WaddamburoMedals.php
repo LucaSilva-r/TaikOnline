@@ -52,7 +52,8 @@ class WaddamburoMedals
                     'side' => (int) ($song['side'] ?? 0),
                     'select_seconds' => $song['select_seconds'] ?? null,
                     'local_day' => $playedAt->toDateString(),
-                    'played_at' => $playedAt,
+                    // In UTC: the datetime cast drops the offset, so a +01:00 time would be stored an hour late.
+                    'played_at' => $playedAt->utc(),
                 ]);
 
                 $pays = match (true) {
