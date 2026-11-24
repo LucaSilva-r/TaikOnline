@@ -5,7 +5,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 it('lets visitors browse the Waddamburo guide without signing in', function (): void {
     $this->get('/waddamburo/wiki')->assertOk()->assertInertia(fn (Assert $page) => $page
         ->component('Wiki')
-        ->has('guides', 10)
+        ->has('guides', 12)
         ->where('article', null)
         ->where('guides.0.url', '/waddamburo/wiki/getting-started')
         ->has('sections', 0));
@@ -21,6 +21,7 @@ it('renders each published guide with working section anchors', function (string
 })->with([
     'getting-started', 'controls', 'song-libraries', 'home-and-arcade', 'online-play',
     'practice-and-replays', 'layout-editor', 'modchart-editor', 'settings-and-timing', 'troubleshooting',
+    'phones-and-switch', 'dan-ai-and-rewards',
 ]);
 
 it('keeps guide navigation in the selected site scope', function (): void {

@@ -17,7 +17,13 @@ class WikiController extends Controller
             'title' => 'Getting started',
             'summary' => 'Download Waddamburo, set up your game folder, and play your first song.',
             'group' => 'Start playing',
-            'keywords' => 'install Windows Linux AppImage Green font update',
+            'keywords' => 'install Windows Linux AppImage Android Switch Green dump import font update',
+        ],
+        'phones-and-switch' => [
+            'title' => 'Android and Nintendo Switch',
+            'summary' => 'Install on a phone or a Switch, use the touch drum, and sync songs from your PC.',
+            'group' => 'Start playing',
+            'keywords' => 'apk nro homebrew hbmenu title takeover touch drum split sync pair devices Game Files forwarder NSP',
         ],
         'controls' => [
             'title' => 'Controls and drums',
@@ -29,7 +35,13 @@ class WikiController extends Controller
             'title' => 'Songs and libraries',
             'summary' => 'Add TJA, osu!lazer, and official song libraries, then search and browse them.',
             'group' => 'Start playing',
-            'keywords' => 'custom songs Nijiiro audio WAVE vgmstream difficulties Oni Ura',
+            'keywords' => 'custom songs Nijiiro audio WAVE vgmstream difficulties Oni Ura BGMOVIE video luma key green screen Group Sort',
+        ],
+        'dan-ai-and-rewards' => [
+            'title' => 'Dan Dojo, AI battle and rewards',
+            'summary' => 'Dan courses and your own, AI battle, Don and Katsu Medals, shops, the gacha, titles, and events.',
+            'group' => 'Start playing',
+            'keywords' => 'dani custom dan JSON chart hash H requirements Don Medals reward shop Katsu Shop gacha title builder events tickets puchi',
         ],
         'home-and-arcade' => [
             'title' => 'Home and Arcade modes',

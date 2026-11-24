@@ -30,6 +30,12 @@ A warning that song audio could not keep up means the play was stopped; include 
 
 For consistent early or late timing, use [Settings and timing](settings-and-timing). For one hit registering twice, check the drum and then try a small Drum Debounce value. Increasing debounce too far also suppresses valid fast hits.
 
+## A background video does not show or stutters
+
+Check **Settings → Game Options → Background Video** is not Off, that the file named by `BGMOVIE` is next to the chart (filename case matters on Linux and Android), and the log for a line starting with `Background video`: it says the size the video plays at, or why it was not played. If the video is out of time with the music, adjust the chart's `MOVIEOFFSET`.
+
+If it stutters, set **Video Frame Rate** to 30, or use a smaller video (720p, H.264 MP4). Phones may not keep up with videos at all; turn them off there.
+
 ## Sign in or scores do not work
 
 Confirm the server is configured and reachable, and that you accepted the current TaikOnline Rules. Generate a fresh code if the previous one expired. Check that the expected account is selected rather than Guest.

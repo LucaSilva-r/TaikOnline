@@ -38,13 +38,63 @@ UTF-8, UTF-16 with a byte-order mark, and Shift-JIS charts are supported. Files 
 
 TJA compatibility varies by command and simulator extension. Do not assume every gimmick from another simulator behaves identically. Effects authored in Waddamburo can be stored beside a TJA in a `.wddmod` file; see [Modchart editor](modchart-editor).
 
+## Background videos
+
+A chart can play a video behind the lane. Waddamburo reads TJA's `BGMOVIE` (as TJAPlayer3 and OpenTaiko do) and osu! beatmaps' video event, so osu! maps with a video play it with no setup. Most video formats osu! maps use work (MP4/H.264, AVI, FLV, WMV, MPEG, MKV...).
+
+In a TJA, put the video in the chart's folder and add, before the first `COURSE:`:
+
+```text
+BGMOVIE:video.mp4
+MOVIEOFFSET:0.5
+```
+
+| Header | What it does |
+| --- | --- |
+| `BGMOVIE:file` | The video file, next to the chart. |
+| `MOVIEOFFSET:seconds` | Starts the video that many seconds after the song's audio; negative starts it before. Use it to line the video up with the music. |
+| `BGMOVIEBLEND:luma` or `BGMOVIEBLEND:luma,curve` | **Luma key**, for videos of light on black, such as hologram concert videos: black becomes see-through, bright parts stay solid, dark parts are partly see-through, so the game's backgrounds show around the figure. The curve (8 by default) sets how solid dark parts stay: bigger keeps dark clothing and hair more solid, smaller makes more of the dark see-through. |
+| `BGMOVIEKEY:RRGGBB` or `BGMOVIEKEY:RRGGBB,tolerance` | **Colour key** (green screen): that colour becomes see-through where it joins the edge of the picture, so the same colour inside the figure stays. The tolerance (60 by default) is how far from the colour still counts as background: raise it if a fringe of background remains, lower it if parts of the figure disappear. Example: `BGMOVIEKEY:00FF00,80`. |
+| `BGMOVIEBLEND:add` | Adds the video's light onto the backgrounds (light on black). Simple, but it washes out over bright backgrounds (Go-Go time, a full gauge); the luma key usually looks better. |
+| `BGMOVIERECT:x,y,width,height` | Places the whole video in that box, in 1280×720 screen pixels. Without it the video fills the screen. |
+
+The luma key, colour key and `add` hide the dancers, whose place the video takes. For a hologram on black, the luma key is the best choice; use the colour key for a real green (or blue) screen. With a key, the backgrounds keep animating around the video, Go-Go time included.
+
+`BGMOVIERECT` lets you size and place the video. Some useful boxes:
+
+| Box | Where |
+| --- | --- |
+| `0,0,1280,720` | The whole screen |
+| `309,348,662,372` | The 16:9 area below Player 1's lane, between the drum and the screen's right edge |
+
+A complete hologram example:
+
+```text
+TITLE:World is Mine
+WAVE:World is Mine.ogg
+BGMOVIE:hologram.mp4
+BGMOVIEBLEND:luma,8
+BGMOVIERECT:309,348,662,372
+MOVIEOFFSET:0
+```
+
+Players choose how videos show in **Settings → Game Options**:
+
+| Setting | What it does |
+| --- | --- |
+| Background Video | **On**: over the backgrounds, the whole 16:9 screen. **Under the lane** (single player): only the area below the lane, so the top keeps the game's own animations. **Off**: no videos. A chart's `BGMOVIERECT` box applies in both On modes. |
+| Video Dim | Darkens the video so the notes stay easy to read (20% by default). |
+| Video Frame Rate | The most frames a second a video shows: 30 (default) halves the decoding work, for slower devices; 60 for smooth video on a fast PC. |
+
+Big videos cost CPU. For charts you share, 720p or 1080p at 30 or 60 fps in H.264 (MP4) plays well on PCs and the Switch; phones may need videos off. OpenTaiko's switching `BGA` videos and `BGIMAGE` are not read.
+
 ## Browse osu! songs
 
 osu!lazer and osu!stable are separate libraries. Only native osu!taiko beatmaps are listed; standard, catch, and mania maps are left out. Close osu! while troubleshooting a scan so its library is not changing underneath it.
 
 Waddamburo uses Easy, Normal, Hard, and Oni as slots for osu! difficulties in star order. More than four charts produce additional song entries. Those slot names do not turn the beatmaps into the equivalent arcade difficulties: osu! charts use Oni judgement windows regardless of the displayed slot.
 
-The library's **Group** and **Sort** spines change how songs are organised. Collections are available as a grouping option.
+The library's **Group** and **Sort** folders change how songs are organised: open one and pick a grouping (or a sort order) from the folder, like a dan series. Collections are available as a grouping option.
 
 ## Other arcade releases
 
@@ -69,6 +119,8 @@ The Wii and Wii U releases each get their own library, **WII** and **WII U**, wi
 - a Dolphin extraction (right-click the game → Properties → Filesystem → right-click the disc → Extract Entire Disc), which has **DATA/files**.
 
 **Wii U:** select the game's folder in the decrypted layout Cemu uses, with **code**, **content**, and **meta** inside. Raw encrypted downloads (`.app` and `.tmd` files) cannot be read. The game's update and DLC songs are picked up automatically when they sit next to the game folder, or in Cemu's own **mlc01/usr/title** folders. Add only the game itself, not the update or DLC folders.
+
+The Wii and Wii U libraries have a **Group** folder: **Genre** (the default) shows genre folders, **Game** a folder for each disc.
 
 When several discs of one platform have a song with the same charts, it is listed once, from the newest disc. When they chart it differently, it is listed once per disc, with the release in its title, such as "(Wii Ketteiban)". A song on both a Wii and a Wii U disc appears in both libraries. A Wii ura song, marked （裏）, is a song of its own, as on the disc.
 

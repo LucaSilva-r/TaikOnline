@@ -25,6 +25,7 @@ These are the defaults; the buttons beside the drum can be rebound in **Settings
 | Song Select              | Tab                 | Search songs                                        |
 | Song Select              | L                   | Open or close scores and rankings, in single-player |
 | Song Select              | P                   | Toggle a favourite                                  |
+| Song Select              | H                   | Copy the song's chart hashes, for [your own dan courses](dan-ai-and-rewards#chart-hashes-press-h) |
 | Menus                    | E                   | Open notifications                                  |
 | Menus                    | Backspace           | Go back                                             |
 | Song Select              | Page Up / Page Down | Skip songs with Fast Song Scrolling enabled         |
@@ -52,6 +53,10 @@ For an ordinary gamepad, **In Menus: Gamepad** uses the D-pad to move, the botto
 For a drum recognised as a controller, select **In Menus: Drum** so the bound pads navigate as well as play. Check the controller number if you reconnect several devices: controllers take the lowest available slot.
 
 MIDI bindings accept note-on messages from connected MIDI inputs, on any channel. Select MIDI when capturing them. A MIDI hit is a press; it does not depend on holding the note.
+
+## Touchscreens and the Switch
+
+On a touchscreen, a drum drawn at the bottom of the screen plays (or two Don circles you place yourself); see [Touch drum](phones-and-switch#touch-drum). The Switch's default buttons are in [Android and Nintendo Switch](phones-and-switch#buttons).
 
 ## Double hits and debounce
 

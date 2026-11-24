@@ -1,12 +1,27 @@
-Waddamburo is an independent, open-source Taiko no Tatsujin simulator for Windows x64 and Linux x64. It uses a new engine to recreate the Gen3 arcade experience, with TaikOnline accounts, extra song libraries (custom TJA, osu!, other arcade releases, Nijiiro, and the Wii and Wii U games; see [Songs and libraries](song-libraries)), and tools for customising the gameplay screen.
+Waddamburo is an independent, open-source Taiko no Tatsujin simulator for Windows x64, Linux x64, Android and, as homebrew, the Nintendo Switch. It uses a new engine to recreate the Gen3 arcade experience, with TaikOnline accounts, extra song libraries (custom TJA, osu!, other arcade releases, Nijiiro, and the Wii and Wii U games; see [Songs and libraries](song-libraries)), and tools for customising the gameplay screen.
 
 ## What you need
 
-Download the release for your operating system from [Waddamburo releases](https://github.com/LucaSilva-r/Waddamburo-public/releases). You also need your own legitimately obtained compatible game files. Game data and commercial fonts are not included.
+Download the file for your device from [Waddamburo releases](https://github.com/LucaSilva-r/Waddamburo-public/releases):
+
+| You play on | Download |
+| --- | --- |
+| Windows | **Waddamburo.exe** |
+| Linux | **Waddamburo-x86_64.AppImage** |
+| Android | **Waddamburo.apk** |
+| Nintendo Switch (homebrew) | **Waddamburo.nro** |
+
+The release's **Waddamburo.sources-and-licenses.zip** holds licenses, sources and native libraries; players don't need it. For Android and the Switch, follow [Android and Nintendo Switch](phones-and-switch).
+
+You also need your own legitimately obtained compatible game files. Game data and commercial fonts are not included.
 
 Development and testing focus on **Taiko no Tatsujin Green Ver.** Other Gen3 versions are unverified as the base installation. Adding another version's songs is a separate feature; it does not make that version a supported base installation.
 
-## Install and launch
+## Install and launch on a PC
+
+If you have a downloaded dump instead of an installed game, put Waddamburo in an empty folder and start it: the setup offers **Import a downloaded dump**. Pick the dump (.zip, .7z or .rar) in the file picker, or all of its `DATA*.BIN` update packages at once. Waddamburo takes only Green's files, into a **Green** folder next to it, and uses that folder from then on. Don't extract the dump first.
+
+With an installed game:
 
 1. Find your game installation's **USRDIR** folder, which contains a folder named **data**.
 2. Place **Waddamburo.exe** on Windows, or **Waddamburo-x86_64.AppImage** on Linux, inside USRDIR, beside data.

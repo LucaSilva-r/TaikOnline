@@ -72,6 +72,12 @@ Resolution affects which upscaled texture sizes load for subsequent screens. **B
 
 For a weak PC, start with Upscaling Off, a lower resolution, and a practical frame limit. Change one setting at a time. For a reportable performance problem, use **Record Performance** or **Run Benchmark** and include the generated report; the benchmark restarts into a roughly five-minute run before returning to normal startup.
 
+## Background videos
+
+**Settings → Game Options → Background Video** shows a chart's video on the whole screen (**On**), only below the lane in single player (**Under the lane**), or never (**Off**). **Video Dim** darkens it so the notes stay readable, and **Video Frame Rate** caps it at 30 or 60 frames a second (30 is lighter). See [Background videos](song-libraries#background-videos) for making charts with videos.
+
+On a weak device, turn videos off or keep the 30 fps cap first. Don-chan's 3D rendering resolution is set by `don_resolution` in config.cfg, in percent (25 to 100; 60 on phones, 100 elsewhere): lower it if Don-chan's screens are slow.
+
 ## Cache and personalisation
 
 **Cache Folder** selects this PC's own cache, the game folder, or a custom path configured in config.cfg. This PC is useful when the installation lives on removable storage. The cache location changes after restarting.
