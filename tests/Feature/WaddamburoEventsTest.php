@@ -40,7 +40,7 @@ it('earns tickets from the running campaign\'s songs and exchanges them for its 
 
     // The rotation's first run is Touhou: the game's event folder lists its songs.
     $this->travelTo(WaddamburoEvents::start()->setTime(12, 0));
-    $this->getJson('/api/wdb/event')->assertOk()->assertJsonPath('key', 'touhou')->assertJsonPath('art', 'S10100-1:11')
+    $this->getJson('/api/wdb/event')->assertOk()->assertJsonPath('key', 'touhou')->assertJsonPath('art', null)->assertJsonPath('feature_art', 'S10100-1:11')
         ->assertJson(fn ($json) => $json->where('music_ids', fn ($ids) => collect($ids)->contains('thchil'))->etc());
 
     // A Touhou play the day before the rotation starts never counts.

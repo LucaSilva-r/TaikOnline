@@ -20,7 +20,10 @@ class WaddamburoEventController extends Controller
     /** The running event for the game's event folder: its name, period and songs (musicids). Public: the same for everyone. */
     public function current(WaddamburoEvents $events): JsonResponse
     {
-        return response()->json($events->current());
+        // v0.33.0 crashed on art its Green lacks: "art" stays null for it; 0.33.1 and later read "feature_art" and check first.
+        $event = $events->current();
+
+        return response()->json([...$event, 'art' => null, 'feature_art' => $event['art']]);
     }
 
     /** The exchange page: the running event, the player's tickets, its puchi and songs. */
