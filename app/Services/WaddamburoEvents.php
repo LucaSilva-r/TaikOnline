@@ -41,38 +41,39 @@ class WaddamburoEvents
         'imsmtp', 'imsomn', 'imsshn', 'kirame', 'kyunva', 'miki', 'smokyt'];
 
     /**
-     * The rotation, in order: key, Green's feature folder art for it (featureboard texture index; none for collabs Green
-     * kept no art for), name, songs (musicids, Green tags, a genre), puchi sold, puchi owned by playing a song.
+     * The rotation, in order: key, the game's feature folder art for it ("release:index": a release's featureboard NUTs,
+     * which Green's nutdata keeps from White on; the ticket campaigns' own art where a release had it, else the 特集
+     * folder's; none where no release kept art), name, songs (musicids, Green tags, a genre), puchi sold, puchi owned by playing a song.
      * Songs are the campaign's franchise as Green has it (subtitles: 「マクロスΔ」より ...); Macross Δ's songs left Green,
      * so its event takes the anime genre (ponytail: no better stand-in known).
      *
-     * @var list<array{key: string, art?: int, name: string, songs: list<string>, tags?: list<int>, genre?: string, puchi: list<int>, plays?: array<int, string>}>
+     * @var list<array{key: string, art?: string, name: string, songs: list<string>, tags?: list<int>, genre?: string, puchi: list<int>, plays?: array<int, string>}>
      */
     public const CAMPAIGNS = [
-        ['key' => 'touhou', 'art' => 6, 'name' => '東方Project×太鼓の達人 コラボキャンペーン', 'songs' => [], 'tags' => [66, 68],
+        ['key' => 'touhou', 'art' => 'S10100-1:11', 'name' => '東方Project×太鼓の達人 コラボキャンペーン', 'songs' => [], 'tags' => [66, 68],
             'puchi' => [5, 6, 7, 8, 9, 10, 11, 68, 86, 87, 88, 89, 90, 96, 97, 98, 99, 100, 101, 107, 117, 118, 119, 120]],
-        ['key' => 'imas', 'art' => 5, 'name' => 'アイドルマスター×太鼓の達人 コラボ祭', 'songs' => [...self::IMAS_765, 'imm39', 'immbra'],
+        ['key' => 'imas', 'art' => 'ST8100-1:2', 'name' => 'アイドルマスター×太鼓の達人 コラボ祭', 'songs' => [...self::IMAS_765, 'imm39', 'immbra'],
             'puchi' => [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]],
-        ['key' => 'pad', 'name' => 'パズル＆ドラゴンズ×太鼓の達人 コラボキャンペーン', 'songs' => ['puzdr6', 'puzdr7', 'puzdra', 'puzdx1'],
+        ['key' => 'pad', 'art' => 'ST8100-1:9', 'name' => 'パズル＆ドラゴンズ×太鼓の達人 コラボキャンペーン', 'songs' => ['puzdr6', 'puzdr7', 'puzdra', 'puzdx1'],
             'puchi' => [78, 79, 80, 81, 82, 83, 84, 85]],
-        ['key' => 'cinderella', 'art' => 5, 'name' => 'アイドルマスター シンデレラガールズ コラボキャンペーン', 'songs' => ['imc2bm', 'imc32b',
+        ['key' => 'cinderella', 'art' => 'S11100-1:5', 'name' => 'アイドルマスター シンデレラガールズ コラボキャンペーン', 'songs' => ['imc2bm', 'imc32b',
             'imc5in', 'imcagd', 'imcanz', 'imclip', 'imcnev', 'imconc', 'imcshn', 'imcsml', 'imctok'],
             'puchi' => [1, 2, 3, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 91, 92, 93, 94, 95]],
         ['key' => 'crossbeats', 'name' => 'クロスビーツレヴ コラボ', 'songs' => ['ov969', 'skrexh'], 'puchi' => [],
             'plays' => [74 => 'ov969', 75 => 'skrexh']],
-        ['key' => 'lovelive', 'name' => 'ラブライブ！×太鼓の達人 コラボキャンペーン', 'songs' => ['llang', 'llbkrh', 'llsore'],
+        ['key' => 'lovelive', 'art' => 'ST7100-1:7', 'name' => 'ラブライブ！×太鼓の達人 コラボキャンペーン', 'songs' => ['llang', 'llbkrh', 'llsore'],
             'puchi' => [40, 41, 42, 43, 44, 45, 46, 47, 48]],
-        ['key' => 'compass', 'art' => 11, 'name' => '＃コンパス×太鼓の達人 コラボキャンペーン', 'songs' => ['gumizk', 'mikuar', 'mikucp', 'mikudd',
+        ['key' => 'compass', 'art' => 'S11100-1:11', 'name' => '＃コンパス×太鼓の達人 コラボキャンペーン', 'songs' => ['gumizk', 'mikuar', 'mikucp', 'mikudd',
             'mikugv', 'mikuhn', 'mikuvt', 'mikuzs'], 'puchi' => [113]],
         ['key' => 'macross', 'name' => 'マクロスΔ×太鼓の達人 コラボキャンペーン', 'songs' => [], 'genre' => 'アニメ',
             'puchi' => [69, 70, 71, 72, 73]],
-        ['key' => 'sidem', 'art' => 5, 'name' => 'アイドルマスター SideM コラボキャンペーン', 'songs' => ['imedrv', 'imeglo', 'imersn'], 'puchi' => [],
+        ['key' => 'sidem', 'art' => 'S11100-1:5', 'name' => 'アイドルマスター SideM コラボキャンペーン', 'songs' => ['imedrv', 'imeglo', 'imersn'], 'puchi' => [],
             'plays' => [39 => 'imedrv']],
-        ['key' => 'a3', 'name' => 'A3!×太鼓の達人 コラボキャンペーン', 'songs' => ['a3aaa', 'a3mank'], 'puchi' => [102, 103, 104, 105]],
-        ['key' => 'ldh', 'name' => 'EXILE 15周年 タイアップキャンペーン', 'songs' => ['gomkis', 'ryusei', 'yeswea'], 'puchi' => [64, 65]],
-        ['key' => 'shiny', 'art' => 5, 'name' => 'アイドルマスター シャイニーカラーズ コラボキャンペーン', 'songs' => ['im4dst', 'im4spr'],
+        ['key' => 'a3', 'art' => 'ST9100-1:8', 'name' => 'A3!×太鼓の達人 コラボキャンペーン', 'songs' => ['a3aaa', 'a3mank'], 'puchi' => [102, 103, 104, 105]],
+        ['key' => 'ldh', 'name' => 'EXILE 15周年 タイアップキャンペーン', 'songs' => ['gomkis', 'hslove', 'ryusei', 'yeswea'], 'puchi' => [64, 65]],
+        ['key' => 'shiny', 'art' => 'S11100-1:5', 'name' => 'アイドルマスター シャイニーカラーズ コラボキャンペーン', 'songs' => ['im4dst', 'im4spr'],
             'puchi' => [114, 115, 116]],
-        ['key' => 'docodon', 'art' => 14, 'name' => '太鼓の達人 ドコドン！ミステリーアドベンチャーコラボ', 'songs' => ['3d3op'], 'puchi' => [76, 77]],
+        ['key' => 'docodon', 'art' => 'S11100-1:14', 'name' => '太鼓の達人 ドコドン！ミステリーアドベンチャーコラボ', 'songs' => ['3d3op'], 'puchi' => [76, 77]],
     ];
 
     /** The puchi's names (the wiki's ぷちキャラ list): Green's data has only their name textures. */

@@ -39,7 +39,7 @@ it('earns tickets from the running campaign\'s songs and exchanges them for its 
 
     // The rotation's first run is Touhou: the game's event folder lists its songs.
     $this->travelTo(WaddamburoEvents::EPOCH.' 12:00:00');
-    $this->getJson('/api/wdb/event')->assertOk()->assertJsonPath('key', 'touhou')->assertJsonPath('art', 6)
+    $this->getJson('/api/wdb/event')->assertOk()->assertJsonPath('key', 'touhou')->assertJsonPath('art', 'S10100-1:11')
         ->assertJson(fn ($json) => $json->where('music_ids', fn ($ids) => collect($ids)->contains('thchil'))->etc());
 
     // Four Touhou plays earn four tickets; another campaign's song earns none.
