@@ -12,6 +12,8 @@ return [
     'country' => env('TAIKO_GREEN_COUNTRY', 'JPN'),
     'region' => (int) env('TAIKO_GREEN_REGION', 1),
     'data_path' => env('TAIKO_GREEN_DATA_PATH', storage_path('app/game-data')),
+    // Waddamburo's events: the day the rotation's first run starts (set it to the deploy day); plays before it never count.
+    'events_start' => env('WADDAMBURO_EVENTS_START', '2026-11-23'),
     'catalog_version' => env('TAIKO_GREEN_CATALOG_VERSION', TaikoGameVersion::Green->value),
     'route_catalog_versions' => [
         'v01r00_tw' => TaikoGameVersion::Red->value,

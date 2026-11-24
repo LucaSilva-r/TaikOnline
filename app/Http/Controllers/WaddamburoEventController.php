@@ -23,8 +23,8 @@ class WaddamburoEventController extends Controller
         return response()->json($events->current());
     }
 
-    /** The exchange page: the running event, the player's tickets, its puchi; the next events. */
-    public function index(Request $request, WaddamburoEvents $events): Response
+    /** The exchange page: the running event, the player's tickets, its puchi and songs. */
+    public function index(Request $request, WaddamburoEvents $events, WaddamburoWebController $web): Response
     {
         abort_unless($request->attributes->get('taikoVersionIsWaddamburo') === true, 404);
         $player = Player::query()->where('user_id', $request->user()->id)->first();
@@ -32,7 +32,7 @@ class WaddamburoEventController extends Controller
         $campaign = $events->campaign($now['index']);
         $owned = $player === null ? [] : array_flip($events->owned($player->baid));
         $songs = $events->songs($now['index']);
-        $titles = Song::query()->where('version', TaikoGameVersion::Green->value)->whereIn('music_id', [...$songs, ...array_values($campaign['plays'] ?? [])])
+        $titles = Song::query()->where('version', TaikoGameVersion::Green->value)->whereIn('music_id', array_values($campaign['plays'] ?? []))
             ->pluck('title', 'music_id')->all();
 
         return Inertia::render('WaddamburoEvents', [
@@ -44,13 +44,8 @@ class WaddamburoEventController extends Controller
             'plays' => array_map(fn (int $id, string $musicId): array => ['id' => $id, 'name' => WaddamburoEvents::NAMES[$id] ?? '',
                 'song' => $titles[$musicId] ?? $musicId, 'owned' => isset($owned[$id])],
                 array_keys($campaign['plays'] ?? []), array_values($campaign['plays'] ?? [])),
-            'songs' => array_values(array_map(fn (string $musicId): string => $titles[$musicId] ?? $musicId, $songs)),
-            // The next few, so players know when a collab comes back.
-            'upcoming' => array_map(function (int $ahead) use ($events, $now): array {
-                $at = $events->at($now['end']->addDays(($ahead - 1) * WaddamburoEvents::RUN_DAYS));
-
-                return ['name' => $events->campaign($at['index'])['name'], 'starts_at' => $at['start']->toIso8601String()];
-            }, [1, 2, 3]),
+            // As the song list shows them (each links to its page).
+            'songs' => $web->stockSongCards($request, $songs),
             'sheet' => CostumeController::spritesheet(TaikoGameVersion::Green),
         ]);
     }

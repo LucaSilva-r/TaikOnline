@@ -25,9 +25,16 @@ class WaddamburoEvents
 
     public const PUCHI = 7;
 
-    /** The rotation's first day (a Monday), in the app's timezone; each campaign runs this many days. */
-    public const EPOCH = '2026-11-23';
+    /**
+     * The rotation's first day, in the app's timezone (config taiko_green.events_start, WADDAMBURO_EVENTS_START: the deploy
+     * day): the first run starts then, and plays before it never count.
+     */
+    public static function start(): CarbonImmutable
+    {
+        return CarbonImmutable::parse((string) config('taiko_green.events_start'), config('app.timezone'))->startOfDay();
+    }
 
+    /** Each campaign runs this many days. */
     public const RUN_DAYS = 14;
 
     public const PRICE = 5;
@@ -100,7 +107,7 @@ class WaddamburoEvents
     /** @return array{index: int, start: CarbonImmutable, end: CarbonImmutable} the campaign running at that time */
     public function at(?CarbonImmutable $time = null): array
     {
-        $epoch = CarbonImmutable::parse(self::EPOCH, config('app.timezone'));
+        $epoch = self::start();
         $run = intdiv((int) max(0, $epoch->diffInDays($time ?? CarbonImmutable::now(), false)), self::RUN_DAYS);
         $start = $epoch->addDays($run * self::RUN_DAYS);
 
@@ -156,11 +163,12 @@ class WaddamburoEvents
      */
     public function plays(int $baid, int $index): array
     {
-        $epoch = CarbonImmutable::parse(self::EPOCH, config('app.timezone'));
+        $epoch = self::start();
         $songs = WdbMedalSong::query()->where('baid', $baid)->where('kind', 'song')->whereNotNull('chart_sha256')
             ->where('played_at', '>=', $epoch)->get(['chart_sha256', 'played_at'])
             ->filter(fn (WdbMedalSong $song): bool => $this->at(CarbonImmutable::parse($song->played_at))['index'] === $index);
-        $info = $this->titles->songInfo($songs->pluck('chart_sha256')->unique()->values()->all());
+        // Any Namco chart of the song counts: Green's own or Nijiiro's (a player's library may give either).
+        $info = $this->titles->songInfo($songs->pluck('chart_sha256')->unique()->values()->all(), anySource: true);
         $targets = array_flip($this->songs($index));
 
         return $songs->map(fn (WdbMedalSong $song): ?string => $info[$song->chart_sha256]['music_id'] ?? null)

@@ -151,11 +151,12 @@ class WaddamburoTitles
 
     /**
      * Green's song facts for stock charts: chart sha256 -> musicid, uniqueId, genre, tags (musicinfo.xml).
+     * <paramref name="anySource"/>: Nijiiro's charts of a Namco song too (the same musicid), not only Green's own.
      *
      * @param  list<string>  $charts
      * @return array<string, array{music_id: string, uid: int, genre: string, tags: list<int>}>
      */
-    public function songInfo(array $charts): array
+    public function songInfo(array $charts, bool $anySource = false): array
     {
         if ($charts === []) {
             return [];
@@ -163,7 +164,8 @@ class WaddamburoTitles
         $music = $this->musicInfo();
         $keys = DB::table('wdb_charts')->join('wdb_chart_song', 'wdb_chart_song.wdb_chart_id', '=', 'wdb_charts.id')
             ->join('wdb_songs', 'wdb_songs.id', '=', 'wdb_chart_song.wdb_song_id')
-            ->whereIn('wdb_charts.sha256', $charts)->where('wdb_charts.source', 'Stock')->where('wdb_songs.family', 'Namco')
+            ->whereIn('wdb_charts.sha256', $charts)->when(! $anySource, fn ($query) => $query->where('wdb_charts.source', 'Stock'))
+            ->where('wdb_songs.family', 'Namco')
             ->pluck('wdb_songs.song_key', 'wdb_charts.sha256');
         $info = [];
         foreach ($keys as $sha => $musicId) {

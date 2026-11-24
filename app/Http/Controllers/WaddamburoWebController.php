@@ -16,6 +16,7 @@ use App\Services\PlayerRankAggregateService;
 use App\Services\WaddamburoAiBattles;
 use App\Services\WaddamburoDanRank;
 use App\Services\WaddamburoRankAggregateService;
+use App\Services\WaddamburoSongs;
 use App\Services\WaddamburoStatus;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -81,13 +82,7 @@ class WaddamburoWebController extends Controller
         $source = $request->query('source');
         $source = is_string($source) && array_key_exists($source, self::SOURCES) ? $source : null;
         $visible = WdbChart::visibleTo($request->user());
-        // A chart linked once per source still counts its plays once.
-        $plays = fn (string $aggregate): QueryBuilder => DB::table('wdb_plays')
-            ->whereIn('wdb_plays.wdb_chart_id', DB::table('wdb_chart_song')->select('wdb_chart_id')
-                ->whereColumn('wdb_chart_song.wdb_song_id', 'wdb_songs.id'))
-            ->whereIn('wdb_plays.wdb_chart_id', $visible)
-            ->tap(fn (QueryBuilder $query) => WdbPlay::visibility($query, $this->viewerBaid()))
-            ->selectRaw($aggregate);
+        $plays = $this->songPlays($visible);
         $songs = WdbSong::query()
             ->whereHas('charts', fn (Builder $chart) => $chart->whereIn('wdb_charts.id', $visible))
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
@@ -103,20 +98,8 @@ class WaddamburoWebController extends Controller
             ->orderByDesc('created_at')->orderBy('id')
             ->paginate(40)
             ->withQueryString();
-        $sources = DB::table('wdb_chart_song')->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_chart_song.wdb_chart_id')
-            ->whereIn('wdb_song_id', $songs->pluck('id'))->whereIn('wdb_charts.id', $visible)
-            ->selectRaw('DISTINCT wdb_chart_song.wdb_song_id, '.self::SHOWN_SOURCE_SQL.' AS source')
-            ->get()->groupBy('wdb_song_id')->map->pluck('source');
-        $songs->through(fn (WdbSong $song): array => [
-            'id' => $song->id,
-            'song_no' => $song->id,
-            'title' => (string) ($song->title ?? $song->title_en),
-            'title_en' => $song->title_en,
-            'genre' => $this->genre($sources->get($song->id, collect())->all()),
-            'play_count' => (int) $song->play_count,
-            'player_count' => (int) $song->player_count,
-            'is_favorite' => false,
-        ]);
+        $card = $this->songCard($songs->pluck('id')->all(), $visible);
+        $songs->through($card);
 
         return Inertia::render('Songs', [
             'gameVersion' => $this->scope(),
@@ -128,6 +111,64 @@ class WaddamburoWebController extends Controller
             'favoriteLimit' => 0,
             'favoriteCount' => 0,
         ]);
+    }
+
+    /**
+     * The song list's cards for these stock songs (musicids), in the order given, those with a chart the viewer may see
+     * (the events page's songs).
+     *
+     * @param  list<string>  $musicIds
+     * @return list<array<string, mixed>>
+     */
+    public function stockSongCards(Request $request, array $musicIds): array
+    {
+        $visible = WdbChart::visibleTo($request->user());
+        $plays = $this->songPlays($visible);
+        $songs = WdbSong::query()->where('family', WaddamburoSongs::family('Stock'))->whereIn('song_key', $musicIds)
+            ->whereHas('charts', fn (Builder $chart) => $chart->whereIn('wdb_charts.id', $visible))
+            ->select('*')
+            ->selectSub($plays('COUNT(*)'), 'play_count')
+            ->selectSub($plays('COUNT(DISTINCT wdb_plays.baid)'), 'player_count')
+            ->get()->sortBy(fn (WdbSong $song): int|false => array_search($song->song_key, $musicIds, true));
+        $card = $this->songCard($songs->pluck('id')->all(), $visible);
+
+        return $songs->map($card)->values()->all();
+    }
+
+    /** Plays of a song's visible charts (a chart linked once per source still counts its plays once). */
+    private function songPlays(mixed $visible): \Closure
+    {
+        return fn (string $aggregate): QueryBuilder => DB::table('wdb_plays')
+            ->whereIn('wdb_plays.wdb_chart_id', DB::table('wdb_chart_song')->select('wdb_chart_id')
+                ->whereColumn('wdb_chart_song.wdb_song_id', 'wdb_songs.id'))
+            ->whereIn('wdb_plays.wdb_chart_id', $visible)
+            ->tap(fn (QueryBuilder $query) => WdbPlay::visibility($query, $this->viewerBaid()))
+            ->selectRaw($aggregate);
+    }
+
+    /**
+     * A song list card for each song (its sources as the genre badge).
+     *
+     * @param  list<int>  $songIds
+     * @return \Closure(WdbSong): array<string, mixed>
+     */
+    private function songCard(array $songIds, mixed $visible): \Closure
+    {
+        $sources = DB::table('wdb_chart_song')->join('wdb_charts', 'wdb_charts.id', '=', 'wdb_chart_song.wdb_chart_id')
+            ->whereIn('wdb_song_id', $songIds)->whereIn('wdb_charts.id', $visible)
+            ->selectRaw('DISTINCT wdb_chart_song.wdb_song_id, '.self::SHOWN_SOURCE_SQL.' AS source')
+            ->get()->groupBy('wdb_song_id')->map->pluck('source');
+
+        return fn (WdbSong $song): array => [
+            'id' => $song->id,
+            'song_no' => $song->id,
+            'title' => (string) ($song->title ?? $song->title_en),
+            'title_en' => $song->title_en,
+            'genre' => $this->genre($sources->get($song->id, collect())->all()),
+            'play_count' => (int) $song->play_count,
+            'player_count' => (int) $song->player_count,
+            'is_favorite' => false,
+        ];
     }
 
     public function song(Request $request, string $id): Response
