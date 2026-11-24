@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\File;
  * them in Green lock (research/wiki in the lab repo): the goods Green's reward shop sold, every season, and the AI battle
  * win rewards, and what Green's condition titles give (green_reward_table.json: title → song, tone, costume parts);
  * and the goods with no way to earn them in Green that Waddamburo's shop sells by the day (WaddamburoShopPool: Katsu
- * Medal goods, older versions', expired campaigns'); everything else stays free (make, puchi, tones 6+). Owned: bought in Waddamburo's
+ * Medal goods, older versions', expired campaigns'), and the collab puchi of Waddamburo's events (WaddamburoEvents); everything else stays
+ * free (make, the other puchi, tones 6+). Owned: bought in Waddamburo's
  * shop, AI battle wins (verified), the item's title earned (here or on a cabinet), or unlocked on a real Green cabinet
  * (the card's Green row). Off (the default): nothing locks.
  */
@@ -155,6 +156,9 @@ class WaddamburoUnlocks
         foreach (app(WaddamburoKatsuShop::class)->items() as [$type, $id]) {
             $items["{$type}:{$id}"] = [$type, $id];
         }
+        foreach (app(WaddamburoEvents::class)->items() as [$type, $id]) {
+            $items["{$type}:{$id}"] = [$type, $id];
+        }
         foreach ((new ItemShopCatalog(TaikoGameVersion::Green, 0))->seasons as $season) {
             foreach ($season['items'] as $item) {
                 $items[$item['item_type'].':'.$item['item_id']] = [(int) $item['item_type'], (int) $item['item_id']];
@@ -215,6 +219,8 @@ class WaddamburoUnlocks
                 $owned[$type][] = $id;
             }
         }
+        // Event puchi owned by playing their song while their campaign ran (bought ones are shop items above).
+        $owned[WaddamburoEvents::PUCHI] = [...($owned[WaddamburoEvents::PUCHI] ?? []), ...app(WaddamburoEvents::class)->owned((int) $player->baid)];
         $owned[2] = [...($owned[2] ?? []), ...array_map('intval', $green?->unlocked_tones ?? [])];
         foreach (self::COSTUME_SLOTS as $type => $slot) {
             $owned[$type] = [...($owned[$type] ?? []), ...array_map('intval', ($green?->unlocked_costumes ?? [])[(string) $slot] ?? [])];

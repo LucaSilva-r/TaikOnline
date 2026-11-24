@@ -89,6 +89,6 @@ it('sells the puchi charas in the Katsu shop and keeps them locked until bought'
     $player = Player::query()->create(['user_id' => $user->id]);
     PlayerCosmetic::query()->create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'wdb_earned_only' => true, 'unlocked_titles' => []]);
     $puchi = collect(app(WaddamburoKatsuShop::class)->items())->where(0, 7);
-    expect($puchi->count())->toBeGreaterThan(100)
+    expect($puchi->count())->toBe(7) // Green's Katsu puchi; the collab ones are event goods (WaddamburoEvents)
         ->and(app(WaddamburoUnlocks::class)->locked($player)['puchi'])->toContain($puchi->first()[1]);
 })->skip(fn () => ! file_exists(config('taiko_green.data_path').'/green/green_katsu_shop.json'), 'needs the Katsu shop data file');

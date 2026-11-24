@@ -150,12 +150,12 @@ class WaddamburoTitles
     }
 
     /**
-     * Green's song facts for stock charts: chart sha256 -> uniqueId, genre, tags (musicinfo.xml).
+     * Green's song facts for stock charts: chart sha256 -> musicid, uniqueId, genre, tags (musicinfo.xml).
      *
      * @param  list<string>  $charts
-     * @return array<string, array{uid: int, genre: string, tags: list<int>}>
+     * @return array<string, array{music_id: string, uid: int, genre: string, tags: list<int>}>
      */
-    private function songInfo(array $charts): array
+    public function songInfo(array $charts): array
     {
         if ($charts === []) {
             return [];
@@ -168,7 +168,7 @@ class WaddamburoTitles
         $info = [];
         foreach ($keys as $sha => $musicId) {
             if (isset($music[$musicId])) {
-                $info[$sha] = $music[$musicId];
+                $info[$sha] = ['music_id' => (string) $musicId] + $music[$musicId];
             }
         }
 
@@ -181,7 +181,7 @@ class WaddamburoTitles
      *
      * @return array<string, array{uid: int, genre: string, tags: list<int>}>
      */
-    private function musicInfo(): array
+    public function musicInfo(): array
     {
         static $music = null;
         if ($music !== null) {

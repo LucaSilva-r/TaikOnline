@@ -34,9 +34,10 @@
     import { toUrl } from '@/lib/utils';
     import { community, home, login, rankings, register } from '@/routes';
     import { dashboard } from '@/routes/admin';
-    import moderation from '@/routes/mod';
     import { show as boardShow } from '@/routes/board';
+    import events from '@/routes/events';
     import katsuShop from '@/routes/katsu-shop';
+    import moderation from '@/routes/mod';
     import { create as createPlay } from '@/routes/play';
     import songsRoutes from '@/routes/songs';
     import { show as wikiShow } from '@/routes/wiki';
@@ -74,6 +75,11 @@
             : []),
         ...(auth?.user && taikoParam.taikoVersion === 'waddamburo'
             ? [
+                  {
+                      title: 'Events',
+                      href: toUrl(events.index(taikoParam)),
+                      featured: false,
+                  },
                   {
                       title: 'Katsu Shop',
                       href: toUrl(katsuShop.index(taikoParam)),

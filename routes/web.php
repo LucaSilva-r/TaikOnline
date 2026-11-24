@@ -19,9 +19,10 @@ use App\Http\Controllers\Settings\DeviceLinkController;
 use App\Http\Controllers\SongCatalogController;
 use App\Http\Controllers\WaddamburoDanPlayController;
 use App\Http\Controllers\WaddamburoDanRankController;
+use App\Http\Controllers\WaddamburoEventController;
 use App\Http\Controllers\WaddamburoKatsuShopController;
-use App\Http\Controllers\WaddamburoUnlockModeController;
 use App\Http\Controllers\WaddamburoPlayController;
+use App\Http\Controllers\WaddamburoUnlockModeController;
 use App\Http\Controllers\WikiController;
 use App\Http\Middleware\ResolveTaikoVersion;
 use App\Services\WaddamburoStatus;
@@ -71,6 +72,8 @@ Route::prefix('{taikoVersion}')
             Route::post('katsu-shop', [WaddamburoKatsuShopController::class, 'purchase'])->name('katsu-shop.purchase');
             Route::get('gacha', [WaddamburoKatsuShopController::class, 'gacha'])->name('gacha.index');
             Route::post('gacha', [WaddamburoKatsuShopController::class, 'pull'])->name('gacha.pull');
+            Route::get('events', [WaddamburoEventController::class, 'index'])->name('events.index');
+            Route::post('events', [WaddamburoEventController::class, 'purchase'])->name('events.purchase');
             Route::post('notifications/read', [NotificationController::class, 'read'])->name('notifications.read');
             Route::get('play', [CabinetLoginController::class, 'create'])->name('play.create');
             Route::post('play', [CabinetLoginController::class, 'store'])
