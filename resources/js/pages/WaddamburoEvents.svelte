@@ -7,6 +7,7 @@
     import SongCard from '@/components/SongCard.svelte';
     import type { SongCardEntry } from '@/components/SongCard.svelte';
     import { Button } from '@/components/ui/button';
+    import { Progress } from '@/components/ui/progress';
     import { taikoRouteParam } from '@/lib/taiko-version';
     import { toUrl } from '@/lib/utils';
     import songRoutes from '@/routes/songs';
@@ -67,6 +68,38 @@
     // A run ends at the start of ends_at's day: its last day is the one before.
     const lastDay = (iso: string) =>
         day(new Date(new Date(iso).getTime() - 86_400_000).toISOString());
+    // The run's progress in the visitor's own time zone, refreshed every minute.
+    let now = $state(Date.now());
+    $effect(() => {
+        const timer = setInterval(() => (now = Date.now()), 60_000);
+
+        return () => clearInterval(timer);
+    });
+    const startsAt = $derived(new Date(event.starts_at).getTime());
+    const endsAt = $derived(new Date(event.ends_at).getTime());
+    const progress = $derived(
+        Math.min(1, Math.max(0, (now - startsAt) / (endsAt - startsAt))),
+    );
+    const endLabel = $derived(
+        new Date(endsAt).toLocaleString(undefined, {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        }),
+    );
+    const left = $derived.by(() => {
+        const minutes = Math.max(0, Math.round((endsAt - now) / 60_000));
+        const days = Math.floor(minutes / 1440);
+        const hours = Math.floor((minutes % 1440) / 60);
+
+        return days > 0
+            ? `${days} day${days === 1 ? '' : 's'} ${hours} h left`
+            : hours > 0
+              ? `${hours} h ${minutes % 60} min left`
+              : `${minutes % 60} min left`;
+    });
     const owned = $derived(
         [...puchi, ...plays].filter((item) => item.owned).length,
     );
@@ -129,6 +162,19 @@
                 {/if}
             {/snippet}
             <div class="space-y-6 p-4 sm:p-5">
+                <div class="space-y-1.5">
+                    <Progress
+                        class="h-2"
+                        value={Math.round(progress * 100)}
+                        aria-label="Event progress"
+                    />
+                    <div
+                        class="flex flex-wrap justify-between gap-x-4 text-xs text-muted-foreground"
+                    >
+                        <span>Ends {endLabel} (your time)</span>
+                        <span class="tabular-nums">{left}</span>
+                    </div>
+                </div>
                 {#if puchi.length > 0}
                     <section class="space-y-3">
                         <h3 class="text-base font-semibold">
