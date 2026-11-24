@@ -9,6 +9,7 @@
         icon,
         overview,
         children,
+        open = false,
         class: className = '',
     }: {
         title: string;
@@ -16,11 +17,14 @@
         icon: Snippet;
         overview?: Snippet;
         children: Snippet;
+        /** Starts open (the reader came for it). */
+        open?: boolean;
         class?: string;
     } = $props();
 </script>
 
 <details
+    {open}
     class={cn(
         'group/mode overflow-hidden rounded-xl border bg-card',
         className,

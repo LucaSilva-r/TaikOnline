@@ -2,7 +2,6 @@
     import { Link } from '@inertiajs/svelte';
     import type { Snippet } from 'svelte';
     import { taikoRouteParam } from '@/lib/taiko-version';
-    import events from '@/routes/events';
     import gacha from '@/routes/gacha';
     import katsuShop from '@/routes/katsu-shop';
 
@@ -21,7 +20,6 @@
     const tabs = [
         { label: 'Katsu Shop', route: katsuShop },
         { label: 'Gacha', route: gacha },
-        { label: 'Events', route: events },
     ];
 </script>
 

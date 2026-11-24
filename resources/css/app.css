@@ -241,3 +241,18 @@
         animation: none;
     }
 }
+
+/* The nav's Events link while an event runs: a soft glow in the primary colour, breathing unless motion is reduced. */
+.live-glow {
+    text-shadow: 0 0 8px color-mix(in oklab, var(--primary) 55%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+    .live-glow {
+        animation: live-glow 2.4s ease-in-out infinite;
+    }
+}
+@keyframes live-glow {
+    50% {
+        text-shadow: 0 0 14px color-mix(in oklab, var(--primary) 80%, transparent);
+    }
+}

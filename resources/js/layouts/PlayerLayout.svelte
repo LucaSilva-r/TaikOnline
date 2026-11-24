@@ -79,6 +79,8 @@
                       title: 'Events',
                       href: toUrl(events.index(taikoParam)),
                       featured: false,
+                      // An event always runs (the rotation never stops): the link says so.
+                      live: true,
                   },
                   {
                       title: 'Katsu Shop',
@@ -141,7 +143,12 @@
                               ? 'bg-accent text-foreground'
                               : 'text-muted-foreground hover:bg-accent hover:text-foreground'}"
                     >
-                        {item.title}
+                        {#if 'live' in item && item.live}{@render liveDot()}{/if}
+                        <span
+                            class={'live' in item && item.live
+                                ? 'live-glow text-primary'
+                                : ''}>{item.title}</span
+                        >
                     </Link>
                 {/each}
             </nav>
@@ -188,7 +195,12 @@
                             ? `my-auto flex h-8 items-center rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 ${active ? 'ring-2 ring-ring ring-offset-2 ring-offset-background' : ''}`
                             : `flex h-14 items-center border-b-2 px-3 text-sm font-medium transition ${active ? activeStyles : inactiveStyles}`}
                     >
-                        {item.title}
+                        {#if 'live' in item && item.live}{@render liveDot()}{/if}
+                        <span
+                            class={'live' in item && item.live
+                                ? 'live-glow text-primary'
+                                : ''}>{item.title}</span
+                        >
                     </Link>
                 {/each}
             </nav>
@@ -281,3 +293,16 @@
 
     <Toaster />
 </div>
+
+{#snippet liveDot()}
+    <span
+        class="relative mr-1.5 inline-flex size-2 align-middle"
+        aria-hidden="true"
+    >
+        <span
+            class="absolute inline-flex size-full rounded-full bg-primary opacity-75 motion-safe:animate-ping"
+        ></span>
+        <span class="relative inline-flex size-2 rounded-full bg-primary"
+        ></span>
+    </span>
+{/snippet}
