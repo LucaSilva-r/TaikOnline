@@ -26,7 +26,8 @@ class CostumeRequest extends FormRequest
         ];
 
         foreach (PlayerCosmetic::PRESET_KEYS as $key) {
-            $rules["presets.*.{$key}"] = ['required', 'integer', 'min:0'];
+            // Make (costume_4) is optional: a missing one saves as 0.
+            $rules["presets.*.{$key}"] = [$key === 'costume_4' ? 'sometimes' : 'required', 'integer', 'min:0'];
         }
 
         return $rules;

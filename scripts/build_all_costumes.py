@@ -36,6 +36,27 @@ VERSION_DUMP = {
 # picker slot -> manifest kind.
 SLOT_KIND = {"kigurumi": "full", "head": "head", "body": "body", "puchi": "puchi"}
 
+# Make (face paint) has no icons in the game data (only Donder Hiroba showed it): Green's picker draws
+# each make's sheet (YataiDON's paint_NNN000.png = the game's parts/paint atlases) on a Don face.
+PAINT = TAIKONLINE.parent / "YataiDON" / "Skins" / "PyTaikoGreen" / "Models" / "paint"
+
+
+def make_icons():
+    """Yield (paint id, 96px icon): frame 4 (regular face) over the drum head's rim and red face."""
+    from PIL import ImageDraw
+    for path in sorted(PAINT.glob("paint_[0-9][0-9][0-9]000.png")):
+        frame = Image.open(path).convert("RGBA").crop((0, 4 * 128, 128, 5 * 128))
+        icon = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(icon)
+        draw.ellipse((1, 1, 126, 126), fill=(248, 240, 220, 255), outline=(40, 40, 40, 255), width=3)
+        r = 64 * 6.84 / 8.81  # the red face inside the rim (don3d disc radii)
+        draw.ellipse((64 - r, 64 - r, 64 + r, 64 + r), fill=(249, 76, 44, 255))
+        icon.alpha_composite(frame)
+        mask = Image.new("L", (128, 128), 0)
+        ImageDraw.Draw(mask).ellipse((1, 1, 126, 126), fill=255)  # full-cover makes stay on the drum
+        icon.putalpha(Image.composite(icon.getchannel("A"), mask, mask))
+        yield int(path.stem[6:9]), icon.resize((CELL, CELL), Image.Resampling.LANCZOS)
+
 CELL = 96
 PUCHI_CELL = 64
 COLS = 16
@@ -99,6 +120,10 @@ def build(version, dump):
             n += 1
         if n:
             report[slot] = n
+    if version == "green" and PAINT.is_dir():
+        for cid, icon in make_icons():
+            items.append(("face", cid, icon))
+        report["face"] = sum(1 for s, _, _ in items if s == "face")
 
     if not items:
         print(f"{version:9} (no data)")

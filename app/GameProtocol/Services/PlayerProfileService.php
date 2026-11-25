@@ -186,6 +186,7 @@ class PlayerProfileService
                 'setCostume1' => $preset['costume_1'],
                 'setCostume2' => $preset['costume_2'],
                 'setCostume3' => $preset['costume_3'],
+                'setCostume4' => $preset['costume_4'],
                 'setCostume5' => $preset['costume_5'],
             ]);
         }

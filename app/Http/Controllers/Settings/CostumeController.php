@@ -32,6 +32,7 @@ class CostumeController extends Controller
         1 => 'kigurumi',
         2 => 'head',
         3 => 'body',
+        4 => 'face',
         5 => 'puchi',
     ];
 

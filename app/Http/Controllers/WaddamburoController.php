@@ -668,7 +668,7 @@ class WaddamburoController extends Controller
             'look' => [
                 'costume' => array_map(fn (int $slot): int => $slot === 1 ? $kigurumi((int) ($cosmetics?->costume_1 ?? 0))
                     : (int) ($cosmetics?->{"costume_{$slot}"} ?? 0), [1, 2, 3, 4, 5]),
-                // The entry's three costume sets: [kigurumi, head, body, puchi] each.
+                // The entry's three costume sets: [kigurumi, head, body, puchi, make] each.
                 'presets' => array_map(fn (array $set): array => [$kigurumi((int) $set['costume_1']), ...array_slice(array_values($set), 1)],
                     ($cosmetics ?? new PlayerCosmetic)->normalizedPresets()),
                 // Which of the dan costume's per-rank models to draw (1-25; 0 none).

@@ -308,11 +308,13 @@ export class DonchanRenderer {
     /**
      * Load the model set: one or more GLB URLs that share the cos skeleton. Pass a single
      * cos kigurumi, or a body + head pair to composite. Materials are classified for recolor
-     * and face across every model.
+     * and face across every model. fullFaceDisc keeps the head's own (larger) face disc: make
+     * (paint) sheets are drawn for it, face sheets for the kigurumi-sized one.
      */
     public async loadModels(
         glbUrls: string[],
         animationsUrl?: string,
+        fullFaceDisc = false,
     ): Promise<void> {
         if (animationsUrl && !this.clipsLoaded) {
             await this.loadAnimations(animationsUrl);
@@ -342,7 +344,7 @@ export class DonchanRenderer {
                 const shaderType =
                     (original.userData?.shaderType as string | undefined) ?? '';
 
-                if (isCompositeModel && shaderType === SHADER_FACE) {
+                if (isCompositeModel && !fullFaceDisc && shaderType === SHADER_FACE) {
                     this.normalizeCompositeFaceOverlay(mesh);
                 }
 

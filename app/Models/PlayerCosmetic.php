@@ -91,12 +91,12 @@ class PlayerCosmetic extends Model
     public const DAN_COSTUME = 36;
 
     /**
-     * The equipped-part keys that make up one preset. Slot 4 (face) is omitted
-     * because no make-up items exist yet.
+     * The equipped-part keys that make up one preset. Slot 4 (make) comes last so
+     * clients reading [kigurumi, head, body, puchi] by position keep working.
      *
      * @var array<int, string>
      */
-    public const PRESET_KEYS = ['costume_1', 'costume_2', 'costume_3', 'costume_5'];
+    public const PRESET_KEYS = ['costume_1', 'costume_2', 'costume_3', 'costume_5', 'costume_4'];
 
     /**
      * Always-three preset sets, padded/truncated from stored data so the UI and

@@ -20,6 +20,7 @@ Layout produced:
     storage/app/public/donchan/puchi-sheet.json
     storage/app/public/donchan/animations.glb
     storage/app/public/donchan/face/{sheet}.png
+    storage/app/public/donchan/paint/paint_NNN000.png   (make sheets, Green's paint ids)
 """
 
 from __future__ import annotations
@@ -203,6 +204,7 @@ def main() -> int:
     head = copy_tree(models_root / "head", PUBLIC_ROOT / "models" / "head", "*.glb", args.force)
     body = copy_tree(models_root / "body", PUBLIC_ROOT / "models" / "body", "*.glb", args.force)
     face = copy_tree(models_root / "face", PUBLIC_ROOT / "face", "*.png", args.force)
+    paint = copy_tree(models_root / "paint", PUBLIC_ROOT / "paint", "*.png", args.force)
     sheet = build_picker_sheet(models_root)
     puchi_sheet = build_puchi_sheet(models_root, args.force)
 
@@ -215,7 +217,7 @@ def main() -> int:
         anim = 1
 
     print(f"exported: {cos} kigurumi, {head} head, {body} body glb, "
-          f"{face} face sheets, {anim} animations.glb")
+          f"{face} face sheets, {paint} make sheets, {anim} animations.glb")
     if sheet:
         print(f"picker sheet: {sheet}")
     if puchi_sheet:

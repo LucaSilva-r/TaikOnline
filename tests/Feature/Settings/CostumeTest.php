@@ -120,7 +120,7 @@ it('saves presets and mirrors the worn preset into the equipped columns', functi
             'presets' => [
                 ['costume_1' => 1, 'costume_2' => 1, 'costume_3' => 1, 'costume_5' => 1],
                 ['costume_1' => 0, 'costume_2' => 2, 'costume_3' => 2, 'costume_5' => 2],
-                ['costume_1' => 9, 'costume_2' => 0, 'costume_3' => 0, 'costume_5' => 0],
+                ['costume_1' => 9, 'costume_2' => 0, 'costume_3' => 0, 'costume_5' => 0, 'costume_4' => 26],
             ],
         ])
         ->assertRedirect();
@@ -131,7 +131,10 @@ it('saves presets and mirrors the worn preset into the equipped columns', functi
         // worn preset (index 2) mirrored into equipped costume_1..5
         ->and($cosmetic->costume_1)->toBe(9)
         ->and($cosmetic->costume_2)->toBe(0)
-        ->and($cosmetic->costume_5)->toBe(0);
+        ->and($cosmetic->costume_5)->toBe(0)
+        // make (slot 4) is optional per preset and mirrored too
+        ->and($cosmetic->costume_presets[0]['costume_4'])->toBe(0)
+        ->and($cosmetic->costume_4)->toBe(26);
 });
 
 it('shows the Don-chan name setting on game versions but not on Waddamburo', function (): void {

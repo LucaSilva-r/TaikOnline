@@ -43,6 +43,7 @@
         costume_2: number;
         costume_3: number;
         costume_5: number;
+        costume_4: number;
     };
     type TitlePlate = {
         id: number;
@@ -159,6 +160,7 @@
         { key: 'kigurumi', label: 'Full body', field: 'costume_1' },
         { key: 'body', label: 'Body', field: 'costume_3' },
         { key: 'head', label: 'Head', field: 'costume_2' },
+        { key: 'face', label: 'Make', field: 'costume_4' },
         { key: 'puchi', label: 'Puchi-chara', field: 'costume_5' },
     ];
     const PICKER_ICON_SIZE = 64;
@@ -230,6 +232,7 @@
 
     const MODEL_BASE = '/storage/donchan/models';
     const FACE_BASE = '/storage/donchan/face';
+    const PAINT_BASE = '/storage/donchan/paint';
     const ANIMATIONS = '/storage/donchan/animations.glb';
 
     let previewCanvas = $state<HTMLCanvasElement | null>(null);
@@ -241,6 +244,7 @@
     function previewModels(): {
         urls: string[];
         face: string;
+        paint: boolean;
         missing: boolean;
     } {
         const map = preview!.map;
@@ -257,7 +261,8 @@
 
             return {
                 urls: [`${MODEL_BASE}/cos/${id}.glb`],
-                face: preview!.faces[String(id)] ?? 'face_000000.png',
+                face: `${FACE_BASE}/${preview!.faces[String(id)] ?? 'face_000000.png'}`,
+                paint: false,
                 missing: false,
             };
         }
@@ -270,7 +275,9 @@
                 `${MODEL_BASE}/body/${body ?? 0}.glb`,
                 `${MODEL_BASE}/head/${head ?? 0}.glb`,
             ],
-            face: 'face_000000.png',
+            // The make's sheet (Green's paint id), drawn for the head's own face disc.
+            face: `${PAINT_BASE}/paint_${String(current.costume_4).padStart(3, '0')}000.png`,
+            paint: true,
             missing: kigurumi === null || head === null || body === null,
         };
     }
@@ -280,20 +287,20 @@
             return;
         }
 
-        const { urls, face, missing } = previewModels();
+        const { urls, face, paint, missing } = previewModels();
         const key = urls.join() + face;
         previewMissing = missing;
 
         if (key !== previewKey) {
             previewKey = key;
-            await previewRenderer.loadModels(urls, ANIMATIONS);
+            await previewRenderer.loadModels(urls, ANIMATIONS, paint);
 
             if (key !== previewKey) {
                 return; // a newer selection is loading
             }
 
             // Frame 4: the regular face, mouth closed.
-            await previewRenderer.setFace(`${FACE_BASE}/${face}`, 4);
+            await previewRenderer.setFace(face, 4);
             const clip =
                 previewRenderer.currentAnimation ??
                 previewRenderer.animationNames[0];
@@ -1169,13 +1176,13 @@
                                             </span>
                                         </div>
 
-                                        {#if (slot.key === 'head' || slot.key === 'body') && current.costume_1 !== 0}
+                                        {#if (slot.key === 'head' || slot.key === 'body' || slot.key === 'face') && current.costume_1 !== 0}
                                             <p
                                                 class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
                                             >
                                                 A Full body costume (ID {current.costume_1})
                                                 is set in this preset and
-                                                overrides Body and Head in game
+                                                overrides Body, Head and Make in game
                                                 (Puchi-chara still shows). Set
                                                 Full body to the default (ID 0)
                                                 to show them.

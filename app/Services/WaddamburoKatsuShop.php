@@ -21,8 +21,8 @@ class WaddamburoKatsuShop
 
     public const MEDALS_PER_CREDIT = 100;
 
-    /** ponytail: 気焔万丈神楽 cost 1500 in Green; no costume price is known. Tune after player feedback. */
-    public const PRICES = [1 => 1500, 2 => 500, 3 => 500, 4 => 500, 5 => 500, 7 => 500];
+    /** ponytail: 気焔万丈神楽 cost 1500 in Green; make 500 (wiki どんメダルショップ/過去のごほうび); other costume prices unknown. */
+    public const PRICES = [1 => 1500, 2 => 500, 3 => 500, 4 => 500, 5 => 500, 6 => 500, 7 => 500];
 
     /**
      * Every good: [type, id, name, version] (songs by uniqueId; the version it comes from, a TaikoGameVersion value);

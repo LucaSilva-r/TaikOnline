@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\File;
  * win rewards, and what Green's condition titles give (green_reward_table.json: title → song, tone, costume parts);
  * and the goods with no way to earn them in Green that Waddamburo's shop sells by the day (WaddamburoShopPool: Katsu
  * Medal goods, older versions', expired campaigns'), and the collab puchi of Waddamburo's events (WaddamburoEvents); everything else stays
- * free (make, the other puchi, tones 6+). Owned: bought in Waddamburo's
+ * free (the other puchi, tones 6+; every make but the plain face is a Katsu good). Owned: bought in Waddamburo's
  * shop, AI battle wins (verified), the item's title earned (here or on a cabinet), or unlocked on a real Green cabinet
  * (the card's Green row). Off (the default): nothing locks.
  */
