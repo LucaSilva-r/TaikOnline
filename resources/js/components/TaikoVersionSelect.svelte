@@ -15,7 +15,8 @@
     import type { TaikoVersionOption } from '@/lib/taiko-version';
 
     const context = $derived(taikoVersionContext());
-    const options = $derived<TaikoVersionOption[]>(
+    // ALL VERSIONS is no version (no supports): the picker reads only value and label.
+    const options = $derived<Pick<TaikoVersionOption, 'value' | 'label'>[]>(
         context.allowAll
             ? [{ value: 'all', label: 'ALL VERSIONS' }, ...context.versions]
             : context.versions,
