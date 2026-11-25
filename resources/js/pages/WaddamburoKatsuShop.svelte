@@ -63,8 +63,10 @@
         }
 
         const scale = ICON / sheet.cell;
+        // The costume icons are pixel art (kept crisp); puchi and make icons are drawn art (scaled smoothly).
+        const rendering = slot === 'puchi' || slot === 'face' ? '' : 'image-rendering:pixelated;';
 
-        return `width:${ICON}px;height:${ICON}px;background-image:url(${sheet.url});background-size:${Math.round(sheet.width * scale)}px ${Math.round(sheet.height * scale)}px;background-position:-${Math.round(item.x * scale)}px -${Math.round(item.y * scale)}px;background-repeat:no-repeat;image-rendering:pixelated;`;
+        return `width:${ICON}px;height:${ICON}px;background-image:url(${sheet.url});background-size:${Math.round(sheet.width * scale)}px ${Math.round(sheet.height * scale)}px;background-position:-${Math.round(item.x * scale)}px -${Math.round(item.y * scale)}px;background-repeat:no-repeat;${rendering}`;
     }
 </script>
 

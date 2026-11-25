@@ -567,7 +567,7 @@
         const x = Math.round((item.x + frame * puchiSheet.frameWidth) * scale);
         const y = Math.round(item.y * scale);
 
-        return `display:block;width:${size}px;height:${size}px;background-image:url(${puchiSheet.url});background-size:${backgroundWidth}px ${backgroundHeight}px;background-position:-${x}px -${y}px;background-repeat:no-repeat;image-rendering:pixelated;`;
+        return `display:block;width:${size}px;height:${size}px;background-image:url(${puchiSheet.url});background-size:${backgroundWidth}px ${backgroundHeight}px;background-position:-${x}px -${y}px;background-repeat:no-repeat;`;
     }
 
     function originalPuchiUrl(item: PuchiItem): string {
@@ -579,7 +579,7 @@
         frame = 0,
         size = PUCHI_PREVIEW_SIZE,
     ): string {
-        return `display:block;width:${size}px;height:${size}px;background-image:url(${originalPuchiUrl(item)});background-size:${size}px ${size * 2}px;background-position:0 -${frame * size}px;background-repeat:no-repeat;image-rendering:pixelated;`;
+        return `display:block;width:${size}px;height:${size}px;background-image:url(${originalPuchiUrl(item)});background-size:${size}px ${size * 2}px;background-position:0 -${frame * size}px;background-repeat:no-repeat;`;
     }
 
     onMount(() => {
@@ -783,7 +783,7 @@
                                 title={file}
                             >
                                 <span
-                                    style="display:block;width:48px;height:48px;background-image:url({FACE_BASE}/{file});background-size:48px auto;background-position:0 0;background-repeat:no-repeat;image-rendering:pixelated;"
+                                    style="display:block;width:48px;height:48px;background-image:url({FACE_BASE}/{file});background-size:48px auto;background-position:0 0;background-repeat:no-repeat;"
                                 ></span>
                             </button>
                         {/each}
@@ -803,7 +803,7 @@
                             <span
                                 class="rounded-md border bg-white"
                                 style="display:block;width:48px;height:48px;background-image:url({FACE_BASE}/{face});background-size:48px auto;background-position:0 -{faceFrame *
-                                    48}px;background-repeat:no-repeat;image-rendering:pixelated;"
+                                    48}px;background-repeat:no-repeat;"
                             ></span>
                             <button
                                 type="button"

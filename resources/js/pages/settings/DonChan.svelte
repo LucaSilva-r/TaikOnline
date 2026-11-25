@@ -472,7 +472,7 @@
         return sheet?.slots[key] ?? [];
     }
 
-    function sprite(item: SpriteItem): string {
+    function sprite(item: SpriteItem, slot: string): string {
         if (!sheet) {
             return '';
         }
@@ -482,8 +482,10 @@
         const backgroundHeight = Math.round(sheet.height * scale);
         const x = Math.round(item.x * scale);
         const y = Math.round(item.y * scale);
+        // The costume icons are pixel art (kept crisp); puchi and make icons are drawn art (scaled smoothly).
+        const rendering = slot === 'puchi' || slot === 'face' ? '' : 'image-rendering:pixelated;';
 
-        return `display:block;width:${PICKER_BUTTON_SIZE}px;height:${PICKER_BUTTON_SIZE}px;background-image:url(${sheet.url});background-size:${backgroundWidth}px ${backgroundHeight}px;background-position:-${x}px -${y}px;background-repeat:no-repeat;image-rendering:pixelated;`;
+        return `display:block;width:${PICKER_BUTTON_SIZE}px;height:${PICKER_BUTTON_SIZE}px;background-image:url(${sheet.url});background-size:${backgroundWidth}px ${backgroundHeight}px;background-position:-${x}px -${y}px;background-repeat:no-repeat;${rendering}`;
     }
 </script>
 
@@ -1230,7 +1232,7 @@
                                                         aria-label="{slot.label} {item.id}"
                                                     >
                                                         <span
-                                                            style={sprite(item)}
+                                                            style={sprite(item, slot.key)}
                                                         ></span>
                                                     </button>
                                                 {/each}
