@@ -38,7 +38,7 @@ it('shows costume page without access code', function (): void {
                 ->where('colorBody', 0)
                 ->where('colorLimb', 0)
                 ->has('presets', 3)
-                ->where('sheet.url', '/storage/costumes/green/sheet.png')
+                ->where('sheet.url', fn (string $url): bool => str_starts_with($url, '/storage/costumes/green/sheet.png?v='))
                 ->has('sheet.slots.kigurumi')
                 ->has('sheet.slots.puchi'));
     } finally {

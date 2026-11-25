@@ -227,7 +227,9 @@ class CostumeController extends Controller
         $data = json_decode(File::get($path), true);
 
         return [
-            'url' => "/storage/costumes/{$version->value}/sheet.png",
+            // Versioned by the json's time: the sheet keeps its URL across rebuilds, and Cloudflare (4 h) kept serving
+            // the old image beside the new coordinates (every icon misaligned).
+            'url' => "/storage/costumes/{$version->value}/sheet.png?v=".File::lastModified($path),
             'cell' => $data['cell'],
             'width' => $data['sheet'][0],
             'height' => $data['sheet'][1],

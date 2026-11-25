@@ -91,12 +91,12 @@ it('uses the Don-chan 3D asset picker sheet', function (): void {
         $this->actingAs($user)->get('/green/settings/avatar')
             ->assertOk()
             ->assertInertia(fn ($assert) => $assert
-                ->where('sheet.url', '/storage/donchan/sheet.png')
+                ->where('sheet.url', fn (string $url): bool => str_starts_with($url, '/storage/donchan/sheet.png?v='))
                 ->where('sheet.cell', 96)
                 ->where('sheet.slots.kigurumi.0.id', 1)
                 ->where('sheet.slots.head.0.id', 2)
                 ->where('sheet.slots.body.0.id', 3)
-                ->where('puchiSheet.url', '/storage/donchan/puchi-sheet.png')
+                ->where('puchiSheet.url', fn (string $url): bool => str_starts_with($url, '/storage/donchan/puchi-sheet.png?v='))
                 ->where('puchiSheet.frameWidth', 64)
                 ->where('puchiSheet.frameHeight', 64)
                 ->where('puchiSheet.items.0.id', 4));

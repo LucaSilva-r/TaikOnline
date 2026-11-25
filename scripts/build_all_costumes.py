@@ -88,6 +88,21 @@ def slot_icons(version_rows, slot):
         yield cid, SRC / r["png"]
 
 
+def fit_puchi(icon):
+    """A puchi chara's sprite (256 px, the figure drawn off-centre in it) cropped to the figure, fitted into the
+    cell with a small margin and centred: the plain 4:1 reduction left a ~50 px figure in a corner of the cell."""
+    box = icon.getchannel("A").getbbox()
+    if box is None:
+        return Image.new("RGBA", (CELL, CELL))
+    figure = icon.crop(box)
+    scale = (CELL - 4) / max(figure.size)
+    size = (max(1, round(figure.width * scale)), max(1, round(figure.height * scale)))
+    figure = figure.resize(size, Image.Resampling.LANCZOS)
+    out = Image.new("RGBA", (CELL, CELL))
+    out.alpha_composite(figure, ((CELL - size[0]) // 2, (CELL - size[1]) // 2))
+    return out
+
+
 def fit_icon(icon, slot, path):
     if icon.width <= CELL and icon.height <= CELL:
         return icon
@@ -116,6 +131,8 @@ def build(version, dump):
             im = Image.open(src).convert("RGBA")
             if slot == "puchi" and im.width == 2 * im.height:  # two anim frames
                 im = im.crop((0, 0, im.width // 2, im.height))
+            if slot == "puchi":
+                im = fit_puchi(im)
             items.append((slot, cid, im))
             n += 1
         if n:

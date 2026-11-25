@@ -140,7 +140,7 @@ class AvatarController extends Controller
         $data = json_decode(File::get($path), true);
 
         return [
-            'url' => '/storage/donchan/sheet.png',
+            'url' => '/storage/donchan/sheet.png?v='.File::lastModified($path),
             'cell' => $data['cell'],
             'width' => $data['sheet'][0],
             'height' => $data['sheet'][1],
@@ -165,7 +165,7 @@ class AvatarController extends Controller
         $data = json_decode(File::get($path), true);
 
         return [
-            'url' => '/storage/donchan/puchi-sheet.png',
+            'url' => '/storage/donchan/puchi-sheet.png?v='.File::lastModified($path),
             'frameWidth' => $data['frameWidth'],
             'frameHeight' => $data['frameHeight'],
             'width' => $data['sheet'][0],
