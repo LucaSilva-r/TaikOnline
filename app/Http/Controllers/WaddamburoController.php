@@ -640,8 +640,13 @@ class WaddamburoController extends Controller
         $cosmetics = $player->cosmetics()->where('game_version', PlayerCosmetic::WADDAMBURO)->first();
         $dan = app(WaddamburoDanRank::class)->selected($player, $cosmetics);
         $color = fn (?int $id, int $default): string => self::DON_COLORS[$id ?? $default] ?? self::DON_COLORS[$default];
-        // The dan costume without a displayed rank (none chosen, or no longer verified) falls back to no costume.
-        $kigurumi = fn (int $id): int => $id === PlayerCosmetic::DAN_COSTUME && $dan === null ? 0 : $id;
+        $locked = app(WaddamburoUnlocks::class)->locked($player);
+        $visibleCostume = fn (array $costume): array => array_values(WaddamburoUnlocks::visibleCostume($costume, $locked, $dan === null));
+        $equipped = [];
+        for ($slot = 1; $slot <= 5; $slot++) {
+            $key = "costume_{$slot}";
+            $equipped[$key] = (int) ($cosmetics?->{$key} ?? 0);
+        }
 
         return [
             'baid' => (int) $player->baid,
@@ -662,15 +667,13 @@ class WaddamburoController extends Controller
                 ? null : substr((string) $day, 0, 10),
             // "Only what I earned": what stays hidden (stock songs by musicid, costumes by id); all empty when off.
             'earned_only' => (bool) ($cosmetics?->wdb_earned_only ?? true), // the default
-            'locked' => app(WaddamburoUnlocks::class)->locked($player),
+            'locked' => $locked,
             // Earned rewards not shown yet: Song Select's menu offers their animation (reward_shop) while there are some.
             'pending_rewards' => app(WaddamburoUnlocks::class)->pending($player),
             'look' => [
-                'costume' => array_map(fn (int $slot): int => $slot === 1 ? $kigurumi((int) ($cosmetics?->costume_1 ?? 0))
-                    : (int) ($cosmetics?->{"costume_{$slot}"} ?? 0), [1, 2, 3, 4, 5]),
+                'costume' => $visibleCostume($equipped),
                 // The entry's three costume sets: [kigurumi, head, body, puchi, make] each.
-                'presets' => array_map(fn (array $set): array => [$kigurumi((int) $set['costume_1']), ...array_slice(array_values($set), 1)],
-                    ($cosmetics ?? new PlayerCosmetic)->normalizedPresets()),
+                'presets' => array_map($visibleCostume, ($cosmetics ?? new PlayerCosmetic)->normalizedPresets()),
                 // Which of the dan costume's per-rank models to draw (1-25; 0 none).
                 'dan_rank' => $dan['rank'] ?? 0,
                 'face' => $color($player->color_face, 0),

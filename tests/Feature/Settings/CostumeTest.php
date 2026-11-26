@@ -5,6 +5,7 @@ use App\Models\GameCard;
 use App\Models\Player;
 use App\Models\PlayerCosmetic;
 use App\Models\User;
+use App\Services\WaddamburoKatsuShop;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 
@@ -135,6 +136,90 @@ it('saves presets and mirrors the worn preset into the equipped columns', functi
         // make (slot 4) is optional per preset and mirrored too
         ->and($cosmetic->costume_presets[0]['costume_4'])->toBe(0)
         ->and($cosmetic->costume_4)->toBe(26);
+});
+
+it('can save a Waddamburo preset when a different preset contains a newly locked item', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    GameCard::query()->create(['access_code' => '12345678901234567890', 'baid' => $player->baid]);
+    $cosmetic = PlayerCosmetic::query()->create([
+        'baid' => $player->baid,
+        'game_version' => PlayerCosmetic::WADDAMBURO,
+        'wdb_earned_only' => true,
+        'costume_presets' => [[], ['costume_4' => 26]],
+    ]);
+    PlayerCosmetic::query()->create([
+        'baid' => $player->baid,
+        'game_version' => TaikoGameVersion::Green->value,
+        'unlocked_costumes' => ['1' => [9]],
+    ]);
+    $this->mock(WaddamburoKatsuShop::class, fn ($shop) => $shop->shouldReceive('items')
+        ->andReturn([[6, 26, 'Test make', 'green']]));
+    $url = '/waddamburo/settings/costumes';
+    $this->actingAs($user);
+
+    $page = $this->get($url)
+        ->assertInertia(fn ($assert) => $assert
+            ->where('hasLockedPresetItems', true)
+            ->where('presets.1.costume_4', 0));
+    $presets = $page->viewData('page')['props']['presets'];
+    $presets[0]['costume_1'] = 9;
+    $this->postJson($url.'?_method=PATCH', ['active_preset' => 0, 'presets' => $presets])
+        ->assertRedirect($url)
+        ->assertSessionHasNoErrors();
+
+    $cosmetic->refresh();
+    expect($cosmetic->costume_1)->toBe(9)
+        ->and($cosmetic->costume_presets[1]['costume_4'])->toBe(26);
+});
+
+it('hides unowned preset parts in earned-only mode and restores them in unlock-everything mode', function (): void {
+    $user = User::factory()->create();
+    $player = Player::query()->create(['user_id' => $user->id]);
+    GameCard::query()->create(['access_code' => '12345678901234567890', 'baid' => $player->baid]);
+    PlayerCosmetic::create([
+        'baid' => $player->baid,
+        'game_version' => TaikoGameVersion::Green->value,
+        'unlocked_costumes' => ['2' => [53]],
+    ]);
+    $outfit = ['costume_1' => 9, 'costume_2' => 53, 'costume_3' => 132, 'costume_4' => 26, 'costume_5' => 4];
+    PlayerCosmetic::create([
+        'baid' => $player->baid,
+        'game_version' => PlayerCosmetic::WADDAMBURO,
+        'wdb_earned_only' => false,
+        'active_costume_preset' => 1,
+        'costume_presets' => [['costume_2' => 119], $outfit, ['costume_4' => 26]],
+        ...$outfit,
+    ]);
+    $this->mock(WaddamburoKatsuShop::class, fn ($shop) => $shop->shouldReceive('items')->andReturn([
+        [3, 9, 'Test suit', 'green'],
+        [5, 53, 'Owned head', 'green'],
+        [4, 132, 'Test body', 'green'],
+        [6, 26, 'Test make', 'green'],
+        [7, 4, 'Test puchi', 'green'],
+    ]));
+    $token = $user->createToken('costume-test', ['wdb'])->plainTextToken;
+    $url = '/waddamburo/settings/costumes';
+
+    $this->actingAs($user)->patch('/waddamburo/settings/unlock-mode', ['earned_only' => true])->assertRedirect($url);
+    $this->get($url)->assertInertia(fn ($assert) => $assert
+        ->where('activePreset', 1)
+        ->where('presets.0.costume_2', 0)
+        ->where('presets.1.costume_2', 53)
+        ->where('presets.1.costume_4', 0));
+    $this->withToken($token)->getJson('/api/wdb/me')->assertOk()
+        ->assertJsonPath('look.costume', [0, 53, 0, 0, 0])
+        ->assertJsonPath('look.presets', [[0, 0, 0, 0, 0], [0, 53, 0, 0, 0], [0, 0, 0, 0, 0]]);
+
+    $this->patch('/waddamburo/settings/unlock-mode', ['earned_only' => false])->assertRedirect($url);
+    $this->get($url)->assertInertia(fn ($assert) => $assert
+        ->where('activePreset', 1)
+        ->where('hasLockedPresetItems', false)
+        ->where('presets.0.costume_2', 119)
+        ->where('presets.1.costume_4', 26));
+    $this->withToken($token)->getJson('/api/wdb/me')->assertOk()
+        ->assertJsonPath('look.costume', [9, 53, 132, 26, 4])
+        ->assertJsonPath('look.presets', [[0, 119, 0, 0, 0], [9, 53, 132, 4, 26], [0, 0, 0, 0, 26]]);
 });
 
 it('shows the Don-chan name setting on game versions but not on Waddamburo', function (): void {

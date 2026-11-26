@@ -97,6 +97,7 @@ it('sends the waddamburo loadout: title, plate and costume sets', function (): v
     PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'green', 'title' => 'green only']);
     PlayerCosmetic::create([
         'baid' => $player->baid, 'game_version' => 'waddamburo', 'title' => 'ほんのきもち', 'titleplate_id' => 3,
+        'wdb_earned_only' => false,
         'costume_presets' => [['costume_1' => 32], ['costume_2' => 10, 'costume_3' => 2, 'costume_5' => 4]],
     ]);
 
@@ -161,7 +162,7 @@ it('lets a cabinet resolve a paired card and upload plays for it', function (): 
     $player = wdb_player();
 
     $player->forceFill(['color_face' => 25, 'color_body' => 2, 'color_limb' => 26])->save();
-    $player->cosmetics()->create(['game_version' => 'waddamburo', 'costume_1' => 32]);
+    $player->cosmetics()->create(['game_version' => 'waddamburo', 'costume_1' => 32, 'wdb_earned_only' => false]);
 
     $this->withToken('official-token')->postJson('/api/wdb/cards', ['access_code' => '30800000000000000001'])
         ->assertOk()->assertJson(['baid' => $player->baid, 'look' => [

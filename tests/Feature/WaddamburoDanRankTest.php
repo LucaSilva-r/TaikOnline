@@ -348,7 +348,7 @@ it('links a rainbow course to its perfect run and keeps gold from a separate run
 it('gates the dan costume behind a displayed verified rank, which picks its model', function (): void {
     $player = rank_player();
     GameCard::query()->create(['access_code' => '12345678901234567890', 'baid' => $player->baid]);
-    $cosmetic = PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'costume_1' => 36,
+    $cosmetic = PlayerCosmetic::create(['baid' => $player->baid, 'game_version' => 'waddamburo', 'costume_1' => 36, 'wdb_earned_only' => false,
         'costume_presets' => [['costume_1' => 36], ['costume_2' => 10], []]]);
     $presets = fn (int $kigurumi): array => ['active_preset' => 0, 'presets' => array_fill(0, 3,
         ['costume_1' => $kigurumi, 'costume_2' => 0, 'costume_3' => 0, 'costume_5' => 0])];

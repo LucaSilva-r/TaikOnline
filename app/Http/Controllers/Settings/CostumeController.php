@@ -22,20 +22,6 @@ use Inertia\Response;
 
 class CostumeController extends Controller
 {
-    /**
-     * The five equipped costume slots, in protobuf field order. The numeric
-     * suffix maps to PlayerCosmetic::costume_{1..5} and the cabinet's slot ids.
-     *
-     * @var array<int, string>
-     */
-    private const SLOTS = [
-        1 => 'kigurumi',
-        2 => 'head',
-        3 => 'body',
-        4 => 'face',
-        5 => 'puchi',
-    ];
-
     public function edit(Request $request, TaikoTitleCatalog $titleCatalog): Response
     {
         $version = $request->attributes->get('taikoGameVersion');
@@ -63,13 +49,23 @@ class CostumeController extends Controller
             $officialTitleId = $titleCatalog->selectedTitleId($version, $title, $titlePlateId);
         }
 
+        $isWaddamburo = $request->attributes->get('taikoVersionIsWaddamburo') === true;
+        $danCostumeLocked = $isWaddamburo && ! $this->hasDanRank($card?->player);
+        $lockedCostumes = $isWaddamburo && $card !== null
+            ? app(WaddamburoUnlocks::class)->locked($card->player) : [];
+        unset($lockedCostumes['songs'], $lockedCostumes['tones']);
+        $visiblePresets = array_map(
+            fn (array $preset): array => WaddamburoUnlocks::visibleCostume($preset, $lockedCostumes, $danCostumeLocked),
+            $presets
+        );
+
         return Inertia::render('settings/DonChan', [
             'supported' => $supported,
             'supportsTitlePlates' => $supportsTitlePlates,
             'hasAccessCode' => $card !== null,
             'versionLabel' => $request->attributes->get('taikoVersionIsWaddamburo') ? 'Waddamburo' : ($version?->label() ?? ''),
             'sheet' => self::spritesheet($version),
-            'presets' => $presets,
+            'presets' => $visiblePresets,
             'activePreset' => $activePreset,
             'mydonName' => $card?->player->mydon_name ?? '',
             // Waddamburo shows the account's public name, not the Don-chan's.
@@ -93,13 +89,12 @@ class CostumeController extends Controller
             'colorBody' => $card?->player->color_body ?? 0,
             'colorLimb' => $card?->player->color_limb ?? 0,
             // Waddamburo's dan costume needs a displayed, server-verified rank (the costume draws that rank).
-            'danCostumeLocked' => $request->attributes->get('taikoVersionIsWaddamburo') === true
-                && ! $this->hasDanRank($card?->player),
+            'danCostumeLocked' => $danCostumeLocked,
             // Waddamburo's unlock mode, and the costumes it keeps locked (bought in the reward shop to unlock).
             'isWaddamburo' => $request->attributes->get('taikoVersionIsWaddamburo') === true,
             'earnedOnly' => $card !== null && app(WaddamburoUnlocks::class)->earnedOnly($card->player),
-            'lockedCostumes' => $card !== null && $request->attributes->get('taikoVersionIsWaddamburo') === true
-                ? array_intersect_key(app(WaddamburoUnlocks::class)->locked($card->player), array_flip(self::SLOTS)) : (object) [],
+            'lockedCostumes' => (object) $lockedCostumes,
+            'hasLockedPresetItems' => $visiblePresets !== $presets,
             'preview' => $this->preview($version, $request->attributes->get('taikoVersionIsWaddamburo') === true ? $card?->player : null),
             'status' => $request->session()->get('status'),
         ]);
@@ -130,19 +125,23 @@ class CostumeController extends Controller
                 );
             }
 
-            if ($request->attributes->get('taikoVersionIsWaddamburo') === true && ! $this->hasDanRank($card->player)
-                && in_array(PlayerCosmetic::DAN_COSTUME, array_column($presets, 'costume_1'), true)) {
-                throw ValidationException::withMessages(['presets' => __('The dan costume needs a cleared dan rank displayed on your profile.')]);
-            }
-
             if ($request->attributes->get('taikoVersionIsWaddamburo') === true) {
+                $danCostumeLocked = ! $this->hasDanRank($card->player);
+                if ($danCostumeLocked && in_array(PlayerCosmetic::DAN_COSTUME, array_column($presets, 'costume_1'), true)) {
+                    throw ValidationException::withMessages(['presets' => __('The dan costume needs a cleared dan rank displayed on your profile.')]);
+                }
+
                 $locked = app(WaddamburoUnlocks::class)->locked($card->player);
-                foreach ($presets as $set) {
-                    foreach (self::SLOTS as $slot => $kind) {
-                        if (in_array((int) $set["costume_{$slot}"], $locked[$kind] ?? [], true)) {
-                            throw ValidationException::withMessages(['presets' => __('That costume is not unlocked yet.')]);
-                        }
+                $savedPresets = $cosmetic->normalizedPresets();
+                foreach ($presets as $index => $preset) {
+                    if ($preset !== WaddamburoUnlocks::visibleCostume($preset, $locked, $danCostumeLocked)) {
+                        throw ValidationException::withMessages(['presets' => __('That costume is not unlocked yet.')]);
                     }
+
+                    $saved = $savedPresets[$index];
+                    $visible = WaddamburoUnlocks::visibleCostume($saved, $locked, $danCostumeLocked);
+                    // Keep hidden choices when the submitted part matches what the editor displayed.
+                    $presets[$index] = array_replace($saved, array_diff_assoc($preset, $visible));
                 }
             }
 

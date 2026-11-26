@@ -76,6 +76,29 @@ class WaddamburoUnlocks
         return $locked;
     }
 
+    /**
+     * A costume as it can be worn now. The saved set keeps its original items.
+     *
+     * @param  array<string, int>  $costume
+     * @param  array<string, list<int|string>>  $locked
+     * @return array<string, int>
+     */
+    public static function visibleCostume(array $costume, array $locked, bool $danCostumeLocked): array
+    {
+        foreach (self::COSTUME_SLOTS as $type => $slot) {
+            $key = "costume_{$slot}";
+            if (in_array($costume[$key], $locked[self::TYPES[$type]] ?? [], true)) {
+                $costume[$key] = 0;
+            }
+        }
+
+        if ($danCostumeLocked && $costume['costume_1'] === PlayerCosmetic::DAN_COSTUME) {
+            $costume['costume_1'] = 0;
+        }
+
+        return $costume;
+    }
+
     /** Whether the player may wear or play this item (type as Green's shop numbers it). */
     public function allows(Player $player, int $type, int|string $id): bool
     {

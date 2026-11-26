@@ -188,6 +188,7 @@
         earnedOnly = false,
         titleParts = null,
         lockedCostumes = {},
+        hasLockedPresetItems = false,
         preview = null,
     }: {
         supported?: boolean;
@@ -216,6 +217,7 @@
         } | null;
         // "Only what I earned": costume ids by slot that are not bought yet.
         lockedCostumes?: Record<string, number[]>;
+        hasLockedPresetItems?: boolean;
         preview?: Preview | null;
     } = $props();
 
@@ -555,6 +557,12 @@
                                 taikoRouteParam(),
                             )}
                             options={{ preserveScroll: true }}
+                            onSuccess={({ props }) => {
+                                sets = (props.presets as Preset[]).map(
+                                    (preset) => ({ ...preset }),
+                                );
+                                worn = props.activePreset as number;
+                            }}
                         >
                             {#snippet children({ processing })}
                                 <input
@@ -1113,7 +1121,13 @@
                         class="space-y-6"
                         options={{ preserveScroll: true }}
                     >
-                        {#snippet children({ processing })}
+                        {#snippet children({ errors, processing })}
+                            {#if hasLockedPresetItems}
+                                <p class="text-sm text-muted-foreground">
+                                    Locked items are hidden. Your saved choices
+                                    are kept unless you replace them.
+                                </p>
+                            {/if}
                             <div class="grid gap-2">
                                 <div class="flex items-center gap-2">
                                     {#each sets as _set, i (i)}
@@ -1256,6 +1270,12 @@
                                     />
                                 {/each}
                             {/each}
+
+                            <div aria-live="polite">
+                                {#each Object.values(errors) as message}
+                                    <InputError {message} />
+                                {/each}
+                            </div>
 
                             <Button
                                 type="submit"
